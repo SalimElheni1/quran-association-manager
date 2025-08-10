@@ -15,8 +15,10 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.4.0",
     "bcryptjs": "^2.4.3",
     "bootstrap": "^5.3.3",
+    "dotenv": "^17.2.1",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.2.0",
     "exceljs": "^4.4.0",
@@ -25,6 +27,7 @@
     "react": "^19.0.0-rc-f994737d14-20240522",
     "react-bootstrap": "^2.10.4",
     "react-dom": "^19.0.0-rc-f994737d14-20240522",
+    "react-router-dom": "^6.25.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

@@ -1,7 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // General
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  // We will add our database functions here later
-  // e.g., dbQuery: (query, params) => ipcRenderer.invoke('db-query', { query, params }),
+  // Auth
+  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
+  // Database
+  db: {
+    run: (sql, params) => ipcRenderer.invoke('db:run', { sql, params }),
+    get: (sql, params) => ipcRenderer.invoke('db:get', { sql, params }),
+    all: (sql, params) => ipcRenderer.invoke('db:all', { sql, params }),
+  },
 });

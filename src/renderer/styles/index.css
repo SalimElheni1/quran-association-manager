@@ -1,6 +1,13 @@
+@import url("./fonts.css");
+@import url("./Layout.css");
+
 /* Add global styles here */
 body {
   background-color: #f8f9fa;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  font-family: "Cairo", sans-serif; /* From mockup */
 }
+
+/* You might need to add the font import to your main index.html for it to load correctly */

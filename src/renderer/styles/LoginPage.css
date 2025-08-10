@@ -1,0 +1,31 @@
+.signin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid #e2e8f0;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.signin-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.signin-header i {
+  font-size: 3rem;
+  color: #0d9488; /* Primary color from mockup */
+}
+
+.signin-card .btn-primary {
+  background-color: #0d9488;
+  border-color: #0d9488;
+}

@@ -1,18 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import MainLayout from "./layouts/MainLayout";
+import DashboardPage from "./pages/DashboardPage";
+import LoginPage from "./pages/LoginPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
-  const [version, setVersion] = useState('...');
-
-  useEffect(() => {
-    // Example of using the preload script to call the main process
-    window.electronAPI.getAppVersion().then(setVersion);
-  }, []);
-
   return (
-    <div className="container mt-5 text-center">
-      <h1>📖 Quran Branch Manager</h1>
-      <p>Welcome! Your React app is running inside Electron v{version}.</p>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Child routes will be rendered inside MainLayout's <Outlet> */}
+        <Route index element={<DashboardPage />} />
+        {/* We will add routes for students, teachers, etc. here */}
+      </Route>
+    </Routes>
   );
 }
 

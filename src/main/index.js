@@ -1,5 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const db = require('../db/db');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Load environment variables
+require('dotenv').config();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -28,9 +34,11 @@ const createWindow = () => {
     mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
   }
 };
+console.log('here');
 
 app.whenReady().then(() => {
   createWindow();
+  db.initializeDatabase();
 
   app.on('activate', () => {
     // On macOS, re-create a window when the dock icon is clicked and no other windows are open.
@@ -54,4 +62,44 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
-// We will add database handlers here later.
+// Database IPC Handlers
+ipcMain.handle('db:run', async (event, { sql, params }) => {
+  return await db.runQuery(sql, params);
+});
+
+ipcMain.handle('db:get', async (event, { sql, params }) => {
+  return await db.getQuery(sql, params);
+});
+
+ipcMain.handle('db:all', async (event, { sql, params }) => {
+  return await db.allQuery(sql, params);
+});
+
+// Auth IPC Handler
+ipcMain.handle('auth:login', async (event, { username, password }) => {
+  try {
+    const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
+    if (!user) {
+      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    }
+
+    const passwordIsValid = bcrypt.compareSync(password, user.password);
+
+    if (!passwordIsValid) {
+      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    }
+
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: '8h',
+    });
+
+    return {
+      success: true,
+      token,
+      user: { id: user.id, username: user.username, role: user.role },
+    };
+  } catch (error) {
+    console.error('Login error:', error);
+    return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول' };
+  }
+});
