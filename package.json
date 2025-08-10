@@ -1,0 +1,54 @@
+{
+  "name": "quran-branch-manager",
+  "version": "1.0.0",
+  "description": "Desktop application for managing Quran association branches.",
+  "main": "src/main/index.js",
+  "author": "Your Name",
+  "license": "MIT",
+  "scripts": {
+    "react-dev": "vite",
+    "electron-start": "electron .",
+    "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
+    "build": "vite build",
+    "dist": "npm run build && electron-builder",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "bootstrap": "^5.3.3",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.2.0",
+    "exceljs": "^4.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.15.0",
+    "react": "^19.0.0-rc-f994737d14-20240522",
+    "react-bootstrap": "^2.10.4",
+    "react-dom": "^19.0.0-rc-f994737d14-20240522",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.35.0",
+    "prettier": "^3.3.2",
+    "vite": "^5.4.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.manus.quranbranchmanager",
+    "productName": "Quran Branch Manager",
+    "files": [
+      "dist/renderer/**/*",
+      "src/main/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}

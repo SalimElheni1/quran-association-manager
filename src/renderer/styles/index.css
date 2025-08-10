@@ -1,0 +1,6 @@
+/* Add global styles here */
+body {
+  background-color: #f8f9fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
