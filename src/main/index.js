@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const bcrypt = require('bcryptjs');
@@ -12,10 +12,20 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// Security Best Practice: Ensure JWT_SECRET is set.
+if (!process.env.JWT_SECRET) {
+  console.error(
+    'FATAL ERROR: JWT_SECRET is not defined in the .env file. The application cannot start securely.',
+  );
+  app.quit();
+}
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800, // Minimum width to ensure usability
+    minHeight: 600, // Minimum height to ensure usability
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false, // Keep false for security
@@ -34,9 +44,10 @@ const createWindow = () => {
     mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
   }
 };
-console.log('here');
 
 app.whenReady().then(() => {
+  // Remove the application menu. This is the idiomatic way to have no menu bar.
+  Menu.setApplicationMenu(null);
   createWindow();
   db.initializeDatabase();
 
@@ -89,9 +100,13 @@ ipcMain.handle('auth:login', async (event, { username, password }) => {
       return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '8h',
-    });
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '8h',
+      },
+    );
 
     return {
       success: true,

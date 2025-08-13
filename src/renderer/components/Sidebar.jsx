@@ -1,6 +1,6 @@
-import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function Sidebar() {
   const { logout } = useAuth();
@@ -8,7 +8,7 @@ function Sidebar() {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate('/login');
   };
 
   return (
@@ -30,7 +30,10 @@ function Sidebar() {
             <i className="fas fa-chalkboard-teacher"></i>
             <span>المعلمين</span>
           </NavLink>
-          {/* Add more links as we build pages */}
+          <NavLink to="/classes" className="nav-link">
+            <i className="fas fa-school"></i>
+            <span>الفصول الدراسية</span>
+          </NavLink>
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">

@@ -17,31 +17,63 @@ const schema = `
   CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    age INTEGER,
+    date_of_birth DATE,
     gender TEXT,
+    address TEXT,
+    contact_info TEXT,
+    email TEXT,
     enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'active',
     branch_id INTEGER,
     memorization_level TEXT,
-    contact_info TEXT,
+    notes TEXT,
     parent_name TEXT,
+    guardian_relation TEXT,
     parent_contact TEXT,
+    guardian_email TEXT,
+    emergency_contact_name TEXT,
+    emergency_contact_phone TEXT,
+    health_conditions TEXT,
+    national_id TEXT,
+    school_name TEXT,
+    grade_level TEXT,
+    educational_level TEXT,
+    occupation TEXT,
+    civil_status TEXT,
+    related_family_members TEXT,
+    financial_assistance_notes TEXT,
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS teachers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    national_id TEXT,
     contact_info TEXT,
+    email TEXT,
+    address TEXT,
+    date_of_birth DATE,
+    gender TEXT,
+    educational_level TEXT,
     specialization TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    years_of_experience INTEGER,
+    availability TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    branch_id INTEGER,
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    class_type TEXT,
     teacher_id INTEGER,
-    schedule TEXT,
+    schedule TEXT, -- JSON array of objects, e.g., [{"day": "Monday", "time": "After Asr"}]
+    start_date DATE,
+    end_date DATE,
+    status TEXT DEFAULT 'pending', -- pending, active, completed
+    capacity INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
   );

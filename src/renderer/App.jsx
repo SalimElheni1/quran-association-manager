@@ -1,9 +1,12 @@
-import React from "react";
-import { Routes, Route } from "react-router-dom";
-import MainLayout from "./layouts/MainLayout";
-import DashboardPage from "./pages/DashboardPage";
-import LoginPage from "./pages/LoginPage";
-import ProtectedRoute from "./components/ProtectedRoute";
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import DashboardPage from './pages/DashboardPage';
+import LoginPage from './pages/LoginPage';
+import StudentsPage from './pages/StudentsPage';
+import TeachersPage from './pages/TeachersPage';
+import ClassesPage from './pages/ClassesPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -19,7 +22,9 @@ function App() {
       >
         {/* Child routes will be rendered inside MainLayout's <Outlet> */}
         <Route index element={<DashboardPage />} />
-        {/* We will add routes for students, teachers, etc. here */}
+        <Route path="/students" element={<StudentsPage />} />
+        <Route path="/teachers" element={<TeachersPage />} />
+        <Route path="/classes" element={<ClassesPage />} />
       </Route>
     </Routes>
   );

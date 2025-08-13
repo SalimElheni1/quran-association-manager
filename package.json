@@ -23,6 +23,7 @@
     "electron-store": "^8.2.0",
     "exceljs": "^4.4.0",
     "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
     "pdfkit": "^0.15.0",
     "react": "^19.0.0-rc-f994737d14-20240522",
     "react-bootstrap": "^2.10.4",
