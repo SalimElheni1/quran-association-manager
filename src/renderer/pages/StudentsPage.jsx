@@ -6,8 +6,7 @@ import StudentDetailsModal from '../components/StudentDetailsModal';
 import '../styles/StudentsPage.css';
 
 function StudentsPage() {
-  const [students, setStudents] = useState([]); // Master list of all students
-  const [filteredStudents, setFilteredStudents] = useState([]); // Students to display after filtering
+  const [students, setStudents] = useState([]); // This will now hold only the filtered students
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -22,12 +21,11 @@ function StudentsPage() {
   const [studentToView, setStudentToView] = useState(null);
 
   const fetchStudents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setError(null);
-      setLoading(true);
-      const fetchedStudents = await window.electronAPI.db.all(
-        'SELECT * FROM students ORDER BY name ASC',
-      );
+      const filters = { searchTerm, genderFilter, minAgeFilter, maxAgeFilter };
+      const fetchedStudents = await window.electronAPI.getStudents(filters);
       setStudents(fetchedStudents);
     } catch (err) {
       console.error('Error fetching students:', err);
@@ -35,49 +33,27 @@ function StudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter]);
 
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
-
-  // Effect for client-side filtering
-  useEffect(() => {
-    const results = students
-      .filter((student) => {
-        // Search term filter
-        return student.name.toLowerCase().includes(searchTerm.toLowerCase());
-      })
-      .filter((student) => {
-        // Gender filter
-        if (genderFilter === 'all') return true;
-        return student.gender === genderFilter;
-      })
-      .filter((student) => {
-        // Age range filter
-        const minAge = parseInt(minAgeFilter, 10);
-        const maxAge = parseInt(maxAgeFilter, 10);
-        if (isNaN(minAge) && isNaN(maxAge)) return true;
-
-        const age = calculateAge(student.date_of_birth);
-        if (age === null) return false; // Exclude students without a DOB from age filtering
-
-        const minMatch = isNaN(minAge) || age >= minAge;
-        const maxMatch = isNaN(maxAge) || age <= maxAge;
-        return minMatch && maxMatch;
-      });
-
-    setFilteredStudents(results);
-  }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter, students]);
 
   const handleShowAddModal = () => {
     setEditingStudent(null);
     setShowModal(true);
   };
 
-  const handleShowEditModal = (student) => {
-    setEditingStudent(student);
-    setShowModal(true);
+  const handleShowEditModal = async (student) => {
+    try {
+      // Fetch the full student record before opening the modal
+      const fullStudent = await window.electronAPI.getStudentById(student.id);
+      setEditingStudent(fullStudent);
+      setShowModal(true);
+    } catch (err) {
+      console.error('Error fetching full student details:', err);
+      setError('فشل في تحميل التفاصيل الكاملة للطالب.');
+    }
   };
 
   const handleCloseModal = () => {
@@ -85,9 +61,15 @@ function StudentsPage() {
     setEditingStudent(null);
   };
 
-  const handleShowDetailsModal = (student) => {
-    setStudentToView(student);
-    setShowDetailsModal(true);
+  const handleShowDetailsModal = async (student) => {
+    try {
+      const fullStudent = await window.electronAPI.getStudentById(student.id);
+      setStudentToView(fullStudent);
+      setShowDetailsModal(true);
+    } catch (err) {
+      console.error('Error fetching full student details:', err);
+      setError('فشل في تحميل التفاصيل الكاملة للطالب.');
+    }
   };
 
   const handleCloseDetailsModal = () => {
@@ -129,13 +111,13 @@ function StudentsPage() {
         // Update existing student
         const setClauses = fields.map((field) => `${field} = ?`).join(', ');
         const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
-        const params = [...fields.map((field) => formData[field] || null), studentId];
+        const params = [...fields.map((field) => formData[field] ?? null), studentId];
         await window.electronAPI.db.run(sql, params);
       } else {
         // Add new student
         const placeholders = fields.map(() => '?').join(', ');
         const sql = `INSERT INTO students (${fields.join(', ')}) VALUES (${placeholders})`;
-        const params = fields.map((field) => formData[field] || null);
+        const params = fields.map((field) => formData[field] ?? null);
         await window.electronAPI.db.run(sql, params);
       }
       fetchStudents(); // Refresh the list
@@ -270,8 +252,8 @@ function StudentsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredStudents.length > 0 ? (
-              filteredStudents.map((student, index) => (
+            {students.length > 0 ? (
+              students.map((student, index) => (
                 <tr key={student.id}>
                   <td>{index + 1}</td>
                   <td>{student.name}</td>
@@ -306,7 +288,7 @@ function StudentsPage() {
             ) : (
               <tr>
                 <td colSpan="6" className="text-center">
-                  {students.length > 0
+                  {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
                     ? 'لم يتم العثور على طلاب مطابقين للبحث.'
                     : 'لم يتم العثور على طلاب.'}
                 </td>

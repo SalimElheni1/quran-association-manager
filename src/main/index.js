@@ -73,6 +73,46 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+// --- Secure, specific IPC Handlers ---
+
+ipcMain.handle('students:get', async (_event, filters) => {
+  // Base query selects only the columns needed for the list view, not SELECT *
+  let sql = 'SELECT id, name, date_of_birth, enrollment_date, status FROM students WHERE 1=1';
+  const params = [];
+
+  if (filters?.searchTerm) {
+    sql += ' AND name LIKE ?';
+    params.push(`%${filters.searchTerm}%`);
+  }
+
+  if (filters?.genderFilter && filters.genderFilter !== 'all') {
+    sql += ' AND gender = ?';
+    params.push(filters.genderFilter);
+  }
+
+  // Age filtering is done by calculating birth date ranges
+  const today = new Date();
+  if (filters?.minAgeFilter) {
+    const minAgeBirthYear = today.getFullYear() - parseInt(filters.minAgeFilter, 10);
+    // This is a simplified calculation. For more precision, we'd use full dates.
+    sql += ` AND SUBSTR(date_of_birth, 1, 4) <= ?`;
+    params.push(minAgeBirthYear.toString());
+  }
+  if (filters?.maxAgeFilter) {
+    const maxAgeBirthYear = today.getFullYear() - parseInt(filters.maxAgeFilter, 10) - 1;
+    sql += ` AND SUBSTR(date_of_birth, 1, 4) >= ?`;
+    params.push(maxAgeBirthYear.toString());
+  }
+
+  sql += ' ORDER BY name ASC';
+  return db.allQuery(sql, params);
+});
+
+ipcMain.handle('students:getById', async (_event, id) => {
+  // This query fetches all columns for a single student, which is what our modals need.
+  return db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
+});
+
 // Database IPC Handlers
 ipcMain.handle('db:run', async (event, { sql, params }) => {
   return await db.runQuery(sql, params);
