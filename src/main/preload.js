@@ -34,4 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserById: (id) => ipcRenderer.invoke('users:getById', id),
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
+
+  // Attendance API
+  getClassesForDay: (date) => ipcRenderer.invoke('attendance:getClassesForDay', date),
 });

@@ -71,8 +71,8 @@ function ClassDetailsModal({ show, handleClose, classData }) {
       <Modal.Body>
         <h5 className="form-section-title">المعلومات الأساسية</h5>
         <Row>
-          <DetailItem label="اسم الفصل" value={classData.name} />
-          <DetailItem label="نوع الفصل" value={classData.class_type} />
+          <DetailItem label="اسم الفصل" value={classData.name || 'غير محدد'} />
+          <DetailItem label="نوع الفصل" value={classData.class_type || 'غير محدد'} />
           <DetailItem label="المعلم المسؤول" value={classData.teacher_name || 'غير محدد'} />
           <DetailItem
             label="الحالة"
@@ -80,10 +80,24 @@ function ClassDetailsModal({ show, handleClose, classData }) {
             isBadge
             badgeVariant={statusVariants[classData.status] || 'light'}
           />
-          <DetailItem label="سعة الفصل" value={classData.capacity} />
+          <DetailItem label="سعة الفصل" value={classData.capacity ?? 'غير محدد'} />
           <DetailItem label="أوقات الدراسة" value={formatSchedule(classData.schedule)} />
-          <DetailItem label="تاريخ البدء" value={classData.start_date?.split('T')[0]} />
-          <DetailItem label="تاريخ الانتهاء" value={classData.end_date?.split('T')[0]} />
+          <DetailItem
+            label="تاريخ البدء"
+            value={
+              classData.start_date
+                ? new Date(classData.start_date).toISOString().split('T')[0]
+                : 'غير محدد'
+            }
+          />
+          <DetailItem
+            label="تاريخ الانتهاء"
+            value={
+              classData.end_date
+                ? new Date(classData.end_date).toISOString().split('T')[0]
+                : 'غير محدد'
+            }
+          />
         </Row>
       </Modal.Body>
       <Modal.Footer>

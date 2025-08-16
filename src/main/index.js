@@ -613,6 +613,22 @@ ipcMain.handle('users:delete', async (_event, id) => {
   return db.runQuery(sql, [id]);
 });
 
+// --- Attendance IPC Handlers ---
+
+ipcMain.handle('attendance:getClassesForDay', async (_event, dateString) => {
+  if (!dateString) {
+    return [];
+  }
+  const date = new Date(dateString);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[date.getDay()];
+
+  // We only want active classes for attendance
+  const sql = `SELECT id, name FROM classes WHERE status = 'active' AND schedule LIKE ?`;
+  const params = [`%${dayName}%`];
+  return db.allQuery(sql, params);
+});
+
 // Auth IPC Handler
 ipcMain.handle('auth:login', async (event, { username, password }) => {
   try {

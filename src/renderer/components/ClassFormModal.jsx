@@ -20,7 +20,9 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     // Fetch the list of teachers to populate the dropdown
     const fetchTeachers = async () => {
       try {
-        const teacherList = await window.electronAPI.db.all('SELECT id, name FROM teachers');
+        // Use the new, secure API to get all teachers without filters.
+        // The empty object {} means no filters are applied.
+        const teacherList = await window.electronAPI.getTeachers({});
         setTeachers(teacherList);
       } catch (error) {
         console.error('Failed to fetch teachers for form', error);
@@ -45,9 +47,19 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     };
 
     if (isEditMode && classData) {
+      // Format date fields for the input controls, which expect 'YYYY-MM-DD'
+      const start = classData.start_date
+        ? new Date(classData.start_date).toISOString().split('T')[0]
+        : '';
+      const end = classData.end_date
+        ? new Date(classData.end_date).toISOString().split('T')[0]
+        : '';
+
       setFormData({
         ...initialData,
         ...classData,
+        start_date: start,
+        end_date: end,
         // Ensure schedule is an array, even if it's empty or null from the DB
         schedule:
           classData.schedule && classData.schedule !== '[]'

@@ -34,6 +34,10 @@ function Sidebar() {
             <i className="fas fa-school"></i>
             <span>الفصول الدراسية</span>
           </NavLink>
+          <NavLink to="/attendance" className="nav-link">
+            <i className="fas fa-calendar-check"></i>
+            <span>تسجيل الحضور</span>
+          </NavLink>
           {user?.role === 'Superadmin' && (
             <NavLink to="/users" className="nav-link">
               <i className="fas fa-user-shield"></i>

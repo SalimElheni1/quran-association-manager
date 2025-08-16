@@ -40,9 +40,15 @@ function ClassesPage() {
     setShowModal(true);
   };
 
-  const handleShowEditModal = (classData) => {
-    setEditingClass(classData);
-    setShowModal(true);
+  const handleShowEditModal = async (classData) => {
+    try {
+      const fullClassData = await window.electronAPI.getClassById(classData.id);
+      setEditingClass(fullClassData);
+    } catch (err) {
+      console.error('Error fetching full class details for edit:', err);
+      toast.error('فشل في تحميل بيانات الفصل للتعديل.');
+    }
+    setShowModal(true); // Show modal even if fetch fails, it will show empty fields
   };
 
   const handleCloseModal = () => {
