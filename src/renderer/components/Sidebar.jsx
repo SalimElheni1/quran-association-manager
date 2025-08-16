@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 function Sidebar() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -34,6 +34,12 @@ function Sidebar() {
             <i className="fas fa-school"></i>
             <span>الفصول الدراسية</span>
           </NavLink>
+          {user?.role === 'Superadmin' && (
+            <NavLink to="/users" className="nav-link">
+              <i className="fas fa-user-shield"></i>
+              <span>إدارة المستخدمين</span>
+            </NavLink>
+          )}
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">

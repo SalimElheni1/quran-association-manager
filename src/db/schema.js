@@ -3,8 +3,29 @@ const schema = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('Superadmin', 'Branch Admin', 'Teacher')),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    first_name TEXT,
+    last_name TEXT,
+    date_of_birth DATE,
+    national_id TEXT UNIQUE,
+    email TEXT UNIQUE,
+    phone_number TEXT,
+    occupation TEXT,
+    civil_status TEXT CHECK(civil_status IN ('Single', 'Married', 'Divorced', 'Widowed')),
+    employment_type TEXT CHECK(employment_type IN ('volunteer', 'contract')),
+    start_date DATE,
+    end_date DATE,
+    role TEXT NOT NULL CHECK(role IN (
+      'Superadmin',
+      'Manager',
+      'FinanceManager',
+      'Admin',
+      'SessionSupervisor'
+    )),
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    branch_id INTEGER,
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS branches (

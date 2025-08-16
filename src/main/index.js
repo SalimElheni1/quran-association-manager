@@ -13,6 +13,11 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// --- Development-only auto-reloader ---
+if (!app.isPackaged) {
+  require('electron-reloader')(module);
+}
+
 // Security Best Practice: Ensure JWT_SECRET is set.
 if (!process.env.JWT_SECRET) {
   console.error(
@@ -180,6 +185,23 @@ const teacherValidationSchema = Joi.object({
     .pattern(/^[0-9\s+()-]+$/)
     .allow(null, ''),
 }).unknown(true);
+
+const userValidationSchema = Joi.object({
+  username: Joi.string().alphanum().min(3).max(30).required().messages({
+    'string.base': 'اسم المستخدم يجب أن يكون نصاً',
+    'string.empty': 'اسم المستخدم مطلوب',
+    'string.min': 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل',
+    'string.alphanum': 'اسم المستخدم يجب أن يحتوي على أحرف وأرقام فقط',
+  }),
+  password: Joi.string().min(8).required().messages({
+    'string.empty': 'كلمة المرور مطلوبة',
+    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+  }),
+  role: Joi.string()
+    .valid('Branch Admin', 'Teacher')
+    .required()
+    .messages({ 'any.only': 'الدور يجب أن يكون "مدير فرع" أو "معلم"' }),
+});
 
 const studentFields = [
   'name',
@@ -452,6 +474,41 @@ ipcMain.handle('classes:getById', async (_event, id) => {
   `;
   // This query fetches all columns for a single class, which our modal will need.
   return db.getQuery(sql, [id]);
+});
+
+// --- User Management IPC Handlers (Superadmin only) ---
+
+ipcMain.handle('users:get', async (event) => {
+  // For security, we only return non-Superadmin users.
+  // We also don't return the password hash.
+  const sql = `SELECT id, username, role, created_at FROM users WHERE role != 'Superadmin' ORDER BY username ASC`;
+  return db.allQuery(sql);
+});
+
+ipcMain.handle('users:add', async (_event, userData) => {
+  try {
+    // 1. Validate the incoming data
+    const { username, password, role } = await userValidationSchema.validateAsync(userData, {
+      abortEarly: false,
+    });
+
+    // 2. Check for duplicate username
+    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [username]);
+    if (existingUser) {
+      throw new Error('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.');
+    }
+
+    // 3. Hash the password
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // 4. Insert the new user into the database
+    const sql = 'INSERT INTO users (username, password, role) VALUES (?, ?, ?)';
+    return db.runQuery(sql, [username, hashedPassword, role]);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    throw error; // Rethrow other errors (like duplicate username or DB errors)
+  }
 });
 
 // Auth IPC Handler
