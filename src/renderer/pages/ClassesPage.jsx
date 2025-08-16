@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap
 import { toast } from 'react-toastify';
 import ClassFormModal from '../components/ClassFormModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import ClassDetailsModal from '../components/ClassDetailsModal'; // We will create this next
 import '../styles/StudentsPage.css'; // Reuse styles
 
 function ClassesPage() {
@@ -13,6 +14,8 @@ function ClassesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [classToDelete, setClassToDelete] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [classToView, setClassToView] = useState(null);
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);
@@ -45,6 +48,22 @@ function ClassesPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingClass(null);
+  };
+
+  const handleShowDetailsModal = async (classData) => {
+    try {
+      const fullClassData = await window.electronAPI.getClassById(classData.id);
+      setClassToView(fullClassData);
+      setShowDetailsModal(true);
+    } catch (err) {
+      console.error('Error fetching full class details:', err);
+      toast.error('فشل في تحميل التفاصيل الكاملة للفصل.');
+    }
+  };
+
+  const handleCloseDetailsModal = () => {
+    setShowDetailsModal(false);
+    setClassToView(null);
   };
 
   const handleSaveClass = async (formData, classId) => {
@@ -175,7 +194,14 @@ function ClassesPage() {
                   <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                   <td>{formatSchedule(cls.schedule)}</td>
                   <td>{renderStatusBadge(cls.status)}</td>
-                  <td className="table-actions d-flex gap-2" style={{ minWidth: '120px' }}>
+                  <td className="table-actions d-flex gap-2" style={{ minWidth: '180px' }}>
+                    <Button
+                      variant="outline-info"
+                      size="sm"
+                      onClick={() => handleShowDetailsModal(cls)}
+                    >
+                      <i className="fas fa-eye"></i> عرض
+                    </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
@@ -210,6 +236,11 @@ function ClassesPage() {
         handleClose={handleCloseModal}
         onSave={handleSaveClass}
         classData={editingClass}
+      />
+      <ClassDetailsModal
+        show={showDetailsModal}
+        handleClose={handleCloseDetailsModal}
+        classData={classToView}
       />
       <ConfirmationModal
         show={showDeleteModal}

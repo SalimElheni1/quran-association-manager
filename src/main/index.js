@@ -443,6 +443,17 @@ ipcMain.handle('classes:get', async (_event, filters) => {
   return db.allQuery(sql, params);
 });
 
+ipcMain.handle('classes:getById', async (_event, id) => {
+  const sql = `
+    SELECT c.*, t.name as teacher_name
+    FROM classes c
+    LEFT JOIN teachers t ON c.teacher_id = t.id
+    WHERE c.id = ?
+  `;
+  // This query fetches all columns for a single class, which our modal will need.
+  return db.getQuery(sql, [id]);
+});
+
 // Database IPC Handlers
 ipcMain.handle('db:run', async (event, { sql, params }) => {
   return await db.runQuery(sql, params);
