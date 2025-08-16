@@ -142,6 +142,22 @@ const studentValidationSchema = Joi.object({
   // Allow other fields to pass through without specific validation for now
 }).unknown(true); // .unknown(true) allows fields not defined in the schema to pass through
 
+const classValidationSchema = Joi.object({
+  name: Joi.string().min(3).max(100).required().messages({
+    'string.base': 'اسم الفصل يجب أن يكون نصاً',
+    'string.empty': 'اسم الفصل مطلوب',
+    'string.min': 'يجب أن يكون اسم الفصل 3 أحرف على الأقل',
+    'any.required': 'اسم الفصل مطلوب',
+  }),
+  teacher_id: Joi.number().integer().positive().allow(null, ''),
+  status: Joi.string().valid('pending', 'active', 'completed').required(),
+  capacity: Joi.number().integer().min(1).allow(null, ''),
+  schedule: Joi.string().allow(null, ''), // It's a JSON string
+  class_type: Joi.string().allow(null, ''),
+  start_date: Joi.date().iso().allow(null, ''),
+  end_date: Joi.date().iso().allow(null, ''),
+}).unknown(true);
+
 const teacherValidationSchema = Joi.object({
   // Required fields
   name: Joi.string().min(3).max(100).required().messages({
@@ -349,6 +365,63 @@ ipcMain.handle('teachers:getById', async (_event, id) => {
 });
 
 // --- Classes IPC Handlers ---
+
+const classFields = [
+  'name',
+  'class_type',
+  'teacher_id',
+  'schedule',
+  'start_date',
+  'end_date',
+  'status',
+  'capacity',
+];
+
+ipcMain.handle('classes:add', async (_event, classData) => {
+  try {
+    const validatedData = await classValidationSchema.validateAsync(classData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
+    const fieldsToInsert = classFields.filter((field) => validatedData[field] !== undefined);
+    if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+    const sql = `INSERT INTO classes (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    console.error('Error in classes:add handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('classes:update', async (_event, id, classData) => {
+  try {
+    const validatedData = await classValidationSchema.validateAsync(classData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
+    const fieldsToUpdate = classFields.filter((field) => validatedData[field] !== undefined);
+    const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+    const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+    const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    console.error('Error in classes:update handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('classes:delete', async (_event, id) => {
+  if (!id || typeof id !== 'number') throw new Error('A valid class ID is required for deletion.');
+  const sql = 'DELETE FROM classes WHERE id = ?';
+  return db.runQuery(sql, [id]);
+});
 
 ipcMain.handle('classes:get', async (_event, filters) => {
   // This query joins with the teachers table to get the teacher's name.

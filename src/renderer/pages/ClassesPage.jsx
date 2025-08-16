@@ -48,33 +48,20 @@ function ClassesPage() {
   };
 
   const handleSaveClass = async (formData, classId) => {
-    const fields = [
-      'name',
-      'class_type',
-      'teacher_id',
-      'schedule',
-      'start_date',
-      'end_date',
-      'status',
-      'capacity',
-    ];
     try {
       if (classId) {
-        const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-        const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
-        const params = [...fields.map((field) => formData[field] || null), classId];
-        await window.electronAPI.db.run(sql, params);
+        await window.electronAPI.updateClass(classId, formData);
+        toast.success('تم تحديث بيانات الفصل بنجاح!');
       } else {
-        const placeholders = fields.map(() => '?').join(', ');
-        const sql = `INSERT INTO classes (${fields.join(', ')}) VALUES (${placeholders})`;
-        const params = fields.map((field) => formData[field] || null);
-        await window.electronAPI.db.run(sql, params);
+        await window.electronAPI.addClass(formData);
+        toast.success('تمت إضافة الفصل بنجاح!');
       }
       fetchClasses();
       handleCloseModal();
     } catch (err) {
       console.error('Error saving class:', err);
-      toast.error(`فشل في حفظ بيانات الفصل: ${err.message}`);
+      const friendlyMessage = err.message.split('Error:').pop().trim();
+      toast.error(friendlyMessage);
     }
   };
 
@@ -86,7 +73,8 @@ function ClassesPage() {
   const confirmDelete = async () => {
     if (!classToDelete) return;
     try {
-      await window.electronAPI.db.run('DELETE FROM classes WHERE id = ?', [classToDelete.id]);
+      await window.electronAPI.deleteClass(classToDelete.id);
+      toast.success('تم حذف الفصل بنجاح.');
       fetchClasses();
     } catch (err) {
       console.error('Error deleting class:', err);
