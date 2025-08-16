@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const { app } = require('electron');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
@@ -15,7 +16,7 @@ function initializeDatabase() {
       console.error('Could not connect to database', err.message);
     } else {
       console.log('Connected to SQLite database at', dbPath);
-      createTables();
+      initializeSchema();
     }
   });
 }
@@ -45,13 +46,48 @@ async function seedSuperadmin() {
   }
 }
 
-function createTables() {
+async function runMigrations() {
+  console.log('Checking for pending migrations...');
+  const migrationsDir = path.join(__dirname, 'migrations');
+
+  if (!fs.existsSync(migrationsDir)) {
+    fs.mkdirSync(migrationsDir);
+  }
+
+  const migrationFiles = fs.readdirSync(migrationsDir).sort();
+  const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
+
+  for (const file of migrationFiles) {
+    if (!appliedMigrations.includes(file)) {
+      console.log(`Applying migration: ${file}`);
+      try {
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        await runQuery('BEGIN TRANSACTION;');
+        await new Promise((resolve, reject) => {
+          db.exec(sql, (err) => (err ? reject(err) : resolve()));
+        });
+        await runQuery('INSERT INTO migrations (name) VALUES (?)', [file]);
+        await runQuery('COMMIT;');
+        console.log(`Successfully applied migration: ${file}`);
+      } catch (err) {
+        console.error(`Failed to apply migration ${file}:`, err);
+        await runQuery('ROLLBACK;');
+        // Stop the app from continuing if a migration fails
+        app.quit();
+        return;
+      }
+    }
+  }
+  console.log('All migrations are up to date.');
+}
+
+async function initializeSchema() {
   db.exec(schema, (err) => {
     if (err) {
       console.error('Error creating tables:', err.message);
     } else {
       console.log('Tables created or already exist.');
-      seedSuperadmin();
+      runMigrations().then(() => seedSuperadmin());
     }
   });
 }
