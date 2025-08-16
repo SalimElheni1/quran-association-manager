@@ -142,6 +142,29 @@ const studentValidationSchema = Joi.object({
   // Allow other fields to pass through without specific validation for now
 }).unknown(true); // .unknown(true) allows fields not defined in the schema to pass through
 
+const teacherValidationSchema = Joi.object({
+  // Required fields
+  name: Joi.string().min(3).max(100).required().messages({
+    'string.base': 'الاسم يجب أن يكون نصاً',
+    'string.empty': 'الاسم مطلوب',
+    'string.min': 'يجب أن يكون الاسم 3 أحرف على الأقل',
+    'any.required': 'الاسم مطلوب',
+  }),
+  email: Joi.string()
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      'string.email': 'البريد الإلكتروني غير صالح',
+      'string.empty': 'البريد الإلكتروني مطلوب',
+      'any.required': 'البريد الإلكتروني مطلوب',
+    }),
+
+  // Optional fields
+  contact_info: Joi.string()
+    .pattern(/^[0-9\s+()-]+$/)
+    .allow(null, ''),
+}).unknown(true);
+
 const studentFields = [
   'name',
   'date_of_birth',
@@ -227,6 +250,70 @@ ipcMain.handle('students:delete', async (_event, id) => {
     throw new Error('A valid student ID is required for deletion.');
   }
   const sql = 'DELETE FROM students WHERE id = ?';
+  return db.runQuery(sql, [id]);
+});
+
+// --- Teachers IPC Handlers ---
+
+const teacherFields = [
+  'name',
+  'national_id',
+  'contact_info',
+  'email',
+  'address',
+  'date_of_birth',
+  'gender',
+  'educational_level',
+  'specialization',
+  'years_of_experience',
+  'availability',
+  'notes',
+];
+
+ipcMain.handle('teachers:add', async (_event, teacherData) => {
+  try {
+    const validatedData = await teacherValidationSchema.validateAsync(teacherData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
+    const fieldsToInsert = teacherFields.filter((field) => validatedData[field] !== undefined);
+    if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+    const sql = `INSERT INTO teachers (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    console.error('Error in teachers:add handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('teachers:update', async (_event, id, teacherData) => {
+  try {
+    const validatedData = await teacherValidationSchema.validateAsync(teacherData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
+    const fieldsToUpdate = teacherFields.filter((field) => validatedData[field] !== undefined);
+    const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+    const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+    const sql = `UPDATE teachers SET ${setClauses} WHERE id = ?`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    console.error('Error in teachers:update handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('teachers:delete', async (_event, id) => {
+  if (!id || typeof id !== 'number')
+    throw new Error('A valid teacher ID is required for deletion.');
+  const sql = 'DELETE FROM teachers WHERE id = ?';
   return db.runQuery(sql, [id]);
 });
 

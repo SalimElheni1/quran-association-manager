@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Teachers API
   getTeachers: (filters) => ipcRenderer.invoke('teachers:get', filters),
   getTeacherById: (id) => ipcRenderer.invoke('teachers:getById', id),
+  addTeacher: (teacherData) => ipcRenderer.invoke('teachers:add', teacherData),
+  updateTeacher: (id, teacherData) => ipcRenderer.invoke('teachers:update', id, teacherData),
+  deleteTeacher: (id) => ipcRenderer.invoke('teachers:delete', id),
 
   // DEPRECATED: To be removed once all pages are refactored.
   db: {

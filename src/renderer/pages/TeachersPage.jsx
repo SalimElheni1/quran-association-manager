@@ -76,37 +76,20 @@ function TeachersPage() {
   };
 
   const handleSaveTeacher = async (formData, teacherId) => {
-    const fields = [
-      'name',
-      'national_id',
-      'contact_info',
-      'email',
-      'address',
-      'date_of_birth',
-      'gender',
-      'educational_level',
-      'specialization',
-      'years_of_experience',
-      'availability',
-      'notes',
-    ];
     try {
       if (teacherId) {
-        const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-        const sql = `UPDATE teachers SET ${setClauses} WHERE id = ?`;
-        const params = [...fields.map((field) => formData[field] || null), teacherId];
-        await window.electronAPI.db.run(sql, params);
+        await window.electronAPI.updateTeacher(teacherId, formData);
+        toast.success('تم تحديث بيانات المعلم بنجاح!');
       } else {
-        const placeholders = fields.map(() => '?').join(', ');
-        const sql = `INSERT INTO teachers (${fields.join(', ')}) VALUES (${placeholders})`;
-        const params = fields.map((field) => formData[field] || null);
-        await window.electronAPI.db.run(sql, params);
+        await window.electronAPI.addTeacher(formData);
+        toast.success('تمت إضافة المعلم بنجاح!');
       }
       fetchTeachers();
       handleCloseModal();
     } catch (err) {
       console.error('Error saving teacher:', err);
-      toast.error(`فشل في حفظ بيانات المعلم: ${err.message}`);
+      const friendlyMessage = err.message.split('Error:').pop().trim();
+      toast.error(friendlyMessage);
     }
   };
 
@@ -118,7 +101,8 @@ function TeachersPage() {
   const confirmDelete = async () => {
     if (!teacherToDelete) return;
     try {
-      await window.electronAPI.db.run('DELETE FROM teachers WHERE id = ?', [teacherToDelete.id]);
+      await window.electronAPI.deleteTeacher(teacherToDelete.id);
+      toast.success('تم حذف المعلم بنجاح.');
       fetchTeachers();
     } catch (err) {
       console.error('Error deleting teacher:', err);
