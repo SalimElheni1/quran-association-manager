@@ -187,20 +187,41 @@ const teacherValidationSchema = Joi.object({
 }).unknown(true);
 
 const userValidationSchema = Joi.object({
-  username: Joi.string().alphanum().min(3).max(30).required().messages({
-    'string.base': 'اسم المستخدم يجب أن يكون نصاً',
-    'string.empty': 'اسم المستخدم مطلوب',
-    'string.min': 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل',
-    'string.alphanum': 'اسم المستخدم يجب أن يحتوي على أحرف وأرقام فقط',
+  // Required fields
+  username: Joi.string().alphanum().min(3).max(30).required(),
+  password: Joi.string().min(8).required(),
+  first_name: Joi.string().min(2).max(50).required(),
+  last_name: Joi.string().min(2).max(50).required(),
+  employment_type: Joi.string().valid('volunteer', 'contract').required(),
+  role: Joi.string().valid('Manager', 'FinanceManager', 'Admin', 'SessionSupervisor').required(),
+
+  // Optional fields
+  date_of_birth: Joi.date().iso().allow(null, ''),
+  national_id: Joi.string().allow(null, ''),
+  email: Joi.string()
+    .email({ tlds: { allow: false } })
+    .allow(null, ''),
+  phone_number: Joi.string()
+    .pattern(/^[0-9\s+()-]+$/)
+    .allow(null, ''),
+  occupation: Joi.string().allow(null, ''),
+  civil_status: Joi.string().valid('Single', 'Married', 'Divorced', 'Widowed').allow(null, ''),
+  end_date: Joi.date().iso().allow(null, ''),
+  notes: Joi.string().allow(null, ''),
+
+  // Conditional validation
+  start_date: Joi.when('employment_type', {
+    is: 'contract',
+    then: Joi.date().iso().required(),
+    otherwise: Joi.date().iso().allow(null, ''),
   }),
-  password: Joi.string().min(8).required().messages({
-    'string.empty': 'كلمة المرور مطلوبة',
-    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-  }),
-  role: Joi.string()
-    .valid('Branch Admin', 'Teacher')
-    .required()
-    .messages({ 'any.only': 'الدور يجب أن يكون "مدير فرع" أو "معلم"' }),
+}).unknown(true);
+
+const userUpdateValidationSchema = userValidationSchema.keys({
+  // For updates, password is optional. If provided, it must be at least 8 chars.
+  password: Joi.string().min(8).allow(null, ''),
+  // Status is required during an update.
+  status: Joi.string().valid('active', 'inactive').required(),
 });
 
 const studentFields = [
@@ -228,6 +249,25 @@ const studentFields = [
   'civil_status',
   'related_family_members',
   'financial_assistance_notes',
+];
+
+const userFields = [
+  'username',
+  'password',
+  'first_name',
+  'last_name',
+  'date_of_birth',
+  'national_id',
+  'email',
+  'phone_number',
+  'occupation',
+  'civil_status',
+  'employment_type',
+  'start_date',
+  'end_date',
+  'role',
+  'status',
+  'notes',
 ];
 
 ipcMain.handle('students:add', async (_event, studentData) => {
@@ -481,33 +521,87 @@ ipcMain.handle('classes:getById', async (_event, id) => {
 ipcMain.handle('users:get', async (event) => {
   // For security, we only return non-Superadmin users.
   // We also don't return the password hash.
-  const sql = `SELECT id, username, role, created_at FROM users WHERE role != 'Superadmin' ORDER BY username ASC`;
+  const sql = `SELECT id, username, first_name, last_name, role, status FROM users WHERE role != 'Superadmin' ORDER BY last_name, first_name ASC`;
   return db.allQuery(sql);
 });
 
 ipcMain.handle('users:add', async (_event, userData) => {
   try {
     // 1. Validate the incoming data
-    const { username, password, role } = await userValidationSchema.validateAsync(userData, {
-      abortEarly: false,
-    });
+    const validatedData = await userValidationSchema.validateAsync(userData, { abortEarly: false });
 
     // 2. Check for duplicate username
-    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [username]);
+    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [
+      validatedData.username,
+    ]);
     if (existingUser) {
       throw new Error('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.');
     }
 
     // 3. Hash the password
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = bcrypt.hashSync(validatedData.password, 10);
+    const dataToSave = { ...validatedData, password: hashedPassword, status: 'active' };
 
     // 4. Insert the new user into the database
-    const sql = 'INSERT INTO users (username, password, role) VALUES (?, ?, ?)';
-    return db.runQuery(sql, [username, hashedPassword, role]);
+    const fieldsToInsert = userFields.filter((field) => dataToSave[field] !== undefined);
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const params = fieldsToInsert.map((field) => dataToSave[field] ?? null);
+    const sql = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+    return db.runQuery(sql, params);
   } catch (error) {
     if (error.isJoi)
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
     throw error; // Rethrow other errors (like duplicate username or DB errors)
+  }
+});
+
+ipcMain.handle('users:getById', async (_event, id) => {
+  // Exclude password for security when fetching user data for editing.
+  const sql = `
+    SELECT id, username, first_name, last_name, date_of_birth, national_id, email,
+           phone_number, occupation, civil_status, employment_type, start_date,
+           end_date, role, status, notes
+    FROM users WHERE id = ?
+  `;
+  return db.getQuery(sql, [id]);
+});
+
+ipcMain.handle('users:update', async (_event, { id, userData }) => {
+  try {
+    // 1. Validate the incoming data using the update-specific schema
+    const validatedData = await userUpdateValidationSchema.validateAsync(userData, {
+      abortEarly: false,
+    });
+
+    // 2. Check for duplicate username (if it's being changed)
+    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ? AND id != ?', [
+      validatedData.username,
+      id,
+    ]);
+    if (existingUser) {
+      throw new Error('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.');
+    }
+
+    // 3. Prepare data for update
+    const dataToSave = { ...validatedData };
+
+    // 4. If a new password was provided, hash it. Otherwise, remove it.
+    if (dataToSave.password) {
+      dataToSave.password = bcrypt.hashSync(dataToSave.password, 10);
+    } else {
+      delete dataToSave.password;
+    }
+
+    // 5. Build and run the update query
+    const fieldsToUpdate = userFields.filter((field) => dataToSave[field] !== undefined);
+    const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+    const params = [...fieldsToUpdate.map((field) => dataToSave[field] ?? null), id];
+    const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi)
+      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    throw error;
   }
 });
 

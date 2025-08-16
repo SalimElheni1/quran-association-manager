@@ -31,4 +31,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // User Management API (for Superadmin)
   getUsers: () => ipcRenderer.invoke('users:get'),
   addUser: (userData) => ipcRenderer.invoke('users:add', userData),
+  getUserById: (id) => ipcRenderer.invoke('users:getById', id),
+  updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
 });

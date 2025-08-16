@@ -44,9 +44,17 @@ function UsersPage() {
   };
 
   const roleTranslations = {
-    'Branch Admin': 'مدير فرع',
-    Teacher: 'معلم',
+    Manager: 'الهيئة المديرة',
+    FinanceManager: 'الهيئة المديرة - المالية',
+    Admin: 'إداري',
+    SessionSupervisor: 'مشرف حصص',
   };
+
+  const statusTranslations = {
+    active: 'نشط',
+    inactive: 'غير نشط',
+  };
+  const statusVariants = { active: 'success', inactive: 'secondary' };
 
   return (
     <div className="page-container">
@@ -66,9 +74,10 @@ function UsersPage() {
           <thead>
             <tr>
               <th>#</th>
+              <th>الاسم الكامل</th>
               <th>اسم المستخدم</th>
               <th>الدور</th>
-              <th>تاريخ الإنشاء</th>
+              <th>الحالة</th>
               <th>إجراءات</th>
             </tr>
           </thead>
@@ -77,11 +86,16 @@ function UsersPage() {
               users.map((user, index) => (
                 <tr key={user.id}>
                   <td>{index + 1}</td>
+                  <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
                   <td>{user.username}</td>
                   <td>
                     <Badge bg="info">{roleTranslations[user.role] || user.role}</Badge>
                   </td>
-                  <td>{new Date(user.created_at).toLocaleDateString('ar-TN')}</td>
+                  <td>
+                    <Badge bg={statusVariants[user.status]}>
+                      {statusTranslations[user.status]}
+                    </Badge>
+                  </td>
                   <td className="table-actions d-flex gap-2">
                     <Button
                       variant="outline-success"
