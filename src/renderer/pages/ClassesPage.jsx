@@ -201,7 +201,7 @@ function ClassesPage() {
                 <tr key={cls.id}>
                   <td>{index + 1}</td>
                   <td>{cls.name}</td>
-                  <td>{cls.class_type || 'N/A'}</td>
+                  <td>{cls.class_type || '-'}</td>
                   <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                   <td>{formatSchedule(cls.schedule)}</td>
                   <td>{renderStatusBadge(cls.status)}</td>

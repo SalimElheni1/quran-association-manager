@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Alert, Badge, Form, InputGroup } from 'react-bootstrap';
+import { Table, Button, Spinner, Badge, Form, InputGroup } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import StudentFormModal from '../components/StudentFormModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import StudentDetailsModal from '../components/StudentDetailsModal';
@@ -8,7 +9,6 @@ import '../styles/StudentsPage.css';
 function StudentsPage() {
   const [students, setStudents] = useState([]); // This will now hold only the filtered students
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,14 +22,13 @@ function StudentsPage() {
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const filters = { searchTerm, genderFilter, minAgeFilter, maxAgeFilter };
       const fetchedStudents = await window.electronAPI.getStudents(filters);
       setStudents(fetchedStudents);
     } catch (err) {
       console.error('Error fetching students:', err);
-      setError('فشل في تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
+      toast.error('فشل في تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }
@@ -52,7 +51,7 @@ function StudentsPage() {
       setShowModal(true);
     } catch (err) {
       console.error('Error fetching full student details:', err);
-      setError('فشل في تحميل التفاصيل الكاملة للطالب.');
+      toast.error('فشل في تحميل التفاصيل الكاملة للطالب.');
     }
   };
 
@@ -68,7 +67,7 @@ function StudentsPage() {
       setShowDetailsModal(true);
     } catch (err) {
       console.error('Error fetching full student details:', err);
-      setError('فشل في تحميل التفاصيل الكاملة للطالب.');
+      toast.error('فشل في تحميل التفاصيل الكاملة للطالب.');
     }
   };
 
@@ -80,18 +79,18 @@ function StudentsPage() {
   const handleSaveStudent = async (formData, studentId) => {
     try {
       if (studentId) {
-        // Use the new secure update channel
         await window.electronAPI.updateStudent(studentId, formData);
+        toast.success('تم تحديث بيانات الطالب بنجاح!');
       } else {
-        // Use the new secure add channel
         await window.electronAPI.addStudent(formData);
+        toast.success('تمت إضافة الطالب بنجاح!');
       }
       fetchStudents(); // Refresh the list
       handleCloseModal();
     } catch (err) {
       console.error('Error saving student:', err);
-      // Provide a more specific error if possible, e.g., from the backend
-      setError(`فشل في حفظ بيانات الطالب: ${err.message}`);
+      const friendlyMessage = err.message.split('Error:').pop().trim();
+      toast.error(friendlyMessage);
     }
   };
 
@@ -113,7 +112,7 @@ function StudentsPage() {
       fetchStudents(); // Refresh the list
     } catch (err) {
       console.error('Error deleting student:', err);
-      setError('فشل في حذف الطالب.');
+      toast.error('فشل في حذف الطالب.');
     } finally {
       handleCloseDeleteModal();
     }
@@ -196,8 +195,6 @@ function StudentsPage() {
           />
         </div>
       </div>
-
-      {error && <Alert variant="danger">{error}</Alert>}
 
       {loading ? (
         <div className="text-center">

@@ -196,8 +196,8 @@ function TeachersPage() {
                 <tr key={teacher.id}>
                   <td>{index + 1}</td>
                   <td>{teacher.name}</td>
-                  <td>{teacher.contact_info || 'N/A'}</td>
-                  <td>{teacher.specialization || 'N/A'}</td>
+                  <td>{teacher.contact_info || '-'}</td>
+                  <td>{teacher.specialization || '-'}</td>
                   <td className="table-actions d-flex gap-2">
                     <Button
                       variant="outline-info"
