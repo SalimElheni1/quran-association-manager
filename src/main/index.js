@@ -605,6 +605,14 @@ ipcMain.handle('users:update', async (_event, { id, userData }) => {
   }
 });
 
+ipcMain.handle('users:delete', async (_event, id) => {
+  if (!id || typeof id !== 'number') {
+    throw new Error('A valid user ID is required for deletion.');
+  }
+  const sql = 'DELETE FROM users WHERE id = ?';
+  return db.runQuery(sql, [id]);
+});
+
 // Auth IPC Handler
 ipcMain.handle('auth:login', async (event, { username, password }) => {
   try {

@@ -33,4 +33,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addUser: (userData) => ipcRenderer.invoke('users:add', userData),
   getUserById: (id) => ipcRenderer.invoke('users:getById', id),
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
+  deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
 });

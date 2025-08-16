@@ -1,25 +1,51 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 
-function UserFormModal({ show, handleClose, onSaveSuccess }) {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    first_name: '',
-    last_name: '',
-    date_of_birth: '',
-    national_id: '',
-    email: '',
-    phone_number: '',
-    occupation: '',
-    civil_status: 'Single',
-    employment_type: 'volunteer',
-    start_date: '',
-    end_date: '',
-    role: 'Admin',
-    notes: '',
-  });
+function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
+  const [formData, setFormData] = useState({});
+  const isEditMode = !!user;
+
+  useEffect(() => {
+    const initialData = {
+      username: '',
+      password: '',
+      first_name: '',
+      last_name: '',
+      date_of_birth: '',
+      national_id: '',
+      email: '',
+      phone_number: '',
+      occupation: '',
+      civil_status: 'Single',
+      employment_type: 'volunteer',
+      start_date: '',
+      end_date: '',
+      role: 'Admin',
+      status: 'active',
+      notes: '',
+    };
+
+    if (isEditMode && user) {
+      // Format date fields for the input controls, which expect 'YYYY-MM-DD'
+      const dob = user.date_of_birth
+        ? new Date(user.date_of_birth).toISOString().split('T')[0]
+        : '';
+      const start = user.start_date ? new Date(user.start_date).toISOString().split('T')[0] : '';
+      const end = user.end_date ? new Date(user.end_date).toISOString().split('T')[0] : '';
+
+      setFormData({
+        ...initialData,
+        ...user,
+        password: '',
+        date_of_birth: dob,
+        start_date: start,
+        end_date: end,
+      });
+    } else {
+      setFormData(initialData);
+    }
+  }, [user, show]);
 
   const roleOptions = {
     Manager: 'الهيئة المديرة',
@@ -36,8 +62,12 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await window.electronAPI.addUser(formData);
-      toast.success('تمت إضافة المستخدم بنجاح!');
+      if (isEditMode) {
+        await window.electronAPI.updateUser(user.id, formData);
+        toast.success('تم تحديث بيانات المستخدم بنجاح!');
+      } else {
+        await window.electronAPI.addUser(formData);
+      }
       onSaveSuccess();
     } catch (err) {
       console.error('Error adding user:', err);
@@ -50,7 +80,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
     <Modal show={show} onHide={handleClose} centered size="lg">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
-          <Modal.Title>إضافة مستخدم جديد</Modal.Title>
+          <Modal.Title>{isEditMode ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <h5 className="form-section-title">معلومات الحساب</h5>
@@ -60,7 +90,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="username"
-                value={formData.username}
+                value={formData.username || ''}
                 onChange={handleChange}
                 required
               />
@@ -70,9 +100,10 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="password"
                 name="password"
-                value={formData.password}
+                value={formData.password || ''} // This was already correct
                 onChange={handleChange}
-                required
+                required={!isEditMode}
+                placeholder={isEditMode ? 'اتركه فارغاً لعدم التغيير' : ''}
               />
             </Form.Group>
           </Row>
@@ -84,7 +115,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="first_name"
-                value={formData.first_name}
+                value={formData.first_name || ''}
                 onChange={handleChange}
                 required
               />
@@ -94,7 +125,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="last_name"
-                value={formData.last_name}
+                value={formData.last_name || ''}
                 onChange={handleChange}
                 required
               />
@@ -106,7 +137,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="date"
                 name="date_of_birth"
-                value={formData.date_of_birth}
+                value={formData.date_of_birth || ''}
                 onChange={handleChange}
               />
             </Form.Group>
@@ -115,7 +146,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="national_id"
-                value={formData.national_id}
+                value={formData.national_id || ''}
                 onChange={handleChange}
               />
             </Form.Group>
@@ -126,7 +157,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="email"
                 name="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={handleChange}
               />
             </Form.Group>
@@ -135,7 +166,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="phone_number"
-                value={formData.phone_number}
+                value={formData.phone_number || ''}
                 onChange={handleChange}
               />
             </Form.Group>
@@ -146,7 +177,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Control
                 type="text"
                 name="occupation"
-                value={formData.occupation}
+                value={formData.occupation || ''}
                 onChange={handleChange}
               />
             </Form.Group>
@@ -154,7 +185,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Label>الحالة المدنية</Form.Label>
               <Form.Select
                 name="civil_status"
-                value={formData.civil_status}
+                value={formData.civil_status || 'Single'}
                 onChange={handleChange}
               >
                 <option value="Single">أعزب/عزباء</option>
@@ -171,7 +202,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               <Form.Label>نوع التوظيف</Form.Label>
               <Form.Select
                 name="employment_type"
-                value={formData.employment_type}
+                value={formData.employment_type || 'volunteer'}
                 onChange={handleChange}
               >
                 <option value="volunteer">متطوع</option>
@@ -180,7 +211,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
               <Form.Label>الدور في النظام</Form.Label>
-              <Form.Select name="role" value={formData.role} onChange={handleChange}>
+              <Form.Select name="role" value={formData.role || 'Admin'} onChange={handleChange}>
                 {Object.entries(roleOptions).map(([key, label]) => (
                   <option key={key} value={key}>
                     {label}
@@ -188,6 +219,19 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
                 ))}
               </Form.Select>
             </Form.Group>
+            {isEditMode && (
+              <Form.Group as={Col} md="6" className="mb-3">
+                <Form.Label>الحالة</Form.Label>
+                <Form.Select
+                  name="status"
+                  value={formData.status || 'active'}
+                  onChange={handleChange}
+                >
+                  <option value="active">نشط</option>
+                  <option value="inactive">غير نشط</option>
+                </Form.Select>
+              </Form.Group>
+            )}
           </Row>
           {formData.employment_type === 'contract' && (
             <Row>
@@ -218,7 +262,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
               as="textarea"
               rows={3}
               name="notes"
-              value={formData.notes}
+              value={formData.notes || ''}
               onChange={handleChange}
             />
           </Form.Group>
@@ -228,7 +272,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess }) {
             إلغاء
           </Button>
           <Button variant="primary" type="submit">
-            إضافة المستخدم
+            {isEditMode ? 'حفظ التعديلات' : 'إضافة المستخدم'}
           </Button>
         </Modal.Footer>
       </Form>

@@ -1,9 +1,6 @@
 -- Turn off foreign key constraints during the table rebuild to avoid errors.
 PRAGMA foreign_keys=OFF;
 
--- Start a transaction to ensure all changes succeed or none do.
-BEGIN TRANSACTION;
-
 -- 1. Create a new temporary table with the correct, updated schema.
 CREATE TABLE users_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,9 +38,6 @@ ALTER TABLE users_new RENAME TO users;
 -- Recreate the unique indexes that were dropped with the old table.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_national_id ON users (national_id) WHERE national_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email) WHERE email IS NOT NULL;
-
--- Finalize the transaction.
-COMMIT;
 
 -- Turn foreign key constraints back on.
 PRAGMA foreign_keys=ON;

@@ -3,11 +3,15 @@ import { Table, Button, Spinner, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import '../styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '../components/UserFormModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -27,20 +31,45 @@ function UsersPage() {
   }, [fetchUsers]);
 
   const handleSaveSuccess = () => {
-    setShowAddModal(false);
+    setShowUserModal(false);
+    setEditingUser(null);
     fetchUsers();
   };
 
   const handleShowAddModal = () => {
-    setShowAddModal(true);
+    setEditingUser(null);
+    setShowUserModal(true);
   };
 
-  const handleEditUser = (user) => {
-    toast.info(`ميزة تعديل المستخدم ${user.username} سيتم تنفيذها قريباً.`);
+  const handleEditUser = async (user) => {
+    try {
+      const fullUser = await window.electronAPI.getUserById(user.id);
+      setEditingUser(fullUser);
+      setShowUserModal(true);
+    } catch (err) {
+      console.error('Error fetching full user details:', err);
+      toast.error('فشل في تحميل التفاصيل الكاملة للمستخدم.');
+    }
   };
 
-  const handleDeleteUser = (user) => {
-    toast.info(`ميزة حذف المستخدم ${user.username} سيتم تنفيذها قريباً.`);
+  const handleDeleteRequest = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await window.electronAPI.deleteUser(userToDelete.id);
+      toast.success('تم حذف المستخدم بنجاح.');
+      fetchUsers();
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast.error('فشل في حذف المستخدم.');
+    } finally {
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    }
   };
 
   const roleTranslations = {
@@ -107,7 +136,7 @@ function UsersPage() {
                     <Button
                       variant="outline-danger"
                       size="sm"
-                      onClick={() => handleDeleteUser(user)}
+                      onClick={() => handleDeleteRequest(user)}
                     >
                       <i className="fas fa-trash"></i> حذف
                     </Button>
@@ -125,9 +154,19 @@ function UsersPage() {
         </Table>
       )}
       <UserFormModal
-        show={showAddModal}
-        handleClose={() => setShowAddModal(false)}
+        show={showUserModal}
+        handleClose={() => setShowUserModal(false)}
         onSaveSuccess={handleSaveSuccess}
+        user={editingUser}
+      />
+      <ConfirmationModal
+        show={showDeleteModal}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={confirmDelete}
+        title="تأكيد الحذف"
+        body={`هل أنت متأكد من رغبتك في حذف المستخدم "${userToDelete?.username}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، قم بالحذف"
       />
     </div>
   );
