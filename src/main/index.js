@@ -230,6 +230,32 @@ ipcMain.handle('students:delete', async (_event, id) => {
   return db.runQuery(sql, [id]);
 });
 
+// --- Teachers IPC Handlers ---
+
+ipcMain.handle('teachers:get', async (_event, filters) => {
+  // Base query selects only the columns needed for the list view
+  let sql = 'SELECT id, name, contact_info, specialization, gender FROM teachers WHERE 1=1';
+  const params = [];
+
+  if (filters?.searchTerm) {
+    sql += ' AND name LIKE ?';
+    params.push(`%${filters.searchTerm}%`);
+  }
+
+  if (filters?.genderFilter && filters.genderFilter !== 'all') {
+    sql += ' AND gender = ?';
+    params.push(filters.genderFilter);
+  }
+
+  if (filters?.specializationFilter) {
+    sql += ' AND specialization LIKE ?';
+    params.push(`%${filters.specializationFilter}%`);
+  }
+
+  sql += ' ORDER BY name ASC';
+  return db.allQuery(sql, params);
+});
+
 // Database IPC Handlers
 ipcMain.handle('db:run', async (event, { sql, params }) => {
   return await db.runQuery(sql, params);

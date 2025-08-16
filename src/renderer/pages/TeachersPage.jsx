@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Alert, Form, InputGroup } from 'react-bootstrap';
+import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import TeacherFormModal from '../components/TeacherFormModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import TeacherDetailsModal from '../components/TeacherDetailsModal';
@@ -8,9 +9,7 @@ import '../styles/StudentsPage.css';
 
 function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
-  const [filteredTeachers, setFilteredTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,38 +21,22 @@ function TeachersPage() {
   const [teacherToView, setTeacherToView] = useState(null);
 
   const fetchTeachers = useCallback(async () => {
+    setLoading(true);
     try {
-      setError(null);
-      setLoading(true);
-      const fetchedTeachers = await window.electronAPI.db.all(
-        'SELECT * FROM teachers ORDER BY name ASC',
-      );
+      const filters = { searchTerm, genderFilter, specializationFilter };
+      const fetchedTeachers = await window.electronAPI.getTeachers(filters);
       setTeachers(fetchedTeachers);
-      //   setFilteredTeachers(fetchedTeachers);
     } catch (err) {
       console.error('Error fetching teachers:', err);
-      setError('فشل في تحميل بيانات المعلمين.');
+      toast.error('فشل في تحميل بيانات المعلمين.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm, genderFilter, specializationFilter]);
 
   useEffect(() => {
     fetchTeachers();
   }, [fetchTeachers]);
-
-  useEffect(() => {
-    const results = teachers.filter((teacher) => {
-      const nameMatch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const genderMatch = genderFilter === 'all' || teacher.gender === genderFilter;
-      const specializationMatch =
-        !specializationFilter ||
-        (teacher.specialization &&
-          teacher.specialization.toLowerCase().includes(specializationFilter.toLowerCase()));
-      return nameMatch && genderMatch && specializationMatch;
-    });
-    setFilteredTeachers(results);
-  }, [searchTerm, genderFilter, specializationFilter, teachers]);
 
   const handleShowAddModal = () => {
     setEditingTeacher(null);
@@ -111,7 +94,7 @@ function TeachersPage() {
       handleCloseModal();
     } catch (err) {
       console.error('Error saving teacher:', err);
-      setError(`فشل في حفظ بيانات المعلم: ${err.message}`);
+      toast.error(`فشل في حفظ بيانات المعلم: ${err.message}`);
     }
   };
 
@@ -127,7 +110,7 @@ function TeachersPage() {
       fetchTeachers();
     } catch (err) {
       console.error('Error deleting teacher:', err);
-      setError('فشل في حذف المعلم.');
+      toast.error('فشل في حذف المعلم.');
     } finally {
       setShowDeleteModal(false);
       setTeacherToDelete(null);
@@ -174,7 +157,6 @@ function TeachersPage() {
           />
         </div>
       </div>
-      {error && <Alert variant="danger">{error}</Alert>}
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
@@ -191,8 +173,8 @@ function TeachersPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredTeachers.length > 0 ? (
-              filteredTeachers.map((teacher, index) => (
+            {teachers.length > 0 ? (
+              teachers.map((teacher, index) => (
                 <tr key={teacher.id}>
                   <td>{index + 1}</td>
                   <td>{teacher.name}</td>
@@ -226,7 +208,7 @@ function TeachersPage() {
             ) : (
               <tr>
                 <td colSpan="5" className="text-center">
-                  {teachers.length > 0
+                  {searchTerm || genderFilter !== 'all' || specializationFilter
                     ? 'لم يتم العثور على معلمين مطابقين للبحث.'
                     : 'لم يتم العثور على معلمين.'}
                 </td>
