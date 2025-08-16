@@ -78,47 +78,13 @@ function StudentsPage() {
   };
 
   const handleSaveStudent = async (formData, studentId) => {
-    // A list of all fields in the students table to ensure we save everything
-    const fields = [
-      'name',
-      'date_of_birth',
-      'gender',
-      'address',
-      'contact_info',
-      'email',
-      'status',
-      'memorization_level',
-      'notes',
-      'parent_name',
-      'guardian_relation',
-      'parent_contact',
-      'guardian_email',
-      'emergency_contact_name',
-      'emergency_contact_phone',
-      'health_conditions',
-      'national_id',
-      'school_name',
-      'grade_level',
-      'educational_level',
-      'occupation',
-      'civil_status',
-      'related_family_members',
-      'financial_assistance_notes',
-    ];
-
     try {
       if (studentId) {
-        // Update existing student
-        const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-        const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
-        const params = [...fields.map((field) => formData[field] ?? null), studentId];
-        await window.electronAPI.db.run(sql, params);
+        // Use the new secure update channel
+        await window.electronAPI.updateStudent(studentId, formData);
       } else {
-        // Add new student
-        const placeholders = fields.map(() => '?').join(', ');
-        const sql = `INSERT INTO students (${fields.join(', ')}) VALUES (${placeholders})`;
-        const params = fields.map((field) => formData[field] ?? null);
-        await window.electronAPI.db.run(sql, params);
+        // Use the new secure add channel
+        await window.electronAPI.addStudent(formData);
       }
       fetchStudents(); // Refresh the list
       handleCloseModal();
@@ -143,7 +109,7 @@ function StudentsPage() {
     if (!studentToDelete) return;
 
     try {
-      await window.electronAPI.db.run('DELETE FROM students WHERE id = ?', [studentToDelete.id]);
+      await window.electronAPI.deleteStudent(studentToDelete.id);
       fetchStudents(); // Refresh the list
     } catch (err) {
       console.error('Error deleting student:', err);

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const bcrypt = require('bcryptjs');
+const Joi = require('joi');
 const jwt = require('jsonwebtoken');
 
 // Load environment variables
@@ -111,6 +112,122 @@ ipcMain.handle('students:get', async (_event, filters) => {
 ipcMain.handle('students:getById', async (_event, id) => {
   // This query fetches all columns for a single student, which is what our modals need.
   return db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
+});
+
+// --- Validation Schemas ---
+
+const studentValidationSchema = Joi.object({
+  // Required fields
+  name: Joi.string().min(3).max(100).required().messages({
+    'string.base': 'الاسم يجب أن يكون نصاً',
+    'string.empty': 'الاسم مطلوب',
+    'string.min': 'يجب أن يكون الاسم 3 أحرف على الأقل',
+    'any.required': 'الاسم مطلوب',
+  }),
+  status: Joi.string().valid('active', 'inactive', 'graduated', 'on_leave').required(),
+
+  // Optional fields with validation
+  date_of_birth: Joi.date().iso().allow(null, ''),
+  gender: Joi.string().valid('Male', 'Female').allow(null, ''),
+  email: Joi.string()
+    .email({ tlds: { allow: false } })
+    .allow(null, ''),
+  contact_info: Joi.string()
+    .pattern(/^[0-9\s+()-]+$/)
+    .allow(null, ''),
+  parent_contact: Joi.string()
+    .pattern(/^[0-9\s+()-]+$/)
+    .allow(null, ''),
+
+  // Allow other fields to pass through without specific validation for now
+}).unknown(true); // .unknown(true) allows fields not defined in the schema to pass through
+
+const studentFields = [
+  'name',
+  'date_of_birth',
+  'gender',
+  'address',
+  'contact_info',
+  'email',
+  'status',
+  'memorization_level',
+  'notes',
+  'parent_name',
+  'guardian_relation',
+  'parent_contact',
+  'guardian_email',
+  'emergency_contact_name',
+  'emergency_contact_phone',
+  'health_conditions',
+  'national_id',
+  'school_name',
+  'grade_level',
+  'educational_level',
+  'occupation',
+  'civil_status',
+  'related_family_members',
+  'financial_assistance_notes',
+];
+
+ipcMain.handle('students:add', async (_event, studentData) => {
+  try {
+    // Validate and strip unknown properties not covered by .unknown(true)
+    const validatedData = await studentValidationSchema.validateAsync(studentData, {
+      abortEarly: false,
+      stripUnknown: false, // Keep fields not in schema but allowed by .unknown(true)
+    });
+
+    const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
+
+    if (fieldsToInsert.length === 0) {
+      throw new Error('No valid fields to insert.');
+    }
+
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+
+    const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi) {
+      const messages = error.details.map((d) => d.message).join('; ');
+      throw new Error(`بيانات غير صالحة: ${messages}`);
+    }
+    console.error('Error in students:add handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('students:update', async (_event, id, studentData) => {
+  try {
+    const validatedData = await studentValidationSchema.validateAsync(studentData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
+
+    const fieldsToUpdate = studentFields.filter((field) => validatedData[field] !== undefined);
+    const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+    const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+
+    const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi) {
+      const messages = error.details.map((d) => d.message).join('; ');
+      throw new Error(`بيانات غير صالحة: ${messages}`);
+    }
+    console.error('Error in students:update handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
+  }
+});
+
+ipcMain.handle('students:delete', async (_event, id) => {
+  // Basic validation
+  if (!id || typeof id !== 'number') {
+    throw new Error('A valid student ID is required for deletion.');
+  }
+  const sql = 'DELETE FROM students WHERE id = ?';
+  return db.runQuery(sql, [id]);
 });
 
 // Database IPC Handlers
