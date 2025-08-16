@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Alert, Form, InputGroup, Badge } from 'react-bootstrap';
+import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import ClassFormModal from '../components/ClassFormModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import '../styles/StudentsPage.css'; // Reuse styles
 
 function ClassesPage() {
   const [classes, setClasses] = useState([]);
-  const [filteredClasses, setFilteredClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,38 +15,22 @@ function ClassesPage() {
   const [classToDelete, setClassToDelete] = useState(null);
 
   const fetchClasses = useCallback(async () => {
+    setLoading(true);
     try {
-      setError(null);
-      setLoading(true);
-      // Use a LEFT JOIN to get the teacher's name. If a teacher is deleted,
-      // the class will still show but with a null teacher name.
-      const sql = `
-        SELECT c.id, c.name, c.class_type, c.schedule, c.status,
-               c.teacher_id, t.name as teacher_name
-        FROM classes c
-        LEFT JOIN teachers t ON c.teacher_id = t.id
-        ORDER BY c.name ASC
-      `;
-      const fetchedClasses = await window.electronAPI.db.all(sql);
+      const filters = { searchTerm };
+      const fetchedClasses = await window.electronAPI.getClasses(filters);
       setClasses(fetchedClasses);
     } catch (err) {
       console.error('Error fetching classes:', err);
-      setError('فشل في تحميل بيانات الفصول الدراسية.');
+      toast.error('فشل في تحميل بيانات الفصول الدراسية.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchClasses();
   }, [fetchClasses]);
-
-  useEffect(() => {
-    const results = classes.filter((cls) =>
-      cls.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-    setFilteredClasses(results);
-  }, [searchTerm, classes]);
 
   const handleShowAddModal = () => {
     setEditingClass(null);
@@ -91,7 +74,7 @@ function ClassesPage() {
       handleCloseModal();
     } catch (err) {
       console.error('Error saving class:', err);
-      setError(`فشل في حفظ بيانات الفصل: ${err.message}`);
+      toast.error(`فشل في حفظ بيانات الفصل: ${err.message}`);
     }
   };
 
@@ -107,7 +90,7 @@ function ClassesPage() {
       fetchClasses();
     } catch (err) {
       console.error('Error deleting class:', err);
-      setError('فشل في حذف الفصل.');
+      toast.error('فشل في حذف الفصل.');
     } finally {
       setShowDeleteModal(false);
       setClassToDelete(null);
@@ -177,7 +160,6 @@ function ClassesPage() {
           />
         </InputGroup>
       </div>
-      {error && <Alert variant="danger">{error}</Alert>}
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
@@ -196,8 +178,8 @@ function ClassesPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredClasses.length > 0 ? (
-              filteredClasses.map((cls, index) => (
+            {classes.length > 0 ? (
+              classes.map((cls, index) => (
                 <tr key={cls.id}>
                   <td>{index + 1}</td>
                   <td>{cls.name}</td>
@@ -226,7 +208,9 @@ function ClassesPage() {
             ) : (
               <tr>
                 <td colSpan="7" className="text-center">
-                  لم يتم العثور على فصول دراسية.
+                  {searchTerm
+                    ? 'لم يتم العثور على فصول مطابقة للبحث.'
+                    : 'لم يتم العثور على فصول دراسية.'}
                 </td>
               </tr>
             )}

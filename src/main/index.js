@@ -348,6 +348,28 @@ ipcMain.handle('teachers:getById', async (_event, id) => {
   return db.getQuery('SELECT * FROM teachers WHERE id = ?', [id]);
 });
 
+// --- Classes IPC Handlers ---
+
+ipcMain.handle('classes:get', async (_event, filters) => {
+  // This query joins with the teachers table to get the teacher's name.
+  let sql = `
+    SELECT c.id, c.name, c.class_type, c.schedule, c.status,
+           c.teacher_id, t.name as teacher_name
+    FROM classes c
+    LEFT JOIN teachers t ON c.teacher_id = t.id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (filters?.searchTerm) {
+    sql += ' AND c.name LIKE ?';
+    params.push(`%${filters.searchTerm}%`);
+  }
+
+  sql += ' ORDER BY c.name ASC';
+  return db.allQuery(sql, params);
+});
+
 // Database IPC Handlers
 ipcMain.handle('db:run', async (event, { sql, params }) => {
   return await db.runQuery(sql, params);
