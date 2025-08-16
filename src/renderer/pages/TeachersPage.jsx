@@ -43,9 +43,15 @@ function TeachersPage() {
     setShowModal(true);
   };
 
-  const handleShowEditModal = (teacher) => {
-    setEditingTeacher(teacher);
-    setShowModal(true);
+  const handleShowEditModal = async (teacher) => {
+    try {
+      const fullTeacher = await window.electronAPI.getTeacherById(teacher.id);
+      setEditingTeacher(fullTeacher);
+      setShowModal(true);
+    } catch (err) {
+      console.error('Error fetching full teacher details:', err);
+      toast.error('فشل في تحميل التفاصيل الكاملة للمعلم.');
+    }
   };
 
   const handleCloseModal = () => {
@@ -53,9 +59,15 @@ function TeachersPage() {
     setEditingTeacher(null);
   };
 
-  const handleShowDetailsModal = (teacher) => {
-    setTeacherToView(teacher);
-    setShowDetailsModal(true);
+  const handleShowDetailsModal = async (teacher) => {
+    try {
+      const fullTeacher = await window.electronAPI.getTeacherById(teacher.id);
+      setTeacherToView(fullTeacher);
+      setShowDetailsModal(true);
+    } catch (err) {
+      console.error('Error fetching full teacher details:', err);
+      toast.error('فشل في تحميل التفاصيل الكاملة للمعلم.');
+    }
   };
 
   const handleCloseDetailsModal = () => {

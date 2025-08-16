@@ -256,6 +256,11 @@ ipcMain.handle('teachers:get', async (_event, filters) => {
   return db.allQuery(sql, params);
 });
 
+ipcMain.handle('teachers:getById', async (_event, id) => {
+  // This query fetches all columns for a single teacher.
+  return db.getQuery('SELECT * FROM teachers WHERE id = ?', [id]);
+});
+
 // Database IPC Handlers
 ipcMain.handle('db:run', async (event, { sql, params }) => {
   return await db.runQuery(sql, params);
