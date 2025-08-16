@@ -454,19 +454,6 @@ ipcMain.handle('classes:getById', async (_event, id) => {
   return db.getQuery(sql, [id]);
 });
 
-// Database IPC Handlers
-ipcMain.handle('db:run', async (event, { sql, params }) => {
-  return await db.runQuery(sql, params);
-});
-
-ipcMain.handle('db:get', async (event, { sql, params }) => {
-  return await db.getQuery(sql, params);
-});
-
-ipcMain.handle('db:all', async (event, { sql, params }) => {
-  return await db.allQuery(sql, params);
-});
-
 // Auth IPC Handler
 ipcMain.handle('auth:login', async (event, { username, password }) => {
   try {
