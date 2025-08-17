@@ -1,26 +1,27 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { Form, Button, Container, Card, Alert } from "react-bootstrap";
-import "../styles/LoginPage.css";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
+import PasswordInput from '../components/PasswordInput';
+import '../styles/LoginPage.css';
 
 function LoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
     const response = await login(username, password);
     if (response.success) {
-      navigate("/");
+      navigate('/');
     } else {
-      setError(response.message || "فشل تسجيل الدخول");
+      setError(response.message || 'فشل تسجيل الدخول');
     }
     setLoading(false);
   };
@@ -44,22 +45,15 @@ function LoginPage() {
                 required
               />
             </Form.Group>
-            <Form.Group className="mb-3" controlId="password">
-              <Form.Label>كلمة المرور</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Button
-              variant="primary"
-              type="submit"
-              className="w-100"
-              disabled={loading}
-            >
-              {loading ? "جاري الدخول..." : "تسجيل الدخول"}
+            <PasswordInput
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="أدخل كلمة المرور"
+              required
+            />
+            <Button variant="primary" type="submit" className="w-100" disabled={loading}>
+              {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
             </Button>
           </Form>
         </Card.Body>

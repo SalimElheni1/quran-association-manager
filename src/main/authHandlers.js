@@ -10,12 +10,18 @@ const userValidationSchema = Joi.object({
   password: Joi.string().min(8).required(),
   first_name: Joi.string().min(2).max(50).required(),
   last_name: Joi.string().min(2).max(50).required(),
-  employment_type: Joi.string().valid('volunteer', 'contract').required(),
-  role: Joi.string().valid('Manager', 'FinanceManager', 'Admin', 'SessionSupervisor').required(),
+  employment_type: Joi.string().valid('volunteer', 'contract').allow(null, ''),
+  role: Joi.string()
+    .valid('Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor')
+    .required(),
   date_of_birth: Joi.date().iso().allow(null, ''),
   national_id: Joi.string().allow(null, ''),
-  email: Joi.string().email({ tlds: { allow: false } }).allow(null, ''),
-  phone_number: Joi.string().pattern(/^[0-9\s+()-]+$/).allow(null, ''),
+  email: Joi.string()
+    .email({ tlds: { allow: false } })
+    .allow(null, ''),
+  phone_number: Joi.string()
+    .pattern(/^[0-9\s+()-]+$/)
+    .allow(null, ''),
   occupation: Joi.string().allow(null, ''),
   civil_status: Joi.string().valid('Single', 'Married', 'Divorced', 'Widowed').allow(null, ''),
   end_date: Joi.date().iso().allow(null, ''),
@@ -94,7 +100,12 @@ const updateProfileHandler = async (token, profileData) => {
   }
 
   const fieldsToExclude = [
-    'id', 'username', 'role', 'current_password', 'new_password', 'confirm_new_password',
+    'id',
+    'username',
+    'role',
+    'current_password',
+    'new_password',
+    'confirm_new_password',
   ];
   const fieldsToUpdate = Object.keys(validatedData).filter(
     (field) => !fieldsToExclude.includes(field) && validatedData[field] !== undefined,

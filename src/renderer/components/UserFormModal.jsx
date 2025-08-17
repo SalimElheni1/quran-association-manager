@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import PasswordInput from './PasswordInput';
 
 function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   const [formData, setFormData] = useState({});
@@ -95,17 +96,14 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                 required
               />
             </Form.Group>
-            <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>كلمة المرور</Form.Label>
-              <Form.Control
-                type="password"
-                name="password"
-                value={formData.password || ''} // This was already correct
-                onChange={handleChange}
-                required={!isEditMode}
-                placeholder={isEditMode ? 'اتركه فارغاً لعدم التغيير' : ''}
-              />
-            </Form.Group>
+            <PasswordInput
+              name="password"
+              value={formData.password || ''}
+              onChange={handleChange}
+              placeholder={isEditMode ? 'اتركه فارغاً لعدم التغيير' : ''}
+              required={!isEditMode}
+              label="كلمة المرور"
+            />
           </Row>
 
           <h5 className="form-section-title">المعلومات الشخصية</h5>

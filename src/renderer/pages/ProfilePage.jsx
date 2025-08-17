@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  Container,
-  Row,
-  Col,
-  Card,
-  Form,
-  Button,
-  Spinner,
-  Alert,
-} from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import PasswordInput from '../components/PasswordInput';
 
 const ProfilePage = () => {
   const { token } = useAuth();
@@ -145,7 +137,12 @@ const ProfilePage = () => {
                       <Col md={6}>
                         <Form.Group className="mb-3">
                           <Form.Label>الدور</Form.Label>
-                          <Form.Control type="text" name="role" value={profile.role || ''} readOnly />
+                          <Form.Control
+                            type="text"
+                            name="role"
+                            value={profile.role || ''}
+                            readOnly
+                          />
                         </Form.Group>
                       </Col>
                     </Row>
@@ -197,25 +194,34 @@ const ProfilePage = () => {
                         </Form.Group>
                       </Col>
                     </Row>
-                     <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                            <Form.Label>الحالة الاجتماعية</Form.Label>
-                            <Form.Select name="civil_status" value={profile.civil_status || ''} onChange={handleProfileChange}>
-                                <option value="">اختر...</option>
-                                <option value="Single">أعزب/عزباء</option>
-                                <option value="Married">متزوج/متزوجة</option>
-                                <option value="Divorced">مطلق/مطلقة</option>
-                                <option value="Widowed">أرمل/أرملة</option>
-                            </Form.Select>
-                            </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                            <Form.Label>المهنة</Form.Label>
-                            <Form.Control type="text" name="occupation" value={profile.occupation || ''} onChange={handleProfileChange} />
-                            </Form.Group>
-                        </Col>
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>الحالة الاجتماعية</Form.Label>
+                          <Form.Select
+                            name="civil_status"
+                            value={profile.civil_status || ''}
+                            onChange={handleProfileChange}
+                          >
+                            <option value="">اختر...</option>
+                            <option value="Single">أعزب/عزباء</option>
+                            <option value="Married">متزوج/متزوجة</option>
+                            <option value="Divorced">مطلق/مطلقة</option>
+                            <option value="Widowed">أرمل/أرملة</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>المهنة</Form.Label>
+                          <Form.Control
+                            type="text"
+                            name="occupation"
+                            value={profile.occupation || ''}
+                            onChange={handleProfileChange}
+                          />
+                        </Form.Group>
+                      </Col>
                     </Row>
                   </Card.Body>
                 </Card>
@@ -253,45 +259,70 @@ const ProfilePage = () => {
 
                 {/* Employment Information */}
                 <Card className="mb-4">
-                    <Card.Header>معلومات التوظيف</Card.Header>
-                    <Card.Body>
-                        <Row>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                <Form.Label>نوع التوظيف</Form.Label>
-                                <Form.Select name="employment_type" value={profile.employment_type || ''} onChange={handleProfileChange}>
-                                    <option value="">اختر...</option>
-                                    <option value="volunteer">متطوع</option>
-                                    <option value="contract">عقد</option>
-                                </Form.Select>
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                <Form.Label>الحالة</Form.Label>
-                                <Form.Control type="text" name="status" value={profile.status || ''} readOnly />
-                                </Form.Group>
-                            </Col>
-                        </Row>
-                        <Row>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                <Form.Label>تاريخ البدء</Form.Label>
-                                <Form.Control type="date" name="start_date" value={profile.start_date || ''} onChange={handleProfileChange} />
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                <Form.Label>تاريخ الانتهاء</Form.Label>
-                                <Form.Control type="date" name="end_date" value={profile.end_date || ''} onChange={handleProfileChange} />
-                                </Form.Group>
-                            </Col>
-                        </Row>
-                         <Form.Group className="mb-3">
-                            <Form.Label>ملاحظات</Form.Label>
-                            <Form.Control as="textarea" rows={3} name="notes" value={profile.notes || ''} onChange={handleProfileChange} />
+                  <Card.Header>معلومات التوظيف</Card.Header>
+                  <Card.Body>
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>نوع التوظيف</Form.Label>
+                          <Form.Select
+                            name="employment_type"
+                            value={profile.employment_type || ''}
+                            onChange={handleProfileChange}
+                          >
+                            <option value="">اختر...</option>
+                            <option value="volunteer">متطوع</option>
+                            <option value="contract">عقد</option>
+                          </Form.Select>
                         </Form.Group>
-                    </Card.Body>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>الحالة</Form.Label>
+                          <Form.Control
+                            type="text"
+                            name="status"
+                            value={profile.status || ''}
+                            readOnly
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>تاريخ البدء</Form.Label>
+                          <Form.Control
+                            type="date"
+                            name="start_date"
+                            value={profile.start_date || ''}
+                            onChange={handleProfileChange}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>تاريخ الانتهاء</Form.Label>
+                          <Form.Control
+                            type="date"
+                            name="end_date"
+                            value={profile.end_date || ''}
+                            onChange={handleProfileChange}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                    <Form.Group className="mb-3">
+                      <Form.Label>ملاحظات</Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        name="notes"
+                        value={profile.notes || ''}
+                        onChange={handleProfileChange}
+                      />
+                    </Form.Group>
+                  </Card.Body>
                 </Card>
 
                 {/* Password Change */}
@@ -300,38 +331,31 @@ const ProfilePage = () => {
                   <Card.Body>
                     <Row>
                       <Col md={4}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>كلمة المرور الحالية</Form.Label>
-                          <Form.Control
-                            type="password"
-                            name="current_password"
-                            value={passwordData.current_password}
-                            onChange={handlePasswordChange}
-                            placeholder="اتركها فارغة لعدم التغيير"
-                          />
-                        </Form.Group>
+                        <PasswordInput
+                          name="current_password"
+                          value={passwordData.current_password}
+                          onChange={handlePasswordChange}
+                          placeholder="اتركها فارغة لعدم التغيير"
+                          label="كلمة المرور الحالية"
+                        />
                       </Col>
                       <Col md={4}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>كلمة المرور الجديدة</Form.Label>
-                          <Form.Control
-                            type="password"
-                            name="new_password"
-                            value={passwordData.new_password}
-                            onChange={handlePasswordChange}
-                          />
-                        </Form.Group>
+                        <PasswordInput
+                          name="new_password"
+                          value={passwordData.new_password}
+                          onChange={handlePasswordChange}
+                          placeholder="أدخل كلمة المرور الجديدة"
+                          label="كلمة المرور الجديدة"
+                        />
                       </Col>
                       <Col md={4}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>تأكيد كلمة المرور الجديدة</Form.Label>
-                          <Form.Control
-                            type="password"
-                            name="confirm_new_password"
-                            value={passwordData.confirm_new_password}
-                            onChange={handlePasswordChange}
-                          />
-                        </Form.Group>
+                        <PasswordInput
+                          name="confirm_new_password"
+                          value={passwordData.confirm_new_password}
+                          onChange={handlePasswordChange}
+                          placeholder="أعد إدخال كلمة المرور الجديدة"
+                          label="تأكيد كلمة المرور الجديدة"
+                        />
                       </Col>
                     </Row>
                   </Card.Body>
@@ -341,7 +365,13 @@ const ProfilePage = () => {
                   <Button variant="primary" type="submit" size="lg" disabled={isSubmitting}>
                     {isSubmitting ? (
                       <>
-                        <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                        <Spinner
+                          as="span"
+                          animation="border"
+                          size="sm"
+                          role="status"
+                          aria-hidden="true"
+                        />
                         {' جاري الحفظ...'}
                       </>
                     ) : (
