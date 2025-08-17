@@ -1,5 +1,4 @@
--- Migration to create the class_students junction table
--- This table establishes a many-to-many relationship between classes and students.
+-- Migration to create the class_students join table for enrollments
 
 CREATE TABLE IF NOT EXISTS class_students (
     class_id INTEGER NOT NULL,

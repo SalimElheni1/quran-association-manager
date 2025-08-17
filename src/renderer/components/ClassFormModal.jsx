@@ -43,6 +43,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
       end_date: '',
       status: 'pending',
       capacity: '',
+      gender: 'all',
       class_type: '',
     };
 
@@ -156,6 +157,15 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                 <option value="pending">قيد الانتظار</option>
                 <option value="active">نشط</option>
                 <option value="completed">مكتمل</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group as={Col} md="6" className="mb-3">
+              <Form.Label>الجنس</Form.Label>
+              <Form.Select name="gender" value={formData.gender || 'all'} onChange={handleChange}>
+                <option value="all">الكل</option>
+                <option value="men">رجال</option>
+                <option value="women">نساء</option>
+                <option value="kids">أطفال</option>
               </Form.Select>
             </Form.Group>
           </Row>

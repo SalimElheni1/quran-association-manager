@@ -60,6 +60,13 @@ function ClassDetailsModal({ show, handleClose, classData }) {
     completed: 'secondary',
   };
 
+  const genderTranslations = {
+    all: 'الكل',
+    men: 'رجال',
+    women: 'نساء',
+    kids: 'أطفال',
+  };
+
   return (
     <Modal show={show} onHide={handleClose} centered size="lg">
       <Modal.Header closeButton>
@@ -79,6 +86,10 @@ function ClassDetailsModal({ show, handleClose, classData }) {
             value={statusTranslations[classData.status] || classData.status}
             isBadge
             badgeVariant={statusVariants[classData.status] || 'light'}
+          />
+          <DetailItem
+            label="الجنس"
+            value={genderTranslations[classData.gender] || classData.gender}
           />
           <DetailItem label="سعة الفصل" value={classData.capacity ?? 'غير محدد'} />
           <DetailItem label="أوقات الدراسة" value={formatSchedule(classData.schedule)} />

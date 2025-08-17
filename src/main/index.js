@@ -51,18 +51,25 @@ const createWindow = () => {
   }
 };
 
-app.whenReady().then(() => {
-  // Remove the application menu. This is the idiomatic way to have no menu bar.
-  Menu.setApplicationMenu(null);
-  createWindow();
-  db.initializeDatabase();
+app.whenReady().then(async () => {
+  try {
+    // Initialize database first
+    console.log('Starting database initialization...');
+    await db.initializeDatabase();
 
-  app.on('activate', () => {
-    // On macOS, re-create a window when the dock icon is clicked and no other windows are open.
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+    // Then create the window
+    Menu.setApplicationMenu(null);
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  } catch (error) {
+    console.error('Fatal error during application startup:', error);
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -158,6 +165,7 @@ const classValidationSchema = Joi.object({
   status: Joi.string().valid('pending', 'active', 'completed').required(),
   capacity: Joi.number().integer().min(1).allow(null, ''),
   schedule: Joi.string().allow(null, ''), // It's a JSON string
+  gender: Joi.string().valid('women', 'men', 'kids', 'all').default('all'),
   class_type: Joi.string().allow(null, ''),
   start_date: Joi.date().iso().allow(null, ''),
   end_date: Joi.date().iso().allow(null, ''),
@@ -437,6 +445,7 @@ const classFields = [
   'end_date',
   'status',
   'capacity',
+  'gender',
 ];
 
 ipcMain.handle('classes:add', async (_event, classData) => {
@@ -488,7 +497,7 @@ ipcMain.handle('classes:delete', async (_event, id) => {
 ipcMain.handle('classes:get', async (_event, filters) => {
   // This query joins with the teachers table to get the teacher's name.
   let sql = `
-    SELECT c.id, c.name, c.class_type, c.schedule, c.status,
+    SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender,
            c.teacher_id, t.name as teacher_name
     FROM classes c
     LEFT JOIN teachers t ON c.teacher_id = t.id
@@ -499,6 +508,11 @@ ipcMain.handle('classes:get', async (_event, filters) => {
   if (filters?.searchTerm) {
     sql += ' AND c.name LIKE ?';
     params.push(`%${filters.searchTerm}%`);
+  }
+
+  if (filters?.status) {
+    sql += ' AND c.status = ?';
+    params.push(filters.status);
   }
 
   sql += ' ORDER BY c.name ASC';
@@ -516,148 +530,276 @@ ipcMain.handle('classes:getById', async (_event, id) => {
   return db.getQuery(sql, [id]);
 });
 
-// --- User Management IPC Handlers (Superadmin only) ---
+ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGender }) => {
+  try {
+    // Get enrolled students for this class
+    const enrolledSql = `
+      SELECT s.id, s.name 
+      FROM students s
+      INNER JOIN class_students cs ON s.id = cs.student_id
+      WHERE cs.class_id = ? AND s.status = 'active'
+      ORDER BY s.name ASC
+    `;
+    const enrolledStudents = await db.allQuery(enrolledSql, [classId]);
 
-ipcMain.handle('users:get', async (event) => {
-  // For security, we only return non-Superadmin users.
-  // We also don't return the password hash.
-  const sql = `SELECT id, username, first_name, last_name, role, status FROM users WHERE role != 'Superadmin' ORDER BY last_name, first_name ASC`;
-  return db.allQuery(sql);
+    // Get not enrolled students (students not in this class)
+    let notEnrolledSql = `
+      SELECT s.id, s.name 
+      FROM students s 
+      WHERE s.status = 'active' 
+      AND s.id NOT IN (
+        SELECT student_id FROM class_students WHERE class_id = ?
+      )
+    `;
+    const notEnrolledParams = [classId];
+
+    // Add gender filtering based on the class's gender property
+    if (classGender === 'kids') {
+      notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < 13)`;
+    } else if (classGender === 'men') {
+      notEnrolledSql += ` AND s.gender = 'Male'`;
+    } else if (classGender === 'women') {
+      notEnrolledSql += ` AND s.gender = 'Female'`;
+    }
+
+    notEnrolledSql += ' ORDER BY s.name ASC';
+    const notEnrolledStudents = await db.allQuery(notEnrolledSql, notEnrolledParams);
+
+    return { enrolledStudents, notEnrolledStudents };
+  } catch (error) {
+    console.error('Error fetching enrollment data:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('users:get', async (_event, filters) => {
+  let sql = 'SELECT id, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
+  const params = [];
+
+  if (filters?.searchTerm) {
+    sql += ' AND (username LIKE ? OR first_name LIKE ? OR last_name LIKE ?)';
+
+    const searchTerm = `%${filters.searchTerm}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  if (filters?.roleFilter && filters.roleFilter !== 'all') {
+    sql += ' AND role = ?';
+    params.push(filters.roleFilter);
+  }
+
+  if (filters?.statusFilter && filters.statusFilter !== 'all') {
+    sql += ' AND status = ?';
+    params.push(filters.statusFilter);
+  }
+
+  sql += ' ORDER BY username ASC';
+  return db.allQuery(sql, params);
+});
+
+ipcMain.handle('users:getById', async (_event, id) => {
+  // This query fetches all columns for a single user
+  return db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
 });
 
 ipcMain.handle('users:add', async (_event, userData) => {
   try {
-    // 1. Validate the incoming data
-    const validatedData = await userValidationSchema.validateAsync(userData, { abortEarly: false });
+    const validatedData = await userValidationSchema.validateAsync(userData, {
+      abortEarly: false,
+      stripUnknown: false,
+    });
 
-    // 2. Check for duplicate username
-    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [
-      validatedData.username,
-    ]);
-    if (existingUser) {
-      throw new Error('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.');
+    // Hash the password before storing
+    if (validatedData.password) {
+      validatedData.password = bcrypt.hashSync(validatedData.password, 10);
     }
 
-    // 3. Hash the password
-    const hashedPassword = bcrypt.hashSync(validatedData.password, 10);
-    const dataToSave = { ...validatedData, password: hashedPassword, status: 'active' };
+    const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
+    if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
 
-    // 4. Insert the new user into the database
-    const fieldsToInsert = userFields.filter((field) => dataToSave[field] !== undefined);
     const placeholders = fieldsToInsert.map(() => '?').join(', ');
-    const params = fieldsToInsert.map((field) => dataToSave[field] ?? null);
+    const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
     const sql = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
     return db.runQuery(sql, params);
   } catch (error) {
     if (error.isJoi)
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-    throw error; // Rethrow other errors (like duplicate username or DB errors)
+    console.error('Error in users:add handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
   }
-});
-
-ipcMain.handle('users:getById', async (_event, id) => {
-  // Exclude password for security when fetching user data for editing.
-  const sql = `
-    SELECT id, username, first_name, last_name, date_of_birth, national_id, email,
-           phone_number, occupation, civil_status, employment_type, start_date,
-           end_date, role, status, notes
-    FROM users WHERE id = ?
-  `;
-  return db.getQuery(sql, [id]);
 });
 
 ipcMain.handle('users:update', async (_event, { id, userData }) => {
   try {
-    // 1. Validate the incoming data using the update-specific schema
     const validatedData = await userUpdateValidationSchema.validateAsync(userData, {
       abortEarly: false,
+      stripUnknown: false,
     });
 
-    // 2. Check for duplicate username (if it's being changed)
-    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ? AND id != ?', [
-      validatedData.username,
-      id,
-    ]);
-    if (existingUser) {
-      throw new Error('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.');
+    // Hash the password if it's being updated
+    if (validatedData.password) {
+      validatedData.password = bcrypt.hashSync(validatedData.password, 10);
     }
 
-    // 3. Prepare data for update
-    const dataToSave = { ...validatedData };
-
-    // 4. If a new password was provided, hash it. Otherwise, remove it.
-    if (dataToSave.password) {
-      dataToSave.password = bcrypt.hashSync(dataToSave.password, 10);
-    } else {
-      delete dataToSave.password;
-    }
-
-    // 5. Build and run the update query
-    const fieldsToUpdate = userFields.filter((field) => dataToSave[field] !== undefined);
+    const fieldsToUpdate = userFields.filter((field) => validatedData[field] !== undefined);
     const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
-    const params = [...fieldsToUpdate.map((field) => dataToSave[field] ?? null), id];
+    const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+
     const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
     return db.runQuery(sql, params);
   } catch (error) {
     if (error.isJoi)
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-    throw error;
+    console.error('Error in users:update handler:', error);
+    throw new Error('حدث خطأ غير متوقع في الخادم.');
   }
 });
 
 ipcMain.handle('users:delete', async (_event, id) => {
-  if (!id || typeof id !== 'number') {
-    throw new Error('A valid user ID is required for deletion.');
-  }
+  if (!id || typeof id !== 'number') throw new Error('A valid user ID is required for deletion.');
   const sql = 'DELETE FROM users WHERE id = ?';
   return db.runQuery(sql, [id]);
 });
 
-// --- Attendance IPC Handlers ---
+ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds }) => {
+  try {
+    // Start a transaction to ensure atomicity
+    await db.runQuery('BEGIN TRANSACTION');
 
-ipcMain.handle('attendance:getClassesForDay', async (_event, dateString) => {
-  if (!dateString) {
-    return [];
+    // First, remove all existing enrollments for this class
+    await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
+
+    // Then, add the new enrollments
+    if (studentIds && studentIds.length > 0) {
+      const placeholders = studentIds.map(() => '(?, ?)').join(', ');
+      const params = [];
+      studentIds.forEach((studentId) => {
+        params.push(classId, studentId);
+      });
+
+      const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
+      await db.runQuery(sql, params);
+    }
+
+    await db.runQuery('COMMIT');
+    console.log('Enrollments updated successfully');
+    return { success: true };
+  } catch (error) {
+    await db.runQuery('ROLLBACK');
+    console.error('Error updating enrollments:', error);
+    throw error;
   }
-  const date = new Date(dateString);
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayName = dayNames[date.getDay()];
-
-  // We only want active classes for attendance
-  const sql = `SELECT id, name FROM classes WHERE status = 'active' AND schedule LIKE ?`;
-  const params = [`%${dayName}%`];
-  return db.allQuery(sql, params);
 });
 
-// Auth IPC Handler
-ipcMain.handle('auth:login', async (event, { username, password }) => {
+ipcMain.handle('auth:login', async (_event, { username, password }) => {
   try {
     const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
-    if (!user) {
-      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    if (user && bcrypt.compareSync(password, user.password)) {
+      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
+      return {
+        success: true,
+        token,
+        user: { id: user.id, username: user.username, role: user.role },
+      };
+    } else {
+      return { success: false, message: 'Invalid credentials' };
     }
-
-    const passwordIsValid = bcrypt.compareSync(password, user.password);
-
-    if (!passwordIsValid) {
-      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
-    }
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: '8h',
-      },
-    );
-
-    return {
-      success: true,
-      token,
-      user: { id: user.id, username: user.username, role: user.role },
-    };
   } catch (error) {
-    console.error('Login error:', error);
-    return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول' };
+    console.error('Error in auth:login handler:', error);
+    return { success: false, message: 'An unexpected error occurred' };
+  }
+});
+
+// --- Attendance IPC Handlers ---
+
+ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
+  try {
+    // Get active classes that have sessions on the given date
+    const sql = `
+      SELECT DISTINCT c.id, c.name, c.class_type, c.teacher_id, t.name as teacher_name
+      FROM classes c
+      LEFT JOIN teachers t ON c.teacher_id = t.id
+      WHERE c.status = 'active'
+      ORDER BY c.name ASC
+    `;
+    return db.allQuery(sql, []);
+  } catch (error) {
+    console.error('Error fetching classes for day:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('attendance:getStudentsForClass', async (_event, classId) => {
+  try {
+    // Get all active students enrolled in the specified class
+    const sql = `
+      SELECT s.id, s.name, s.date_of_birth
+      FROM students s
+      INNER JOIN class_students cs ON s.id = cs.student_id
+      WHERE cs.class_id = ? AND s.status = 'active'
+      ORDER BY s.name ASC
+    `;
+    return db.allQuery(sql, [classId]);
+  } catch (error) {
+    console.error('Error fetching students for class:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('attendance:getForDate', async (_event, { classId, date }) => {
+  try {
+    // Get attendance records for a specific class and date
+    const sql = `
+      SELECT student_id, status
+      FROM attendance
+      WHERE class_id = ? AND date = ?
+    `;
+    const records = await db.allQuery(sql, [classId, date]);
+
+    // Convert array of records to object for easier access
+    const attendanceMap = {};
+    records.forEach((record) => {
+      attendanceMap[record.student_id] = record.status;
+    });
+
+    return attendanceMap;
+  } catch (error) {
+    console.error('Error fetching attendance for date:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('attendance:save', async (_event, { classId, date, records }) => {
+  try {
+    // Start a transaction to ensure atomicity
+    await db.runQuery('BEGIN TRANSACTION');
+
+    // First, delete existing attendance records for this class and date
+    await db.runQuery('DELETE FROM attendance WHERE class_id = ? AND date = ?', [classId, date]);
+
+    // Then, insert the new attendance records
+    if (records && Object.keys(records).length > 0) {
+      const placeholders = Object.keys(records)
+        .map(() => '(?, ?, ?, ?)')
+        .join(', ');
+      const params = [];
+
+      Object.entries(records).forEach(([studentId, status]) => {
+        params.push(classId, parseInt(studentId), date, status);
+      });
+
+      const sql = `INSERT INTO attendance (class_id, student_id, date, status) VALUES ${placeholders}`;
+      await db.runQuery(sql, params);
+    }
+
+    await db.runQuery('COMMIT');
+    console.log('Attendance saved successfully');
+    return { success: true };
+  } catch (error) {
+    await db.runQuery('ROLLBACK');
+    console.error('Error saving attendance:', error);
+    throw error;
   }
 });

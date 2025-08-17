@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateClass: (id, classData) => ipcRenderer.invoke('classes:update', id, classData),
   deleteClass: (id) => ipcRenderer.invoke('classes:delete', id),
   getClassById: (id) => ipcRenderer.invoke('classes:getById', id),
+  getEnrollmentData: (data) => ipcRenderer.invoke('classes:getEnrollmentData', data),
+  updateEnrollments: (classId, studentIds) =>
+    ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
 
   // User Management API (for Superadmin)
   getUsers: () => ipcRenderer.invoke('users:get'),
@@ -37,4 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Attendance API
   getClassesForDay: (date) => ipcRenderer.invoke('attendance:getClassesForDay', date),
+  getStudentsForClass: (classId) => ipcRenderer.invoke('attendance:getStudentsForClass', classId),
+  getAttendanceForDate: (classId, date) =>
+    ipcRenderer.invoke('attendance:getForDate', { classId, date }),
+  saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
 });

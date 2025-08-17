@@ -40,7 +40,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       setFormData({
         ...initialData,
         ...student,
-        date_of_birth: student.date_of_birth ? student.date_of_birth.split('T')[0] : '', // Format for date input
+        date_of_birth: student.date_of_birth
+          ? new Date(student.date_of_birth).toISOString().split('T')[0]
+          : '', // Format for date input
       });
     } else {
       // If adding, reset form to default values

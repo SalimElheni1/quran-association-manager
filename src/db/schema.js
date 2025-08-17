@@ -102,15 +102,25 @@ const schema = `
     status TEXT DEFAULT 'pending', -- pending, active, completed
     capacity INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    gender TEXT CHECK(gender IN ('women', 'men', 'kids', 'all')) DEFAULT 'all',
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS class_students (
+    class_id INTEGER NOT NULL,
+    student_id INTEGER NOT NULL,
+    enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (class_id, student_id),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     class_id INTEGER NOT NULL,
-    date DATETIME NOT NULL,
+    date TEXT NOT NULL, -- Storing date as YYYY-MM-DD text
     status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'late')),
+    PRIMARY KEY (class_id, student_id, date),
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
   );

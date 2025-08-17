@@ -1,0 +1,13 @@
+.enrollment-list {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+}
+
+.enrollment-list .list-group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

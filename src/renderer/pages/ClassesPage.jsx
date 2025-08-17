@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import ClassFormModal from '../components/ClassFormModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ClassDetailsModal from '../components/ClassDetailsModal'; // We will create this next
+import EnrollmentModal from '../components/EnrollmentModal';
 import '../styles/StudentsPage.css'; // Reuse styles
 
 function ClassesPage() {
@@ -16,6 +17,8 @@ function ClassesPage() {
   const [classToDelete, setClassToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [classToView, setClassToView] = useState(null);
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [classToEnroll, setClassToEnroll] = useState(null);
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);
@@ -70,6 +73,11 @@ function ClassesPage() {
   const handleCloseDetailsModal = () => {
     setShowDetailsModal(false);
     setClassToView(null);
+  };
+
+  const handleShowEnrollmentModal = (classData) => {
+    setClassToEnroll(classData);
+    setShowEnrollmentModal(true);
   };
 
   const handleSaveClass = async (formData, classId) => {
@@ -134,6 +142,13 @@ function ClassesPage() {
     }
   };
 
+  const genderTranslations = {
+    all: 'الكل',
+    men: 'رجال',
+    women: 'نساء',
+    kids: 'أطفال',
+  };
+
   const renderStatusBadge = (status) => {
     const translations = {
       pending: 'قيد الانتظار',
@@ -186,6 +201,7 @@ function ClassesPage() {
               <th>النوع</th>
               <th>المعلم</th>
               <th>الجدول</th>
+              <th>الجنس</th>
               <th>الحالة</th>
               <th>إجراءات</th>
             </tr>
@@ -199,8 +215,16 @@ function ClassesPage() {
                   <td>{cls.class_type || '-'}</td>
                   <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                   <td>{formatSchedule(cls.schedule)}</td>
+                  <td>{genderTranslations[cls.gender] || cls.gender}</td>
                   <td>{renderStatusBadge(cls.status)}</td>
-                  <td className="table-actions d-flex gap-2" style={{ minWidth: '180px' }}>
+                  <td className="table-actions d-flex gap-2" style={{ minWidth: '260px' }}>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => handleShowEnrollmentModal(cls)}
+                    >
+                      <i className="fas fa-user-plus"></i> إدارة الطلاب
+                    </Button>
                     <Button
                       variant="outline-info"
                       size="sm"
@@ -227,7 +251,7 @@ function ClassesPage() {
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="text-center">
+                <td colSpan="8" className="text-center">
                   {searchTerm
                     ? 'لم يتم العثور على فصول مطابقة للبحث.'
                     : 'لم يتم العثور على فصول دراسية.'}
@@ -256,6 +280,11 @@ function ClassesPage() {
         body={`هل أنت متأكد من رغبتك في حذف الفصل "${classToDelete?.name}"؟`}
         confirmVariant="danger"
         confirmText="نعم، قم بالحذف"
+      />
+      <EnrollmentModal
+        show={showEnrollmentModal}
+        handleClose={() => setShowEnrollmentModal(false)}
+        classData={classToEnroll}
       />
     </div>
   );
