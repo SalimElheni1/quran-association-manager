@@ -33,6 +33,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateEnrollments: (classId, studentIds) =>
     ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
 
+  // Settings API
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
+
+  // Dialog API
+  openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
+  openFileDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
+
+  // Backup API
+  runBackup: () => ipcRenderer.invoke('backup:run'),
+  getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
+
   // User Management API (for Superadmin)
   getUsers: () => ipcRenderer.invoke('users:get'),
   addUser: (userData) => ipcRenderer.invoke('users:add', userData),

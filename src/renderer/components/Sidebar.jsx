@@ -48,6 +48,12 @@ function Sidebar() {
               <span>إدارة المستخدمين</span>
             </NavLink>
           )}
+          {user?.role === 'Superadmin' && (
+            <NavLink to="/settings" className="nav-link">
+              <i className="fas fa-cog"></i>
+              <span>الإعدادات</span>
+            </NavLink>
+          )}
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">

@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
+const Store = require('electron-store');
 const { getProfileHandler, updateProfileHandler } = require('./authHandlers');
+const { getSettingsHandler, updateSettingsHandler } = require('./settingsHandlers');
+const backupManager = require('./backupManager');
 
 // Load environment variables
 require('dotenv').config();
@@ -53,10 +56,33 @@ const createWindow = () => {
 };
 
 app.whenReady().then(async () => {
+  // Register a custom protocol to safely serve images from the app's data directory.
+  // This prevents exposing the entire filesystem to the renderer process.
+  protocol.registerFileProtocol('safe-image', (request, callback) => {
+    const url = request.url.substr('safe-image://'.length);
+    const decodedUrl = decodeURI(url);
+    const safePath = path.join(app.getPath('userData'), decodedUrl);
+
+    // Ensure the path is within the intended directory to prevent path traversal attacks.
+    const safeDir = path.join(app.getPath('userData'), 'assets', 'logos');
+    if (path.dirname(safePath).startsWith(safeDir)) {
+      callback({ path: safePath });
+    } else {
+      console.error('Blocked request for an unsafe path:', safePath);
+      callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+    }
+  });
+
   try {
     // Initialize database first
     console.log('Starting database initialization...');
     await db.initializeDatabase();
+
+    // Start backup scheduler on application startup
+    const { settings } = await getSettingsHandler();
+    if (settings) {
+      backupManager.startScheduler(settings);
+    }
 
     // Then create the window
     Menu.setApplicationMenu(null);
@@ -741,7 +767,90 @@ ipcMain.handle('auth:updateProfile', async (_event, { token, profileData }) => {
   }
 });
 
+// --- Settings IPC Handlers ---
+
+ipcMain.handle('settings:get', async () => {
+  try {
+    return await getSettingsHandler();
+  } catch (error) {
+    console.error('Error in settings:get IPC wrapper:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('settings:update', async (_event, settingsData) => {
+  try {
+    // The handler needs the `app` object to resolve the userData path
+    const result = await updateSettingsHandler(settingsData, app);
+
+    // If the settings were updated successfully, restart the scheduler with the new settings
+    if (result.success) {
+      console.log('Settings updated, restarting backup scheduler...');
+      const { settings: newSettings } = await getSettingsHandler();
+      if (newSettings) {
+        backupManager.startScheduler(newSettings);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error in settings:update IPC wrapper:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// --- Dialog IPC Handlers ---
+
+ipcMain.handle('dialog:openDirectory', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  });
+  if (canceled) {
+    return { success: false };
+  } else {
+    return { success: true, path: filePaths[0] };
+  }
+});
+
+ipcMain.handle('dialog:openFile', async (_event, options) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: options?.filters || [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }],
+  });
+  if (canceled) {
+    return { success: false };
+  } else {
+    return { success: true, path: filePaths[0] };
+  }
+});
+
 // --- Attendance IPC Handlers ---
+
+// --- Backup IPC Handlers ---
+const store = new Store();
+
+ipcMain.handle('backup:run', async () => {
+  try {
+    const { settings } = await getSettingsHandler();
+    if (!settings) {
+      throw new Error('Could not load settings to run backup.');
+    }
+    return await backupManager.runBackup(settings);
+  } catch (error) {
+    console.error('Error in backup:run IPC wrapper:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('backup:getStatus', () => {
+  try {
+    const lastBackupStatus = store.get('last_backup_status');
+    return { success: true, status: lastBackupStatus };
+  } catch (error) {
+     console.error('Error in backup:getStatus IPC wrapper:', error);
+    return { success: false, message: 'Could not retrieve backup status.' };
+  }
+});
 
 ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
   try {
