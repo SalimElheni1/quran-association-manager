@@ -4,6 +4,7 @@ const db = require('../db/db');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
+const { getProfileHandler, updateProfileHandler } = require('./authHandlers');
 
 // Load environment variables
 require('dotenv').config();
@@ -691,24 +692,52 @@ ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds
   }
 });
 
+// --- Authentication and Profile IPC Handlers ---
+
 ipcMain.handle('auth:login', async (_event, { username, password }) => {
   try {
     const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
     if (user && bcrypt.compareSync(password, user.password)) {
-      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
-        expiresIn: '1h',
-      });
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: '8h', // Extended session time
+        },
+      );
       return {
         success: true,
         token,
         user: { id: user.id, username: user.username, role: user.role },
       };
     } else {
-      return { success: false, message: 'Invalid credentials' };
+      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
     }
   } catch (error) {
     console.error('Error in auth:login handler:', error);
-    return { success: false, message: 'An unexpected error occurred' };
+    return { success: false, message: 'حدث خطأ غير متوقع في الخادم.' };
+  }
+});
+
+ipcMain.handle('auth:getProfile', async (_event, { token }) => {
+  try {
+    return await getProfileHandler(token);
+  } catch (error) {
+    console.error('Error in auth:getProfile IPC wrapper:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('auth:updateProfile', async (_event, { token, profileData }) => {
+  try {
+    return await updateProfileHandler(token, profileData);
+  } catch (error) {
+    console.error('Error in auth:updateProfile IPC wrapper:', error);
+    if (error.isJoi) {
+      const messages = error.details.map((d) => d.message).join('; ');
+      return { success: false, message: `بيانات غير صالحة: ${messages}` };
+    }
+    return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
   }
 });
 

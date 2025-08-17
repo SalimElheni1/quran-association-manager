@@ -209,6 +209,22 @@ For Superadmin users, the application provides functionalities to manage user ac
 2.  View existing users, add new users, or edit user roles (Superadmin, Branch Admin, Teacher).
 3.  Ensure that roles are assigned appropriately to maintain security and access control.
 
+### 2.9. Managing Your Profile
+
+All users can manage their own personal information and change their password through the Profile page.
+
+1.  **Accessing Your Profile:** Click on the **الملف الشخصي** (Profile) link in the navigation sidebar to open your profile page.
+2.  **Updating Your Information:**
+    - The form is pre-filled with your current information across several sections: Personal, Contact, and Employment.
+    - You can edit any of the fields that are not marked as read-only.
+    - After making your changes, click the **حفظ التغييرات** (Save Changes) button at the bottom of the page.
+3.  **Changing Your Password:**
+    - To change your password, you must fill out the three fields in the "Change Password" section.
+    - **Current Password:** Enter the password you used to log in. This is required for security.
+    - **New Password:** Enter your new desired password. It must be at least 8 characters long.
+    - **Confirm New Password:** Re-enter your new password to ensure it is correct.
+    - When you click **Save Changes**, your password will be updated along with any other profile information you changed. If you do not wish to change your password, simply leave these fields blank.
+
 ## 3. Contributing to the Project
 
 We welcome contributions to the Quran Branch Manager project! Whether you're a developer, designer, or tester, your input is valuable. This guide outlines the process for contributing to the codebase, reporting issues, and suggesting enhancements.
