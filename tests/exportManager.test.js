@@ -3,10 +3,14 @@ const path = require('path');
 const os = require('os');
 const { fetchExportData, generatePdf, generateXlsx } = require('../src/main/exportManager');
 const db = require('../src/db/db');
+const utils = require('../src/main/utils');
 
-// Mock the database module
+// Mock modules
 jest.mock('../src/db/db', () => ({
   allQuery: jest.fn(),
+}));
+jest.mock('../src/main/utils', () => ({
+  processArabicText: jest.fn((text) => text), // Mock implementation returns text as is
 }));
 
 describe('exportManager', () => {
@@ -67,19 +71,27 @@ describe('exportManager', () => {
   });
 
   describe('generatePdf', () => {
-    it('should create a PDF file without errors', async () => {
+    it('should create a PDF file and call the text processor', async () => {
       const outputPath = path.join(tmpDir, 'test.pdf');
       const headers = ['ID', 'Name'];
       const data = [{ id: 1, name: 'Test User' }];
       const dataKeys = ['id', 'name'];
+      const mockTemplate = {
+        drawHeader: jest.fn(),
+        drawFooter: jest.fn(),
+      };
 
-      await generatePdf('Test Report', headers, data, dataKeys, outputPath);
+      await generatePdf('Test Report', headers, data, dataKeys, outputPath, mockTemplate);
 
       // Check if the file was created
       expect(fs.existsSync(outputPath)).toBe(true);
-      // Check if the file is not empty
       const stats = fs.statSync(outputPath);
       expect(stats.size).toBeGreaterThan(0);
+
+      // Check if the text processor was called for headers and data
+      expect(utils.processArabicText).toHaveBeenCalledWith('ID');
+      expect(utils.processArabicText).toHaveBeenCalledWith('Name');
+      expect(utils.processArabicText).toHaveBeenCalledWith('Test User');
     });
   });
 

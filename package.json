@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",
+    "arabic-reshaper": "^1.1.0",
     "bcryptjs": "^2.4.3",
     "bootstrap": "^5.3.3",
     "dotenv": "^17.2.1",
@@ -32,6 +33,7 @@
     "react-dom": "^19.0.0-rc-f994737d14-20240522",
     "react-router-dom": "^6.25.1",
     "react-toastify": "^11.0.5",
+    "rtl-arabic": "^2.1.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

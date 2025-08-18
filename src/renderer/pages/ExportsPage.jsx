@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Card, Tabs, Tab, Form, Button, Alert } from 'react-bootstrap';
+import '../styles/ExportsPage.css';
 
 // These field definitions are based on the 'User Schemas' documentation.
 // In a real application, this might come from a shared configuration file.
@@ -63,7 +64,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
     setMessage({ type: '', text: '' });
 
     if (selectedFields.length === 0) {
-      setMessage({ type: 'danger', text: 'Please select at least one field to export.' });
+      setMessage({ type: 'danger', text: 'الرجاء تحديد حقل واحد على الأقل للتصدير.' });
       return;
     }
 
@@ -81,7 +82,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
 
     if (isAttendance) {
       if (!startDate || !endDate) {
-        setMessage({ type: 'danger', text: 'Please select a valid start and end date.' });
+        setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء ونهاية صالحين.' });
         return;
       }
       exportOptions.options = { startDate, endDate };
@@ -91,12 +92,12 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       const result = await window.electronAPI.generateExport(exportOptions);
 
       if (result.success) {
-        setMessage({ type: 'success', text: result.message });
+        setMessage({ type: 'success', text: `تم الحفظ بنجاح: ${result.message}` });
       } else {
-        setMessage({ type: 'danger', text: result.message });
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setMessage({ type: 'danger', text: `An error occurred: ${error.message}` });
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       console.error('Export failed:', error);
     }
   };
@@ -104,14 +105,14 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
   return (
     <Card className="mt-3">
       <Card.Body>
-        <Card.Title>Export {exportType.charAt(0).toUpperCase() + exportType.slice(1)}</Card.Title>
-        <p>Select the fields you want to include in the export.</p>
+        <Card.Title>تصدير {exportType.charAt(0).toUpperCase() + exportType.slice(1)}</Card.Title>
+        <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
           {isAttendance && (
             <Row className="mb-3">
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>Start Date</Form.Label>
+                  <Form.Label>تاريخ البدء</Form.Label>
                   <Form.Control
                     type="date"
                     value={startDate}
@@ -121,7 +122,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
               </Col>
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>End Date</Form.Label>
+                  <Form.Label>تاريخ الانتهاء</Form.Label>
                   <Form.Control
                     type="date"
                     value={endDate}
@@ -152,10 +153,10 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
 
           <div className="d-flex justify-content-end">
             <Button variant="primary" className="me-2" onClick={() => handleExport('xlsx')}>
-              Export to Excel
+              تصدير إلى Excel
             </Button>
             <Button variant="danger" onClick={() => handleExport('pdf')}>
-              Export to PDF
+              تصدير إلى PDF
             </Button>
           </div>
         </Form>

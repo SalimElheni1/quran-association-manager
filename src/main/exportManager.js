@@ -2,29 +2,8 @@ const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { allQuery } = require('../db/db');
-
-// --- Constants and Placeholders ---
-
-// TODO: The logo files (g13.png, g247.png) were not found in the project.
-// When they are available, place them in a suitable assets directory
-// and update these paths.
-const path = require('path');
-
-// --- Constants and Placeholders ---
-
-// The logo files were not found in the project. This provides a safe fallback.
-const LOGO_NATIONAL_PATH = path.join(__dirname, '../renderer/assets/g13.png'); // Placeholder path
-const LOGO_LOCAL_PATH = path.join(__dirname, '../renderer/assets/g247.png'); // Placeholder path
-
-// Path to the font that supports Arabic Glyphs.
-const FONT_REGULAR_PATH = path.join(
-  __dirname,
-  '../renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2',
-);
-const FONT_BOLD_PATH = path.join(
-  __dirname,
-  '../renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2',
-);
+const settings = require('./settingsManager');
+const { processArabicText } = require('./utils');
 
 // --- Data Fetching ---
 
@@ -69,7 +48,7 @@ async function fetchExportData({ type, fields, options = {} }) {
         status: 'a.status',
       };
       const selectedFields = fields
-        .map(f => attendanceFieldMap[f])
+        .map((f) => attendanceFieldMap[f])
         .filter(Boolean) // Filter out any undefined fields
         .join(', ');
 
@@ -94,15 +73,16 @@ async function fetchExportData({ type, fields, options = {} }) {
 // --- PDF Generation ---
 
 /**
- * Generates a PDF document from data.
+ * Generates a PDF document from data using a template.
  * @param {string} title - The title of the report.
  * @param {string[]} headers - An array of header strings for the table.
  * @param {object[]} data - An array of data objects.
  * @param {string[]} dataKeys - An array of keys to access data in the correct order for the table.
  * @param {string} outputPath - The path to save the generated PDF file.
+ * @param {object} template - The template object with drawHeader and drawFooter methods.
  * @returns {Promise<void>}
  */
-function generatePdf(title, headers, data, dataKeys, outputPath) {
+function generatePdf(title, headers, data, dataKeys, outputPath, template) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, layout: 'portrait', size: 'A4' });
     const writeStream = fs.createWriteStream(outputPath);
@@ -113,54 +93,34 @@ function generatePdf(title, headers, data, dataKeys, outputPath) {
     writeStream.on('error', reject);
     doc.on('error', reject);
 
-    // Register fonts
-    try {
-      doc.registerFont('Cairo-Regular', FONT_REGULAR_PATH);
-      doc.registerFont('Cairo-Bold', FONT_BOLD_PATH);
-    } catch (fontError) {
-      console.error('Error registering font. Using fallback Helvetica.', fontError);
-      doc.registerFont('Cairo-Regular', 'Helvetica');
-      doc.registerFont('Cairo-Bold', 'Helvetica-Bold');
-    }
-
-    // --- Header ---
-    if (fs.existsSync(LOGO_NATIONAL_PATH)) {
-      doc.image(LOGO_NATIONAL_PATH, 50, 20, { width: 50 });
-    } else {
-      console.log('National logo not found, skipping.');
-    }
-    if (fs.existsSync(LOGO_LOCAL_PATH)) {
-      doc.image(LOGO_LOCAL_PATH, doc.page.width - 100, 20, { width: 50 });
-    } else {
-      console.log('Local logo not found, skipping.');
-    }
-    doc.font('Cairo-Bold').fontSize(16).text('Quran Branch Manager', { align: 'center' });
-    doc.moveDown();
-
-    // Report Title
-    doc.font('Cairo-Bold').fontSize(12).text(title, { align: 'center' });
-    doc.moveDown(2);
+    // Use the template to draw the header
+    template.drawHeader(doc, title);
 
     // --- Table ---
+    const pdfSettings = settings.getSetting('pdf');
     const tableTop = doc.y;
     const itemWidth = (doc.page.width - 100) / headers.length;
+
     // Draw table header
+    doc.font(pdfSettings.fontBold).fillColor(pdfSettings.headerColor);
     headers.forEach((header, i) => {
-      doc
-        .font('Cairo-Bold')
-        .text(header, 50 + i * itemWidth, tableTop, { width: itemWidth, align: 'center' });
+      doc.text(processArabicText(header), 50 + i * itemWidth, tableTop, {
+        width: itemWidth,
+        align: 'center',
+      });
     });
     doc.y += 20;
     doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
     doc.moveDown();
 
     // Draw table rows
+    doc.font(pdfSettings.font).fillColor(pdfSettings.textColor);
     data.forEach((item) => {
       const rowY = doc.y;
       dataKeys.forEach((key, i) => {
-        doc.font('Cairo-Regular').text(String(item[key] || ''), 50 + i * itemWidth, rowY, {
+        doc.text(processArabicText(item[key]), 50 + i * itemWidth, rowY, {
           width: itemWidth,
-          align: 'right', // Align right for better RTL appearance
+          align: 'right',
         });
       });
       doc.y += 20; // Spacing for next row
@@ -168,21 +128,8 @@ function generatePdf(title, headers, data, dataKeys, outputPath) {
       doc.moveDown();
     });
 
-    // --- Footer ---
-    const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.count; i++) {
-      doc.switchToPage(i);
-      const pageNum = i + 1;
-      const pageCount = range.count;
-      doc
-        .font('Cairo-Regular')
-        .fontSize(8)
-        .text(`Page ${pageNum} of ${pageCount}`, 50, doc.page.height - 30, { align: 'right' });
-      doc
-        .font('Cairo-Regular')
-        .fontSize(8)
-        .text(new Date().toLocaleString(), 50, doc.page.height - 30, { align: 'left' });
-    }
+    // Use the template to draw the footer
+    template.drawFooter(doc);
 
     doc.end();
   });
@@ -202,20 +149,16 @@ async function generateXlsx(headers, data, dataKeys, outputPath) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
 
-  // TODO: Set RTL properties for the worksheet
   worksheet.views = [{ rightToLeft: true }];
 
-  // Set columns
   worksheet.columns = headers.map((header, index) => ({
     header: header,
     key: dataKeys[index],
     width: 20,
   }));
 
-  // Add rows
   worksheet.addRows(data);
 
-  // Style header
   worksheet.getRow(1).font = { bold: true };
 
   await workbook.xlsx.writeFile(outputPath);

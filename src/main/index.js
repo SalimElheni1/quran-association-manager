@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const exportManager = require('./exportManager');
+const defaultPdfTemplate = require('./export_templates/defaultPdfTemplate');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
@@ -609,6 +610,7 @@ ipcMain.handle(
           data, // Data rows
           fields, // Data keys
           filePath,
+          defaultPdfTemplate, // Pass the template
         );
       } else if (format === 'xlsx') {
         await exportManager.generateXlsx(headers, data, fields, filePath);
