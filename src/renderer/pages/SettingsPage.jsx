@@ -197,7 +197,7 @@ const SettingsPage = () => {
                           </InputGroup>
                           {settings.national_logo_path && (
                             <Image
-                              src={`file://${settings.national_logo_path}`}
+                              src={`safe-image://${settings.national_logo_path}`}
                               thumbnail
                               className="mt-2"
                               style={{ maxHeight: '100px' }}
