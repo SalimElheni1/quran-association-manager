@@ -846,11 +846,10 @@ ipcMain.handle('settings:uploadLogo', async () => {
 // --- Backup IPC Handlers ---
 const store = new Store();
 
-ipcMain.handle('backup:run', async () => {
+ipcMain.handle('backup:run', async (_event, settings) => {
   try {
-    const { settings } = await getSettingsHandler();
     if (!settings) {
-      throw new Error('Could not load settings to run backup.');
+      throw new Error('Backup settings were not provided.');
     }
     return await backupManager.runBackup(settings);
   } catch (error) {

@@ -101,7 +101,7 @@ const SettingsPage = () => {
     setIsBackingUp(true);
     toast.info('بدء عملية النسخ الاحتياطي...');
     try {
-      const response = await window.electronAPI.runBackup();
+      const response = await window.electronAPI.runBackup(settings);
       if (response.success) {
         toast.success(response.message);
         // Refresh backup status

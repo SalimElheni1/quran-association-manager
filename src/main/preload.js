@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
 
   // Backup API
-  runBackup: () => ipcRenderer.invoke('backup:run'),
+  runBackup: (settings) => ipcRenderer.invoke('backup:run', settings),
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
 
   // User Management API (for Superadmin)

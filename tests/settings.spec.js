@@ -48,7 +48,7 @@ describe('Settings Handlers', () => {
     it('should update settings successfully without file copy', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      const result = await updateSettingsHandler(mockSettings, mockApp);
+      const result = await updateSettingsHandler(mockSettings);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
@@ -63,26 +63,21 @@ describe('Settings Handlers', () => {
       expect(result).toEqual({ success: true, message: 'تم تحديث الإعدادات بنجاح.' });
     });
 
-    it('should copy logo and update path correctly', async () => {
+    it('should correctly save a relative logo path', async () => {
       const settingsWithLogo = {
         ...mockSettings,
-        national_logo_path: '/tmp/logo.png', // A temporary path from a file dialog
+        national_logo_path: 'assets/logos/logo.png', // It now receives a relative path
       };
-
-      fs.existsSync.mockReturnValue(true); // Mock that the temp file exists
-      path.basename.mockReturnValue('logo.png');
-      path.join
-        .mockReturnValueOnce('/mock/userData/assets/logos') // For logosDir
-        .mockReturnValueOnce('/mock/userData/assets/logos/logo.png') // For newPath
-        .mockReturnValueOnce('assets/logos/logo.png'); // For relative path
-
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await updateSettingsHandler(settingsWithLogo, mockApp);
+      await updateSettingsHandler(settingsWithLogo);
 
-      expect(fs.copyFileSync).toHaveBeenCalledWith('/tmp/logo.png', '/mock/userData/assets/logos/logo.png');
+      // It should NOT attempt any file system operations
+      expect(fs.copyFileSync).not.toHaveBeenCalled();
+
+      // It should just save the relative path it was given
       expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
-        'assets/logos/logo.png', // Ensure the new relative path is saved
+        'assets/logos/logo.png',
         'national_logo_path',
       ]);
     });
