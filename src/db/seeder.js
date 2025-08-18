@@ -7,6 +7,7 @@ const {
   seedClasses,
   seedEnrollments,
   seedAttendance,
+  seedTransactions,
 } = require('./seederFunctions');
 
 let isSeeding = false;
@@ -55,6 +56,7 @@ async function seedDatabase() {
       await seedClasses();
       await seedEnrollments();
       await seedAttendance();
+      await seedTransactions();
 
       console.log('Database seeding completed successfully.');
     } catch (error) {

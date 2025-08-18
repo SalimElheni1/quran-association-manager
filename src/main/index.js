@@ -712,6 +712,233 @@ ipcMain.handle('auth:login', async (_event, { username, password }) => {
   }
 });
 
+// --- Transactions IPC Handlers ---
+
+const transactionValidationSchema = Joi.object({
+  type: Joi.string().valid('income', 'expense').required(),
+  category: Joi.string().min(2).max(50).required(),
+  amount: Joi.number().positive().required(),
+  transaction_date: Joi.date().iso().required(),
+  description: Joi.string().allow(null, ''),
+  student_id: Joi.number().integer().positive().allow(null),
+  teacher_id: Joi.number().integer().positive().allow(null),
+  branch_id: Joi.number().integer().positive().required(),
+  recorded_by_user_id: Joi.number().integer().positive().required(),
+}).unknown(true);
+
+// Helper function to verify JWT and check roles
+const verifyTokenAndCheckRole = (token, allowedRoles) => {
+  if (!token) {
+    throw new Error('Unauthorized: No token provided');
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!allowedRoles.includes(decoded.role)) {
+      throw new Error('Forbidden');
+    }
+    return decoded; // Returns { id, role }
+  } catch (error) {
+    // This will catch expired tokens, invalid signatures, etc.
+    throw new Error('Unauthorized: Invalid token');
+  }
+};
+
+ipcMain.handle('transactions:list', async (_event, { token, filters = {} }) => {
+  verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager']);
+
+  const { searchTerm, type, category, startDate, endDate, page = 1, limit = 15 } = filters;
+  const offset = (page - 1) * limit;
+
+  let whereClauses = 'WHERE 1=1';
+  const params = [];
+
+  if (searchTerm) {
+    // Also search by description, student name, or teacher name
+    whereClauses += ' AND (t.description LIKE ? OR s.name LIKE ? OR th.name LIKE ?)';
+    params.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+  }
+  if (type) {
+    whereClauses += ' AND t.type = ?';
+    params.push(type);
+  }
+  if (category) {
+    whereClauses += ' AND t.category = ?';
+    params.push(category);
+  }
+  if (startDate) {
+    whereClauses += ' AND date(t.transaction_date) >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    whereClauses += ' AND date(t.transaction_date) <= ?';
+    params.push(endDate);
+  }
+
+  const countSql = `SELECT COUNT(*) as count FROM transactions t LEFT JOIN students s ON t.student_id = s.id LEFT JOIN teachers th ON t.teacher_id = th.id ${whereClauses}`;
+  const totalResult = await db.getQuery(countSql, params);
+  const totalCount = totalResult.count;
+
+  const dataSql = `
+    SELECT t.*, s.name as student_name, th.name as teacher_name, u.username as recorded_by_username
+    FROM transactions t
+    LEFT JOIN students s ON t.student_id = s.id
+    LEFT JOIN teachers th ON t.teacher_id = th.id
+    LEFT JOIN users u ON t.recorded_by_user_id = u.id
+    ${whereClauses}
+    ORDER BY t.transaction_date DESC, t.id DESC
+    LIMIT ? OFFSET ?
+  `;
+  const transactions = await db.allQuery(dataSql, [...params, limit, offset]);
+
+  return { transactions, totalCount };
+});
+
+ipcMain.handle('transactions:getById', async (_event, { token, id }) => {
+    verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager']);
+    return db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+});
+
+
+ipcMain.handle('transactions:create', async (_event, { token, transactionData }) => {
+  const decodedToken = verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager', 'Admin']);
+
+  // Special check for 'Admin' role
+  if (decodedToken.role === 'Admin' && transactionData.type !== 'income') {
+    throw new Error('Forbidden: Admins can only create income transactions.');
+  }
+
+  // Add the user id from the token to the data
+  transactionData.recorded_by_user_id = decodedToken.id;
+
+  try {
+    // We remove the id from the validation schema for creation
+    const creationSchema = transactionValidationSchema.keys({
+        id: Joi.any().strip()
+    });
+    const validatedData = await creationSchema.validateAsync(transactionData, { abortEarly: false });
+
+    const fieldsToInsert = Object.keys(validatedData);
+    const placeholders = fieldsToInsert.map(() => '?').join(', ');
+    const params = fieldsToInsert.map((field) => validatedData[field]);
+
+    const sql = `INSERT INTO transactions (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi) {
+      throw new Error(`Invalid data: ${error.details.map((d) => d.message).join('; ')}`);
+    }
+    throw error;
+  }
+});
+
+ipcMain.handle('transactions:update', async (_event, { token, id, transactionData }) => {
+  verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager']);
+
+  try {
+    const validatedData = await transactionValidationSchema.validateAsync(transactionData, { abortEarly: false });
+
+    // Don't allow updating the recorded_by_user_id
+    delete validatedData.recorded_by_user_id;
+
+    const fieldsToUpdate = Object.keys(validatedData);
+    const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+    const params = [...fieldsToUpdate.map((field) => validatedData[field]), id];
+
+    const sql = `UPDATE transactions SET ${setClauses} WHERE id = ?`;
+    return db.runQuery(sql, params);
+  } catch (error) {
+    if (error.isJoi) {
+      throw new Error(`Invalid data: ${error.details.map((d) => d.message).join('; ')}`);
+    }
+    throw error;
+  }
+});
+
+ipcMain.handle('transactions:delete', async (_event, { token, id }) => {
+  verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager']);
+  return db.runQuery('DELETE FROM transactions WHERE id = ?', [id]);
+});
+
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const { shell } = require('electron');
+
+ipcMain.handle('transactions:generate-receipt', async (_event, { token, transactionId }) => {
+  verifyTokenAndCheckRole(token, ['Superadmin', 'FinanceManager']);
+
+  const sql = `
+    SELECT t.*, s.name as student_name, b.name as branch_name
+    FROM transactions t
+    LEFT JOIN students s ON t.student_id = s.id
+    LEFT JOIN branches b ON t.branch_id = b.id
+    WHERE t.id = ?
+  `;
+  const transaction = await db.getQuery(sql, [transactionId]);
+
+  if (!transaction) {
+    throw new Error('Transaction not found');
+  }
+
+  const doc = new PDFDocument({ size: 'A5', layout: 'portrait', margin: 40 });
+  const downloadsPath = app.getPath('downloads');
+  const filePath = path.join(downloadsPath, `receipt-${transaction.id}-${Date.now()}.pdf`);
+
+  const writeStream = fs.createWriteStream(filePath);
+  doc.pipe(writeStream);
+
+  try {
+    // In a packaged app, fonts are in the asar archive. We need to handle this.
+    // A simple relative path might not work. A more robust solution is needed,
+    // but for now we assume a direct path can be constructed.
+    const fontPath = path.join(app.getAppPath(), 'dist/renderer/assets/cairo-v30-arabic_latin-regular.woff2');
+
+    if (fs.existsSync(fontPath)) {
+        doc.font(fontPath);
+    } else {
+        // Fallback or error if font not found
+        console.warn(`Font not found at ${fontPath}. Using default font.`);
+    }
+
+    // --- PDF Content (RTL) ---
+    doc.fontSize(16).text('إيصال استلام', { align: 'center' });
+    doc.moveDown(2);
+
+    const addField = (label, value) => {
+        doc.fontSize(11).text(`${value} :${label}`, { align: 'right' });
+        doc.moveDown(0.7);
+    };
+
+    addField('رقم المعاملة', transaction.id);
+    addField('الفرع', transaction.branch_name);
+    addField('التاريخ', new Date(transaction.transaction_date).toLocaleDateString('ar-TN'));
+    if (transaction.student_name) {
+        addField('اسم الطالب', transaction.student_name);
+    }
+    addField('المبلغ', `${transaction.amount.toFixed(2)} TND`);
+    addField('الوصف', transaction.description || '-');
+
+    doc.moveDown(2);
+    doc.text('_________________________', { align: 'right' });
+    doc.fontSize(10).text('توقيع المستلم', { align: 'right' });
+
+  } catch (pdfError) {
+    console.error("Error during PDF generation:", pdfError);
+    throw new Error("Failed to generate PDF document.");
+  } finally {
+    doc.end();
+  }
+
+  await new Promise((resolve, reject) => {
+    writeStream.on('finish', resolve);
+    writeStream.on('error', reject);
+  });
+
+  shell.openPath(filePath);
+
+  return { success: true, path: filePath };
+});
+
+
 // --- Attendance IPC Handlers ---
 
 ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {

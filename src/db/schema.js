@@ -124,6 +124,24 @@ const schema = `
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    branch_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+    category TEXT NOT NULL,
+    amount REAL NOT NULL,
+    transaction_date DATETIME NOT NULL,
+    description TEXT,
+    student_id INTEGER,
+    teacher_id INTEGER,
+    recorded_by_user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL,
+    FOREIGN KEY (recorded_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
 `;
 
 module.exports = schema;

@@ -556,6 +556,99 @@ async function seedAttendance() {
   }
 }
 
+async function seedTransactions() {
+  console.log('Seeding transactions...');
+  try {
+    const { count } = await getQuery('SELECT COUNT(*) as count FROM transactions');
+    if (count > 0) {
+      console.log('Transactions already exist, skipping...');
+      return;
+    }
+
+    const branches = await allQuery('SELECT id FROM branches');
+    const students = await allQuery('SELECT id FROM students');
+    const teachers = await allQuery('SELECT id FROM teachers');
+    const users = await allQuery("SELECT id FROM users WHERE role = 'FinanceManager' OR role = 'Superadmin'");
+
+    if (branches.length === 0 || students.length === 0 || teachers.length === 0 || users.length === 0) {
+      console.log('Missing prerequisite data for transactions, skipping...');
+      return;
+    }
+
+    const dummyTransactions = [
+      // Income: Tuition
+      {
+        branch_id: branches[0].id,
+        type: 'income',
+        category: 'tuition',
+        amount: 150.00,
+        transaction_date: '2025-08-01',
+        description: 'Student tuition fee for August',
+        student_id: students[0].id,
+        teacher_id: null,
+        recorded_by_user_id: users[0].id,
+      },
+      // Income: Donation
+      {
+        branch_id: branches[1].id,
+        type: 'income',
+        category: 'donation',
+        amount: 500.00,
+        transaction_date: '2025-08-05',
+        description: 'General donation',
+        student_id: null,
+        teacher_id: null,
+        recorded_by_user_id: users[0].id,
+      },
+      // Expense: Salary
+      {
+        branch_id: branches[0].id,
+        type: 'expense',
+        category: 'salary',
+        amount: 1200.00,
+        transaction_date: '2025-08-10',
+        description: 'Salary for Sheikh Khalid',
+        student_id: null,
+        teacher_id: teachers[0].id,
+        recorded_by_user_id: users[0].id,
+      },
+      // Expense: Rent
+      {
+        branch_id: branches[0].id,
+        type: 'expense',
+        category: 'rent',
+        amount: 2000.00,
+        transaction_date: '2025-08-01',
+        description: 'Monthly rent for main branch',
+        student_id: null,
+        teacher_id: null,
+        recorded_by_user_id: users[0].id,
+      },
+    ];
+
+    let insertedCount = 0;
+    for (const trans of dummyTransactions) {
+      const sql = `INSERT INTO transactions (branch_id, type, category, amount, transaction_date, description, student_id, teacher_id, recorded_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      await runQuery(sql, [
+        trans.branch_id,
+        trans.type,
+        trans.category,
+        trans.amount,
+        trans.transaction_date,
+        trans.description,
+        trans.student_id,
+        trans.teacher_id,
+        trans.recorded_by_user_id,
+      ]);
+      insertedCount++;
+    }
+    console.log(`Successfully seeded ${insertedCount} transactions`);
+  } catch (error) {
+    console.error('Error seeding transactions:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   seedBranches,
   seedUsers,
@@ -564,4 +657,5 @@ module.exports = {
   seedClasses,
   seedEnrollments,
   seedAttendance,
+  seedTransactions,
 };

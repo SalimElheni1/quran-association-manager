@@ -9,6 +9,7 @@ import ClassesPage from './pages/ClassesPage';
 import UsersPage from './pages/UsersPage';
 import AttendancePage from './pages/AttendancePage';
 import ProtectedRoute from './components/ProtectedRoute';
+import FinancialsPage from './pages/FinancialsPage';
 
 function App() {
   return (
@@ -28,7 +29,24 @@ function App() {
         <Route path="/teachers" element={<TeachersPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
-        <Route path="/users" element={<UsersPage />} />
+
+        {/* Routes with specific role protection */}
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute allowedRoles={['Superadmin']}>
+              <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/financials"
+          element={
+            <ProtectedRoute allowedRoles={['Superadmin', 'FinanceManager']}>
+              <FinancialsPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );
