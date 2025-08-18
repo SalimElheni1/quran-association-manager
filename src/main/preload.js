@@ -44,4 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAttendanceForDate: (classId, date) =>
     ipcRenderer.invoke('attendance:getForDate', { classId, date }),
   saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
+
+  // Exports API
+  generateExport: (options) => ipcRenderer.invoke('export:generate', options),
 });

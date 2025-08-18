@@ -8,6 +8,7 @@ import TeachersPage from './pages/TeachersPage';
 import ClassesPage from './pages/ClassesPage';
 import UsersPage from './pages/UsersPage';
 import AttendancePage from './pages/AttendancePage';
+import ExportsPage from './pages/ExportsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/exports" element={<ExportsPage />} />
       </Route>
     </Routes>
   );

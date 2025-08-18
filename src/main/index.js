@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const db = require('../db/db');
+const exportManager = require('./exportManager');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
@@ -571,6 +572,57 @@ ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGende
     throw error;
   }
 });
+
+// --- Exports IPC Handler ---
+
+ipcMain.handle(
+  'export:generate',
+  async (_event, { exportType, format, fields, headers, options }) => {
+    try {
+      // 1. Show "Save As" dialog
+      const { filePath } = await dialog.showSaveDialog({
+        title: `Save ${exportType} Export`,
+        defaultPath: `${exportType}-export-${Date.now()}.${format}`,
+        filters: [
+          format === 'pdf'
+            ? { name: 'PDF Documents', extensions: ['pdf'] }
+            : { name: 'Excel Spreadsheets', extensions: ['xlsx'] },
+        ],
+      });
+
+      if (!filePath) {
+        return { success: false, message: 'Export canceled by user.' };
+      }
+
+      // 2. Fetch data
+      const data = await exportManager.fetchExportData({ type: exportType, fields, options });
+
+      if (data.length === 0) {
+        return { success: false, message: 'No data available for the selected criteria.' };
+      }
+
+      // 3. Generate file
+      if (format === 'pdf') {
+        await exportManager.generatePdf(
+          `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`, // Title
+          headers, // PDF headers
+          data, // Data rows
+          fields, // Data keys
+          filePath,
+        );
+      } else if (format === 'xlsx') {
+        await exportManager.generateXlsx(headers, data, fields, filePath);
+      } else {
+        throw new Error(`Unsupported export format: ${format}`);
+      }
+
+      return { success: true, message: `Export saved to ${filePath}` };
+    } catch (error) {
+      console.error(`Error during export (${exportType}, ${format}):`, error);
+      return { success: false, message: `Export failed: ${error.message}` };
+    }
+  },
+);
 
 ipcMain.handle('users:get', async (_event, filters) => {
   let sql = 'SELECT id, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
