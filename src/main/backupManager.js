@@ -11,27 +11,36 @@ const store = new Store();
  * @returns {Promise<{success: boolean, message: string}>}
  */
 const runBackup = async (settings) => {
+  console.log('Backup process started...');
+
   if (!settings.backup_enabled || !settings.backup_path) {
     const message = 'Backup is not enabled or path is not configured.';
+    console.log(`Backup check failed: ${message}`);
     store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
     return { success: false, message };
   }
 
+  console.log(`Backup settings validated. Enabled: ${settings.backup_enabled}, Path: ${settings.backup_path}`);
   const sourcePath = getDatabasePath();
   const destPath = settings.backup_path;
 
   // 1. Check if source exists
   if (!fs.existsSync(sourcePath)) {
-    const message = 'Source database file not found.';
+    const message = `Source database file not found at: ${sourcePath}`;
+    console.log(`Backup check failed: ${message}`);
     store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
     return { success: false, message };
   }
 
+  console.log(`Source database found at: ${sourcePath}`);
+
   // 2. Check if destination directory exists and is writable
   try {
     fs.accessSync(destPath, fs.constants.W_OK);
+    console.log(`Destination directory is writable: ${destPath}`);
   } catch (error) {
-    const message = 'Backup destination path is not accessible or writable.';
+    const message = `Backup destination path is not accessible or writable: ${destPath}`;
+    console.log(`Backup check failed: ${message}`, error);
     store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
     return { success: false, message };
   }

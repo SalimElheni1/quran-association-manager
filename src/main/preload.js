@@ -36,10 +36,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings API
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
+  uploadLogo: () => ipcRenderer.invoke('settings:uploadLogo'),
 
   // Dialog API
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
-  openFileDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
 
   // Backup API
   runBackup: () => ipcRenderer.invoke('backup:run'),

@@ -61,33 +61,23 @@ const copyLogoAsset = async (tempPath, app) => {
   fs.copyFileSync(tempPath, newPath);
 
   // Return the relative path for storage
-  return path.join('assets', 'logos', fileName);
+  return path.join('assets', 'logos', fileName).replace(/\\/g, '/'); // Ensure forward slashes
 };
 
 /**
  * Updates settings in the database.
  * @param {Object} settingsData - The object containing settings to update.
- * @param {import('electron').App} app - The Electron app instance.
  * @returns {Promise<Object>} A promise that resolves to a success message.
  */
-const updateSettingsHandler = async (settingsData, app) => {
+const updateSettingsHandler = async (settingsData) => {
   const validatedData = await settingsValidationSchema.validateAsync(settingsData);
-
-  // Handle logo file copying
-  const newNationalLogoPath = await copyLogoAsset(validatedData.national_logo_path, app);
-  if (newNationalLogoPath) {
-    validatedData.national_logo_path = newNationalLogoPath;
-  }
-
-  const newRegionalLogoPath = await copyLogoAsset(validatedData.regional_local_logo_path, app);
-  if (newRegionalLogoPath) {
-    validatedData.regional_local_logo_path = newRegionalLogoPath;
-  }
 
   await db.runQuery('BEGIN TRANSACTION;');
   try {
     for (const [key, value] of Object.entries(validatedData)) {
-      await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [String(value), key]);
+      // Ensure value is a string for the database
+      const dbValue = value === null || value === undefined ? '' : String(value);
+      await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [dbValue, key]);
     }
     await db.runQuery('COMMIT;');
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
@@ -101,4 +91,5 @@ const updateSettingsHandler = async (settingsData, app) => {
 module.exports = {
   getSettingsHandler,
   updateSettingsHandler,
+  copyLogoAsset,
 };

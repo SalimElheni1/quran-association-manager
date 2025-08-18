@@ -22,6 +22,7 @@ const SettingsPage = () => {
   const [error, setError] = useState('');
   const [backupStatus, setBackupStatus] = useState(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -55,9 +56,20 @@ const SettingsPage = () => {
   };
 
   const handleFileSelect = async (fieldName) => {
-    const response = await window.electronAPI.openFileDialog();
-    if (response.success) {
-      setSettings({ ...settings, [fieldName]: response.path });
+    setIsUploading(fieldName);
+    try {
+      const response = await window.electronAPI.uploadLogo();
+      if (response.success) {
+        setSettings({ ...settings, [fieldName]: response.path });
+        toast.success('تم تحميل الشعار بنجاح.');
+      } else if (response.message !== 'No file selected.') {
+        // Don't show error if user just cancelled the dialog
+        toast.error(`فشل تحميل الشعار: ${response.message}`);
+      }
+    } catch (err) {
+      toast.error(`حدث خطأ أثناء تحميل الشعار: ${err.message}`);
+    } finally {
+      setIsUploading(null);
     }
   };
 
@@ -186,8 +198,16 @@ const SettingsPage = () => {
                             <Button
                               variant="outline-secondary"
                               onClick={() => handleFileSelect('national_logo_path')}
+                              disabled={isUploading === 'national_logo_path'}
                             >
-                              اختر ملف...
+                              {isUploading === 'national_logo_path' ? (
+                                <>
+                                  <Spinner as="span" animation="border" size="sm" />
+                                  {' جاري التحميل...'}
+                                </>
+                              ) : (
+                                'اختر ملف...'
+                              )}
                             </Button>
                             <Form.Control
                               type="text"
@@ -214,8 +234,16 @@ const SettingsPage = () => {
                             <Button
                               variant="outline-secondary"
                               onClick={() => handleFileSelect('regional_local_logo_path')}
+                              disabled={isUploading === 'regional_local_logo_path'}
                             >
-                              اختر ملف...
+                              {isUploading === 'regional_local_logo_path' ? (
+                                <>
+                                  <Spinner as="span" animation="border" size="sm" />
+                                  {' جاري التحميل...'}
+                                </>
+                              ) : (
+                                'اختر ملف...'
+                              )}
                             </Button>
                             <Form.Control
                               type="text"

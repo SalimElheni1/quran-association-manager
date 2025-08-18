@@ -6,7 +6,11 @@ const Joi = require('joi');
 const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const { getProfileHandler, updateProfileHandler } = require('./authHandlers');
-const { getSettingsHandler, updateSettingsHandler } = require('./settingsHandlers');
+const {
+  getSettingsHandler,
+  updateSettingsHandler,
+  copyLogoAsset,
+} = require('./settingsHandlers');
 const backupManager = require('./backupManager');
 
 // Load environment variables
@@ -781,8 +785,7 @@ ipcMain.handle('settings:get', async () => {
 
 ipcMain.handle('settings:update', async (_event, settingsData) => {
   try {
-    // The handler needs the `app` object to resolve the userData path
-    const result = await updateSettingsHandler(settingsData, app);
+    const result = await updateSettingsHandler(settingsData);
 
     // If the settings were updated successfully, restart the scheduler with the new settings
     if (result.success) {
@@ -813,15 +816,28 @@ ipcMain.handle('dialog:openDirectory', async () => {
   }
 });
 
-ipcMain.handle('dialog:openFile', async (_event, options) => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: options?.filters || [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }],
-  });
-  if (canceled) {
-    return { success: false };
-  } else {
-    return { success: true, path: filePaths[0] };
+ipcMain.handle('settings:uploadLogo', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }],
+    });
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, message: 'No file selected.' };
+    }
+
+    const tempPath = filePaths[0];
+    const relativePath = await copyLogoAsset(tempPath, app);
+
+    if (relativePath) {
+      return { success: true, path: relativePath };
+    } else {
+      return { success: false, message: 'Failed to copy logo.' };
+    }
+  } catch (error) {
+    console.error('Failed to upload logo:', error);
+    return { success: false, message: `Error uploading logo: ${error.message}` };
   }
 });
 
