@@ -278,6 +278,7 @@ const SettingsPage = () => {
                             name="backup_enabled"
                             checked={settings.backup_enabled || false}
                             onChange={handleChange}
+                            disabled={!settings.backup_path}
                           />
                         </Form.Group>
                         <Form.Group className="mb-3">
@@ -299,7 +300,6 @@ const SettingsPage = () => {
                             <Button
                               variant="outline-secondary"
                               onClick={() => handleDirectorySelect('backup_path')}
-                              disabled={!settings.backup_enabled}
                             >
                               اختر مجلد...
                             </Button>

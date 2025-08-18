@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const db = require('../db/db');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
@@ -82,8 +83,22 @@ app.whenReady().then(async () => {
     console.log('Starting database initialization...');
     await db.initializeDatabase();
 
-    // Start backup scheduler on application startup
-    const { settings } = await getSettingsHandler();
+    // Ensure a default backup path exists and start the backup scheduler
+    let { settings } = await getSettingsHandler();
+    if (settings && !settings.backup_path) {
+      console.log('No backup path found, creating default...');
+      const defaultBackupPath = path.join(app.getPath('userData'), 'backups');
+      if (!fs.existsSync(defaultBackupPath)) {
+        fs.mkdirSync(defaultBackupPath, { recursive: true });
+        console.log(`Default backup directory created at: ${defaultBackupPath}`);
+      }
+      await db.runQuery("UPDATE settings SET value = ? WHERE key = 'backup_path'", [
+        defaultBackupPath,
+      ]);
+      // Update settings object for the scheduler
+      settings.backup_path = defaultBackupPath;
+    }
+
     if (settings) {
       backupManager.startScheduler(settings);
     }
