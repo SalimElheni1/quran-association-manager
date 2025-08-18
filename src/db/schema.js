@@ -124,6 +124,23 @@ const schema = `
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT
+  );
+
+  -- Insert default settings if they don't exist
+  INSERT OR IGNORE INTO settings (key, value) VALUES
+    ('national_association_name', ''),
+    ('regional_association_name', ''),
+    ('local_branch_name', ''),
+    ('national_logo_path', ''),
+    ('regional_local_logo_path', ''),
+    ('backup_path', ''),
+    ('backup_enabled', 'false'),
+    ('backup_frequency', 'daily'),
+    ('president_full_name', '');
 `;
 
 module.exports = schema;

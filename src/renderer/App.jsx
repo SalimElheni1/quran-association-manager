@@ -9,6 +9,7 @@ import ClassesPage from './pages/ClassesPage';
 import UsersPage from './pages/UsersPage';
 import AttendancePage from './pages/AttendancePage';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );
