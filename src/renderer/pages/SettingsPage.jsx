@@ -29,14 +29,20 @@ const SettingsPage = () => {
       try {
         const settingsResponse = await window.electronAPI.getSettings();
         if (settingsResponse.success) {
-          setSettings(settingsResponse.settings);
+          const loadedSettings = settingsResponse.settings;
+          setSettings(loadedSettings);
+
+          // Only fetch the backup status if a backup path is already configured.
+          // This prevents showing a stale status from a previous configuration
+          // if the user is setting up backups for the first time or after a reset.
+          if (loadedSettings && loadedSettings.backup_path) {
+            const backupStatusResponse = await window.electronAPI.getBackupStatus();
+            if (backupStatusResponse.success) {
+              setBackupStatus(backupStatusResponse.status);
+            }
+          }
         } else {
           setError(settingsResponse.message);
-        }
-
-        const backupStatusResponse = await window.electronAPI.getBackupStatus();
-        if (backupStatusResponse.success) {
-          setBackupStatus(backupStatusResponse.status);
         }
       } catch (err) {
         setError(err.message);
@@ -101,7 +107,14 @@ const SettingsPage = () => {
     setIsBackingUp(true);
     toast.info('بدء عملية النسخ الاحتياطي...');
     try {
-      const response = await window.electronAPI.runBackup(settings);
+      // The backend's runBackup function incorrectly checks for `backup_enabled`,
+      // which is for automatic backups. A manual backup should only require a path.
+      // To work around this, we pass a specific configuration object for the manual
+      // run that satisfies the backend check.
+      const response = await window.electronAPI.runBackup({
+        backup_path: settings.backup_path,
+        backup_enabled: true, // Force true for manual run to pass backend validation
+      });
       if (response.success) {
         toast.success(response.message);
         // Refresh backup status
@@ -271,6 +284,24 @@ const SettingsPage = () => {
                     <Card className="border-0">
                       <Card.Body>
                         <Form.Group className="mb-3">
+                          <Form.Label>مسار حفظ النسخ الاحتياطي</Form.Label>
+                          <InputGroup>
+                            <Button
+                              variant="outline-secondary"
+                              onClick={() => handleDirectorySelect('backup_path')}
+                            >
+                              اختر مجلد...
+                            </Button>
+                            <Form.Control type="text" value={settings.backup_path || ''} readOnly />
+                          </InputGroup>
+                          {!settings.backup_path && (
+                            <Form.Text className="text-muted">
+                              يجب تحديد مسار لحفظ النسخ الاحتياطية لتفعيل خيارات النسخ التلقائي
+                              واليدوي.
+                            </Form.Text>
+                          )}
+                        </Form.Group>
+                        <Form.Group className="mb-3">
                           <Form.Check
                             type="switch"
                             id="backup-enabled-switch"
@@ -287,24 +318,12 @@ const SettingsPage = () => {
                             name="backup_frequency"
                             value={settings.backup_frequency || 'daily'}
                             onChange={handleChange}
-                            disabled={!settings.backup_enabled}
+                            disabled={!settings.backup_enabled || !settings.backup_path}
                           >
                             <option value="daily">يوميًا</option>
                             <option value="weekly">أسبوعيًا</option>
                             <option value="monthly">شهريًا</option>
                           </Form.Select>
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                          <Form.Label>مسار حفظ النسخ الاحتياطي</Form.Label>
-                          <InputGroup>
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => handleDirectorySelect('backup_path')}
-                            >
-                              اختر مجلد...
-                            </Button>
-                            <Form.Control type="text" value={settings.backup_path || ''} readOnly />
-                          </InputGroup>
                         </Form.Group>
                         <hr />
                         <div className="d-flex justify-content-between align-items-center">
@@ -325,7 +344,7 @@ const SettingsPage = () => {
                               </>
                             )}
                           </Button>
-                          {backupStatus && (
+                          {backupStatus && settings.backup_path && (
                             <small
                               className={backupStatus.success ? 'text-success' : 'text-danger'}
                             >
