@@ -1,13 +1,40 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Nav } from 'react-bootstrap';
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  Form,
+  Button,
+  Alert,
+  Nav,
+  OverlayTrigger,
+  Tooltip,
+} from 'react-bootstrap';
 import '../styles/ExportsPage.css';
 
-const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
+import { useEffect } from 'react';
+
+const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [currentFields, setCurrentFields] = useState(fields);
   const [selectedFields, setSelectedFields] = useState(fields.map((f) => f.key));
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [genderFilter, setGenderFilter] = useState('all');
+
+  useEffect(() => {
+    let newFields = fields;
+    if (exportType === 'students') {
+      if (genderFilter === 'kids') {
+        newFields = kidFields;
+      } else {
+        newFields = fields;
+      }
+    }
+    setCurrentFields(newFields);
+    setSelectedFields(newFields.map((f) => f.key));
+  }, [genderFilter, fields, kidFields, exportType]);
 
   const handleCheckboxChange = (event) => {
     const { value, checked } = event.target;
@@ -27,7 +54,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
     }
 
     const columns = selectedFields.map((key) => {
-      const field = fields.find((f) => f.key === key);
+      const field = currentFields.find((f) => f.key === key);
       return { header: field.label, key: field.key };
     });
 
@@ -68,6 +95,36 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       console.error('Export failed:', error);
     }
+  };
+
+  const isPdfDisabled = selectedFields.length === 0 || selectedFields.length > 4;
+
+  const renderPdfButton = () => {
+    const button = (
+      <Button
+        variant="danger"
+        onClick={() => handleExport('pdf')}
+        disabled={isPdfDisabled}
+        style={isPdfDisabled ? { pointerEvents: 'none' } : {}}
+      >
+        تصدير إلى PDF
+      </Button>
+    );
+
+    if (isPdfDisabled) {
+      return (
+        <OverlayTrigger
+          overlay={
+            <Tooltip id="tooltip-disabled">
+              لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.
+            </Tooltip>
+          }
+        >
+          <span className="d-inline-block">{button}</span>
+        </OverlayTrigger>
+      );
+    }
+    return button;
   };
 
   return (
@@ -127,7 +184,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
             </Row>
           )}
           <Row>
-            {fields.map((field) => (
+            {currentFields.map((field) => (
               <Col md={4} key={field.key} className="mb-2">
                 <Form.Check
                   type="checkbox"
@@ -152,9 +209,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
             <Button variant="primary" onClick={() => handleExport('xlsx')}>
               تصدير إلى Excel
             </Button>
-            <Button variant="danger" onClick={() => handleExport('pdf')}>
-              تصدير إلى PDF
-            </Button>
+            {renderPdfButton()}
           </div>
         </Form>
       </Card.Body>
@@ -165,21 +220,38 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
 const ExportsPage = () => {
   const [activeTab, setActiveTab] = useState('students');
 
+  const studentsAdultFields = [
+    { key: 'name', label: 'الاسم الكامل' },
+    { key: 'national_id', label: 'رقم الهوية' },
+    { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+    { key: 'gender', label: 'الجنس' },
+    { key: 'address', label: 'العنوان' },
+    { key: 'contact_info', label: 'رقم الهاتف' },
+    { key: 'email', label: 'البريد الإلكتروني' },
+    { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+    { key: 'status', label: 'الحالة' },
+    { key: 'memorization_level', label: 'مستوى الحفظ' },
+    { key: 'notes', label: 'ملاحظات' },
+  ];
+
+  const studentsKidsFields = [
+    { key: 'name', label: 'الاسم الكامل' },
+    { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+    { key: 'gender', label: 'الجنس' },
+    { key: 'address', label: 'العنوان' },
+    { key: 'contact_info', label: 'رقم الهاتف' },
+    { key: 'email', label: 'البريد الإلكتروني' },
+    { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+    { key: 'status', label: 'الحالة' },
+    { key: 'memorization_level', label: 'مستوى الحفظ' },
+    { key: 'notes', label: 'ملاحظات' },
+    { key: 'parent_name', label: 'اسم ولي الأمر' },
+    { key: 'parent_contact', label: 'هاتف ولي الأمر' },
+  ];
+
   const arabicFieldDefinitions = {
-    students: [
-      { key: 'name', label: 'الاسم الكامل' },
-      { key: 'date_of_birth', label: 'تاريخ الميلاد' },
-      { key: 'gender', label: 'الجنس' },
-      { key: 'address', label: 'العنوان' },
-      { key: 'contact_info', label: 'رقم الهاتف' },
-      { key: 'email', label: 'البريد الإلكتروني' },
-      { key: 'enrollment_date', label: 'تاريخ التسجيل' },
-      { key: 'status', label: 'الحالة' },
-      { key: 'memorization_level', label: 'مستوى الحفظ' },
-      { key: 'notes', label: 'ملاحظات' },
-      { key: 'parent_name', label: 'اسم ولي الأمر' },
-      { key: 'parent_contact', label: 'هاتف ولي الأمر' },
-    ],
+    students: studentsAdultFields, // Default to adult fields
+    studentsKids: studentsKidsFields,
     teachers: [
       { key: 'name', label: 'الاسم الكامل' },
       { key: 'national_id', label: 'رقم الهوية' },
@@ -207,7 +279,13 @@ const ExportsPage = () => {
   const renderActivePanel = () => {
     switch (activeTab) {
       case 'students':
-        return <ExportTabPanel exportType="students" fields={arabicFieldDefinitions.students} />;
+        return (
+          <ExportTabPanel
+            exportType="students"
+            fields={arabicFieldDefinitions.students}
+            kidFields={arabicFieldDefinitions.studentsKids}
+          />
+        );
       case 'teachers':
         return <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} />;
       case 'admins':
