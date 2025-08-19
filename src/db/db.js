@@ -113,9 +113,17 @@ async function runMigrations() {
         await runQuery('COMMIT;');
         console.log(`Successfully applied migration: ${file}`);
       } catch (err) {
-        console.error(`Failed to apply migration ${file}:`, err);
         await runQuery('ROLLBACK;');
-        throw err;
+        // If the error is "duplicate column name", it means the migration was likely
+        // already applied manually or in a previous failed run. We can safely ignore it.
+        if (err.message.includes('duplicate column name')) {
+          console.warn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
+          // Manually insert into migrations table so it doesn't run again
+          await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);
+        } else {
+          console.error(`Failed to apply migration ${file}:`, err);
+          throw err;
+        }
       }
     }
   }

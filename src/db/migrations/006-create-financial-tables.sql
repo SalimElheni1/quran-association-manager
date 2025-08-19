@@ -29,8 +29,10 @@ CREATE TABLE IF NOT EXISTS salaries (
 CREATE TABLE IF NOT EXISTS donations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     donor_name TEXT NOT NULL,
-    amount REAL NOT NULL,
+    amount REAL, -- Nullable for in-kind donations
     donation_date DATETIME NOT NULL,
+    donation_type TEXT NOT NULL DEFAULT 'Cash', -- 'Cash' or 'In-kind'
+    description TEXT, -- For in-kind items
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

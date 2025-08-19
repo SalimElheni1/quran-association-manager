@@ -17,7 +17,7 @@ function PaymentsTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch payments:', err);
-      setError('فشل في جلب قائمة الدفعات.');
+      setError(err.message || 'فشل في جلب قائمة الدفعات.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ function PaymentsTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save payment:', err);
-      setError('فشل في حفظ الدفعة.');
+      setError(err.message || 'فشل في حفظ الدفعة.');
     }
   };
 
@@ -60,7 +60,7 @@ function PaymentsTab() {
         setPayments(payments.filter((p) => p.id !== paymentId));
       } catch (err) {
         console.error('Failed to delete payment:', err);
-        setError('فشل في حذف الدفعة.');
+        setError(err.message || 'فشل في حذف الدفعة.');
       }
     }
   };

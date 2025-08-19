@@ -1209,15 +1209,17 @@ To support the financial management module, the following tables are introduced.
 | `updated_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of last update.                        |
 
 ##### `donations` Table
-**Purpose:** Records all donations received.
+**Purpose:** Records all donations received, both cash and in-kind.
 
 | Column Name     | Data Type | Constraints                | Description                                      |
 | :-------------- | :-------- | :------------------------- | :----------------------------------------------- |
 | `id`            | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each donation.             |
 | `donor_name`    | TEXT      | NOT NULL                   | The name of the person or entity donating.       |
-| `amount`        | REAL      | NOT NULL                   | The amount donated.                              |
+| `amount`        | REAL      |                            | The monetary amount, for cash donations. Null for in-kind. |
 | `donation_date` | DATETIME  | NOT NULL                   | The date the donation was received.              |
-| `notes`         | TEXT      |                            | Additional notes about the donation.             |
+| `donation_type` | TEXT      | NOT NULL, DEFAULT 'Cash'   | The type of donation ('Cash' or 'In-kind').      |
+| `description`   | TEXT      |                            | Description of the item(s) for in-kind donations. |
+| `notes`         | TEXT      |                            | Additional general notes about the donation.     |
 | `created_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of record creation.                    |
 | `updated_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of last update.                        |
 

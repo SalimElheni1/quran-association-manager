@@ -230,7 +230,8 @@ The workflow for managing records is similar across all tabs (Payments, Salaries
   1.  Navigate to the desired tab (e.g., Expenses).
   2.  Click the **"إضافة..."** (Add...) button at the top of the table.
   3.  A form will appear in a modal window. Fill in all the required details.
-  4.  Click **"إضافة"** (Add) to save the new record.
+  4.  For donations, you can select the type of donation: **نقدي (Cash)** or **عيني (In-kind)**. If you select In-kind, you will be asked for a description of the item instead of a monetary amount.
+  5.  Click **"إضافة"** (Add) to save the new record.
 
 - **Editing a Record:**
   1.  Find the record you wish to edit in the table.

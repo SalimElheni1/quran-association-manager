@@ -17,7 +17,7 @@ function SalariesTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch salaries:', err);
-      setError('فشل في جلب قائمة الرواتب.');
+      setError(err.message || 'فشل في جلب قائمة الرواتب.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ function SalariesTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save salary:', err);
-      setError('فشل في حفظ الراتب.');
+      setError(err.message || 'فشل في حفظ الراتب.');
     }
   };
 
@@ -60,7 +60,7 @@ function SalariesTab() {
         setSalaries(salaries.filter((s) => s.id !== salaryId));
       } catch (err) {
         console.error('Failed to delete salary:', err);
-        setError('فشل في حذف الراتب.');
+        setError(err.message || 'فشل في حذف الراتب.');
       }
     }
   };

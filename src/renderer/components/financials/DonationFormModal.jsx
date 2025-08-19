@@ -6,6 +6,8 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
     donor_name: '',
     amount: '',
     donation_date: new Date().toISOString().split('T')[0],
+    donation_type: 'Cash',
+    description: '',
     notes: '',
   });
 
@@ -14,14 +16,21 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
   useEffect(() => {
     if (isEditMode) {
       setFormData({
-        ...donation,
+        donor_name: donation.donor_name || '',
+        amount: donation.amount || '',
         donation_date: new Date(donation.donation_date).toISOString().split('T')[0],
+        donation_type: donation.donation_type || 'Cash',
+        description: donation.description || '',
+        notes: donation.notes || '',
+        id: donation.id,
       });
     } else {
       setFormData({
         donor_name: '',
         amount: '',
         donation_date: new Date().toISOString().split('T')[0],
+        donation_type: 'Cash',
+        description: '',
         notes: '',
       });
     }
@@ -34,7 +43,13 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    const dataToSave = { ...formData };
+    if (dataToSave.donation_type === 'Cash') {
+      dataToSave.description = null;
+    } else {
+      dataToSave.amount = null;
+    }
+    onSave(dataToSave);
   };
 
   return (
@@ -54,16 +69,45 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
               required
             />
           </Form.Group>
-          <Form.Group className="mb-3" controlId="formDonationAmount">
-            <Form.Label>المبلغ</Form.Label>
+
+          <Form.Group className="mb-3" controlId="formDonationType">
+            <Form.Label>نوع التبرع</Form.Label>
             <Form.Control
-              type="number"
-              name="amount"
-              value={formData.amount}
+              as="select"
+              name="donation_type"
+              value={formData.donation_type}
               onChange={handleChange}
-              required
-            />
+            >
+              <option value="Cash">نقدي</option>
+              <option value="In-kind">عيني</option>
+            </Form.Control>
           </Form.Group>
+
+          {formData.donation_type === 'Cash' ? (
+            <Form.Group className="mb-3" controlId="formDonationAmount">
+              <Form.Label>المبلغ</Form.Label>
+              <Form.Control
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+          ) : (
+            <Form.Group className="mb-3" controlId="formDonationDescription">
+              <Form.Label>وصف التبرع العيني</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+          )}
+
           <Form.Group className="mb-3" controlId="formDonationDate">
             <Form.Label>تاريخ التبرع</Form.Label>
             <Form.Control
@@ -74,8 +118,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
               required
             />
           </Form.Group>
+
           <Form.Group className="mb-3" controlId="formDonationNotes">
-            <Form.Label>ملاحظات</Form.Label>
+            <Form.Label>ملاحظات إضافية</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -84,6 +129,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
               onChange={handleChange}
             />
           </Form.Group>
+
           <div className="d-grid">
             <Button variant="primary" type="submit">
               {isEditMode ? 'حفظ التعديلات' : 'إضافة التبرع'}

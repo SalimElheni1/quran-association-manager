@@ -17,7 +17,7 @@ function ExpensesTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
-      setError('فشل في جلب قائمة المصاريف.');
+      setError(err.message || 'فشل في جلب قائمة المصاريف.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ function ExpensesTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save expense:', err);
-      setError('فشل في حفظ المصروف.');
+      setError(err.message || 'فشل في حفظ المصروف.');
     }
   };
 
@@ -62,7 +62,7 @@ function ExpensesTab() {
         setExpenses(expenses.filter((exp) => exp.id !== expenseId));
       } catch (err) {
         console.error('Failed to delete expense:', err);
-        setError('فشل في حذف المصروف.');
+        setError(err.message || 'فشل في حذف المصروف.');
       }
     }
   };

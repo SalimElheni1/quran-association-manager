@@ -17,7 +17,7 @@ function DonationsTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch donations:', err);
-      setError('فشل في جلب قائمة التبرعات.');
+      setError(err.message || 'فشل في جلب قائمة التبرعات.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ function DonationsTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save donation:', err);
-      setError('فشل في حفظ التبرع.');
+      setError(err.message || 'فشل في حفظ التبرع.');
     }
   };
 
@@ -60,7 +60,7 @@ function DonationsTab() {
         setDonations(donations.filter((d) => d.id !== donationId));
       } catch (err) {
         console.error('Failed to delete donation:', err);
-        setError('فشل في حذف التبرع.');
+        setError(err.message || 'فشل في حذف التبرع.');
       }
     }
   };
@@ -87,7 +87,8 @@ function DonationsTab() {
           <tr>
             <th>#</th>
             <th>اسم المتبرع</th>
-            <th>المبلغ</th>
+            <th>نوع التبرع</th>
+            <th>القيمة / الوصف</th>
             <th>تاريخ التبرع</th>
             <th>ملاحظات</th>
             <th>الإجراءات</th>
@@ -99,7 +100,12 @@ function DonationsTab() {
               <tr key={donation.id}>
                 <td>{donation.id}</td>
                 <td>{donation.donor_name}</td>
-                <td>{donation.amount.toFixed(2)}</td>
+                <td>{donation.donation_type === 'Cash' ? 'نقدي' : 'عيني'}</td>
+                <td>
+                  {donation.donation_type === 'Cash'
+                    ? (donation.amount ? donation.amount.toFixed(2) : '0.00')
+                    : donation.description}
+                </td>
                 <td>{new Date(donation.donation_date).toLocaleDateString()}</td>
                 <td>{donation.notes}</td>
                 <td>
@@ -114,7 +120,7 @@ function DonationsTab() {
             ))
           ) : (
             <tr>
-              <td colSpan="6" className="text-center">
+              <td colSpan="7" className="text-center">
                 لا توجد تبرعات مسجلة حالياً.
               </td>
             </tr>

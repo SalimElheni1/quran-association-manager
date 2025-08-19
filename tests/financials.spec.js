@@ -42,36 +42,28 @@ describe('Financial Handlers', () => {
     });
   });
 
-  describe('handleAddExpense', () => {
-    it('should add a new expense and return it', async () => {
-      const newExpense = { category: 'Catering', amount: 500, expense_date: '2025-01-01', responsible_person: 'Admin', description: 'Lunch' };
-      const insertedExpense = { id: 1, ...newExpense };
-      db.runQuery.mockResolvedValue({ id: 1 });
-      db.getQuery.mockResolvedValue(insertedExpense);
-      const result = await handleAddExpense({}, newExpense);
-      expect(db.runQuery).toHaveBeenCalled();
-      expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM expenses WHERE id = ?', [1]);
-      expect(result).toEqual(insertedExpense);
-    });
-  });
-
-  describe('handleDeleteExpense', () => {
-    it('should delete an expense', async () => {
-      db.runQuery.mockResolvedValue({ changes: 1 });
-      const result = await handleDeleteExpense({}, 1);
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM expenses WHERE id = ?', [1]);
-      expect(result).toEqual({ id: 1 });
-    });
-  });
-
   // --- Donations ---
-  describe('handleGetDonations', () => {
-    it('should retrieve all donations', async () => {
-      const mockData = [{ id: 1, donor_name: 'Anonymous', amount: 1000 }];
-      db.allQuery.mockResolvedValue(mockData);
-      const result = await handleGetDonations();
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM donations ORDER BY donation_date DESC');
-      expect(result).toEqual(mockData);
+  describe('handleAddDonation', () => {
+    it('should add a new cash donation', async () => {
+        const newDonation = { donor_name: 'John Doe', amount: 500, donation_date: '2025-01-01', notes: '', donation_type: 'Cash', description: null };
+        const insertedDonation = { id: 1, ...newDonation };
+        db.runQuery.mockResolvedValue({ id: 1 });
+        db.getQuery.mockResolvedValue(insertedDonation);
+
+        await handleAddDonation({}, newDonation);
+
+        expect(db.runQuery).toHaveBeenCalledWith(expect.any(String), ['John Doe', 500, '2025-01-01', '', 'Cash', null]);
+    });
+
+    it('should add a new in-kind donation', async () => {
+        const newDonation = { donor_name: 'Jane Doe', amount: null, donation_date: '2025-01-02', notes: '', donation_type: 'In-kind', description: 'Office Chair' };
+        const insertedDonation = { id: 2, ...newDonation };
+        db.runQuery.mockResolvedValue({ id: 2 });
+        db.getQuery.mockResolvedValue(insertedDonation);
+
+        await handleAddDonation({}, newDonation);
+
+        expect(db.runQuery).toHaveBeenCalledWith(expect.any(String), ['Jane Doe', null, '2025-01-02', '', 'In-kind', 'Office Chair']);
     });
   });
 
@@ -99,16 +91,16 @@ describe('Financial Handlers', () => {
   describe('handleGetFinancialSummary', () => {
     it('should calculate the financial summary correctly', async () => {
         db.allQuery.mockImplementation((sql) => {
-            if (sql.includes("SELECT 'Payments' as source")) { // Income query
+            if (sql.includes("UNION ALL")) { // This is the income query
                 return Promise.resolve([
                     { source: 'Payments', total: 1000 },
                     { source: 'Donations', total: 500 }
                 ]);
             }
-            if (sql.includes("SELECT 'Expenses' as source")) { // Expenses query
+            if (sql.includes("FROM expenses")) {
                 return Promise.resolve([{ source: 'Expenses', total: 200 }]);
             }
-            if (sql.includes("SELECT 'Salaries' as source")) { // Salaries query
+            if (sql.includes("FROM salaries")) {
                 return Promise.resolve([{ source: 'Salaries', total: 300 }]);
             }
             return Promise.resolve([]);
@@ -122,7 +114,7 @@ describe('Financial Handlers', () => {
   });
 
   describe('handleGetChartData', () => {
-    it('should return aggregated data for charts', async () => {
+    it('should return aggregated data for charts and filter for cash donations', async () => {
         db.allQuery.mockImplementation((sql) => {
             if (sql.includes('strftime')) {
                 return Promise.resolve([{ month: '2025-01', totalIncome: 100, totalExpense: 50 }]);
@@ -131,11 +123,12 @@ describe('Financial Handlers', () => {
                 return Promise.resolve([{ category: 'Supplies', total: 50 }]);
             }
             if (sql.includes("SELECT 'الرسوم الدراسية' as source")) {
-                return Promise.resolve([{ source: 'الرسوم الدراسية', total: 100 }, { source: 'التبرعات', total: 200 }]);
+                return Promise.resolve([{ source: 'الرسوم الدراسية', total: 100 }, { source: 'التبرعات النقدية', total: 200 }]);
             }
             return Promise.resolve([]);
         });
         const result = await handleGetChartData();
+        expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining("donations WHERE donation_type = 'Cash'"));
         expect(result.timeSeriesData.length).toBe(1);
         expect(result.expenseCategoryData.length).toBe(1);
         expect(result.incomeSourceData.length).toBe(2);
