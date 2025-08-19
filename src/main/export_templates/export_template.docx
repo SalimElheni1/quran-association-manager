@@ -1,0 +1,9 @@
+Title: {title}
+Date: {date}
+
+{#data}
+--------------------
+{#.}
+{key}: {value}
+{/.}.
+{/data}

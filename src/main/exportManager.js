@@ -14,12 +14,38 @@ async function fetchExportData({ type, fields, options = {} }) {
   }
   const fieldSelection = fields.join(', ');
   let query = '';
+  let params = [];
+  let whereClauses = ['1=1'];
+
   switch (type) {
     case 'students':
-      query = `SELECT ${fieldSelection} FROM students ORDER BY name`;
+      query = `SELECT ${fieldSelection} FROM students`;
+      if (options.gender) {
+        if (options.gender === 'men') {
+          whereClauses.push('gender = ?');
+          params.push('Male');
+        } else if (options.gender === 'women') {
+          whereClauses.push('gender = ?');
+          params.push('Female');
+        } else if (options.gender === 'kids') {
+          // Assuming kids are under 13
+          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) < 13");
+        }
+      }
+      query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
       break;
     case 'teachers':
-      query = `SELECT ${fieldSelection} FROM teachers ORDER BY name`;
+      query = `SELECT ${fieldSelection} FROM teachers`;
+      if (options.gender) {
+        if (options.gender === 'men') {
+          whereClauses.push('gender = ?');
+          params.push('Male');
+        } else if (options.gender === 'women') {
+          whereClauses.push('gender = ?');
+          params.push('Female');
+        }
+      }
+      query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
       break;
     case 'admins':
       query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
@@ -49,17 +75,32 @@ async function fetchExportData({ type, fields, options = {} }) {
     default:
       throw new Error(`Invalid export type: ${type}`);
   }
-  return allQuery(query);
+  return allQuery(query, params);
+}
+
+// --- Data Localization ---
+function localizeData(data) {
+  const genderMap = {
+    Male: 'ذكر',
+    Female: 'أنثى',
+  };
+  return data.map((row) => {
+    if (row.gender && genderMap[row.gender]) {
+      return { ...row, gender: genderMap[row.gender] };
+    }
+    return row;
+  });
 }
 
 // --- PDF Generation ---
 async function generatePdf(title, columns, data, outputPath) {
+  const localizedData = localizeData(data);
   // 1. Create the HTML content
   const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
 
   const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
-  const rows = data
+  const rows = localizedData
     .map((item) => {
       const cells = columns.map((c) => `<td>${item[c.key] || ''}</td>`).join('');
       return `<tr>${cells}</tr>`;
@@ -86,7 +127,6 @@ async function generatePdf(title, columns, data, outputPath) {
 
     // 4. Print the window's contents to PDF
     const pdfData = await win.webContents.printToPDF({
-      margins: { top: 20, bottom: 20, left: 20, right: 20 },
       printBackground: true,
       pageSize: 'A4',
     });
@@ -102,19 +142,21 @@ async function generatePdf(title, columns, data, outputPath) {
 
 // --- Excel (XLSX) Generation ---
 async function generateXlsx(columns, data, outputPath) {
+  const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
   worksheet.views = [{ rightToLeft: true }];
 
   worksheet.columns = columns.map((col) => ({ ...col, width: 25 }));
 
-  worksheet.addRows(data);
+  worksheet.addRows(localizedData);
   worksheet.getRow(1).font = { bold: true };
   await workbook.xlsx.writeFile(outputPath);
 }
 
 // --- DOCX Generation ---
 function generateDocx(title, columns, data, outputPath) {
+  const localizedData = localizeData(data);
   const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
   if (!fs.existsSync(templatePath)) {
     throw new Error(
@@ -137,16 +179,10 @@ function generateDocx(title, columns, data, outputPath) {
     linebreaks: true,
   });
 
-  const templateData = data.map((item) => {
-    const nameKey = columns[0].key;
-    const otherKeys = columns.slice(1).map((c) => c.key);
-    const details = otherKeys
-      .map((key) => {
-        const column = columns.find((c) => c.key === key);
-        return `${column.header}: ${item[key] || ''}`;
-      })
-      .join(' | ');
-    return { name: item[nameKey], details: details };
+  const templateData = localizedData.map((item) => {
+    return columns.map((col) => {
+      return { key: col.header, value: item[col.key] || '' };
+    });
   });
 
   doc.render({

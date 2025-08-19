@@ -7,6 +7,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [genderFilter, setGenderFilter] = useState('all');
 
   const handleCheckboxChange = (event) => {
     const { value, checked } = event.target;
@@ -34,6 +35,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       exportType,
       format,
       columns,
+      options: {},
     };
 
     if (isAttendance) {
@@ -41,7 +43,10 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
         setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء ونهاية صالحين.' });
         return;
       }
-      exportOptions.options = { startDate, endDate };
+      exportOptions.options.startDate = startDate;
+      exportOptions.options.endDate = endDate;
+    } else {
+      exportOptions.options.gender = genderFilter;
     }
 
     try {
@@ -79,6 +84,24 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
         </Card.Title>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
+          {!isAttendance && (
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>التصنيف حسب الجنس</Form.Label>
+                  <Form.Select
+                    value={genderFilter}
+                    onChange={(e) => setGenderFilter(e.target.value)}
+                  >
+                    <option value="all">الكل</option>
+                    <option value="men">رجال</option>
+                    <option value="women">نساء</option>
+                    {exportType === 'students' && <option value="kids">أطفال</option>}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+          )}
           {isAttendance && (
             <Row className="mb-3">
               <Col md={6}>
