@@ -38,6 +38,12 @@ function Sidebar() {
             <i className="fas fa-calendar-check"></i>
             <span>تسجيل الحضور</span>
           </NavLink>
+          {['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(user?.role) && (
+            <NavLink to="/financials" className="nav-link">
+              <i className="fas fa-wallet"></i>
+              <span>المالية</span>
+            </NavLink>
+          )}
           <NavLink to="/profile" className="nav-link">
             <i className="fas fa-user-cog"></i>
             <span>الملف الشخصي</span>

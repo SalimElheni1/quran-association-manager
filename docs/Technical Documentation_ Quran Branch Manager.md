@@ -1177,6 +1177,65 @@ Each table in the database serves a specific purpose, storing distinct sets of i
 | 1   | Local Branch Masabih Quran | Bishri, Tunisia | 2024-07-01 08:00:00 |
 | 2   | Tunis Grand Branch         | Tunis, Tunisia  | 2024-07-01 08:30:00 |
 
+#### 4.2.7. Financial Tables
+
+To support the financial management module, the following tables are introduced.
+
+##### `payments` Table
+**Purpose:** Tracks student tuition fees and other payments.
+
+| Column Name      | Data Type | Constraints                                     | Description                                      |
+| :--------------- | :-------- | :---------------------------------------------- | :----------------------------------------------- |
+| `id`             | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each payment.              |
+| `student_id`     | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `students(id)` | The student making the payment.                  |
+| `amount`         | REAL      | NOT NULL                                        | The amount paid.                                 |
+| `payment_date`   | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | The date of the payment.                         |
+| `payment_method` | TEXT      |                                                 | Method of payment (e.g., 'Cash', 'Bank Transfer').|
+| `notes`          | TEXT      |                                                 | Additional notes about the payment.              |
+| `created_at`     | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of record creation.                    |
+| `updated_at`     | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of last update.                        |
+
+##### `salaries` Table
+**Purpose:** Tracks salary payments made to teachers and staff.
+
+| Column Name  | Data Type | Constraints                                     | Description                                      |
+| :----------- | :-------- | :---------------------------------------------- | :----------------------------------------------- |
+| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each salary payment.       |
+| `teacher_id` | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `teachers(id)` | The teacher receiving the salary.                |
+| `amount`     | REAL      | NOT NULL                                        | The amount paid.                                 |
+| `payment_date` | DATETIME  | NOT NULL                                        | The date the salary was paid.                    |
+| `notes`      | TEXT      |                                                 | Additional notes about the salary payment.       |
+| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of record creation.                    |
+| `updated_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of last update.                        |
+
+##### `donations` Table
+**Purpose:** Records all donations received.
+
+| Column Name     | Data Type | Constraints                | Description                                      |
+| :-------------- | :-------- | :------------------------- | :----------------------------------------------- |
+| `id`            | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each donation.             |
+| `donor_name`    | TEXT      | NOT NULL                   | The name of the person or entity donating.       |
+| `amount`        | REAL      | NOT NULL                   | The amount donated.                              |
+| `donation_date` | DATETIME  | NOT NULL                   | The date the donation was received.              |
+| `notes`         | TEXT      |                            | Additional notes about the donation.             |
+| `created_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of record creation.                    |
+| `updated_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of last update.                        |
+
+##### `expenses` Table
+**Purpose:** Tracks all organizational expenses.
+
+| Column Name        | Data Type | Constraints                | Description                                      |
+| :----------------- | :-------- | :------------------------- | :----------------------------------------------- |
+| `id`               | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each expense.              |
+| `category`         | TEXT      | NOT NULL                   | The category of the expense (e.g., 'Utilities', 'Supplies'). |
+| `amount`           | REAL      | NOT NULL                   | The amount of the expense.                       |
+| `expense_date`     | DATETIME  | NOT NULL                   | The date the expense was incurred.               |
+| `responsible_person`| TEXT      |                            | The person responsible for the expense.          |
+| `description`      | TEXT      |                            | A detailed description of the expense.           |
+| `created_at`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of record creation.                    |
+| `updated_at`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of last update.                        |
+
+
 ### 4.3. Database Relationships
 
 The relationships between tables are crucial for maintaining data integrity and enabling complex queries that span across different entities. The Quran Branch Manager database employs the following key relationships:
@@ -1188,6 +1247,10 @@ The relationships between tables are crucial for maintaining data integrity and 
 - **`attendance` to `students`:** This is a **Many-to-One** relationship. A student (`students` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single student. This is enforced by the `student_id` foreign key in the `attendance` table, referencing the `id` in the `students` table.
 
 - **`attendance` to `classes`:** This is a **Many-to-One** relationship. A class (`classes` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single class. This is enforced by the `class_id` foreign key in the `attendance` table, referencing the `id` in the `classes` table.
+
+- **`payments` to `students`:** This is a **Many-to-One** relationship. A student can have many payments, but each payment belongs to a single student. This is enforced by the `student_id` foreign key in the `payments` table.
+
+- **`salaries` to `teachers`:** This is a **Many-to-One** relationship. A teacher can have many salary payments, but each salary payment belongs to a single teacher. This is enforced by the `teacher_id` foreign key in the `salaries` table.
 
 ### 4.4. Example SQL Creation Script
 
@@ -1249,6 +1312,42 @@ CREATE TABLE IF NOT EXISTS attendance (
     status TEXT NOT NULL,
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (class_id) REFERENCES classes(id)
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    payment_method TEXT,
+    notes TEXT,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS salaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    payment_date DATETIME NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS donations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    donor_name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    donation_date DATETIME NOT NULL,
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    amount REAL NOT NULL,
+    expense_date DATETIME NOT NULL,
+    responsible_person TEXT,
+    description TEXT
 );
 ```
 

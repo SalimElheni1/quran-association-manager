@@ -58,4 +58,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAttendanceForDate: (classId, date) =>
     ipcRenderer.invoke('attendance:getForDate', { classId, date }),
   saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
+
+  // Financials API
+  getExpenses: () => ipcRenderer.invoke('get-expenses'),
+  addExpense: (expense) => ipcRenderer.invoke('add-expense', expense),
+  updateExpense: (expense) => ipcRenderer.invoke('update-expense', expense),
+  deleteExpense: (id) => ipcRenderer.invoke('delete-expense', id),
+
+  getDonations: () => ipcRenderer.invoke('get-donations'),
+  addDonation: (donation) => ipcRenderer.invoke('add-donation', donation),
+  updateDonation: (donation) => ipcRenderer.invoke('update-donation', donation),
+  deleteDonation: (id) => ipcRenderer.invoke('delete-donation', id),
+
+  getSalaries: () => ipcRenderer.invoke('get-salaries'),
+  addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
+  updateSalary: (salary) => ipcRenderer.invoke('update-salary', salary),
+  deleteSalary: (id) => ipcRenderer.invoke('delete-salary', id),
+
+  getPayments: () => ipcRenderer.invoke('get-payments'),
+  addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
+  updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
+  deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
+
+  getFinancialSummary: () => ipcRenderer.invoke('get-financial-summary'),
+  generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
+  generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
+  getChartData: () => ipcRenderer.invoke('get-chart-data'),
 });

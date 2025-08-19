@@ -26,8 +26,10 @@ Functional requirements describe the specific actions or functions the system mu
 - **Attendance Monitoring:** (MVP Priority)
   - Record student attendance (present, absent, late). (MVP)
   - Generate attendance reports for individual students and classes. (MVP)
-- **Financial Tracking (Implied from JSON, not detailed in MD):**
-  - _This feature is deferred to Phase 2 to focus the MVP on core educational management._
+- **Financial Management:**
+  - Track student tuition payments, teacher salaries, donations, and general expenses.
+  - View financial summaries and visualizations.
+  - Export detailed financial reports in PDF and Excel formats.
 - **Reporting:** (MVP Priority)
   - Generate student progress reports. (MVP)
   - Generate class attendance reports. (MVP)
@@ -201,7 +203,47 @@ The application allows you to generate various reports for analysis and record-k
 4.  Choose the output format: **PDF** or **Excel**.
 5.  Click **Generate Report**.
 
-### 2.8. User Role Management (Superadmin Functionality)
+### 2.8. Managing Finances (Admin/Manager Roles)
+
+The Financial Management module provides a centralized place to track all income and expenses for the branch. Access is restricted to users with administrative roles (e.g., Superadmin, Admin, FinanceManager).
+
+1.  **Accessing the Financial Module:** Navigate to the **المالية** (Financials) section from the sidebar.
+2.  **Navigating the Module:** The module is organized into several tabs:
+    - **التقارير والإحصائيات (Reports & Statistics):** View a dashboard with key financial metrics, charts, and export options.
+    - **الرسوم الدراسية (Student Payments):** Manage all incoming tuition fee payments from students.
+    - **الرواتب (Salaries):** Manage all outgoing salary payments to teachers and staff.
+    - **التبرعات (Donations):** Track all donations received.
+    - **المصاريف (Expenses):** Track all general expenses.
+
+#### 2.8.1. Viewing Reports and Statistics
+
+The main reports tab gives you a quick overview of the financial health of the branch.
+- **Summary Cards:** At the top, you'll find cards for Total Income, Total Expenses, and the current Balance.
+- **Charts:** Visual charts display income vs. expenses over time, a breakdown of expense categories, and a breakdown of income sources.
+- **Exporting:** From this tab, you can generate a comprehensive financial report in either **PDF** or **Excel** format. Click the corresponding button to save the report to your computer's "Downloads" folder.
+
+#### 2.8.2. Managing Records (Payments, Salaries, Donations, Expenses)
+
+The workflow for managing records is similar across all tabs (Payments, Salaries, Donations, and Expenses).
+
+- **Adding a New Record:**
+  1.  Navigate to the desired tab (e.g., Expenses).
+  2.  Click the **"إضافة..."** (Add...) button at the top of the table.
+  3.  A form will appear in a modal window. Fill in all the required details.
+  4.  Click **"إضافة"** (Add) to save the new record.
+
+- **Editing a Record:**
+  1.  Find the record you wish to edit in the table.
+  2.  Click the **"تعديل"** (Edit) button in that record's row.
+  3.  The form modal will appear, pre-filled with the record's current data.
+  4.  Make your changes and click **"حفظ التعديلات"** (Save Changes).
+
+- **Deleting a Record:**
+  1.  Find the record you wish to delete in the table.
+  2.  Click the **"حذف"** (Delete) button in that record's row.
+  3.  A confirmation prompt will appear. Click "OK" to permanently delete the record.
+
+### 2.9. User Role Management (Superadmin Functionality)
 
 For Superadmin users, the application provides functionalities to manage user accounts and assign roles.
 

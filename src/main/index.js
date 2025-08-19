@@ -12,6 +12,7 @@ const {
   updateSettingsHandler,
   copyLogoAsset,
 } = require('./settingsHandlers');
+const { registerFinancialHandlers } = require('./financialHandlers');
 const backupManager = require('./backupManager');
 
 // Load environment variables
@@ -106,6 +107,9 @@ app.whenReady().then(async () => {
     // Then create the window
     Menu.setApplicationMenu(null);
     createWindow();
+
+    // Register all financial IPC handlers
+    registerFinancialHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
