@@ -1,26 +1,55 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import * as d3 from 'd3';
 
 function PieChart({ data }) {
-  const width = 300;
-  const height = 300;
+  const ref = useRef();
 
-  // Simple placeholder for now - will implement D3 charts later
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+
+    const svg = d3.select(ref.current);
+    svg.selectAll("*").remove();
+
+    const width = 300;
+    const height = 300;
+    const margin = 10;
+    const radius = Math.min(width, height) / 2 - margin;
+
+    const g = svg.append("g")
+      .attr("transform", `translate(${width / 2},${height / 2})`);
+
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+    const pie = d3.pie().value(d => d.total);
+    const data_ready = pie(data);
+
+    const arc = d3.arc()
+      .innerRadius(0)
+      .outerRadius(radius);
+
+    g.selectAll('path')
+      .data(data_ready)
+      .enter()
+      .append('path')
+      .attr('d', arc)
+      .attr('fill', d => color(d.data.category))
+      .attr("stroke", "white")
+      .style("stroke-width", "2px");
+
+    g.selectAll('text')
+      .data(data_ready)
+      .enter()
+      .append('text')
+      .text(d => d.data.category)
+      .attr("transform", d => `translate(${arc.centroid(d)})`)
+      .style("text-anchor", "middle")
+      .style("font-size", 12)
+      .attr('fill', 'white');
+
+  }, [data]);
+
   return (
-    <div
-      style={{
-        width: `${width}px`,
-        height: `${height}px`,
-        border: '1px solid #ddd',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '50%',
-        margin: '10px',
-      }}
-    >
-      <span style={{ color: '#666', fontSize: '14px' }}>سيتم إضافة الرسم الدائري قريباً</span>
-    </div>
+    <svg ref={ref} width={width} height={height}></svg>
   );
 }
 

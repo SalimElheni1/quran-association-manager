@@ -1,26 +1,53 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import * as d3 from 'd3';
 
 function BarChart({ data }) {
-  const width = 400;
-  const height = 300;
+  const ref = useRef();
 
-  // Simple placeholder for now - will implement D3 charts later
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+
+    const svg = d3.select(ref.current);
+    svg.selectAll("*").remove();
+
+    const width = 400;
+    const height = 300;
+    const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.source))
+      .range([margin.left, width - margin.right])
+      .padding(0.1);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.total)]).nice()
+      .range([height - margin.bottom, margin.top]);
+
+    const xAxis = g => g
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).tickSizeOuter(0));
+
+    const yAxis = g => g
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y));
+
+    svg.append("g")
+      .selectAll("rect")
+      .data(data)
+      .join("rect")
+        .attr("x", d => x(d.source))
+        .attr("y", d => y(d.total))
+        .attr("height", d => y(0) - y(d.total))
+        .attr("width", x.bandwidth())
+        .attr("fill", "steelblue");
+
+    svg.append("g").call(xAxis);
+    svg.append("g").call(yAxis);
+
+  }, [data]);
+
   return (
-    <div
-      style={{
-        width: `${width}px`,
-        height: `${height}px`,
-        border: '1px solid #ddd',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px',
-        margin: '10px',
-      }}
-    >
-      <span style={{ color: '#666', fontSize: '14px' }}>سيتم إضافة الرسم البياني قريباً</span>
-    </div>
+    <svg ref={ref} width={width} height={height}></svg>
   );
 }
 

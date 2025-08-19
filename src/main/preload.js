@@ -81,7 +81,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
 
   getFinancialSummary: () => ipcRenderer.invoke('get-financial-summary'),
-  generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
-  generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
-  getChartData: () => ipcRenderer.invoke('get-chart-data'),
+  getMonthlySnapshot: () => ipcRenderer.invoke('get-monthly-snapshot'),
+  // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
+  // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
+  // getChartData: () => ipcRenderer.invoke('get-chart-data'),
 });

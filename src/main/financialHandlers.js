@@ -1,8 +1,8 @@
 const { ipcMain, app } = require('electron');
-const fs = require('fs');
-const path = require('path');
-const PDFDocument = require('pdfkit');
-const ExcelJS = require('exceljs');
+// const fs = require('fs');
+// const path = require('path');
+// const PDFDocument = require('pdfkit');
+// const ExcelJS = require('exceljs');
 const { allQuery, runQuery, getQuery } = require('../db/db');
 
 // --- Generic Error Handler ---
@@ -116,6 +116,39 @@ async function handleDeletePayment(event, paymentId) {
 }
 
 // --- Reporting Handlers ---
+async function handleGetMonthlySnapshot() {
+    const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
+    const now = new Date().toISOString();
+
+    const incomeSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
+    const expensesSql = `SELECT SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?`;
+    const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
+    const paymentCountSql = `SELECT COUNT(*) as count FROM payments WHERE payment_date BETWEEN ? AND ?`;
+    const largestExpenseSql = `SELECT MAX(amount) as max FROM expenses WHERE expense_date BETWEEN ? AND ?`;
+
+    const [
+        monthlyIncome,
+        monthlyExpenses,
+        monthlySalaries,
+        paymentCount,
+        largestExpense,
+    ] = await Promise.all([
+        getQuery(incomeSql, [startOfMonth, now]),
+        getQuery(expensesSql, [startOfMonth, now]),
+        getQuery(salariesSql, [startOfMonth, now]),
+        getQuery(paymentCountSql, [startOfMonth, now]),
+        getQuery(largestExpenseSql, [startOfMonth, now]),
+    ]);
+
+    return {
+        totalIncomeThisMonth: monthlyIncome?.total || 0,
+        totalExpensesThisMonth: (monthlyExpenses?.total || 0) + (monthlySalaries?.total || 0),
+        paymentsThisMonth: paymentCount?.count || 0,
+        largestExpenseThisMonth: largestExpense?.max || 0,
+    };
+}
+
+
 async function handleGetFinancialSummary() {
     const incomeSql = `
         SELECT 'Payments' as source, SUM(amount) as total FROM payments
@@ -144,145 +177,16 @@ async function handleGetFinancialSummary() {
 }
 
 
-// --- PDF Report Generation ---
-const FONT_REGULAR = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2');
-const FONT_BOLD = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2');
+// --- PDF Report Generation (Disabled) ---
+// const FONT_REGULAR = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2');
+// const FONT_BOLD = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2');
+// ... (rest of the PDF generation code is commented out)
 
-function addReportHeader(doc, title) {
-  doc.font(FONT_BOLD).fontSize(20).text('تقرير مالي - مدير الفروع', { align: 'center' });
-  doc.font(FONT_REGULAR).fontSize(16).text(title, { align: 'center' });
-  doc.moveDown(2);
-}
+// --- Chart Data (Disabled) ---
+// async function handleGetChartData() { ... }
 
-function addReportFooter(doc) {
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
-    doc.switchToPage(i);
-    doc.fontSize(10).text(`صفحة ${i + 1} من ${pageCount}`, 50, doc.page.height - 50, { align: 'center' });
-  }
-}
-
-async function handleGeneratePdfReport() {
-    const downloadsPath = app.getPath('downloads');
-    const filePath = path.join(downloadsPath, `Financial-Report-${Date.now()}.pdf`);
-    const doc = new PDFDocument({ margin: 50, layout: 'portrait', size: 'A4' });
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.registerFont('Cairo-Regular', FONT_REGULAR);
-    doc.registerFont('Cairo-Bold', FONT_BOLD);
-    doc.font('Cairo-Regular').rtl();
-
-    addReportHeader(doc, 'ملخص مالي شامل');
-
-    const [summary, payments, salaries, donations, expenses] = await Promise.all([
-        handleGetFinancialSummary(),
-        handleGetPayments(),
-        handleGetSalaries(),
-        handleGetDonations(),
-        handleGetExpenses()
-    ]);
-
-    doc.font('Cairo-Bold').fontSize(14).text('ملخص عام:', { align: 'right' });
-    doc.font('Cairo-Regular').fontSize(12).text(`إجمالي الدخل: ${summary.totalIncome.toFixed(2)}`, { align: 'right' });
-    doc.font('Cairo-Regular').fontSize(12).text(`إجمالي المصروفات: ${summary.totalExpenses.toFixed(2)}`, { align: 'right' });
-    doc.font('Cairo-Bold').fontSize(12).text(`الرصيد: ${summary.balance.toFixed(2)}`, { align: 'right' });
-    doc.moveDown(2);
-
-    const drawTable = (title, headers, data) => {
-        if (doc.y > 650) doc.addPage().rtl();
-        doc.font('Cairo-Bold').fontSize(14).text(title, { align: 'right' });
-        doc.moveDown();
-        const table = {
-            headers: headers,
-            rows: data,
-        };
-        doc.table(table, {
-            prepareHeader: () => doc.font('Cairo-Bold'),
-            prepareRow: () => doc.font('Cairo-Regular'),
-        });
-    };
-
-    drawTable('الرسوم الدراسية', ['ملاحظات', 'طريقة الدفع', 'التاريخ', 'المبلغ', 'الطالب'], payments.map(p => [p.notes, p.payment_method, new Date(p.payment_date).toLocaleDateString(), p.amount.toFixed(2), p.student_name]));
-    drawTable('الرواتب', ['ملاحظات', 'التاريخ', 'المبلغ', 'المعلم'], salaries.map(s => [s.notes, new Date(s.payment_date).toLocaleDateString(), s.amount.toFixed(2), s.teacher_name]));
-    drawTable('التبرعات', ['ملاحظات', 'الوصف', 'المبلغ', 'النوع', 'التاريخ', 'المتبرع'], donations.map(d => [d.notes, d.description, d.donation_type === 'Cash' ? (d.amount || 0).toFixed(2) : '-', d.donation_type === 'Cash' ? 'نقدي' : 'عيني', new Date(d.donation_date).toLocaleDateString(), d.donor_name]));
-    drawTable('المصاريف', ['الوصف', 'المسؤول', 'التاريخ', 'المبلغ', 'الفئة'], expenses.map(e => [e.description, e.responsible_person, new Date(e.expense_date).toLocaleDateString(), e.amount.toFixed(2), e.category]));
-
-    addReportFooter(doc);
-    doc.end();
-    return { success: true, path: filePath };
-}
-
-
-// --- Excel Report Generation ---
-async function handleGetChartData() {
-  const monthlyAggSql = `
-    SELECT
-      strftime('%Y-%m', date) as month,
-      SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as totalIncome,
-      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as totalExpense
-    FROM (
-      SELECT amount, payment_date as date, 'income' as type FROM payments
-      UNION ALL
-      SELECT amount, donation_date as date, 'income' as type FROM donations WHERE donation_type = 'Cash'
-      UNION ALL
-      SELECT amount, expense_date as date, 'expense' as type FROM expenses
-      UNION ALL
-      SELECT amount, payment_date as date, 'expense' as type FROM salaries
-    )
-    GROUP BY month
-    ORDER BY month;
-  `;
-  const expenseCatSql = `SELECT category, SUM(amount) as total FROM expenses GROUP BY category ORDER BY total DESC;`;
-  const incomeSourceSql = `
-      SELECT 'الرسوم الدراسية' as source, SUM(amount) as total FROM payments
-      UNION ALL
-      SELECT 'التبرعات النقدية' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash'
-  `;
-  const [timeSeriesData, expenseCategoryData, incomeSourceData] = await Promise.all([
-    allQuery(monthlyAggSql),
-    allQuery(expenseCatSql),
-    allQuery(incomeSourceSql)
-  ]);
-  return { timeSeriesData, expenseCategoryData, incomeSourceData };
-}
-
-
-async function handleGenerateExcelReport() {
-    const downloadsPath = app.getPath('downloads');
-    const filePath = path.join(downloadsPath, `Financial-Report-${Date.now()}.xlsx`);
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Quran Branch Manager';
-    workbook.created = new Date();
-
-    const summary = await handleGetFinancialSummary();
-    const payments = await handleGetPayments();
-    const salaries = await handleGetSalaries();
-    const donations = await handleGetDonations();
-    const expenses = await handleGetExpenses();
-
-    const summarySheet = workbook.addWorksheet('ملخص مالي');
-    summarySheet.addRow(['إجمالي الدخل', summary.totalIncome.toFixed(2)]);
-    summarySheet.addRow(['إجمالي المصروفات', summary.totalExpenses.toFixed(2)]);
-    summarySheet.addRow(['الرصيد', summary.balance.toFixed(2)]);
-
-    const paymentsSheet = workbook.addWorksheet('الرسوم الدراسية');
-    paymentsSheet.columns = [{ header: 'الطالب', key: 'student' }, { header: 'المبلغ', key: 'amount' }, { header: 'تاريخ الدفع', key: 'date' }];
-    payments.forEach(p => paymentsSheet.addRow({ student: p.student_name, amount: p.amount, date: new Date(p.payment_date).toLocaleDateString() }));
-
-    const salariesSheet = workbook.addWorksheet('الرواتب');
-    salariesSheet.columns = [{ header: 'المعلم', key: 'teacher' }, { header: 'المبلغ', key: 'amount' }, { header: 'تاريخ الدفع', key: 'date' }];
-    salaries.forEach(s => salariesSheet.addRow({ teacher: s.teacher_name, amount: s.amount, date: new Date(s.payment_date).toLocaleDateString() }));
-
-    const donationsSheet = workbook.addWorksheet('التبرعات');
-    donationsSheet.columns = [{ header: 'المتبرع', key: 'donor' }, { header: 'النوع', key: 'type' }, { header: 'القيمة/الوصف', key: 'value' }, { header: 'التاريخ', key: 'date' }];
-    donations.forEach(d => donationsSheet.addRow({ donor: d.donor_name, type: d.donation_type === 'Cash' ? 'نقدي' : 'عيني', value: d.donation_type === 'Cash' ? d.amount : d.description, date: new Date(d.donation_date).toLocaleDateString() }));
-
-    const expensesSheet = workbook.addWorksheet('المصاريف');
-    expensesSheet.columns = [{ header: 'الفئة', key: 'category' }, { header: 'المبلغ', key: 'amount' }, { header: 'التاريخ', key: 'date' }];
-    expenses.forEach(e => expensesSheet.addRow({ category: e.category, amount: e.amount, date: new Date(e.expense_date).toLocaleDateString() }));
-
-    await workbook.xlsx.writeFile(filePath);
-    return { success: true, path: filePath };
-}
+// --- Excel Report Generation (Disabled) ---
+// async function handleGenerateExcelReport() { ... }
 
 
 function registerFinancialHandlers() {
@@ -307,9 +211,10 @@ function registerFinancialHandlers() {
   ipcMain.handle('delete-payment', createHandler(handleDeletePayment));
 
   ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
-  ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
-  ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
-  ipcMain.handle('get-chart-data', createHandler(handleGetChartData));
+  ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
+  // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
+  // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
+  // ipcMain.handle('get-chart-data', createHandler(handleGetChartData));
 }
 
 module.exports = {
@@ -331,5 +236,6 @@ module.exports = {
   handleUpdatePayment,
   handleDeletePayment,
   handleGetFinancialSummary,
-  handleGetChartData,
+  handleGetMonthlySnapshot,
+  // handleGetChartData,
 };
