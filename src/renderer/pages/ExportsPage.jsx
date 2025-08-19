@@ -50,9 +50,11 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       if (result.success) {
         setMessage({ type: 'success', text: `تم الحفظ بنجاح!` });
       } else {
-        // Check for the specific template error
+        // Check for specific, user-fixable errors
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
-            setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه أولاً.' });
+          setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.' });
+        } else if (result.message.includes('TEMPLATE_INVALID')) {
+           setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب تالف أو فارغ. يرجى التأكد من أنه ملف Word صالح.' });
         } else {
             setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
         }
