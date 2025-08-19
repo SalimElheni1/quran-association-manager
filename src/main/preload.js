@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getFinancialSummary: () => ipcRenderer.invoke('get-financial-summary'),
   getMonthlySnapshot: () => ipcRenderer.invoke('get-monthly-snapshot'),
+  getStatementOfActivities: () => ipcRenderer.invoke('get-statement-of-activities'),
   // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
   // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
   // getChartData: () => ipcRenderer.invoke('get-chart-data'),

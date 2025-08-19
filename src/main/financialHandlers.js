@@ -116,6 +116,56 @@ async function handleDeletePayment(event, paymentId) {
 }
 
 // --- Reporting Handlers ---
+async function handleGetStatementOfActivities() {
+    const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
+    const now = new Date().toISOString();
+
+    // Statement of Activities Data
+    const feesSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
+    const donationsSql = `SELECT SUM(amount) as total FROM donations WHERE donation_type = 'Cash' AND donation_date BETWEEN ? AND ?`;
+    const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
+    const expensesSql = `SELECT category, SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category`;
+
+    // Recent Transactions Data
+    const recentTransactionsSql = `
+        SELECT date, type, details, amount FROM (
+            SELECT payment_date as date, 'Payment' as type, 'Payment from ' || s.name as details, amount FROM payments p JOIN students s ON p.student_id = s.id
+            UNION ALL
+            SELECT donation_date as date, 'Donation' as type, 'Donation from ' || donor_name, amount FROM donations WHERE donation_type = 'Cash'
+            UNION ALL
+            SELECT donation_date as date, 'In-kind Donation' as type, description as details, NULL as amount FROM donations WHERE donation_type = 'In-kind'
+            UNION ALL
+            SELECT payment_date as date, 'Salary' as type, 'Salary to ' || t.name as details, amount FROM salaries s JOIN teachers t ON s.teacher_id = t.id
+            UNION ALL
+            SELECT expense_date as date, 'Expense' as type, category as details, amount FROM expenses
+        )
+        ORDER BY date DESC
+        LIMIT 10;
+    `;
+
+    const [
+        fees,
+        donations,
+        salaries,
+        expenses,
+        recentTransactions,
+    ] = await Promise.all([
+        getQuery(feesSql, [startOfMonth, now]),
+        getQuery(donationsSql, [startOfMonth, now]),
+        getQuery(salariesSql, [startOfMonth, now]),
+        allQuery(expensesSql, [startOfMonth, now]),
+        allQuery(recentTransactionsSql),
+    ]);
+
+    return {
+        studentFees: fees?.total || 0,
+        cashDonations: donations?.total || 0,
+        salaries: salaries?.total || 0,
+        expensesByCategory: expenses,
+        recentTransactions,
+    };
+}
+
 async function handleGetMonthlySnapshot() {
     const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
     const now = new Date().toISOString();
@@ -212,6 +262,7 @@ function registerFinancialHandlers() {
 
   ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
   ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
+  ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
   // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
   // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
   // ipcMain.handle('get-chart-data', createHandler(handleGetChartData));
@@ -237,5 +288,6 @@ module.exports = {
   handleDeletePayment,
   handleGetFinancialSummary,
   handleGetMonthlySnapshot,
+  handleGetStatementOfActivities,
   // handleGetChartData,
 };
