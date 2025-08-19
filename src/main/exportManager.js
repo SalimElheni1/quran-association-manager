@@ -24,14 +24,17 @@ async function fetchExportData({ type, fields, options = {} }) {
     case 'admins':
       query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
       break;
-    case 'attendance':
+    case 'attendance': {
       const attendanceFieldMap = {
         student_name: 's.name as student_name',
         class_name: 'c.name as class_name',
         date: 'a.date',
         status: 'a.status',
       };
-      const selectedFields = fields.map((f) => attendanceFieldMap[f]).filter(Boolean).join(', ');
+      const selectedFields = fields
+        .map((f) => attendanceFieldMap[f])
+        .filter(Boolean)
+        .join(', ');
       if (!selectedFields) {
         throw new Error('No valid attendance fields selected.');
       }
@@ -42,6 +45,7 @@ async function fetchExportData({ type, fields, options = {} }) {
                WHERE a.date BETWEEN ? AND ?
                ORDER BY a.date`;
       return allQuery(query, [options.startDate, options.endDate]);
+    }
     default:
       throw new Error(`Invalid export type: ${type}`);
   }
@@ -54,11 +58,13 @@ async function generatePdf(title, columns, data, outputPath) {
   const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
 
-  const headers = columns.map(c => `<th>${c.header}</th>`).join('');
-  const rows = data.map(item => {
-    const cells = columns.map(c => `<td>${item[c.key] || ''}</td>`).join('');
-    return `<tr>${cells}</tr>`;
-  }).join('');
+  const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
+  const rows = data
+    .map((item) => {
+      const cells = columns.map((c) => `<td>${item[c.key] || ''}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    })
+    .join('');
 
   let finalHtml = templateHtml.replace('{title}', title);
   finalHtml = finalHtml.replace('{date}', new Date().toLocaleDateString('ar-SA'));
@@ -70,7 +76,10 @@ async function generatePdf(title, columns, data, outputPath) {
   fs.writeFileSync(tempHtmlPath, finalHtml);
 
   // 3. Create a hidden browser window
-  const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
 
   try {
     await win.loadFile(tempHtmlPath);
@@ -91,14 +100,13 @@ async function generatePdf(title, columns, data, outputPath) {
   }
 }
 
-
 // --- Excel (XLSX) Generation ---
 async function generateXlsx(columns, data, outputPath) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
   worksheet.views = [{ rightToLeft: true }];
 
-  worksheet.columns = columns.map(col => ({ ...col, width: 25 }));
+  worksheet.columns = columns.map((col) => ({ ...col, width: 25 }));
 
   worksheet.addRows(data);
   worksheet.getRow(1).font = { bold: true };
@@ -109,15 +117,19 @@ async function generateXlsx(columns, data, outputPath) {
 function generateDocx(title, columns, data, outputPath) {
   const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
   if (!fs.existsSync(templatePath)) {
-    throw new Error(`TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`);
+    throw new Error(
+      `TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`,
+    );
   }
   const content = fs.readFileSync(templatePath, 'binary');
 
   let zip;
   try {
-      zip = new PizZip(content);
-  } catch(error) {
-      throw new Error('TEMPLATE_INVALID: Could not read the DOCX template. Is it a valid, non-empty Word document?');
+    zip = new PizZip(content);
+  } catch (error) {
+    throw new Error(
+      'TEMPLATE_INVALID: Could not read the DOCX template. Is it a valid, non-empty Word document?',
+    );
   }
 
   const doc = new Docxtemplater(zip, {
@@ -125,13 +137,15 @@ function generateDocx(title, columns, data, outputPath) {
     linebreaks: true,
   });
 
-  const templateData = data.map(item => {
+  const templateData = data.map((item) => {
     const nameKey = columns[0].key;
-    const otherKeys = columns.slice(1).map(c => c.key);
-    const details = otherKeys.map(key => {
-        const column = columns.find(c => c.key === key);
+    const otherKeys = columns.slice(1).map((c) => c.key);
+    const details = otherKeys
+      .map((key) => {
+        const column = columns.find((c) => c.key === key);
         return `${column.header}: ${item[key] || ''}`;
-    }).join(' | ');
+      })
+      .join(' | ');
     return { name: item[nameKey], details: details };
   });
 

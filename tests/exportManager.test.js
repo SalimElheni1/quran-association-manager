@@ -2,7 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { BrowserWindow } = require('electron');
-const { fetchExportData, generatePdf, generateXlsx, generateDocx } = require('../src/main/exportManager');
+const {
+  fetchExportData,
+  generatePdf,
+  generateXlsx,
+  generateDocx,
+} = require('../src/main/exportManager');
 const db = require('../src/db/db');
 
 // Mock dependencies
@@ -12,15 +17,14 @@ jest.mock('../src/db/db', () => ({
 
 // Mock Electron's BrowserWindow
 jest.mock('electron', () => ({
-    BrowserWindow: jest.fn(() => ({
-        loadFile: jest.fn().mockResolvedValue(),
-        webContents: {
-            printToPDF: jest.fn().mockResolvedValue(Buffer.from('dummy pdf content')),
-        },
-        close: jest.fn(),
-    })),
+  BrowserWindow: jest.fn(() => ({
+    loadFile: jest.fn().mockResolvedValue(),
+    webContents: {
+      printToPDF: jest.fn().mockResolvedValue(Buffer.from('dummy pdf content')),
+    },
+    close: jest.fn(),
+  })),
 }));
-
 
 describe('exportManager', () => {
   let tmpDir;
@@ -36,7 +40,7 @@ describe('exportManager', () => {
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     if (fs.existsSync(docxTemplatePath)) {
-        fs.unlinkSync(docxTemplatePath);
+      fs.unlinkSync(docxTemplatePath);
     }
   });
 
@@ -88,15 +92,15 @@ describe('exportManager', () => {
     });
 
     it('should throw TEMPLATE_INVALID if the template is not a valid zip file', () => {
-        const outputPath = path.join(tmpDir, 'test.docx');
-        if (!fs.existsSync(templateDir)) {
-            fs.mkdirSync(templateDir, { recursive: true });
-        }
-        fs.writeFileSync(docxTemplatePath, 'this is not a zip file');
+      const outputPath = path.join(tmpDir, 'test.docx');
+      if (!fs.existsSync(templateDir)) {
+        fs.mkdirSync(templateDir, { recursive: true });
+      }
+      fs.writeFileSync(docxTemplatePath, 'this is not a zip file');
 
-        expect(() => {
-            generateDocx('Title', [], [], outputPath);
-        }).toThrow(/TEMPLATE_INVALID/);
+      expect(() => {
+        generateDocx('Title', [], [], outputPath);
+      }).toThrow(/TEMPLATE_INVALID/);
     });
   });
 });
