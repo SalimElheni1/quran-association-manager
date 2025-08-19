@@ -24,9 +24,11 @@ async function fetchExportData({ type, fields, options = {} }) {
         if (options.gender === 'men') {
           whereClauses.push('gender = ?');
           params.push('Male');
+          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= 13");
         } else if (options.gender === 'women') {
           whereClauses.push('gender = ?');
           params.push('Female');
+          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= 13");
         } else if (options.gender === 'kids') {
           // Assuming kids are under 13
           whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) < 13");
