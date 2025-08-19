@@ -99,7 +99,7 @@ function SalariesTab() {
               <tr key={salary.id}>
                 <td>{salary.id}</td>
                 <td>{salary.teacher_name}</td>
-                <td>{salary.amount.toFixed(2)}</td>
+                <td className="text-start">{salary.amount.toFixed(2)}</td>
                 <td>{new Date(salary.payment_date).toLocaleDateString()}</td>
                 <td>{salary.notes}</td>
                 <td>

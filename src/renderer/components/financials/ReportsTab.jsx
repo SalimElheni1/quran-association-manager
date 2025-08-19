@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 function ReportsTab() {
   const { user } = useAuth();
+  const [summary, setSummary] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [activities, setActivities] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,10 +14,12 @@ function ReportsTab() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [snapshotResult, activitiesResult] = await Promise.all([
+        const [summaryResult, snapshotResult, activitiesResult] = await Promise.all([
+          window.electronAPI.getFinancialSummary(),
           window.electronAPI.getMonthlySnapshot(),
           window.electronAPI.getStatementOfActivities(),
         ]);
+        setSummary(summaryResult);
         setSnapshot(snapshotResult);
         setActivities(activitiesResult);
         setError(null);
@@ -46,6 +49,38 @@ function ReportsTab() {
 
   return (
     <div>
+      <Card className="mb-4">
+        <Card.Header as="h4" className="bg-dark text-white">الملخص الكلي (لجميع الأوقات)</Card.Header>
+        <Card.Body>
+            <Row>
+                <Col md={4}>
+                    <Card bg="light">
+                        <Card.Body className="text-center">
+                            <Card.Title>إجمالي الدخل</Card.Title>
+                            <Card.Text className="h3 text-success">{summary?.totalIncome.toFixed(2) || '0.00'}</Card.Text>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={4}>
+                    <Card bg="light">
+                        <Card.Body className="text-center">
+                            <Card.Title>إجمالي المصروفات</Card.Title>
+                            <Card.Text className="h3 text-danger">{summary?.totalExpenses.toFixed(2) || '0.00'}</Card.Text>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={4}>
+                    <Card bg="light">
+                        <Card.Body className="text-center">
+                            <Card.Title>الرصيد الإجمالي</Card.Title>
+                            <Card.Text className="h3 text-primary">{summary?.balance.toFixed(2) || '0.00'}</Card.Text>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+        </Card.Body>
+      </Card>
+
       <Row className="mb-4">
         <Col md={4}>
           <Card bg="success" text="white" className="text-center">
@@ -122,7 +157,7 @@ function ReportsTab() {
                       <td>{new Date(tx.date).toLocaleDateString()}</td>
                       <td>{tx.type}</td>
                       <td>{tx.details}</td>
-                      <td>{tx.amount != null ? tx.amount.toFixed(2) : '-'}</td>
+                      <td className="text-start">{tx.amount != null ? tx.amount.toFixed(2) : '-'}</td>
                     </tr>
                   ))}
                 </tbody>

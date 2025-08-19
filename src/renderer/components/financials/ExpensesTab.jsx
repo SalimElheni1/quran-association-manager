@@ -102,7 +102,7 @@ function ExpensesTab() {
               <tr key={expense.id}>
                 <td>{expense.id}</td>
                 <td>{expense.category}</td>
-                <td>{expense.amount.toFixed(2)}</td>
+                <td className="text-start">{expense.amount.toFixed(2)}</td>
                 <td>{new Date(expense.expense_date).toLocaleDateString()}</td>
                 <td>{expense.responsible_person}</td>
                 <td>{expense.description}</td>
