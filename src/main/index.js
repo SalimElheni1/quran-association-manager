@@ -587,7 +587,9 @@ ipcMain.handle(
         filters: [
           format === 'pdf'
             ? { name: 'PDF Documents', extensions: ['pdf'] }
-            : { name: 'Excel Spreadsheets', extensions: ['xlsx'] },
+            : format === 'xlsx'
+            ? { name: 'Excel Spreadsheets', extensions: ['xlsx'] }
+            : { name: 'Word Documents', extensions: ['docx'] },
         ],
       });
 
@@ -603,17 +605,20 @@ ipcMain.handle(
       }
 
       // 3. Generate file
+      const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
       if (format === 'pdf') {
         await exportManager.generatePdf(
-          `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`, // Title
-          headers, // PDF headers
-          data, // Data rows
-          fields, // Data keys
+          reportTitle,
+          headers,
+          data,
+          fields,
           filePath,
-          defaultPdfTemplate, // Pass the template
+          defaultPdfTemplate,
         );
       } else if (format === 'xlsx') {
         await exportManager.generateXlsx(headers, data, fields, filePath);
+      } else if (format === 'docx') {
+        await exportManager.generateDocx(reportTitle, headers, data, fields, filePath);
       } else {
         throw new Error(`Unsupported export format: ${format}`);
       }

@@ -5,14 +5,14 @@ const path = require('path');
 
 const settings = {
   // Using placeholder paths as the actual logos were not found in the project.
-  // When added, they can be placed in `src/main/assets` or a similar directory.
   logoNationalPath: path.join(__dirname, 'assets/g13.png'),
   logoLocalPath: path.join(__dirname, 'assets/g247.png'),
 
   // PDF Template Settings
   pdf: {
-    font: 'Helvetica',
-    fontBold: 'Helvetica-Bold',
+    // Using the bold font for both seems to be more stable with fontkit.
+    font: path.join(__dirname, '../renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2'),
+    fontBold: path.join(__dirname, '../renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2'),
     fontSize: 10,
     titleFontSize: 16,
     headerColor: '#444444',

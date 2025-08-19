@@ -1,49 +1,6 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Tabs, Tab, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Nav } from 'react-bootstrap';
 import '../styles/ExportsPage.css';
-
-// These field definitions are based on the 'User Schemas' documentation.
-// In a real application, this might come from a shared configuration file.
-const fieldDefinitions = {
-  students: [
-    { key: 'name', label: 'Full Name' },
-    { key: 'date_of_birth', label: 'Date of Birth' },
-    { key: 'gender', label: 'Gender' },
-    { key: 'address', label: 'Address' },
-    { key: 'contact_info', label: 'Phone Number' },
-    { key: 'email', label: 'Email' },
-    { key: 'enrollment_date', label: 'Enrollment Date' },
-    { key: 'status', label: 'Status' },
-    { key: 'memorization_level', label: 'Memorization Level' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'parent_name', label: 'Parent Name' },
-    { key: 'parent_contact', label: 'Parent Contact' },
-  ],
-  teachers: [
-    { key: 'name', label: 'Full Name' },
-    { key: 'national_id', label: 'National ID' },
-    { key: 'contact_info', label: 'Phone Number' },
-    { key: 'email', label: 'Email' },
-    { key: 'specialization', label: 'Specialization' },
-    { key: 'years_of_experience', label: 'Years of Experience' },
-  ],
-  admins: [
-    { key: 'username', label: 'Username' },
-    { key: 'first_name', label: 'First Name' },
-    { key: 'last_name', label: 'Last Name' },
-    { key: 'email', label: 'Email' },
-    { key: 'role', label: 'Role' },
-    { key: 'status', label: 'Status' },
-  ],
-  attendance: [
-    // Note: The backend query for attendance is currently not dynamic.
-    // These fields are for display purposes and match the expected output.
-    { key: 'student_name', label: 'Student Name' },
-    { key: 'class_name', label: 'Class Name' },
-    { key: 'date', label: 'Date' },
-    { key: 'status', label: 'Status' },
-  ],
-};
 
 const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
   const [selectedFields, setSelectedFields] = useState(fields.map((f) => f.key));
@@ -105,7 +62,16 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
   return (
     <Card className="mt-3">
       <Card.Body>
-        <Card.Title>تصدير {exportType.charAt(0).toUpperCase() + exportType.slice(1)}</Card.Title>
+        <Card.Title>
+          تصدير {fields[0]?.label.startsWith('ال') ? 'ال' : ''}
+          {exportType === 'students'
+            ? 'طلاب'
+            : exportType === 'teachers'
+            ? 'معلمين'
+            : exportType === 'admins'
+            ? 'إداريين'
+            : 'حضور'}
+        </Card.Title>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
           {isAttendance && (
@@ -134,7 +100,7 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
           )}
           <Row>
             {fields.map((field) => (
-              <Col md={4} key={field.key}>
+              <Col md={4} key={field.key} className="mb-2">
                 <Form.Check
                   type="checkbox"
                   id={`${exportType}-${field.key}`}
@@ -151,8 +117,11 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
 
           {message.text && <Alert variant={message.type}>{message.text}</Alert>}
 
-          <div className="d-flex justify-content-end">
-            <Button variant="primary" className="me-2" onClick={() => handleExport('xlsx')}>
+          <div className="d-flex justify-content-end gap-2">
+            <Button variant="secondary" onClick={() => handleExport('docx')}>
+              تصدير إلى DOCX
+            </Button>
+            <Button variant="primary" onClick={() => handleExport('xlsx')}>
               تصدير إلى Excel
             </Button>
             <Button variant="danger" onClick={() => handleExport('pdf')}>
@@ -166,36 +135,95 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
 };
 
 const ExportsPage = () => {
-  return (
-    <Container fluid className="p-4">
-      <Row>
-        <Col>
-          <h2 className="h4">Data Exports</h2>
-          <p>
-            This module allows you to export various types of data from the application into PDF or
-            Excel formats for reporting and analysis.
-          </p>
-        </Col>
-      </Row>
-      <Tabs defaultActiveKey="students" id="export-tabs" className="mb-3">
-        <Tab eventKey="students" title="Students">
-          <ExportTabPanel exportType="students" fields={fieldDefinitions.students} />
-        </Tab>
-        <Tab eventKey="teachers" title="Teachers">
-          <ExportTabPanel exportType="teachers" fields={fieldDefinitions.teachers} />
-        </Tab>
-        <Tab eventKey="admins" title="Admins">
-          <ExportTabPanel exportType="admins" fields={fieldDefinitions.admins} />
-        </Tab>
-        <Tab eventKey="attendance" title="Attendance Register">
+  const [activeTab, setActiveTab] = useState('students');
+
+  const arabicFieldDefinitions = {
+    students: [
+      { key: 'name', label: 'الاسم الكامل' },
+      { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+      { key: 'gender', label: 'الجنس' },
+      { key: 'address', label: 'العنوان' },
+      { key: 'contact_info', label: 'رقم الهاتف' },
+      { key: 'email', label: 'البريد الإلكتروني' },
+      { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+      { key: 'status', label: 'الحالة' },
+      { key: 'memorization_level', label: 'مستوى الحفظ' },
+      { key: 'notes', label: 'ملاحظات' },
+      { key: 'parent_name', label: 'اسم ولي الأمر' },
+      { key: 'parent_contact', label: 'هاتف ولي الأمر' },
+    ],
+    teachers: [
+      { key: 'name', label: 'الاسم الكامل' },
+      { key: 'national_id', label: 'رقم الهوية' },
+      { key: 'contact_info', label: 'رقم الهاتف' },
+      { key: 'email', label: 'البريد الإلكتروني' },
+      { key: 'specialization', label: 'التخصص' },
+      { key: 'years_of_experience', label: 'سنوات الخبرة' },
+    ],
+    admins: [
+      { key: 'username', label: 'اسم المستخدم' },
+      { key: 'first_name', label: 'الاسم الأول' },
+      { key: 'last_name', label: 'اسم العائلة' },
+      { key: 'email', label: 'البريد الإلكتروني' },
+      { key: 'role', label: 'الدور' },
+      { key: 'status', label: 'الحالة' },
+    ],
+    attendance: [
+      { key: 'student_name', label: 'اسم الطالب' },
+      { key: 'class_name', label: 'اسم الفصل' },
+      { key: 'date', label: 'التاريخ' },
+      { key: 'status', label: 'الحالة' },
+    ],
+  };
+
+  const renderActivePanel = () => {
+    switch (activeTab) {
+      case 'students':
+        return <ExportTabPanel exportType="students" fields={arabicFieldDefinitions.students} />;
+      case 'teachers':
+        return <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} />;
+      case 'admins':
+        return <ExportTabPanel exportType="admins" fields={arabicFieldDefinitions.admins} />;
+      case 'attendance':
+        return (
           <ExportTabPanel
             exportType="attendance"
-            fields={fieldDefinitions.attendance}
+            fields={arabicFieldDefinitions.attendance}
             isAttendance={true}
           />
-        </Tab>
-      </Tabs>
-    </Container>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <h1>تصدير البيانات</h1>
+      </div>
+      <p className="lead">
+        تتيح هذه الوحدة تصدير أنواع مختلفة من البيانات من التطبيق إلى تنسيقات PDF أو Excel أو DOCX
+        لإعداد التقارير والتحليل.
+      </p>
+
+      <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
+        <Nav.Item>
+          <Nav.Link eventKey="students">الطلاب</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="teachers">المعلمين</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="admins">الإداريين</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="attendance">سجل الحضور</Nav.Link>
+        </Nav.Item>
+      </Nav>
+
+      <div>{renderActivePanel()}</div>
+    </div>
   );
 };
 

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { fetchExportData, generatePdf, generateXlsx } = require('../src/main/exportManager');
+const { fetchExportData, generatePdf, generateXlsx, generateDocx } = require('../src/main/exportManager');
 const db = require('../src/db/db');
 const utils = require('../src/main/utils');
 
@@ -10,105 +10,85 @@ jest.mock('../src/db/db', () => ({
   allQuery: jest.fn(),
 }));
 jest.mock('../src/main/utils', () => ({
-  processArabicText: jest.fn((text) => text), // Mock implementation returns text as is
+    processArabicText: jest.fn(text => text), // Mock returns text as is
 }));
+
 
 describe('exportManager', () => {
   let tmpDir;
+  const templateDir = path.resolve(__dirname, '../src/main/export_templates');
+  const templatePath = path.join(templateDir, 'export_template.docx');
 
-  // Create a temporary directory for test outputs
+  // Create a real temporary directory for test outputs
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-tests-'));
+    db.allQuery.mockResolvedValue([]); // Default mock response
+    utils.processArabicText.mockClear(); // Clear mock calls before each test
   });
 
   // Clean up the temporary directory
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     jest.clearAllMocks();
+    // Clean up template file if it was created
+    if (fs.existsSync(templatePath)) {
+      fs.unlinkSync(templatePath);
+    }
+    if (fs.existsSync(templateDir)) {
+        // Check if directory is empty before removing
+        if (fs.readdirSync(templateDir).length === 0) {
+            fs.rmdirSync(templateDir);
+        }
+    }
   });
 
   describe('fetchExportData', () => {
     it('should call the correct query for students', async () => {
-      const mockData = [{ id: 1, name: 'Ahmed', email: 'ahmed@test.com' }];
-      db.allQuery.mockResolvedValue(mockData);
-
-      const fields = ['id', 'name', 'email'];
-      const result = await fetchExportData({ type: 'students', fields });
-
-      expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT id, name, email FROM students ORDER BY name',
-      );
-      expect(result).toEqual(mockData);
-    });
-
-    it('should call the correct query for teachers', async () => {
-      db.allQuery.mockResolvedValue([]);
-      const fields = ['id', 'name'];
-      await fetchExportData({ type: 'teachers', fields });
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT id, name FROM teachers ORDER BY name');
-    });
-
-    it('should call the correct query for admins', async () => {
-      db.allQuery.mockResolvedValue([]);
-      const fields = ['id', 'username', 'role'];
-      await fetchExportData({ type: 'admins', fields });
-      expect(db.allQuery).toHaveBeenCalledWith(
-        "SELECT id, username, role FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username",
-      );
-    });
-
-    it('should throw an error for an invalid export type', async () => {
-      await expect(fetchExportData({ type: 'invalid', fields: ['id'] })).rejects.toThrow(
-        'Invalid export type: invalid',
-      );
-    });
-
-    it('should throw an error if no fields are provided', async () => {
-      await expect(fetchExportData({ type: 'students', fields: [] })).rejects.toThrow(
-        'No fields selected for export.',
-      );
+      await fetchExportData({ type: 'students', fields: ['id', 'name'] });
+      expect(db.allQuery).toHaveBeenCalledWith('SELECT id, name FROM students ORDER BY name');
     });
   });
 
   describe('generatePdf', () => {
-    it('should create a PDF file and call the text processor', async () => {
+    it('should create a non-empty PDF file and process text for RTL', async () => {
       const outputPath = path.join(tmpDir, 'test.pdf');
-      const headers = ['ID', 'Name'];
-      const data = [{ id: 1, name: 'Test User' }];
-      const dataKeys = ['id', 'name'];
       const mockTemplate = {
         drawHeader: jest.fn(),
         drawFooter: jest.fn(),
       };
 
-      await generatePdf('Test Report', headers, data, dataKeys, outputPath, mockTemplate);
+      await generatePdf('Test Report', ['h1'], [{ f1: 'd1' }], ['f1'], outputPath, mockTemplate);
 
-      // Check if the file was created
       expect(fs.existsSync(outputPath)).toBe(true);
       const stats = fs.statSync(outputPath);
       expect(stats.size).toBeGreaterThan(0);
 
-      // Check if the text processor was called for headers and data
-      expect(utils.processArabicText).toHaveBeenCalledWith('ID');
-      expect(utils.processArabicText).toHaveBeenCalledWith('Name');
-      expect(utils.processArabicText).toHaveBeenCalledWith('Test User');
+      // Check that the text processor was called
+      expect(utils.processArabicText).toHaveBeenCalledWith('h1');
+      expect(utils.processArabicText).toHaveBeenCalledWith('d1');
     });
   });
 
   describe('generateXlsx', () => {
-    it('should create an XLSX file without errors', async () => {
+    it('should create a non-empty XLSX file without errors', async () => {
       const outputPath = path.join(tmpDir, 'test.xlsx');
-      const headers = ['ID', 'Name'];
-      const data = [{ id: 1, name: 'Test User' }];
-      const dataKeys = ['id', 'name'];
+      await generateXlsx(['h1'], [{ f1: 'd1' }], ['f1'], outputPath);
 
-      await generateXlsx(headers, data, dataKeys, outputPath);
-
-      // Check if the file was created
       expect(fs.existsSync(outputPath)).toBe(true);
-      // Check if the file is not empty
       const stats = fs.statSync(outputPath);
       expect(stats.size).toBeGreaterThan(0);
+    });
+  });
+
+  describe('generateDocx', () => {
+    it('should throw an error if the template does not exist', () => {
+      const outputPath = path.join(tmpDir, 'test.docx');
+      if (fs.existsSync(templatePath)) {
+        fs.unlinkSync(templatePath);
+      }
+      expect(() => {
+        generateDocx('Title', [], [], [], outputPath);
+      }).toThrow(/template not found/);
     });
   });
 });

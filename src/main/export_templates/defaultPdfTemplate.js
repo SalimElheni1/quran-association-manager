@@ -1,6 +1,6 @@
 const fs = require('fs');
 const settings = require('../settingsManager');
-const { processArabicText } = require('../utils'); // Import from the new utility file
+const { processArabicText } = require('../utils');
 
 /**
  * Draws the header for a PDF document.
@@ -32,7 +32,7 @@ function drawHeader(doc, reportTitle) {
   // Report Specific Title
   doc
     .font(pdfSettings.fontBold)
-    .fontSize(pdfSettings.fontSize + 2) // Slightly smaller than main title
+    .fontSize(pdfSettings.fontSize + 2)
     .text(processArabicText(reportTitle), { align: 'center' });
 
   doc.moveDown(2);
