@@ -1,20 +1,16 @@
 const fs = require('fs');
+const path = require('path');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const { allQuery } = require('../db/db');
 const settings = require('./settingsManager');
-const { processArabicText } = require('./utils');
-const path = require('path');
 
 // --- Data Fetching ---
 async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
-  }
-  if (!fields.includes('id')) {
-    fields.unshift('id');
   }
   const fieldSelection = fields.join(', ');
   let query = '';
@@ -35,10 +31,7 @@ async function fetchExportData({ type, fields, options = {} }) {
         date: 'a.date',
         status: 'a.status',
       };
-      const selectedFields = fields
-        .map((f) => attendanceFieldMap[f])
-        .filter(Boolean)
-        .join(', ');
+      const selectedFields = fields.map((f) => attendanceFieldMap[f]).filter(Boolean).join(', ');
       if (!selectedFields) {
         throw new Error('No valid attendance fields selected.');
       }
@@ -56,14 +49,17 @@ async function fetchExportData({ type, fields, options = {} }) {
 }
 
 // --- PDF Generation ---
-function generatePdf(title, headers, data, dataKeys, outputPath, template) {
+function generatePdf(title, columns, data, outputPath, template) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, layout: 'portrait', size: 'A4' });
     const writeStream = fs.createWriteStream(outputPath);
     doc.pipe(writeStream);
-    writeStream.on('finish', () => resolve());
+    writeStream.on('finish', resolve);
     writeStream.on('error', reject);
     doc.on('error', reject);
+
+    // Register the 'pageAdded' event listener to add footers to new pages
+    doc.on('pageAdded', () => template.drawFooter(doc));
 
     const pdfSettings = settings.getSetting('pdf');
     try {
@@ -77,12 +73,14 @@ function generatePdf(title, headers, data, dataKeys, outputPath, template) {
 
     template.drawHeader(doc, title);
 
+    const headers = columns.map(c => c.header);
+    const dataKeys = columns.map(c => c.key);
     const tableTop = doc.y;
-    const itemWidth = (doc.page.width - 100) / headers.length;
+    const itemWidth = (doc.page.width - 100) / columns.length;
 
     doc.font('Cairo-Bold').fillColor(pdfSettings.headerColor);
     headers.forEach((header, i) => {
-      doc.text(processArabicText(header), 50 + i * itemWidth, tableTop, {
+      doc.text(header, 50 + i * itemWidth, tableTop, {
         width: itemWidth,
         align: 'center',
       });
@@ -95,7 +93,7 @@ function generatePdf(title, headers, data, dataKeys, outputPath, template) {
     data.forEach((item) => {
       const rowY = doc.y;
       dataKeys.forEach((key, i) => {
-        doc.text(processArabicText(item[key]), 50 + i * itemWidth, rowY, {
+        doc.text(String(item[key] || ''), 50 + i * itemWidth, rowY, {
           width: itemWidth,
           align: 'right',
         });
@@ -105,31 +103,34 @@ function generatePdf(title, headers, data, dataKeys, outputPath, template) {
       doc.moveDown();
     });
 
+    // Manually draw the footer on the first/last page
     template.drawFooter(doc);
+
     doc.end();
   });
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(headers, data, dataKeys, outputPath) {
+async function generateXlsx(columns, data, outputPath) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
   worksheet.views = [{ rightToLeft: true }];
-  worksheet.columns = headers.map((header, index) => ({
-    header: header,
-    key: dataKeys[index],
-    width: 20,
-  }));
+
+  worksheet.columns = columns.map(col => ({ ...col, width: 25 }));
+
   worksheet.addRows(data);
   worksheet.getRow(1).font = { bold: true };
   await workbook.xlsx.writeFile(outputPath);
 }
 
 // --- DOCX Generation ---
-function generateDocx(title, headers, data, dataKeys, outputPath) {
+function generateDocx(title, columns, data, outputPath) {
   const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
   if (!fs.existsSync(templatePath)) {
-    throw new Error(`DOCX template not found at ${templatePath}. Please create it.`);
+    // Return a specific, user-friendly error code/message
+    const err = new Error(`DOCX template not found at ${templatePath}. Please create it.`);
+    err.code = 'TEMPLATE_NOT_FOUND';
+    throw err;
   }
   const content = fs.readFileSync(templatePath, 'binary');
   const zip = new PizZip(content);
@@ -137,15 +138,17 @@ function generateDocx(title, headers, data, dataKeys, outputPath) {
     paragraphLoop: true,
     linebreaks: true,
   });
+
   const templateData = data.map(item => {
-    const nameKey = dataKeys[0];
-    const otherKeys = dataKeys.slice(1);
+    const nameKey = columns[0].key;
+    const otherKeys = columns.slice(1).map(c => c.key);
     const details = otherKeys.map(key => {
-      const header = headers[dataKeys.indexOf(key)] || key;
-      return `${header}: ${item[key] || ''}`;
-    }).join(', ');
+        const column = columns.find(c => c.key === key);
+        return `${column.header}: ${item[key] || ''}`;
+    }).join(' | ');
     return { name: item[nameKey], details: details };
   });
+
   doc.render({
     title: title,
     date: new Date().toLocaleDateString('ar-SA'),

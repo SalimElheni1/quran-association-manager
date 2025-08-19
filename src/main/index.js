@@ -578,7 +578,7 @@ ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGende
 
 ipcMain.handle(
   'export:generate',
-  async (_event, { exportType, format, fields, headers, options }) => {
+  async (_event, { exportType, format, columns, options }) => {
     try {
       // 1. Show "Save As" dialog
       const { filePath } = await dialog.showSaveDialog({
@@ -598,6 +598,7 @@ ipcMain.handle(
       }
 
       // 2. Fetch data
+      const fields = columns.map(c => c.key);
       const data = await exportManager.fetchExportData({ type: exportType, fields, options });
 
       if (data.length === 0) {
@@ -607,18 +608,11 @@ ipcMain.handle(
       // 3. Generate file
       const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
       if (format === 'pdf') {
-        await exportManager.generatePdf(
-          reportTitle,
-          headers,
-          data,
-          fields,
-          filePath,
-          defaultPdfTemplate,
-        );
+        await exportManager.generatePdf(reportTitle, columns, data, filePath, defaultPdfTemplate);
       } else if (format === 'xlsx') {
-        await exportManager.generateXlsx(headers, data, fields, filePath);
+        await exportManager.generateXlsx(columns, data, filePath);
       } else if (format === 'docx') {
-        await exportManager.generateDocx(reportTitle, headers, data, fields, filePath);
+        await exportManager.generateDocx(reportTitle, columns, data, filePath);
       } else {
         throw new Error(`Unsupported export format: ${format}`);
       }

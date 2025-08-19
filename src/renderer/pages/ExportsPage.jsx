@@ -25,16 +25,15 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       return;
     }
 
-    const headers = selectedFields.map((key) => {
+    const columns = selectedFields.map((key) => {
       const field = fields.find((f) => f.key === key);
-      return field ? field.label : key;
+      return { header: field.label, key: field.key };
     });
 
     const exportOptions = {
       exportType,
       format,
-      fields: selectedFields,
-      headers,
+      columns,
     };
 
     if (isAttendance) {
@@ -49,9 +48,14 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
       const result = await window.electronAPI.generateExport(exportOptions);
 
       if (result.success) {
-        setMessage({ type: 'success', text: `تم الحفظ بنجاح: ${result.message}` });
+        setMessage({ type: 'success', text: `تم الحفظ بنجاح!` });
       } else {
-        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+        // Check for the specific template error
+        if (result.message.includes('TEMPLATE_NOT_FOUND')) {
+            setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه أولاً.' });
+        } else {
+            setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+        }
       }
     } catch (error) {
       setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
@@ -63,14 +67,13 @@ const ExportTabPanel = ({ exportType, fields, isAttendance = false }) => {
     <Card className="mt-3">
       <Card.Body>
         <Card.Title>
-          تصدير {fields[0]?.label.startsWith('ال') ? 'ال' : ''}
-          {exportType === 'students'
-            ? 'طلاب'
+          تصدير {exportType === 'students'
+            ? 'الطلاب'
             : exportType === 'teachers'
-            ? 'معلمين'
+            ? 'المعلمين'
             : exportType === 'admins'
-            ? 'إداريين'
-            : 'حضور'}
+            ? 'الإداريين'
+            : 'سجل الحضور'}
         </Card.Title>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
@@ -222,7 +225,7 @@ const ExportsPage = () => {
         </Nav.Item>
       </Nav>
 
-      <div>{renderActivePanel()}</div>
+      <div className="content-panel">{renderActivePanel()}</div>
     </div>
   );
 };

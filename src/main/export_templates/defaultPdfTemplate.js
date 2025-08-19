@@ -1,9 +1,9 @@
 const fs = require('fs');
 const settings = require('../settingsManager');
-const { processArabicText } = require('../utils');
 
 /**
  * Draws the header for a PDF document.
+ * This is called once at the beginning of the document.
  * @param {PDFKit.PDFDocument} doc - The PDF document instance.
  * @param {string} reportTitle - The title of the specific report.
  */
@@ -22,52 +22,39 @@ function drawHeader(doc, reportTitle) {
 
   // Main Title
   doc
-    .font(pdfSettings.fontBold)
+    .font('Cairo-Bold')
     .fontSize(pdfSettings.titleFontSize)
     .fillColor(pdfSettings.headerColor)
-    .text(processArabicText('مدير فرع القرآن'), { align: 'center' }); // Main app title
-
-  doc.moveDown();
-
-  // Report Specific Title
-  doc
-    .font(pdfSettings.fontBold)
-    .fontSize(pdfSettings.fontSize + 2)
-    .text(processArabicText(reportTitle), { align: 'center' });
+    .text(reportTitle, { align: 'center' }); // Use the dynamic report title
 
   doc.moveDown(2);
 }
 
 /**
- * Draws the footer for each page of a PDF document.
+ * Draws the footer for a single page of a PDF document.
+ * This function will be called for each page.
  * @param {PDFKit.PDFDocument} doc - The PDF document instance.
  */
 function drawFooter(doc) {
   const pdfSettings = settings.getSetting('pdf');
-  const range = doc.bufferedPageRange();
+  const pageNum = doc.page.pageNumber; // pdfkit is 1-based
 
-  for (let i = 0; i < range.count; i++) {
-    doc.switchToPage(i);
-    const pageNum = i + 1;
+  doc
+    .font('Cairo-Regular')
+    .fontSize(pdfSettings.fontSize - 2)
+    .fillColor(pdfSettings.textColor)
+    .text(`Page ${pageNum}`, doc.x, doc.page.height - 50, {
+      align: 'right',
+      lineBreak: false,
+    });
 
-    // Draw page number and generation date
-    doc
-      .font(pdfSettings.font)
-      .fontSize(pdfSettings.fontSize - 2)
-      .fillColor(pdfSettings.textColor)
-      .text(`Page ${pageNum} of ${range.count}`, doc.x, doc.page.height - 50, {
-        align: 'right',
-        lineBreak: false,
-      });
-
-    doc
-      .font(pdfSettings.font)
-      .fontSize(pdfSettings.fontSize - 2)
-      .text(new Date().toLocaleString(), doc.x, doc.page.height - 50, {
-        align: 'left',
-        lineBreak: false,
-      });
-  }
+  doc
+    .font('Cairo-Regular')
+    .fontSize(pdfSettings.fontSize - 2)
+    .text(new Date().toLocaleDateString('ar-SA'), doc.x, doc.page.height - 50, {
+      align: 'left',
+      lineBreak: false,
+    });
 }
 
 module.exports = {
