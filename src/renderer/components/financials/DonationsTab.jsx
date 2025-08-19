@@ -101,7 +101,7 @@ function DonationsTab() {
                 <td>{donation.id}</td>
                 <td>{donation.donor_name}</td>
                 <td>{donation.donation_type === 'Cash' ? 'نقدي' : 'عيني'}</td>
-                <td>
+                <td className="text-start">
                   {donation.donation_type === 'Cash'
                     ? (donation.amount ? donation.amount.toFixed(2) : '0.00')
                     : donation.description}

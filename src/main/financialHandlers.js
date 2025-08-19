@@ -129,15 +129,15 @@ async function handleGetStatementOfActivities() {
     // Recent Transactions Data
     const recentTransactionsSql = `
         SELECT date, type, details, amount FROM (
-            SELECT payment_date as date, 'Payment' as type, 'Payment from ' || s.name as details, amount FROM payments p JOIN students s ON p.student_id = s.id
+            SELECT payment_date as date, 'دفعة رسوم' as type, 'دفعة من الطالب ' || s.name as details, amount FROM payments p JOIN students s ON p.student_id = s.id
             UNION ALL
-            SELECT donation_date as date, 'Donation' as type, 'Donation from ' || donor_name, amount FROM donations WHERE donation_type = 'Cash'
+            SELECT donation_date as date, 'تبرع نقدي' as type, 'تبرع من ' || donor_name as details, amount FROM donations WHERE donation_type = 'Cash'
             UNION ALL
-            SELECT donation_date as date, 'In-kind Donation' as type, description as details, NULL as amount FROM donations WHERE donation_type = 'In-kind'
+            SELECT donation_date as date, 'تبرع عيني' as type, description as details, NULL as amount FROM donations WHERE donation_type = 'In-kind'
             UNION ALL
-            SELECT payment_date as date, 'Salary' as type, 'Salary to ' || t.name as details, amount FROM salaries s JOIN teachers t ON s.teacher_id = t.id
+            SELECT payment_date as date, 'راتب' as type, 'راتب للمعلم ' || t.name as details, amount FROM salaries s JOIN teachers t ON s.teacher_id = t.id
             UNION ALL
-            SELECT expense_date as date, 'Expense' as type, category as details, amount FROM expenses
+            SELECT expense_date as date, 'مصروف' as type, category as details, amount FROM expenses
         )
         ORDER BY date DESC
         LIMIT 10;

@@ -100,7 +100,7 @@ function PaymentsTab() {
               <tr key={payment.id}>
                 <td>{payment.id}</td>
                 <td>{payment.student_name}</td>
-                <td>{payment.amount.toFixed(2)}</td>
+                <td className="text-start">{payment.amount.toFixed(2)}</td>
                 <td>{payment.payment_method}</td>
                 <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td>{payment.notes}</td>
