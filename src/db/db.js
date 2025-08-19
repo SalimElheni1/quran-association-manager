@@ -91,25 +91,6 @@ async function seedSuperadmin() {
   }
 }
 
-async function seedAppliedMigrations() {
-  console.log('Seeding applied migrations for new database...');
-  const migrationsDir = path.join(__dirname, 'migrations');
-  if (!fs.existsSync(migrationsDir)) {
-    console.log('No migrations directory found, skipping seeding.');
-    return;
-  }
-
-  const migrationFiles = fs.readdirSync(migrationsDir).sort();
-  for (const file of migrationFiles) {
-    try {
-      await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);
-    } catch (error) {
-      // If migrations table doesn't exist yet, this will fail - that's expected
-      console.log('Migrations table not ready yet, will be created during schema setup');
-    }
-  }
-}
-
 async function runMigrations() {
   console.log('Checking for pending migrations...');
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -168,19 +149,16 @@ async function initializeDatabase() {
             isDatabaseInitialized = true;
 
             // Initialize schema and run migrations
-            console.log('Step 1/5: Creating base schema...');
+            console.log('Step 1/4: Creating base schema...');
             await execSql(schema);
 
-            console.log('Step 2/5: Setting up migrations table...');
-            await seedAppliedMigrations();
-
-            console.log('Step 3/5: Running pending migrations...');
+            console.log('Step 2/4: Running pending migrations...');
             await runMigrations();
 
-            console.log('Step 4/5: Setting up superadmin...');
+            console.log('Step 3/4: Setting up superadmin...');
             await seedSuperadmin();
 
-            console.log('Step 5/5: Database ready for use');
+            console.log('Step 4/4: Database ready for use');
             // Note: Demo/sample data seeding is now manual via npm run seed:manual
 
             // Log final counts (only superadmin and schema)
