@@ -233,7 +233,26 @@ async function handleGetFinancialSummary() {
 // ... (rest of the PDF generation code is commented out)
 
 // --- Chart Data (Disabled) ---
-// async function handleGetChartData() { ... }
+async function handleGetChartData() {
+    const cashDonationsSql = `SELECT strftime('%Y-%m', donation_date) as month, SUM(amount) as total FROM donations WHERE donation_type = 'Cash' GROUP BY month ORDER BY month`;
+    const expensesSql = `SELECT strftime('%Y-%m', expense_date) as month, SUM(amount) as total FROM expenses GROUP BY month ORDER BY month`;
+    const expenseCategorySql = `SELECT category, SUM(amount) as total FROM expenses GROUP BY category`;
+
+    const [
+        donations,
+        expenses,
+        expenseCategories,
+    ] = await Promise.all([
+        allQuery(cashDonationsSql),
+        allQuery(expensesSql),
+        allQuery(expenseCategorySql),
+    ]);
+
+    return {
+        timeSeriesData: { donations, expenses },
+        expenseCategoryData: expenseCategories,
+    };
+}
 
 // --- Excel Report Generation (Disabled) ---
 // async function handleGenerateExcelReport() { ... }
@@ -289,5 +308,5 @@ module.exports = {
   handleGetFinancialSummary,
   handleGetMonthlySnapshot,
   handleGetStatementOfActivities,
-  // handleGetChartData,
+  handleGetChartData,
 };

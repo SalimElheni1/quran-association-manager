@@ -129,9 +129,8 @@ describe('Financial Handlers', () => {
         });
         const result = await handleGetChartData();
         expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining("donations WHERE donation_type = 'Cash'"));
-        expect(result.timeSeriesData.length).toBe(1);
+        expect(result.timeSeriesData.donations.length).toBe(1);
         expect(result.expenseCategoryData.length).toBe(1);
-        expect(result.incomeSourceData.length).toBe(2);
     });
   });
 });

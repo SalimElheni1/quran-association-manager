@@ -52,12 +52,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
 
-  // Attendance API
-  getClassesForDay: (date) => ipcRenderer.invoke('attendance:getClassesForDay', date),
-  getStudentsForClass: (classId) => ipcRenderer.invoke('attendance:getStudentsForClass', classId),
-  getAttendanceForDate: (classId, date) =>
-    ipcRenderer.invoke('attendance:getForDate', { classId, date }),
-  saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
+  // Attendance API (New)
+  getAttendanceSheets: (filters) => ipcRenderer.invoke('attendance-sheets:get', filters),
+  getAttendanceSheet: (seanceId, date) =>
+    ipcRenderer.invoke('attendance-sheets:get-one', { seanceId, date }),
+  createAttendanceSheet: (sheetData, entriesData) =>
+    ipcRenderer.invoke('attendance-sheets:create', { sheetData, entriesData }),
+  updateAttendanceSheet: (sheetId, sheetData, entriesData) =>
+    ipcRenderer.invoke('attendance-sheets:update', { sheetId, sheetData, entriesData }),
 
   // Financials API
   getExpenses: () => ipcRenderer.invoke('get-expenses'),

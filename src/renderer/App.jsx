@@ -7,7 +7,7 @@ import StudentsPage from './pages/StudentsPage';
 import TeachersPage from './pages/TeachersPage';
 import ClassesPage from './pages/ClassesPage';
 import UsersPage from './pages/UsersPage';
-import AttendancePage from './pages/AttendancePage';
+import NewAttendancePage from './pages/NewAttendancePage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import FinancialsPage from './pages/FinancialsPage';
@@ -30,7 +30,7 @@ function App() {
         <Route path="/students" element={<StudentsPage />} />
         <Route path="/teachers" element={<TeachersPage />} />
         <Route path="/classes" element={<ClassesPage />} />
-        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/attendance" element={<NewAttendancePage />} />
         <Route path="/financials" element={<FinancialsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
