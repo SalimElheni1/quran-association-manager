@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Form, Spinner, Table, Button, ButtonGroup } from 'react-bootstrap';
+import { useSearchParams } from 'react-router-dom';
 import '../styles/AttendancePage.css';
 import { toast } from 'react-toastify';
 
 function AttendancePage() {
-  // State is simplified: no more selectedDate
-  const [selectedClass, setSelectedClass] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialLoadRef = useRef(true);
+
+  // Initialize state from URL search parameters
+  const [selectedClass, setSelectedClass] = useState(searchParams.get('seanceId') || '');
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
@@ -28,6 +32,17 @@ function AttendancePage() {
     };
     fetchActiveClasses();
   }, []); // Empty dependency array means this runs once on mount
+
+  // Update URL search params when the selected class changes
+  useEffect(() => {
+    // Avoid updating URL on initial render if params are already there
+    if (initialLoadRef.current && searchParams.get('seanceId')) {
+      initialLoadRef.current = false;
+      return;
+    }
+    // Use replace to avoid polluting browser history
+    setSearchParams({ seanceId: selectedClass }, { replace: true });
+  }, [selectedClass, setSearchParams, searchParams]);
 
   // Fetch students and their attendance records when a class is selected
   const fetchStudentAndAttendanceData = useCallback(async () => {
