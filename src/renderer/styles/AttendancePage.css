@@ -1,22 +1,69 @@
-.attendance-controls {
-  display: flex;
+/* Main grid layout for the page */
+.attendance-page-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr; /* Fixed width for the left panel, flexible for the right */
   gap: 1.5rem;
-  align-items: flex-end;
-  padding: 1rem;
-  background-color: #f8f9fa;
-  border-radius: 0.5rem;
-  margin-bottom: 2rem;
-  border: 1px solid #dee2e6;
+  height: calc(100vh - 120px); /* Adjust based on your header/footer height */
 }
 
-.attendance-controls .form-group {
-  flex: 1;
+/* Left Panel: Saved Sheets */
+.saved-sheets-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid #dee2e6;
 }
 
+.saved-sheets-panel .card-header {
+  flex-shrink: 0;
+}
+
+.saved-sheets-panel .card-body {
+  overflow-y: auto; /* Allows the list to scroll */
+  padding: 0;
+}
+
+.saved-sheets-panel .list-group-item {
+  border-radius: 0;
+  border-right: 0;
+  border-left: 0;
+  cursor: pointer;
+}
+
+.saved-sheets-panel .list-group-item.active {
+  background-color: var(--bs-primary);
+  color: white;
+  border-color: var(--bs-primary);
+}
+
+/* Right Panel: Main Content */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto; /* Allows the main content (grid) to scroll */
+}
+
+/* Placeholder text when no students are shown */
 .attendance-roster-placeholder {
   text-align: center;
   padding: 3rem;
+  margin-top: 2rem;
   color: #6c757d;
+  background-color: #f8f9fa;
   border: 2px dashed #dee2e6;
   border-radius: 0.5rem;
+}
+
+/* Ensure table header is sticky */
+.attendance-roster table thead {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 10;
+}
+
+/* General page container adjustments */
+.page-container {
+  padding-top: 1.5rem;
 }

@@ -1139,25 +1139,33 @@ Each table in the database serves a specific purpose, storing distinct sets of i
 | 1   | Beginner Tajweed | 1          | Mon, Wed, Fri 4-5 PM | 2024-08-25 14:00:00 |
 | 2   | Hifz Group A     | 2          | Daily after Asr      | 2024-08-25 14:15:00 |
 
-#### 4.2.5. `attendance` Table
+#### 4.2.5. Attendance Tables (New Schema)
 
-**Purpose:** This table records student attendance for specific classes on particular dates, providing a historical log for monitoring and reporting.
+The attendance system uses a header/detail model to accurately represent attendance "sheets".
 
-| Column Name  | Data Type | Constraints                                     | Description                                                                                                                       |
-| :----------- | :-------- | :---------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each attendance record. Automatically increments with each new record.                                      |
-| `student_id` | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `students(id)` | The ID of the student whose attendance is being recorded. Establishes a relationship with the `students` table. Cannot be empty.  |
-| `class_id`   | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `classes(id)`  | The ID of the class for which attendance is being recorded. Establishes a relationship with the `classes` table. Cannot be empty. |
-| `date`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | The date and time of the attendance record. Defaults to the current date and time upon insertion.                                 |
-| `status`     | TEXT      | NOT NULL (e.g., 'present', 'absent', 'late')    | The attendance status of the student for that class and date. Cannot be empty.                                                    |
+##### `attendance_sheets` Table
+**Purpose:** This header table represents a single attendance sheet for a specific class (seance) on a given day.
 
-**Sample Data:**
+| Column Name  | Data Type | Constraints                                     | Description                                                                                                |
+| :----------- | :-------- | :---------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
+| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for the attendance sheet.                                                                |
+| `seance_id`  | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `classes(id)`  | The ID of the class (seance) this sheet belongs to.                                                        |
+| `date`       | TEXT      | NOT NULL                                        | The date of the attendance sheet in 'YYYY-MM-DD' format.                                                   |
+| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of when the sheet was created.                                                                   |
+| `updated_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of the last update.                                                                              |
+| `created_by` | INTEGER   | FOREIGN KEY REFERENCES `users(id)`              | Optional: The ID of the user who created the sheet.                                                        |
+| **UNIQUE**   |           | `(seance_id, date)`                             | Enforces that only one attendance sheet can exist per seance per day.                                      |
 
-| id  | student_id | class_id | date                | status  |
-| --- | ---------- | -------- | ------------------- | ------- |
-| 1   | 1          | 1        | 2025-01-01 16:00:00 | present |
-| 2   | 2          | 1        | 2025-01-01 16:00:00 | present |
-| 3   | 1          | 1        | 2025-01-03 16:00:00 | absent  |
+##### `attendance_entries` Table
+**Purpose:** This detail table records the status of each individual student for a given attendance sheet.
+
+| Column Name  | Data Type | Constraints                                      | Description                                                                                               |
+| :----------- | :-------- | :----------------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                       | Unique identifier for the attendance entry.                                                               |
+| `sheet_id`   | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `attendance_sheets(id)` | Links the entry to a specific attendance sheet.                                                   |
+| `student_id` | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `students(id)`  | The ID of the student this entry pertains to.                                                             |
+| `status`     | TEXT      | NOT NULL (e.g., 'present', 'absent', 'late', 'excused') | The attendance status of the student.                                                                 |
+| `note`       | TEXT      |                                                  | Optional notes, for example, the reason for an absence.                                                   |
 
 #### 4.2.6. `branches` Table
 
@@ -1246,9 +1254,11 @@ The relationships between tables are crucial for maintaining data integrity and 
 
 - **`classes` to `teachers`:** This is a **Many-to-One** relationship. A teacher (`teachers` table) can be assigned to teach multiple classes (`classes` table), but each class is assigned to only one teacher. This is enforced by the `teacher_id` foreign key in the `classes` table, referencing the `id` in the `teachers` table.
 
-- **`attendance` to `students`:** This is a **Many-to-One** relationship. A student (`students` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single student. This is enforced by the `student_id` foreign key in the `attendance` table, referencing the `id` in the `students` table.
+- **`attendance_sheets` to `classes`:** This is a **Many-to-One** relationship. A class can have many attendance sheets, but each sheet belongs to a single class.
 
-- **`attendance` to `classes`:** This is a **Many-to-One** relationship. A class (`classes` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single class. This is enforced by the `class_id` foreign key in the `attendance` table, referencing the `id` in the `classes` table.
+- **`attendance_entries` to `attendance_sheets`:** This is a **Many-to-One** relationship. An attendance sheet can have many entries, but each entry belongs to only one sheet. This is enforced by the `sheet_id` foreign key.
+
+- **`attendance_entries` to `students`:** This is a **Many-to-One** relationship, where each entry pertains to a single student.
 
 - **`payments` to `students`:** This is a **Many-to-One** relationship. A student can have many payments, but each payment belongs to a single student. This is enforced by the `student_id` foreign key in the `payments` table.
 
@@ -1306,14 +1316,26 @@ CREATE TABLE IF NOT EXISTS classes (
     FOREIGN KEY (teacher_id) REFERENCES teachers(id)
 );
 
-CREATE TABLE IF NOT EXISTS attendance (
+CREATE TABLE IF NOT EXISTS attendance_sheets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seance_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by INTEGER,
+    FOREIGN KEY (seance_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(seance_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS attendance_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sheet_id INTEGER NOT NULL,
     student_id INTEGER NOT NULL,
-    class_id INTEGER NOT NULL,
-    date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status TEXT NOT NULL,
-    FOREIGN KEY (student_id) REFERENCES students(id),
-    FOREIGN KEY (class_id) REFERENCES classes(id)
+    status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'late', 'excused')),
+    note TEXT,
+    FOREIGN KEY (sheet_id) REFERENCES attendance_sheets(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -1362,9 +1384,9 @@ To optimize database performance, especially as the volume of data grows, an ind
 - `students.branch_id`
 - `teachers.name`
 - `classes.teacher_id`
-- `attendance.student_id`
-- `attendance.class_id`
-- `attendance.date`
+- `attendance_sheets.seance_id`
+- `attendance_sheets.date`
+- `attendance_entries.sheet_id`
 
 Indexes will be added incrementally based on performance profiling and specific query patterns observed during development and testing.
 
@@ -1403,9 +1425,9 @@ For enhanced security, the `contextBridge` API is used to expose specific, contr
 
 ### 5.2. Exposed APIs via `contextBridge` (`electronAPI`)
 
-The `preload.js` script (located at `src/main/preload.js`) is responsible for exposing a global `electronAPI` object to the renderer process. This object contains functions that allow the renderer to securely invoke methods in the main process.
+The `preload.js` script (located at `src/main/preload.js`) is responsible for exposing a global `electronAPI` object to the renderer process. This object is structured into namespaces (e.g., `electronAPI.students`, `electronAPI.attendance`) to group related functions.
 
-#### 5.2.1. `electronAPI.dbQuery(query, params)`
+#### 5.2.1. `electronAPI.students.get(filters)`
 
 - **Description:** Executes a database query in the main process. This is a generic function designed to handle various SQL operations (INSERT, UPDATE, DELETE).
 - **Main Process Handler:** `ipcMain.handle('db-query', async (event, { query, params }) => { ... })`
@@ -1431,7 +1453,42 @@ The `preload.js` script (located at `src/main/preload.js`) is responsible for ex
   }
   ```
 
-#### 5.2.2. `electronAPI.dbGet(query, params)`
+#### 5.2.2. `electronAPI.attendance.getSheet({ seanceId, date })`
+
+- **Description:** Fetches a single attendance sheet and its entries for a given seance and date.
+- **Main Process Handler:** `ipcMain.handle('attendance:getSheet', ...)`
+- **Parameters:**
+  - `seanceId` (Number): The ID of the seance (class).
+  - `date` (String): The date in 'YYYY-MM-DD' format.
+- **Returns:** (Promise<Object | null>): A promise that resolves to the sheet object (with a nested `entries` map) if found, otherwise `null`.
+
+#### 5.2.3. `electronAPI.attendance.createSheet({ seanceId, date, entries, userId })`
+
+- **Description:** Creates a new attendance sheet and its corresponding entries.
+- **Main Process Handler:** `ipcMain.handle('attendance:createSheet', ...)`
+- **Parameters:**
+  - `seanceId` (Number): The ID of the seance.
+  - `date` (String): The date in 'YYYY-MM-DD' format.
+  - `entries` (Object): A map of `{ studentId: status }`.
+  - `userId` (Number, optional): The ID of the user creating the sheet.
+- **Returns:** (Promise<Object>): A promise that resolves to an object containing the new sheet's `id`.
+
+#### 5.2.4. `electronAPI.attendance.updateSheet({ sheetId, entries })`
+
+- **Description:** Updates the entries for an existing attendance sheet.
+- **Main Process Handler:** `ipcMain.handle('attendance:updateSheet', ...)`
+- **Parameters:**
+  - `sheetId` (Number): The ID of the sheet to update.
+  - `entries` (Object): The new map of `{ studentId: status }`.
+- **Returns:** (Promise<Object>): A promise that resolves to `{ success: true }`.
+
+#### 5.2.5. `electronAPI.attendance.listSheets(filters)`
+
+- **Description:** Retrieves a list of saved attendance sheets.
+- **Main Process Handler:** `ipcMain.handle('attendance:listSheets', ...)`
+- **Parameters:**
+  - `filters` (Object, optional): An object that can contain `seanceId`, `startDate`, `endDate`.
+- **Returns:** (Promise<Array<Object>>): A promise that resolves to an array of sheet objects.
 
 - **Description:** Executes a database query in the main process and returns a single row result. Ideal for fetching a single record (e.g., user by ID, specific configuration).
 - **Main Process Handler:** `ipcMain.handle('db-get', async (event, { query, params }) => { ... })`

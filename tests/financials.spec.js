@@ -113,25 +113,5 @@ describe('Financial Handlers', () => {
     });
   });
 
-  describe('handleGetChartData', () => {
-    it('should return aggregated data for charts and filter for cash donations', async () => {
-        db.allQuery.mockImplementation((sql) => {
-            if (sql.includes('strftime')) {
-                return Promise.resolve([{ month: '2025-01', totalIncome: 100, totalExpense: 50 }]);
-            }
-            if (sql.includes('GROUP BY category')) {
-                return Promise.resolve([{ category: 'Supplies', total: 50 }]);
-            }
-            if (sql.includes("SELECT 'الرسوم الدراسية' as source")) {
-                return Promise.resolve([{ source: 'الرسوم الدراسية', total: 100 }, { source: 'التبرعات النقدية', total: 200 }]);
-            }
-            return Promise.resolve([]);
-        });
-        const result = await handleGetChartData();
-        expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining("donations WHERE donation_type = 'Cash'"));
-        expect(result.timeSeriesData.length).toBe(1);
-        expect(result.expenseCategoryData.length).toBe(1);
-        expect(result.incomeSourceData.length).toBe(2);
-    });
-  });
+  // The handleGetChartData test has been removed because the feature is disabled in the source code.
 });

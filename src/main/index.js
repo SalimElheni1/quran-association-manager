@@ -13,6 +13,7 @@ const {
   copyLogoAsset,
 } = require('./settingsHandlers');
 const { registerFinancialHandlers } = require('./financialHandlers');
+const { registerAttendanceHandlers } = require('./attendanceHandlers');
 const backupManager = require('./backupManager');
 
 // Load environment variables
@@ -110,6 +111,8 @@ app.whenReady().then(async () => {
 
     // Register all financial IPC handlers
     registerFinancialHandlers();
+    // Register all attendance IPC handlers
+    registerAttendanceHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -860,8 +863,6 @@ ipcMain.handle('settings:uploadLogo', async () => {
   }
 });
 
-// --- Attendance IPC Handlers ---
-
 // --- Backup IPC Handlers ---
 const store = new Store();
 
@@ -887,23 +888,9 @@ ipcMain.handle('backup:getStatus', () => {
   }
 });
 
-ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
-  try {
-    // Get active classes that have sessions on the given date
-    const sql = `
-      SELECT DISTINCT c.id, c.name, c.class_type, c.teacher_id, t.name as teacher_name
-      FROM classes c
-      LEFT JOIN teachers t ON c.teacher_id = t.id
-      WHERE c.status = 'active'
-      ORDER BY c.name ASC
-    `;
-    return db.allQuery(sql, []);
-  } catch (error) {
-    console.error('Error fetching classes for day:', error);
-    throw error;
-  }
-});
-
+// Old attendance handlers are now in `attendanceHandlers.js`.
+// The `getStudentsForClass` handler is temporarily kept for the old UI
+// and will be removed after the frontend is updated.
 ipcMain.handle('attendance:getStudentsForClass', async (_event, classId) => {
   try {
     // Get all active students enrolled in the specified class
@@ -921,58 +908,5 @@ ipcMain.handle('attendance:getStudentsForClass', async (_event, classId) => {
   }
 });
 
-ipcMain.handle('attendance:getForDate', async (_event, { classId, date }) => {
-  try {
-    // Get attendance records for a specific class and date
-    const sql = `
-      SELECT student_id, status
-      FROM attendance
-      WHERE class_id = ? AND date = ?
-    `;
-    const records = await db.allQuery(sql, [classId, date]);
-
-    // Convert array of records to object for easier access
-    const attendanceMap = {};
-    records.forEach((record) => {
-      attendanceMap[record.student_id] = record.status;
-    });
-
-    return attendanceMap;
-  } catch (error) {
-    console.error('Error fetching attendance for date:', error);
-    throw error;
-  }
-});
-
-ipcMain.handle('attendance:save', async (_event, { classId, date, records }) => {
-  try {
-    // Start a transaction to ensure atomicity
-    await db.runQuery('BEGIN TRANSACTION');
-
-    // First, delete existing attendance records for this class and date
-    await db.runQuery('DELETE FROM attendance WHERE class_id = ? AND date = ?', [classId, date]);
-
-    // Then, insert the new attendance records
-    if (records && Object.keys(records).length > 0) {
-      const placeholders = Object.keys(records)
-        .map(() => '(?, ?, ?, ?)')
-        .join(', ');
-      const params = [];
-
-      Object.entries(records).forEach(([studentId, status]) => {
-        params.push(classId, parseInt(studentId), date, status);
-      });
-
-      const sql = `INSERT INTO attendance (class_id, student_id, date, status) VALUES ${placeholders}`;
-      await db.runQuery(sql, params);
-    }
-
-    await db.runQuery('COMMIT');
-    console.log('Attendance saved successfully');
-    return { success: true };
-  } catch (error) {
-    await db.runQuery('ROLLBACK');
-    console.error('Error saving attendance:', error);
-    throw error;
-  }
-});
+// The getForDate and save handlers are now obsolete and have been removed.
+// The getClassesForDay handler is also obsolete.
