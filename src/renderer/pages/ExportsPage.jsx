@@ -243,64 +243,64 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
   );
 };
 
-const ExportsPage = () => {
-  const [activeTab, setActiveTab] = useState('students');
+const studentsAdultFields = [
+  { key: 'name', label: 'الاسم الكامل' },
+  { key: 'national_id', label: 'رقم الهوية' },
+  { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+  { key: 'gender', label: 'الجنس' },
+  { key: 'address', label: 'العنوان' },
+  { key: 'contact_info', label: 'رقم الهاتف' },
+  { key: 'email', label: 'البريد الإلكتروني' },
+  { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+  { key: 'status', label: 'الحالة' },
+  { key: 'memorization_level', label: 'مستوى الحفظ' },
+  { key: 'notes', label: 'ملاحظات' },
+];
 
-  const studentsAdultFields = [
+const studentsKidsFields = [
+  { key: 'name', label: 'الاسم الكامل' },
+  { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+  { key: 'gender', label: 'الجنس' },
+  { key: 'address', label: 'العنوان' },
+  { key: 'contact_info', label: 'رقم الهاتف' },
+  { key: 'email', label: 'البريد الإلكتروني' },
+  { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+  { key: 'status', label: 'الحالة' },
+  { key: 'memorization_level', label: 'مستوى الحفظ' },
+  { key: 'notes', label: 'ملاحظات' },
+  { key: 'parent_name', label: 'اسم ولي الأمر' },
+  { key: 'parent_contact', label: 'هاتف ولي الأمر' },
+];
+
+const arabicFieldDefinitions = {
+  students: studentsAdultFields, // Default to adult fields
+  studentsKids: studentsKidsFields,
+  teachers: [
     { key: 'name', label: 'الاسم الكامل' },
     { key: 'national_id', label: 'رقم الهوية' },
-    { key: 'date_of_birth', label: 'تاريخ الميلاد' },
-    { key: 'gender', label: 'الجنس' },
-    { key: 'address', label: 'العنوان' },
     { key: 'contact_info', label: 'رقم الهاتف' },
     { key: 'email', label: 'البريد الإلكتروني' },
-    { key: 'enrollment_date', label: 'تاريخ التسجيل' },
-    { key: 'status', label: 'الحالة' },
-    { key: 'memorization_level', label: 'مستوى الحفظ' },
-    { key: 'notes', label: 'ملاحظات' },
-  ];
-
-  const studentsKidsFields = [
-    { key: 'name', label: 'الاسم الكامل' },
-    { key: 'date_of_birth', label: 'تاريخ الميلاد' },
-    { key: 'gender', label: 'الجنس' },
-    { key: 'address', label: 'العنوان' },
-    { key: 'contact_info', label: 'رقم الهاتف' },
+    { key: 'specialization', label: 'التخصص' },
+    { key: 'years_of_experience', label: 'سنوات الخبرة' },
+  ],
+  admins: [
+    { key: 'username', label: 'اسم المستخدم' },
+    { key: 'first_name', label: 'الاسم الأول' },
+    { key: 'last_name', label: 'اسم العائلة' },
     { key: 'email', label: 'البريد الإلكتروني' },
-    { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+    { key: 'role', label: 'الدور' },
     { key: 'status', label: 'الحالة' },
-    { key: 'memorization_level', label: 'مستوى الحفظ' },
-    { key: 'notes', label: 'ملاحظات' },
-    { key: 'parent_name', label: 'اسم ولي الأمر' },
-    { key: 'parent_contact', label: 'هاتف ولي الأمر' },
-  ];
+  ],
+  attendance: [
+    { key: 'student_name', label: 'اسم الطالب' },
+    { key: 'class_name', label: 'اسم الفصل' },
+    { key: 'date', label: 'التاريخ' },
+    { key: 'status', label: 'الحالة' },
+  ],
+};
 
-  const arabicFieldDefinitions = {
-    students: studentsAdultFields, // Default to adult fields
-    studentsKids: studentsKidsFields,
-    teachers: [
-      { key: 'name', label: 'الاسم الكامل' },
-      { key: 'national_id', label: 'رقم الهوية' },
-      { key: 'contact_info', label: 'رقم الهاتف' },
-      { key: 'email', label: 'البريد الإلكتروني' },
-      { key: 'specialization', label: 'التخصص' },
-      { key: 'years_of_experience', label: 'سنوات الخبرة' },
-    ],
-    admins: [
-      { key: 'username', label: 'اسم المستخدم' },
-      { key: 'first_name', label: 'الاسم الأول' },
-      { key: 'last_name', label: 'اسم العائلة' },
-      { key: 'email', label: 'البريد الإلكتروني' },
-      { key: 'role', label: 'الدور' },
-      { key: 'status', label: 'الحالة' },
-    ],
-    attendance: [
-      { key: 'student_name', label: 'اسم الطالب' },
-      { key: 'class_name', label: 'اسم الفصل' },
-      { key: 'date', label: 'التاريخ' },
-      { key: 'status', label: 'الحالة' },
-    ],
-  };
+const ExportsPage = () => {
+  const [activeTab, setActiveTab] = useState('students');
 
   const renderActivePanel = () => {
     switch (activeTab) {
