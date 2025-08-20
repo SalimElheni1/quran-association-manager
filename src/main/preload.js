@@ -53,6 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
 
+  // Dashboard API
+  getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+  getTodaysClasses: () => ipcRenderer.invoke('get-todays-classes'),
+
   // Attendance API
   getClassesForDay: (date) => ipcRenderer.invoke('attendance:getClassesForDay', date),
   getStudentsForClass: (classId) => ipcRenderer.invoke('attendance:getStudentsForClass', classId),
