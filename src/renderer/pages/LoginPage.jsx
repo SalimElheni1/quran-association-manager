@@ -16,11 +16,14 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setError('');
     setLoading(true);
     const response = await login(username, password);
     if (response.success) {
       navigate('/');
+      navigate('/');
     } else {
+      setError(response.message || 'فشل تسجيل الدخول');
       setError(response.message || 'فشل تسجيل الدخول');
     }
     setLoading(false);
