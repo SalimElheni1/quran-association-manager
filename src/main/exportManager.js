@@ -6,6 +6,7 @@ const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const { allQuery } = require('../db/db');
+const { getSetting } = require('./settingsManager');
 
 // --- Data Fetching ---
 async function fetchExportData({ type, fields, options = {} }) {
@@ -20,18 +21,18 @@ async function fetchExportData({ type, fields, options = {} }) {
   switch (type) {
     case 'students':
       query = `SELECT ${fieldSelection} FROM students`;
+      const adultAge = getSetting('adultAgeThreshold');
       if (options.gender) {
         if (options.gender === 'men') {
           whereClauses.push('gender = ?');
           params.push('Male');
-          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= 13");
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ${adultAge}`);
         } else if (options.gender === 'women') {
           whereClauses.push('gender = ?');
           params.push('Female');
-          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= 13");
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ${adultAge}`);
         } else if (options.gender === 'kids') {
-          // Assuming kids are under 13
-          whereClauses.push("strftime('%Y', 'now') - strftime('%Y', date_of_birth) < 13");
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) < ${adultAge}`);
         }
       }
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
@@ -181,17 +182,24 @@ function generateDocx(title, columns, data, outputPath) {
     linebreaks: true,
   });
 
-  const templateData = localizedData.map((item) => {
-    return columns.map((col) => {
-      return { key: col.header, value: item[col.key] || '' };
-    });
-  });
-
-  doc.render({
+  const templateData = {
     title: title,
     date: new Date().toLocaleDateString('ar-SA'),
-    data: templateData,
-  });
+    c1: columns[0]?.header || '',
+    c2: columns[1]?.header || '',
+    c3: columns[2]?.header || '',
+    c4: columns[3]?.header || '',
+    data: localizedData.map((item) => {
+      return {
+        d1: item[columns[0]?.key] || '',
+        d2: item[columns[1]?.key] || '',
+        d3: item[columns[2]?.key] || '',
+        d4: item[columns[3]?.key] || '',
+      };
+    }),
+  };
+
+  doc.render(templateData);
   const buf = doc.getZip().generate({
     type: 'nodebuffer',
     compression: 'DEFLATE',

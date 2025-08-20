@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const exportManager = require('./exportManager');
+const { getSetting } = require('./settingsManager');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
@@ -69,6 +70,10 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
+});
+
+ipcMain.handle('settings:get', (_event, key) => {
+  return getSetting(key);
 });
 
 ipcMain.handle('students:get', async (_event, filters) => {
@@ -474,7 +479,8 @@ ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGende
     `;
     const notEnrolledParams = [classId];
     if (classGender === 'kids') {
-      notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < 13)`;
+      const adultAge = getSetting('adultAgeThreshold');
+      notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ${adultAge})`;
     } else if (classGender === 'men') {
       notEnrolledSql += ` AND s.gender = 'Male'`;
     } else if (classGender === 'women') {

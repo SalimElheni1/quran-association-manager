@@ -6,6 +6,15 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
   const isEditMode = !!student;
   const [age, setAge] = useState(null);
   const [ageCategory, setAgeCategory] = useState(null); // Categories: 'kid', 'teen', 'adult'
+  const [adultAge, setAdultAge] = useState(18);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const threshold = await window.electronAPI.getSetting('adultAgeThreshold');
+      setAdultAge(threshold || 18);
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     const initialData = {
@@ -64,18 +73,16 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       }
       setAge(calculatedAge);
 
-      if (calculatedAge >= 18) {
+      if (calculatedAge >= adultAge) {
         setAgeCategory('adult');
-      } else if (calculatedAge >= 13) {
-        setAgeCategory('teen');
       } else {
-        setAgeCategory('kid');
+        setAgeCategory('kid'); // Simplified to kid/adult for now
       }
     } else {
       setAge(null);
       setAgeCategory(null);
     }
-  }, [formData.date_of_birth]);
+  }, [formData.date_of_birth, adultAge]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -125,7 +132,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                 <option value="Female">أنثى</option>
               </Form.Select>
             </Form.Group>
-            {(ageCategory === 'teen' || ageCategory === 'adult') && (
+            {ageCategory === 'adult' && (
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentNationalId">
                 <Form.Label>رقم الهوية الوطنية (CIN)</Form.Label>
                 <Form.Control
@@ -149,7 +156,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
               />
             </Form.Group>
           </Row>
-          {(ageCategory === 'teen' || ageCategory === 'adult') && (
+          {ageCategory === 'adult' && (
             <Row>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentContact">
                 <Form.Label>رقم الهاتف (الطالب)</Form.Label>
@@ -174,8 +181,8 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
 
           <hr />
 
-          {/* Guardian Info - For Kids between 5 and 13 */}
-          {age !== null && age >= 5 && age <= 13 && (
+          {/* Guardian Info - For Kids */}
+          {ageCategory === 'kid' && (
             <>
               <h5 className="form-section-title">معلومات ولي الأمر</h5>
               <Row>

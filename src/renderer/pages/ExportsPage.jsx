@@ -97,26 +97,54 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
   };
 
-  const isPdfDisabled = selectedFields.length === 0 || selectedFields.length > 4;
+  const isExportDisabled = selectedFields.length === 0 || selectedFields.length > 4;
 
   const renderPdfButton = () => {
     const button = (
       <Button
         variant="danger"
         onClick={() => handleExport('pdf')}
-        disabled={isPdfDisabled}
-        style={isPdfDisabled ? { pointerEvents: 'none' } : {}}
+        disabled={isExportDisabled}
+        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
       >
         تصدير إلى PDF
       </Button>
     );
 
-    if (isPdfDisabled) {
+    if (isExportDisabled) {
       return (
         <OverlayTrigger
           overlay={
-            <Tooltip id="tooltip-disabled">
+            <Tooltip id="tooltip-pdf-disabled">
               لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.
+            </Tooltip>
+          }
+        >
+          <span className="d-inline-block">{button}</span>
+        </OverlayTrigger>
+      );
+    }
+    return button;
+  };
+
+  const renderDocxButton = () => {
+    const button = (
+      <Button
+        variant="secondary"
+        onClick={() => handleExport('docx')}
+        disabled={isExportDisabled}
+        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
+      >
+        تصدير إلى DOCX
+      </Button>
+    );
+
+    if (isExportDisabled) {
+      return (
+        <OverlayTrigger
+          overlay={
+            <Tooltip id="tooltip-docx-disabled">
+              لتصدير DOCX، الرجاء تحديد ما بين 1 و 4 حقول.
             </Tooltip>
           }
         >
@@ -203,9 +231,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
           {message.text && <Alert variant={message.type}>{message.text}</Alert>}
 
           <div className="d-flex justify-content-end gap-2">
-            <Button variant="secondary" onClick={() => handleExport('docx')}>
-              تصدير إلى DOCX
-            </Button>
+            {renderDocxButton()}
             <Button variant="primary" onClick={() => handleExport('xlsx')}>
               تصدير إلى Excel
             </Button>

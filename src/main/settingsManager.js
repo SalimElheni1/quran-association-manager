@@ -18,6 +18,9 @@ const settings = {
     headerColor: '#444444',
     textColor: '#333333',
   },
+
+  // Business Logic Settings
+  adultAgeThreshold: 18,
 };
 
 /**
