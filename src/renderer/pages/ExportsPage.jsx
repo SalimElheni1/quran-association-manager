@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Row,
@@ -13,28 +13,24 @@ import {
 } from 'react-bootstrap';
 import '../styles/ExportsPage.css';
 
-import { useEffect } from 'react';
-
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
   const [genderFilter, setGenderFilter] = useState('all');
-  const [currentFields, setCurrentFields] = useState(fields);
-  const [selectedFields, setSelectedFields] = useState(fields.map((f) => f.key));
+  const [selectedFields, setSelectedFields] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
-    let newFields = fields;
-    if (exportType === 'students') {
-      if (genderFilter === 'kids') {
-        newFields = kidFields;
-      } else {
-        newFields = fields;
-      }
+  const currentFields = useMemo(() => {
+    if (exportType === 'students' && genderFilter === 'kids') {
+      return kidFields;
     }
-    setCurrentFields(newFields);
-    setSelectedFields(newFields.map((f) => f.key));
-  }, [genderFilter, fields, kidFields, exportType]);
+    return fields;
+  }, [exportType, genderFilter, fields, kidFields]);
+
+  useEffect(() => {
+    // When the available fields change (e.g., from adult to kid), reset the selected fields to all be checked by default.
+    setSelectedFields(currentFields.map((f) => f.key));
+  }, [currentFields]);
 
   const handleCheckboxChange = (event) => {
     const { value, checked } = event.target;
@@ -84,11 +80,17 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       } else {
         // Check for specific, user-fixable errors
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
-          setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.' });
+          setMessage({
+            type: 'warning',
+            text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.',
+          });
         } else if (result.message.includes('TEMPLATE_INVALID')) {
-           setMessage({ type: 'warning', text: 'فشل تصدير DOCX: ملف القالب تالف أو فارغ. يرجى التأكد من أنه ملف Word صالح.' });
+          setMessage({
+            type: 'warning',
+            text: 'فشل تصدير DOCX: ملف القالب تالف أو فارغ. يرجى التأكد من أنه ملف Word صالح.',
+          });
         } else {
-            setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+          setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
         }
       }
     } catch (error) {
@@ -115,9 +117,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       return (
         <OverlayTrigger
           overlay={
-            <Tooltip id="tooltip-pdf-disabled">
-              لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.
-            </Tooltip>
+            <Tooltip id="tooltip-pdf-disabled">لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.</Tooltip>
           }
         >
           <span className="d-inline-block">{button}</span>
@@ -159,13 +159,14 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     <Card className="mt-3">
       <Card.Body>
         <Card.Title>
-          تصدير {exportType === 'students'
+          تصدير{' '}
+          {exportType === 'students'
             ? 'الطلاب'
             : exportType === 'teachers'
-            ? 'المعلمين'
-            : exportType === 'admins'
-            ? 'الإداريين'
-            : 'سجل الحضور'}
+              ? 'المعلمين'
+              : exportType === 'admins'
+                ? 'الإداريين'
+                : 'سجل الحضور'}
         </Card.Title>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
