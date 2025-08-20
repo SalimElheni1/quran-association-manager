@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAttendanceForDate: (classId, date) =>
     ipcRenderer.invoke('attendance:getForDate', { classId, date }),
   saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
+  getAttendanceSummaryForClass: (classId) =>
+    ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
 
   // Financials API
   getExpenses: () => ipcRenderer.invoke('get-expenses'),
