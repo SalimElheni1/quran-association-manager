@@ -946,6 +946,23 @@ ipcMain.handle('attendance:getForDate', async (_event, { classId, date }) => {
   }
 });
 
+ipcMain.handle('db:get-attendance-summary-for-class', async (event, classId) => {
+  if (!classId) return [];
+  // This SQL query is efficient. It groups by date, counts records for each date,
+  // and orders them with the most recent date first.
+  const query = `
+    SELECT
+      date,
+      COUNT(*) as record_count
+    FROM attendance
+    WHERE class_id = ?
+    GROUP BY date
+    ORDER BY date DESC
+  `;
+  const rows = await db.allQuery(query, [classId]);
+  return rows;
+});
+
 ipcMain.handle('attendance:save', async (_event, { classId, date, records }) => {
   try {
     await db.runQuery('BEGIN TRANSACTION');
