@@ -11,6 +11,7 @@ import AttendancePage from './pages/AttendancePage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import FinancialsPage from './pages/FinancialsPage';
+import ExportsPage from './pages/ExportsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/exports" element={<ExportsPage />} />
       </Route>
     </Routes>
   );

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1in;
+        }
+        body {
+            font-family: sans-serif;
+            direction: rtl;
+            text-align: right;
+            counter-reset: page;
+        }
+        .header, .footer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            color: #444;
+            font-size: 0.9em;
+        }
+        .header {
+            top: 0;
+            height: 60px;
+            border-bottom: 1px solid #ddd;
+        }
+        .footer {
+            bottom: 0;
+            height: 30px;
+            border-top: 1px solid #ddd;
+        }
+        .footer .page-number::after {
+            content: counter(page);
+        }
+        .footer .page-number {
+            float: right;
+        }
+        .footer .date {
+            float: left;
+        }
+        /* Give space for header and footer */
+        body {
+            padding-top: 70px;
+            padding-bottom: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="float: right; text-align: right;">
+            <h3>مدير فرع القرآن</h3>
+            <h4>{title}</h4>
+        </div>
+        <div style="float: left; text-align: left;">
+            <p>{date}</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span class="page-number">صفحة </span>
+    </div>
+
+    <h1 style="text-align: center; margin-top: 40px;">{title}</h1>
+
+    <table>
+        <thead>
+            <tr>
+                {table_headers}
+            </tr>
+        </thead>
+        <tbody>
+            {table_rows}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // General
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getSetting: (key) => ipcRenderer.invoke('settings:get', key),
 
   // Auth
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
@@ -86,4 +87,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
   // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
   // getChartData: () => ipcRenderer.invoke('get-chart-data'),
+
+  // Exports API
+  generateExport: (options) => ipcRenderer.invoke('export:generate', options),
 });
