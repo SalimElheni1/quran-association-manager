@@ -232,9 +232,6 @@ async function handleGetFinancialSummary() {
 // const FONT_BOLD = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2');
 // ... (rest of the PDF generation code is commented out)
 
-// --- Chart Data (Disabled) ---
-// async function handleGetChartData() { ... }
-
 // --- Excel Report Generation (Disabled) ---
 // async function handleGenerateExcelReport() { ... }
 
@@ -265,7 +262,6 @@ function registerFinancialHandlers() {
   ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
   // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
   // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
-  // ipcMain.handle('get-chart-data', createHandler(handleGetChartData));
 }
 
 module.exports = {
@@ -289,5 +285,4 @@ module.exports = {
   handleGetFinancialSummary,
   handleGetMonthlySnapshot,
   handleGetStatementOfActivities,
-  // handleGetChartData,
 };
