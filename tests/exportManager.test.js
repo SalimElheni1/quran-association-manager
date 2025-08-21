@@ -46,8 +46,12 @@ describe('exportManager', () => {
 
   describe('fetchExportData', () => {
     it('should call the correct query for students', async () => {
+      db.allQuery.mockResolvedValueOnce([]);
       await fetchExportData({ type: 'students', fields: ['id', 'name'] });
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT id, name FROM students ORDER BY name');
+      expect(db.allQuery).toHaveBeenCalledWith(
+        'SELECT id, name FROM students WHERE 1=1 ORDER BY name',
+        [],
+      );
     });
   });
 

@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electro
 const path = require('path');
 const db = require('../db/db');
 const exportManager = require('./exportManager');
-const { getSetting } = require('./settingsManager');
+const { getSetting, refreshSettings } = require('./settingsManager');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
@@ -520,7 +520,8 @@ ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGende
     const notEnrolledParams = [classId];
     if (classGender === 'kids') {
       const adultAge = getSetting('adultAgeThreshold');
-      notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ${adultAge})`;
+      notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?)`;
+      notEnrolledParams.push(adultAge);
     } else if (classGender === 'men') {
       notEnrolledSql += ` AND s.gender = 'Male'`;
     } else if (classGender === 'women') {
@@ -829,6 +830,7 @@ ipcMain.handle('settings:update', async (_event, settingsData) => {
       if (newSettings) {
         backupManager.startScheduler(newSettings);
       }
+      await refreshSettings();
     }
 
     return result;

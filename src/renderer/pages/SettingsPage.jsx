@@ -279,7 +279,31 @@ const SettingsPage = () => {
                       </Card.Body>
                     </Card>
                   </Tab>
-
+                  <Tab eventKey="general" title="إعدادات عامة">
+                    <Card className="border-0">
+                      <Card.Body>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            عمر البلوغ (للتقارير والتصنيف)
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Control
+                              type="number"
+                              name="adultAgeThreshold"
+                              value={settings.adultAgeThreshold || 18}
+                              onChange={handleChange}
+                              min="1"
+                              max="100"
+                            />
+                            <Form.Text className="text-muted">
+                              يستخدم هذا العمر لتصنيف الطلاب إلى أطفال وبالغين في التقارير وخيارات
+                              التصدير.
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                      </Card.Body>
+                    </Card>
+                  </Tab>
                   <Tab eventKey="backup" title="سياسة النسخ الاحتياطي">
                     <Card className="border-0">
                       <Card.Body>

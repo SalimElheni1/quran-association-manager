@@ -43,6 +43,8 @@ describe('Settings Handlers', () => {
     const mockSettings = {
       national_association_name: 'New Name',
       backup_enabled: false,
+      adultAgeThreshold: 18,
+      backup_frequency: 'daily',
     };
 
     it('should update settings successfully without file copy', async () => {
