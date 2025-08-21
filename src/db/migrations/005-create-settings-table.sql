@@ -13,4 +13,5 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('backup_path', ''),
     ('backup_enabled', 'false'),
     ('backup_frequency', 'daily'), -- Default to daily, options: daily, weekly, monthly
-    ('president_full_name', '');
+    ('president_full_name', ''),
+    ('adultAgeThreshold', '18');

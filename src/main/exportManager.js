@@ -26,13 +26,16 @@ async function fetchExportData({ type, fields, options = {} }) {
         if (options.gender === 'men') {
           whereClauses.push('gender = ?');
           params.push('Male');
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ${adultAge}`);
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ?`);
+          params.push(adultAge);
         } else if (options.gender === 'women') {
           whereClauses.push('gender = ?');
           params.push('Female');
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ${adultAge}`);
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ?`);
+          params.push(adultAge);
         } else if (options.gender === 'kids') {
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) < ${adultAge}`);
+          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) < ?`);
+          params.push(adultAge);
         }
       }
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
