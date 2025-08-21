@@ -302,6 +302,25 @@ const arabicFieldDefinitions = {
 
 const ExportsPage = () => {
   const [activeTab, setActiveTab] = useState('students');
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  const handleFinancialExport = async () => {
+    setMessage({ type: '', text: '' });
+    try {
+      const result = await window.electronAPI.generateExport({
+        exportType: 'financial-report',
+        format: 'xlsx',
+      });
+      if (result.success) {
+        setMessage({ type: 'success', text: `تم الحفظ بنجاح!` });
+      } else {
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+      }
+    } catch (error) {
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
+      console.error('Export failed:', error);
+    }
+  };
 
   const renderActivePanel = () => {
     switch (activeTab) {
@@ -324,6 +343,24 @@ const ExportsPage = () => {
             fields={arabicFieldDefinitions.attendance}
             isAttendance={true}
           />
+        );
+      case 'financials':
+        return (
+          <Card className="mt-3">
+            <Card.Body>
+              <Card.Title>تصدير التقرير المالي</Card.Title>
+              <p>
+                سيتم تصدير تقرير مالي شامل يحتوي على ملخص، الدفعات، الرواتب، التبرعات، والمصاريف في
+                ملف Excel واحد.
+              </p>
+              {message.text && <Alert variant={message.type}>{message.text}</Alert>}
+              <div className="d-flex justify-content-end">
+                <Button variant="primary" onClick={handleFinancialExport}>
+                  تصدير إلى Excel
+                </Button>
+              </div>
+            </Card.Body>
+          </Card>
         );
       default:
         return null;
@@ -352,6 +389,9 @@ const ExportsPage = () => {
         </Nav.Item>
         <Nav.Item>
           <Nav.Link eventKey="attendance">سجل الحضور</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="financials">المالية</Nav.Link>
         </Nav.Item>
       </Nav>
 

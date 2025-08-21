@@ -554,22 +554,27 @@ ipcMain.handle('export:generate', async (_event, { exportType, format, columns, 
       return { success: false, message: 'Export canceled by user.' };
     }
 
-    const fields = columns.map((c) => c.key);
-    const data = await exportManager.fetchExportData({ type: exportType, fields, options });
-
-    if (data.length === 0) {
-      return { success: false, message: 'No data available for the selected criteria.' };
-    }
-
-    const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
-    if (format === 'pdf') {
-      await exportManager.generatePdf(reportTitle, columns, data, filePath);
-    } else if (format === 'xlsx') {
-      await exportManager.generateXlsx(columns, data, filePath);
-    } else if (format === 'docx') {
-      await exportManager.generateDocx(reportTitle, columns, data, filePath);
+    if (exportType === 'financial-report') {
+      const data = await exportManager.fetchFinancialData();
+      await exportManager.generateFinancialXlsx(data, filePath);
     } else {
-      throw new Error(`Unsupported export format: ${format}`);
+      const fields = columns.map((c) => c.key);
+      const data = await exportManager.fetchExportData({ type: exportType, fields, options });
+
+      if (data.length === 0) {
+        return { success: false, message: 'No data available for the selected criteria.' };
+      }
+
+      const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
+      if (format === 'pdf') {
+        await exportManager.generatePdf(reportTitle, columns, data, filePath);
+      } else if (format === 'xlsx') {
+        await exportManager.generateXlsx(columns, data, filePath);
+      } else if (format === 'docx') {
+        await exportManager.generateDocx(reportTitle, columns, data, filePath);
+      } else {
+        throw new Error(`Unsupported export format: ${format}`);
+      }
     }
 
     return { success: true, message: `Export saved to ${filePath}` };

@@ -140,8 +140,7 @@ const schema = `
     ('backup_path', ''),
     ('backup_enabled', 'false'),
     ('backup_frequency', 'daily'),
-    ('president_full_name', ''),
-    ('adultAgeThreshold', '18');
+    ('president_full_name', '');
 `;
 
 module.exports = schema;
