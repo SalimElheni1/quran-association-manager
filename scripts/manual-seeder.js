@@ -19,16 +19,25 @@ const {
   seedAttendance,
 } = require('../src/db/seederFunctions');
 
-const { initializeDatabase } = require('../src/db/db');
+const { initializeDatabase, closeDatabase } = require('../src/db/db');
 
 async function manualSeeder() {
   console.log('🌱 Starting Manual Seeder Script...');
   console.log('=====================================');
 
   try {
+    // The seeder now needs the password to open the encrypted database.
+    // We'll use the superadmin password from the .env file for this.
+    const dbPassword = process.env.SUPERADMIN_PASSWORD;
+    if (!dbPassword) {
+      throw new Error(
+        'SUPERADMIN_PASSWORD is not defined in your .env file. The seeder cannot run.',
+      );
+    }
+
     // Initialize database connection
     console.log('📊 Initializing database connection...');
-    await initializeDatabase();
+    await initializeDatabase(dbPassword);
     console.log('✅ Database connection established');
 
     // Seed demo data in sequence
@@ -62,6 +71,8 @@ async function manualSeeder() {
   } catch (error) {
     console.error('❌ Error during manual seeding:', error);
     process.exit(1);
+  } finally {
+    await closeDatabase();
   }
 }
 
