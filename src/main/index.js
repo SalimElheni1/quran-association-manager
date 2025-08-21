@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electron');
 const path = require('path');
-const fs = require('fs');
 const db = require('../db/db');
 const exportManager = require('./exportManager');
 const { getSetting } = require('./settingsManager');
@@ -54,44 +53,27 @@ const createWindow = () => {
 app.whenReady().then(async () => {
   // Register a custom protocol to safely serve images from the app's data directory.
   // This prevents exposing the entire filesystem to the renderer process.
-  protocol.registerFileProtocol('safe-image', (request, callback) => {
-    const url = request.url.substr('safe-image://'.length);
-    const decodedUrl = decodeURI(url);
-    const safePath = path.join(app.getPath('userData'), decodedUrl);
-
-    // Ensure the path is within the intended directory to prevent path traversal attacks.
-    const safeDir = path.join(app.getPath('userData'), 'assets', 'logos');
-    if (path.dirname(safePath).startsWith(safeDir)) {
-      callback({ path: safePath });
-    } else {
-      console.error('Blocked request for an unsafe path:', safePath);
-      callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
-    }
-  });
-
   try {
-    console.log('Starting database initialization...');
-    await db.initializeDatabase();
+    protocol.registerFileProtocol('safe-image', (request, callback) => {
+      try {
+        const url = request.url.substr('safe-image://'.length);
+        const decodedUrl = decodeURI(url);
+        const safePath = path.join(app.getPath('userData'), decodedUrl);
 
-    // Ensure a default backup path exists and start the backup scheduler
-    let { settings } = await getSettingsHandler();
-    if (settings && !settings.backup_path) {
-      console.log('No backup path found, creating default...');
-      const defaultBackupPath = path.join(app.getPath('userData'), 'backups');
-      if (!fs.existsSync(defaultBackupPath)) {
-        fs.mkdirSync(defaultBackupPath, { recursive: true });
-        console.log(`Default backup directory created at: ${defaultBackupPath}`);
+        // Ensure the path is within the intended directory to prevent path traversal attacks.
+        const safeDir = path.join(app.getPath('userData'), 'assets', 'logos');
+        if (path.dirname(safePath).startsWith(safeDir)) {
+          callback({ path: safePath });
+        } else {
+          console.error('Blocked request for an unsafe path:', safePath);
+          callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+        }
+      } catch (error) {
+        console.error('Error in safe-image protocol handler:', error);
+        callback({ error: -6 });
       }
-      await db.runQuery("UPDATE settings SET value = ? WHERE key = 'backup_path'", [
-        defaultBackupPath,
-      ]);
-      // Update settings object for the scheduler
-      settings.backup_path = defaultBackupPath;
-    }
+    });
 
-    if (settings) {
-      backupManager.startScheduler(settings);
-    }
     Menu.setApplicationMenu(null);
     createWindow();
 
@@ -112,6 +94,18 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Handle user logout to close the database connection
+ipcMain.on('logout', async () => {
+  console.log('User logging out, closing database connection.');
+  await db.closeDatabase();
+});
+
+// Gracefully close the database when the app is about to quit
+app.on('will-quit', async () => {
+  console.log('App is quitting, ensuring database is closed.');
+  await db.closeDatabase();
 });
 
 ipcMain.handle('get-app-version', () => {
@@ -752,27 +746,41 @@ ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds
 // --- Authentication and Profile IPC Handlers ---
 
 ipcMain.handle('auth:login', async (_event, { username, password }) => {
-  console.log(`Login attempt for user: ${username}`); // Add logging
+  console.log(`Login attempt for user: ${username}`);
   try {
+    // 1. Initialize and decrypt the database with the provided password.
+    // This is the most critical step.
+    await db.initializeDatabase(password);
+
+    // 2. Now that the DB is open, find the user.
     const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
-    if (user && bcrypt.compareSync(password, user.password)) {
-      const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: '8h', // Extended session time
-        },
-      );
-      return {
-        success: true,
-        token,
-        user: { id: user.id, username: user.username, role: user.role },
-      };
-    } else {
+
+    if (!user) {
+      await db.closeDatabase(); // Close DB on failure
       return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
     }
+
+    // 3. Compare the password hash.
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      await db.closeDatabase(); // Close DB on failure
+      return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+    }
+
+    // 4. On success, generate JWT and return user data.
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' },
+    );
+    return {
+      success: true,
+      token,
+      user: { id: user.id, username: user.username, role: user.role },
+    };
   } catch (error) {
-    console.error('Error in auth:login handler:', error);
+    console.error('Error in auth:login handler:', error.message);
+    await db.closeDatabase(); // Ensure DB is closed on any error.
     return { success: false, message: 'حدث خطأ غير متوقع في الخادم.' };
   }
 });
@@ -897,14 +905,19 @@ ipcMain.handle('backup:getStatus', () => {
 
 ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
   try {
+    // Using date parameter to filter classes that are active on the specified date
     const sql = `
       SELECT DISTINCT c.id, c.name, c.class_type, c.teacher_id, t.name as teacher_name
       FROM classes c
       LEFT JOIN teachers t ON c.teacher_id = t.id
       WHERE c.status = 'active'
+      AND (
+        (c.start_date IS NULL OR c.start_date <= ?)
+        AND (c.end_date IS NULL OR c.end_date >= ?)
+      )
       ORDER BY c.name ASC
     `;
-    return db.allQuery(sql, []);
+    return db.allQuery(sql, [date, date]);
   } catch (error) {
     console.error('Error fetching classes for day:', error);
     throw error;
