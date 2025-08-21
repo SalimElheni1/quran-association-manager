@@ -76,7 +76,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       const result = await window.electronAPI.generateExport(exportOptions);
 
       if (result.success) {
-        setMessage({ type: 'success', text: `تم الحفظ بنجاح!` });
+        setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
       } else {
         // Check for specific, user-fixable errors
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
@@ -161,11 +161,11 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
         <Card.Title>
           تصدير{' '}
           {exportType === 'students'
-            ? 'الطلاب'
+            ? 'بيانات الطلاب'
             : exportType === 'teachers'
-              ? 'المعلمين'
+              ? 'بيانات المعلمين'
               : exportType === 'admins'
-                ? 'الإداريين'
+                ? 'بيانات المستخدمين'
                 : 'سجل الحضور'}
         </Card.Title>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
@@ -174,7 +174,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
             <Row className="mb-3">
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label>التصنيف حسب الجنس</Form.Label>
+                  <Form.Label>فرز حسب الجنس</Form.Label>
                   <Form.Select
                     value={genderFilter}
                     onChange={(e) => setGenderFilter(e.target.value)}
@@ -192,7 +192,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
             <Row className="mb-3">
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>تاريخ البدء</Form.Label>
+                  <Form.Label>من تاريخ</Form.Label>
                   <Form.Control
                     type="date"
                     value={startDate}
@@ -202,7 +202,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
               </Col>
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>تاريخ الانتهاء</Form.Label>
+                  <Form.Label>إلى تاريخ</Form.Label>
                   <Form.Control
                     type="date"
                     value={endDate}
@@ -245,8 +245,8 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
 };
 
 const studentsAdultFields = [
-  { key: 'name', label: 'الاسم الكامل' },
-  { key: 'national_id', label: 'رقم الهوية' },
+  { key: 'name', label: 'الاسم واللقب' },
+  { key: 'national_id', label: 'رقم ب.ت.و' },
   { key: 'date_of_birth', label: 'تاريخ الميلاد' },
   { key: 'gender', label: 'الجنس' },
   { key: 'address', label: 'العنوان' },
@@ -259,7 +259,7 @@ const studentsAdultFields = [
 ];
 
 const studentsKidsFields = [
-  { key: 'name', label: 'الاسم الكامل' },
+  { key: 'name', label: 'الاسم واللقب' },
   { key: 'date_of_birth', label: 'تاريخ الميلاد' },
   { key: 'gender', label: 'الجنس' },
   { key: 'address', label: 'العنوان' },
@@ -277,8 +277,8 @@ const arabicFieldDefinitions = {
   students: studentsAdultFields, // Default to adult fields
   studentsKids: studentsKidsFields,
   teachers: [
-    { key: 'name', label: 'الاسم الكامل' },
-    { key: 'national_id', label: 'رقم الهوية' },
+    { key: 'name', label: 'الاسم واللقب' },
+    { key: 'national_id', label: 'رقم ب.ت.و' },
     { key: 'contact_info', label: 'رقم الهاتف' },
     { key: 'email', label: 'البريد الإلكتروني' },
     { key: 'specialization', label: 'التخصص' },
@@ -287,7 +287,7 @@ const arabicFieldDefinitions = {
   admins: [
     { key: 'username', label: 'اسم المستخدم' },
     { key: 'first_name', label: 'الاسم الأول' },
-    { key: 'last_name', label: 'اسم العائلة' },
+    { key: 'last_name', label: 'اللقب' },
     { key: 'email', label: 'البريد الإلكتروني' },
     { key: 'role', label: 'الدور' },
     { key: 'status', label: 'الحالة' },
@@ -312,7 +312,7 @@ const ExportsPage = () => {
         format: 'xlsx',
       });
       if (result.success) {
-        setMessage({ type: 'success', text: `تم الحفظ بنجاح!` });
+        setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
       } else {
         setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
@@ -348,10 +348,10 @@ const ExportsPage = () => {
         return (
           <Card className="mt-3">
             <Card.Body>
-              <Card.Title>تصدير التقرير المالي</Card.Title>
+              <Card.Title>تصدير تقرير مالي شامل</Card.Title>
               <p>
-                سيتم تصدير تقرير مالي شامل يحتوي على ملخص، الدفعات، الرواتب، التبرعات، والمصاريف في
-                ملف Excel واحد.
+                تصدير ملف Excel يحتوي على جميع البيانات المالية: ملخص شامل، رسوم الطلاب، الرواتب،
+                التبرعات، والمصاريف العامة.
               </p>
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
               <div className="d-flex justify-content-end">
@@ -370,28 +370,28 @@ const ExportsPage = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>تصدير البيانات</h1>
+        <h1>مركز التصدير</h1>
       </div>
       <p className="lead">
-        تتيح هذه الوحدة تصدير أنواع مختلفة من البيانات من التطبيق إلى تنسيقات PDF أو Excel أو DOCX
+        تتيح هذه الواجهة تصدير أنواع مختلفة من البيانات من التطبيق إلى تنسيقات PDF أو Excel أو DOCX
         لإعداد التقارير والتحليل.
       </p>
 
       <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
         <Nav.Item>
-          <Nav.Link eventKey="students">الطلاب</Nav.Link>
+          <Nav.Link eventKey="students">تصدير بيانات الطلاب</Nav.Link>
         </Nav.Item>
         <Nav.Item>
-          <Nav.Link eventKey="teachers">المعلمين</Nav.Link>
+          <Nav.Link eventKey="teachers">تصدير بيانات المعلمين</Nav.Link>
         </Nav.Item>
         <Nav.Item>
-          <Nav.Link eventKey="admins">الإداريين</Nav.Link>
+          <Nav.Link eventKey="admins">تصدير بيانات المستخدمين</Nav.Link>
         </Nav.Item>
         <Nav.Item>
-          <Nav.Link eventKey="attendance">سجل الحضور</Nav.Link>
+          <Nav.Link eventKey="attendance">تصدير سجل الحضور</Nav.Link>
         </Nav.Item>
         <Nav.Item>
-          <Nav.Link eventKey="financials">المالية</Nav.Link>
+          <Nav.Link eventKey="financials">تصدير التقارير المالية</Nav.Link>
         </Nav.Item>
       </Nav>
 

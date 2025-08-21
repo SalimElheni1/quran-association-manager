@@ -41,7 +41,7 @@ function AttendancePage() {
         setClasses(fetchedClasses);
       } catch (err) {
         console.error('Error fetching active classes:', err);
-        toast.error('فشل في تحميل قائمة الفصول النشطة.');
+        toast.error('فشل تحميل قائمة الفصول النشطة.');
       } finally {
         setLoadingClasses(false);
       }
@@ -77,7 +77,7 @@ function AttendancePage() {
         setSavedRecordsSummary(summary);
       } catch (err) {
         console.error('Error fetching attendance summary:', err);
-        toast.error('فشل في تحميل قائمة الحضور المحفوظة.');
+        toast.error('فشل تحميل قائمة الحضور المحفوظة.');
       }
     };
     fetchSavedRecordsSummary();
@@ -106,7 +106,7 @@ function AttendancePage() {
       setIsSaved(Object.keys(existingRecords).length > 0); // Set save status
     } catch (err) {
       console.error('Error fetching students or attendance:', err);
-      toast.error('فشل في تحميل بيانات الطلاب أو الحضور.');
+      toast.error('فشل تحميل بيانات الطلاب أو الحضور.');
     } finally {
       setLoadingStudents(false);
     }
@@ -151,7 +151,7 @@ function AttendancePage() {
       toast.success('تم حفظ سجل الحضور بنجاح!');
     } catch (err) {
       console.error('Error saving attendance:', err);
-      toast.error('فشل في حفظ سجل الحضور.');
+      toast.error('فشل حفظ سجل الحضور.');
     } finally {
       setLoadingStudents(false);
     }
@@ -160,20 +160,20 @@ function AttendancePage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>تسجيل الحضور (لليوم)</h1>
+        <h1>تسجيل الحضور والغياب</h1>
       </div>
 
       <Row>
         <Col md={8}>
           <div className="attendance-controls">
             <Form.Group as={Col} md="6" controlId="classSelect">
-              <Form.Label>اختر الفصل الدراسي:</Form.Label>
+              <Form.Label>الفصل الدراسي:</Form.Label>
               <Form.Select
                 value={selectedClass}
                 onChange={handleClassChange}
                 disabled={loadingClasses}
               >
-                <option value="">-- حدد الفصل الدراسي --</option>
+                <option value="">-- اختر الفصل --</option>
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.name}
@@ -183,7 +183,7 @@ function AttendancePage() {
               {loadingClasses && <Spinner animation="border" size="sm" className="ms-2" />}
             </Form.Group>
             <Form.Group as={Col} md="4" controlId="dateSelect">
-              <Form.Label>اختر التاريخ:</Form.Label>
+              <Form.Label>التاريخ:</Form.Label>
               <Form.Control type="date" value={selectedDate} onChange={handleDateChange} />
             </Form.Group>
           </div>
@@ -198,8 +198,8 @@ function AttendancePage() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>اسم الطالب</th>
-                    <th>حالة الحضور</th>
+                    <th>الطالب</th>
+                    <th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,7 +217,7 @@ function AttendancePage() {
                             }
                             onClick={() => handleStatusChange(student.id, 'present')}
                           >
-                            حاضر
+                            حضور
                           </Button>
                           <Button
                             variant={
@@ -227,7 +227,7 @@ function AttendancePage() {
                             }
                             onClick={() => handleStatusChange(student.id, 'absent')}
                           >
-                            غائب
+                            غياب
                           </Button>
                           <Button
                             variant={
@@ -237,7 +237,7 @@ function AttendancePage() {
                             }
                             onClick={() => handleStatusChange(student.id, 'late')}
                           >
-                            متأخر
+                            تأخر
                           </Button>
                         </ButtonGroup>
                       </td>
@@ -253,7 +253,7 @@ function AttendancePage() {
                   disabled={loadingStudents}
                 >
                   <i className="fas fa-save me-2"></i>
-                  {isSaved ? 'تحديث سجل الحضور' : 'حفظ سجل الحضور'}
+                  حفظ التغييرات
                 </Button>
               </div>
             </div>
@@ -261,13 +261,13 @@ function AttendancePage() {
             <Alert variant="info" className="mt-4 text-center">
               {!selectedClass
                 ? 'الرجاء اختيار فصل دراسي لعرض قائمة الطلاب.'
-                : 'لا يوجد طلاب مسجلون في هذا الفصل أو لم يتم تحديد تاريخ.'}
+                : 'لا يوجد طلاب مسجلون في هذا الفصل أو لم يتم تحديد تاريخ صالح.'}
             </Alert>
           )}
         </Col>
         <Col md={4}>
           <Card>
-            <Card.Header as="h5">السجلات المحفوظة</Card.Header>
+            <Card.Header as="h5">سجلات الحضور المحفوظة</Card.Header>
             <ListGroup variant="flush" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               {savedRecordsSummary.length > 0 ? (
                 savedRecordsSummary.map((record) => (

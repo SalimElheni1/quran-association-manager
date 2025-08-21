@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import PaymentFormModal from './PaymentFormModal';
+import ConfirmationModal from '../ConfirmationModal';
 
 function PaymentsTab() {
   const [payments, setPayments] = useState([]);
@@ -8,6 +9,8 @@ function PaymentsTab() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
 
   const fetchPayments = async () => {
     try {
@@ -17,7 +20,7 @@ function PaymentsTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch payments:', err);
-      setError(err.message || 'فشل في جلب قائمة الدفعات.');
+      setError(err.message || 'فشل جلب قائمة الدفعات.');
     } finally {
       setLoading(false);
     }
@@ -49,19 +52,26 @@ function PaymentsTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save payment:', err);
-      setError(err.message || 'فشل في حفظ الدفعة.');
+      setError(err.message || 'فشل حفظ الدفعة.');
     }
   };
 
-  const handleDelete = async (paymentId) => {
-    if (window.confirm('هل أنت متأكد من رغبتك في حذف هذه الدفعة؟')) {
-      try {
-        await window.electronAPI.deletePayment(paymentId);
-        setPayments(payments.filter((p) => p.id !== paymentId));
-      } catch (err) {
-        console.error('Failed to delete payment:', err);
-        setError(err.message || 'فشل في حذف الدفعة.');
-      }
+  const handleDeleteRequest = (payment) => {
+    setPaymentToDelete(payment);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!paymentToDelete) return;
+    try {
+      await window.electronAPI.deletePayment(paymentToDelete.id);
+      setPayments(payments.filter((p) => p.id !== paymentToDelete.id));
+    } catch (err) {
+      console.error('Failed to delete payment:', err);
+      setError(err.message || 'فشل حذف الدفعة.');
+    } finally {
+      setShowDeleteModal(false);
+      setPaymentToDelete(null);
     }
   };
 
@@ -79,17 +89,17 @@ function PaymentsTab() {
     <div>
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>قائمة الرسوم الدراسية</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة دفعة جديدة</Button>
+        <h4>سجل الرسوم الدراسية</h4>
+        <Button variant="primary" onClick={() => handleShowModal()}>إضافة دفعة</Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
           <tr>
             <th>#</th>
-            <th>الطالب</th>
+            <th>اسم الطالب</th>
             <th>المبلغ</th>
             <th>طريقة الدفع</th>
-            <th>تاريخ الدفع</th>
+            <th>تاريخ الدفعة</th>
             <th>ملاحظات</th>
             <th>الإجراءات</th>
           </tr>
@@ -108,7 +118,7 @@ function PaymentsTab() {
                   <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(payment)}>
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDelete(payment.id)}>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(payment)}>
                     حذف
                   </Button>
                 </td>
@@ -117,7 +127,7 @@ function PaymentsTab() {
           ) : (
             <tr>
               <td colSpan="7" className="text-center">
-                لا توجد دفعات مسجلة حالياً.
+                لا توجد رسوم دراسية مسجلة حالياً.
               </td>
             </tr>
           )}
@@ -129,6 +139,15 @@ function PaymentsTab() {
         onHide={handleHideModal}
         onSave={handleSave}
         payment={editingPayment}
+      />
+      <ConfirmationModal
+        show={showDeleteModal}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={confirmDelete}
+        title="تأكيد حذف الدفعة"
+        body={`هل أنت متأكد من رغبتك في حذف هذه الدفعة؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، حذف"
       />
     </div>
   );

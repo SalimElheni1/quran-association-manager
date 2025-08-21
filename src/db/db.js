@@ -12,17 +12,30 @@ let db; // This will hold our database connection object
 
 // Helper function to get database file path
 function getDatabasePath() {
-  // Use Electron's reliable API to get the user data path.
-  // This is more robust than constructing the path manually.
-  // It correctly handles development vs. packaged app scenarios.
-  const userDataPath = app.getPath('userData');
+  // Check if running in Electron or a plain Node.js script
+  const isElectron = 'electron' in process.versions;
 
-  // Ensure the directory exists
-  if (!fs.existsSync(userDataPath)) {
-    fs.mkdirSync(userDataPath, { recursive: true });
+  let dbPath;
+
+  if (isElectron && app) {
+    // In Electron, use the reliable app.getPath('userData')
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    dbPath = path.join(userDataPath, 'quran_assoc_manager.sqlite');
+  } else {
+    // In a script (like the seeder), use a local path.
+    // The .db directory will be created in the project root.
+    const localDbDir = path.join(__dirname, '..', '..', '.db');
+    if (!fs.existsSync(localDbDir)) {
+      fs.mkdirSync(localDbDir, { recursive: true });
+    }
+    dbPath = path.join(localDbDir, 'quran_assoc_manager.sqlite');
+    console.log(`Running in Node.js script, using local DB path: ${dbPath}`);
   }
 
-  return path.join(userDataPath, 'quran_assoc_manager.sqlite');
+  return dbPath;
 }
 
 async function seedSuperadmin() {

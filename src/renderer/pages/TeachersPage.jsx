@@ -28,7 +28,7 @@ function TeachersPage() {
       setTeachers(fetchedTeachers);
     } catch (err) {
       console.error('Error fetching teachers:', err);
-      toast.error('فشل في تحميل بيانات المعلمين.');
+      toast.error('فشل تحميل بيانات المعلمين.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ function TeachersPage() {
       setShowModal(true);
     } catch (err) {
       console.error('Error fetching full teacher details:', err);
-      toast.error('فشل في تحميل التفاصيل الكاملة للمعلم.');
+      toast.error('فشل تحميل التفاصيل الكاملة للمعلم.');
     }
   };
 
@@ -66,7 +66,7 @@ function TeachersPage() {
       setShowDetailsModal(true);
     } catch (err) {
       console.error('Error fetching full teacher details:', err);
-      toast.error('فشل في تحميل التفاصيل الكاملة للمعلم.');
+      toast.error('فشل تحميل التفاصيل الكاملة للمعلم.');
     }
   };
 
@@ -79,10 +79,10 @@ function TeachersPage() {
     try {
       if (teacherId) {
         await window.electronAPI.updateTeacher(teacherId, formData);
-        toast.success('تم تحديث بيانات المعلم بنجاح!');
+        toast.success(`تم تحديث بيانات المعلم "${formData.name}" بنجاح!`);
       } else {
         await window.electronAPI.addTeacher(formData);
-        toast.success('تمت إضافة المعلم بنجاح!');
+        toast.success(`تمت إضافة المعلم "${formData.name}" بنجاح!`);
       }
       fetchTeachers();
       handleCloseModal();
@@ -102,11 +102,11 @@ function TeachersPage() {
     if (!teacherToDelete) return;
     try {
       await window.electronAPI.deleteTeacher(teacherToDelete.id);
-      toast.success('تم حذف المعلم بنجاح.');
+      toast.success(`تم حذف المعلم "${teacherToDelete.name}" بنجاح.`);
       fetchTeachers();
     } catch (err) {
       console.error('Error deleting teacher:', err);
-      toast.error('فشل في حذف المعلم.');
+      toast.error(`فشل حذف المعلم "${teacherToDelete.name}".`);
     } finally {
       setShowDeleteModal(false);
       setTeacherToDelete(null);
@@ -116,9 +116,9 @@ function TeachersPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>إدارة المعلمين</h1>
+        <h1>شؤون المعلمين</h1>
         <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة معلم جديد
+          <i className="fas fa-plus ms-2"></i> إضافة معلم
         </Button>
       </div>
       <div className="filter-bar">
@@ -128,7 +128,7 @@ function TeachersPage() {
           </InputGroup.Text>
           <Form.Control
             type="search"
-            placeholder="ابحث بالاسم..."
+            placeholder="البحث بالاسم..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -140,13 +140,13 @@ function TeachersPage() {
             onChange={(e) => setGenderFilter(e.target.value)}
             className="filter-select"
           >
-            <option value="all">الكل (الجنس)</option>
+            <option value="all">الجنس (الكل)</option>
             <option value="Male">ذكر</option>
             <option value="Female">أنثى</option>
           </Form.Select>
           <Form.Control
             type="text"
-            placeholder="ابحث بالتخصص..."
+            placeholder="البحث بالتخصص..."
             value={specializationFilter}
             onChange={(e) => setSpecializationFilter(e.target.value)}
             className="filter-select"
@@ -162,10 +162,10 @@ function TeachersPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>الاسم</th>
+              <th>الاسم واللقب</th>
               <th>رقم الهاتف</th>
               <th>التخصص</th>
-              <th>إجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -182,7 +182,7 @@ function TeachersPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(teacher)}
                     >
-                      <i className="fas fa-eye"></i> عرض
+                      <i className="fas fa-eye"></i> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
@@ -205,8 +205,8 @@ function TeachersPage() {
               <tr>
                 <td colSpan="5" className="text-center">
                   {searchTerm || genderFilter !== 'all' || specializationFilter
-                    ? 'لم يتم العثور على معلمين مطابقين للبحث.'
-                    : 'لم يتم العثور على معلمين.'}
+                    ? 'لا توجد نتائج تطابق معايير البحث.'
+                    : 'لا يوجد معلمون مسجلون حالياً.'}
                 </td>
               </tr>
             )}
@@ -228,10 +228,10 @@ function TeachersPage() {
         show={showDeleteModal}
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
-        title="تأكيد الحذف"
-        body={`هل أنت متأكد من رغبتك في حذف المعلم "${teacherToDelete?.name}"؟`}
+        title="تأكيد حذف المعلم"
+        body={`هل أنت متأكد من رغبتك في حذف المعلم "${teacherToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
         confirmVariant="danger"
-        confirmText="نعم، قم بالحذف"
+        confirmText="نعم، حذف"
       />
     </div>
   );

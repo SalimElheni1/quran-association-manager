@@ -28,7 +28,7 @@ function ClassesPage() {
       setClasses(fetchedClasses);
     } catch (err) {
       console.error('Error fetching classes:', err);
-      toast.error('فشل في تحميل بيانات الفصول الدراسية.');
+      toast.error('فشل تحميل بيانات الفصول الدراسية.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ function ClassesPage() {
       setEditingClass(fullClassData);
     } catch (err) {
       console.error('Error fetching full class details for edit:', err);
-      toast.error('فشل في تحميل بيانات الفصل للتعديل.');
+      toast.error('فشل تحميل بيانات الفصل للتعديل.');
     }
     setShowModal(true); // Show modal even if fetch fails, it will show empty fields
   };
@@ -66,7 +66,7 @@ function ClassesPage() {
       setShowDetailsModal(true);
     } catch (err) {
       console.error('Error fetching full class details:', err);
-      toast.error('فشل في تحميل التفاصيل الكاملة للفصل.');
+      toast.error('فشل تحميل التفاصيل الكاملة للفصل.');
     }
   };
 
@@ -84,10 +84,10 @@ function ClassesPage() {
     try {
       if (classId) {
         await window.electronAPI.updateClass(classId, formData);
-        toast.success('تم تحديث بيانات الفصل بنجاح!');
+        toast.success(`تم تحديث بيانات الفصل "${formData.name}" بنجاح!`);
       } else {
         await window.electronAPI.addClass(formData);
-        toast.success('تمت إضافة الفصل بنجاح!');
+        toast.success(`تمت إضافة الفصل "${formData.name}" بنجاح!`);
       }
       fetchClasses();
       handleCloseModal();
@@ -107,11 +107,11 @@ function ClassesPage() {
     if (!classToDelete) return;
     try {
       await window.electronAPI.deleteClass(classToDelete.id);
-      toast.success('تم حذف الفصل بنجاح.');
+      toast.success(`تم حذف الفصل "${classToDelete.name}" بنجاح.`);
       fetchClasses();
     } catch (err) {
       console.error('Error deleting class:', err);
-      toast.error('فشل في حذف الفصل.');
+      toast.error(`فشل حذف الفصل "${classToDelete.name}".`);
     } finally {
       setShowDeleteModal(false);
       setClassToDelete(null);
@@ -170,9 +170,9 @@ function ClassesPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>إدارة الفصول الدراسية</h1>
+        <h1>الفصول الدراسية</h1>
         <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة فصل جديد
+          <i className="fas fa-plus ms-2"></i> إضافة فصل
         </Button>
       </div>
       <div className="filter-bar">
@@ -182,7 +182,7 @@ function ClassesPage() {
           </InputGroup.Text>
           <Form.Control
             type="search"
-            placeholder="ابحث باسم الفصل..."
+            placeholder="البحث باسم الفصل..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -199,11 +199,11 @@ function ClassesPage() {
               <th>#</th>
               <th>اسم الفصل</th>
               <th>النوع</th>
-              <th>المعلم</th>
-              <th>الجدول</th>
+              <th>المعلم المسؤول</th>
+              <th>الجدول الزمني</th>
               <th>الجنس</th>
               <th>الحالة</th>
-              <th>إجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -223,14 +223,14 @@ function ClassesPage() {
                       size="sm"
                       onClick={() => handleShowEnrollmentModal(cls)}
                     >
-                      <i className="fas fa-user-plus"></i> إدارة الطلاب
+                      <i className="fas fa-user-plus"></i> الطلاب المسجلون
                     </Button>
                     <Button
                       variant="outline-info"
                       size="sm"
                       onClick={() => handleShowDetailsModal(cls)}
                     >
-                      <i className="fas fa-eye"></i> عرض
+                      <i className="fas fa-eye"></i> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
@@ -253,8 +253,8 @@ function ClassesPage() {
               <tr>
                 <td colSpan="8" className="text-center">
                   {searchTerm
-                    ? 'لم يتم العثور على فصول مطابقة للبحث.'
-                    : 'لم يتم العثور على فصول دراسية.'}
+                    ? 'لا توجد نتائج تطابق معايير البحث.'
+                    : 'لا توجد فصول دراسية مسجلة حالياً.'}
                 </td>
               </tr>
             )}
@@ -276,10 +276,10 @@ function ClassesPage() {
         show={showDeleteModal}
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
-        title="تأكيد الحذف"
-        body={`هل أنت متأكد من رغبتك في حذف الفصل "${classToDelete?.name}"؟`}
+        title="تأكيد حذف الفصل"
+        body={`هل أنت متأكد من رغبتك في حذف الفصل "${classToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
         confirmVariant="danger"
-        confirmText="نعم، قم بالحذف"
+        confirmText="نعم، حذف"
       />
       <EnrollmentModal
         show={showEnrollmentModal}

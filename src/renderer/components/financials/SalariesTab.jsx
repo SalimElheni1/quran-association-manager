@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import SalaryFormModal from './SalaryFormModal';
+import ConfirmationModal from '../ConfirmationModal';
 
 function SalariesTab() {
   const [salaries, setSalaries] = useState([]);
@@ -8,6 +9,8 @@ function SalariesTab() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingSalary, setEditingSalary] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [salaryToDelete, setSalaryToDelete] = useState(null);
 
   const fetchSalaries = async () => {
     try {
@@ -17,7 +20,7 @@ function SalariesTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch salaries:', err);
-      setError(err.message || 'فشل في جلب قائمة الرواتب.');
+      setError(err.message || 'فشل جلب قائمة الرواتب.');
     } finally {
       setLoading(false);
     }
@@ -49,19 +52,26 @@ function SalariesTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save salary:', err);
-      setError(err.message || 'فشل في حفظ الراتب.');
+      setError(err.message || 'فشل حفظ الراتب.');
     }
   };
 
-  const handleDelete = async (salaryId) => {
-    if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا الراتب؟')) {
-      try {
-        await window.electronAPI.deleteSalary(salaryId);
-        setSalaries(salaries.filter((s) => s.id !== salaryId));
-      } catch (err) {
-        console.error('Failed to delete salary:', err);
-        setError(err.message || 'فشل في حذف الراتب.');
-      }
+  const handleDeleteRequest = (salary) => {
+    setSalaryToDelete(salary);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!salaryToDelete) return;
+    try {
+      await window.electronAPI.deleteSalary(salaryToDelete.id);
+      setSalaries(salaries.filter((s) => s.id !== salaryToDelete.id));
+    } catch (err) {
+      console.error('Failed to delete salary:', err);
+      setError(err.message || 'فشل حذف الراتب.');
+    } finally {
+      setShowDeleteModal(false);
+      setSalaryToDelete(null);
     }
   };
 
@@ -79,14 +89,14 @@ function SalariesTab() {
     <div>
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>قائمة الرواتب</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة راتب جديد</Button>
+        <h4>سجل الرواتب والأجور</h4>
+        <Button variant="primary" onClick={() => handleShowModal()}>إضافة راتب</Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
           <tr>
             <th>#</th>
-            <th>المعلم</th>
+            <th>اسم المعلم</th>
             <th>المبلغ</th>
             <th>تاريخ الدفع</th>
             <th>ملاحظات</th>
@@ -106,7 +116,7 @@ function SalariesTab() {
                   <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(salary)}>
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDelete(salary.id)}>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(salary)}>
                     حذف
                   </Button>
                 </td>
@@ -127,6 +137,15 @@ function SalariesTab() {
         onHide={handleHideModal}
         onSave={handleSave}
         salary={editingSalary}
+      />
+      <ConfirmationModal
+        show={showDeleteModal}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={confirmDelete}
+        title="تأكيد حذف الراتب"
+        body={`هل أنت متأكد من رغبتك في حذف هذا الراتب؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، حذف"
       />
     </div>
   );

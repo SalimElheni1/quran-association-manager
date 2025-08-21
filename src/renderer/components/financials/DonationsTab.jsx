@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import DonationFormModal from './DonationFormModal';
+import ConfirmationModal from '../ConfirmationModal';
 
 function DonationsTab() {
   const [donations, setDonations] = useState([]);
@@ -8,6 +9,8 @@ function DonationsTab() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingDonation, setEditingDonation] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [donationToDelete, setDonationToDelete] = useState(null);
 
   const fetchDonations = async () => {
     try {
@@ -17,7 +20,7 @@ function DonationsTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch donations:', err);
-      setError(err.message || 'فشل في جلب قائمة التبرعات.');
+      setError(err.message || 'فشل جلب قائمة التبرعات.');
     } finally {
       setLoading(false);
     }
@@ -49,19 +52,26 @@ function DonationsTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save donation:', err);
-      setError(err.message || 'فشل في حفظ التبرع.');
+      setError(err.message || 'فشل حفظ التبرع.');
     }
   };
 
-  const handleDelete = async (donationId) => {
-    if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا التبرع؟')) {
-      try {
-        await window.electronAPI.deleteDonation(donationId);
-        setDonations(donations.filter((d) => d.id !== donationId));
-      } catch (err) {
-        console.error('Failed to delete donation:', err);
-        setError(err.message || 'فشل في حذف التبرع.');
-      }
+  const handleDeleteRequest = (donation) => {
+    setDonationToDelete(donation);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!donationToDelete) return;
+    try {
+      await window.electronAPI.deleteDonation(donationToDelete.id);
+      setDonations(donations.filter((d) => d.id !== donationToDelete.id));
+    } catch (err) {
+      console.error('Failed to delete donation:', err);
+      setError(err.message || 'فشل حذف التبرع.');
+    } finally {
+      setShowDeleteModal(false);
+      setDonationToDelete(null);
     }
   };
 
@@ -79,8 +89,8 @@ function DonationsTab() {
     <div>
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>قائمة التبرعات</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة تبرع جديد</Button>
+        <h4>سجل التبرعات والهبات</h4>
+        <Button variant="primary" onClick={() => handleShowModal()}>إضافة تبرع</Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -112,7 +122,7 @@ function DonationsTab() {
                   <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(donation)}>
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDelete(donation.id)}>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(donation)}>
                     حذف
                   </Button>
                 </td>
@@ -133,6 +143,15 @@ function DonationsTab() {
         onHide={handleHideModal}
         onSave={handleSave}
         donation={editingDonation}
+      />
+      <ConfirmationModal
+        show={showDeleteModal}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={confirmDelete}
+        title="تأكيد حذف التبرع"
+        body={`هل أنت متأكد من رغبتك في حذف هذا التبرع؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، حذف"
       />
     </div>
   );
