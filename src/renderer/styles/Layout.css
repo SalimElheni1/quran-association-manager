@@ -12,6 +12,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* Pushes logout to the bottom */
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
 .sidebar-header {
