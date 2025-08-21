@@ -28,7 +28,7 @@ function StudentsPage() {
       setStudents(fetchedStudents);
     } catch (err) {
       console.error('Error fetching students:', err);
-      toast.error('فشل في تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
+      toast.error('فشل تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ function StudentsPage() {
       setShowModal(true);
     } catch (err) {
       console.error('Error fetching full student details:', err);
-      toast.error('فشل في تحميل التفاصيل الكاملة للطالب.');
+      toast.error('فشل تحميل التفاصيل الكاملة للطالب.');
     }
   };
 
@@ -67,7 +67,7 @@ function StudentsPage() {
       setShowDetailsModal(true);
     } catch (err) {
       console.error('Error fetching full student details:', err);
-      toast.error('فشل في تحميل التفاصيل الكاملة للطالب.');
+      toast.error('فشل تحميل التفاصيل الكاملة للطالب.');
     }
   };
 
@@ -80,10 +80,10 @@ function StudentsPage() {
     try {
       if (studentId) {
         await window.electronAPI.updateStudent(studentId, formData);
-        toast.success('تم تحديث بيانات الطالب بنجاح!');
+        toast.success(`تم تحديث بيانات الطالب "${formData.name}" بنجاح!`);
       } else {
         await window.electronAPI.addStudent(formData);
-        toast.success('تمت إضافة الطالب بنجاح!');
+        toast.success(`تمت إضافة الطالب "${formData.name}" بنجاح!`);
       }
       fetchStudents(); // Refresh the list
       handleCloseModal();
@@ -109,10 +109,11 @@ function StudentsPage() {
 
     try {
       await window.electronAPI.deleteStudent(studentToDelete.id);
+      toast.success(`تم حذف الطالب "${studentToDelete.name}" بنجاح.`);
       fetchStudents(); // Refresh the list
     } catch (err) {
       console.error('Error deleting student:', err);
-      toast.error('فشل في حذف الطالب.');
+      toast.error(`فشل حذف الطالب "${studentToDelete.name}".`);
     } finally {
       handleCloseDeleteModal();
     }
@@ -150,9 +151,9 @@ function StudentsPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>إدارة الطلاب</h1>
+        <h1>شؤون الطلاب</h1>
         <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة طالب جديد
+          <i className="fas fa-plus ms-2"></i> إضافة طالب
         </Button>
       </div>
 
@@ -163,7 +164,7 @@ function StudentsPage() {
           </InputGroup.Text>
           <Form.Control
             type="search"
-            placeholder="ابحث بالاسم..."
+            placeholder="البحث بالاسم..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -175,20 +176,20 @@ function StudentsPage() {
             onChange={(e) => setGenderFilter(e.target.value)}
             className="filter-select"
           >
-            <option value="all">الكل (الجنس)</option>
+            <option value="all">الجنس (الكل)</option>
             <option value="Male">ذكر</option>
             <option value="Female">أنثى</option>
           </Form.Select>
           <Form.Control
             type="number"
-            placeholder="أدنى عمر"
+            placeholder="العمر (من)"
             value={minAgeFilter}
             onChange={(e) => setMinAgeFilter(e.target.value)}
             className="age-filter-input"
           />
           <Form.Control
             type="number"
-            placeholder="أقصى عمر"
+            placeholder="العمر (إلى)"
             value={maxAgeFilter}
             onChange={(e) => setMaxAgeFilter(e.target.value)}
             className="age-filter-input"
@@ -207,11 +208,11 @@ function StudentsPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>الاسم الكامل</th>
+              <th>الاسم واللقب</th>
               <th>العمر</th>
               <th>تاريخ التسجيل</th>
               <th>الحالة</th>
-              <th>إجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -229,7 +230,7 @@ function StudentsPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(student)}
                     >
-                      <i className="fas fa-eye"></i> عرض
+                      <i className="fas fa-eye"></i> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
@@ -252,8 +253,8 @@ function StudentsPage() {
               <tr>
                 <td colSpan="6" className="text-center">
                   {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
-                    ? 'لم يتم العثور على طلاب مطابقين للبحث.'
-                    : 'لم يتم العثور على طلاب.'}
+                    ? 'لا توجد نتائج تطابق معايير البحث.'
+                    : 'لا يوجد طلاب مسجلون حالياً.'}
                 </td>
               </tr>
             )}
@@ -278,10 +279,10 @@ function StudentsPage() {
         show={showDeleteModal}
         handleClose={handleCloseDeleteModal}
         handleConfirm={confirmDelete}
-        title="تأكيد الحذف"
+        title="تأكيد حذف الطالب"
         body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
         confirmVariant="danger"
-        confirmText="نعم، قم بالحذف"
+        confirmText="نعم، حذف"
       />
     </div>
   );

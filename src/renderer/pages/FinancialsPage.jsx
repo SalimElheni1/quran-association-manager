@@ -11,23 +11,23 @@ function FinancialsPage() {
     <Container fluid className="p-4">
       <Card>
         <Card.Header as="h2" className="text-center">
-          الإدارة المالية
+          الشؤون المالية
         </Card.Header>
         <Card.Body>
           <Tabs defaultActiveKey="reports" id="financials-tabs" className="mb-3" fill>
-            <Tab eventKey="reports" title="التقارير والإحصائيات">
+            <Tab eventKey="reports" title="تقارير وإحصائيات">
               <ReportsTab />
             </Tab>
             <Tab eventKey="payments" title="الرسوم الدراسية">
               <PaymentsTab />
             </Tab>
-            <Tab eventKey="salaries" title="الرواتب">
+            <Tab eventKey="salaries" title="الرواتب والأجور">
               <SalariesTab />
             </Tab>
-            <Tab eventKey="donations" title="التبرعات">
+            <Tab eventKey="donations" title="التبرعات والهبات">
               <DonationsTab />
             </Tab>
-            <Tab eventKey="expenses" title="المصاريف">
+            <Tab eventKey="expenses" title="المصاريف والنثريات">
               <ExpensesTab />
             </Tab>
           </Tabs>

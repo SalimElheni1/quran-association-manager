@@ -154,12 +154,12 @@ const SettingsPage = () => {
         <Col lg={10}>
           <Card>
             <Card.Header as="h3" className="text-center bg-primary text-white">
-              إعدادات التطبيق
+              إعدادات النظام
             </Card.Header>
             <Card.Body>
               <Form onSubmit={handleSubmit}>
                 <Tabs defaultActiveKey="association" id="settings-tabs" className="mb-3" fill>
-                  <Tab eventKey="association" title="بيانات الجمعية">
+                  <Tab eventKey="association" title="بيانات الجمعية/الفرع">
                     <Card className="border-0">
                       <Card.Body>
                         <Form.Group className="mb-3">
@@ -172,7 +172,7 @@ const SettingsPage = () => {
                           />
                         </Form.Group>
                         <Form.Group className="mb-3">
-                          <Form.Label>اسم الجمعية الإقليمية</Form.Label>
+                          <Form.Label>اسم الجمعية الجهوية</Form.Label>
                           <Form.Control
                             type="text"
                             name="regional_association_name"
@@ -202,7 +202,7 @@ const SettingsPage = () => {
                     </Card>
                   </Tab>
 
-                  <Tab eventKey="branding" title="الشعارات والهوية">
+                  <Tab eventKey="branding" title="الهوية البصرية">
                     <Card className="border-0">
                       <Card.Body>
                         <Form.Group className="mb-3">
@@ -216,10 +216,10 @@ const SettingsPage = () => {
                               {isUploading === 'national_logo_path' ? (
                                 <>
                                   <Spinner as="span" animation="border" size="sm" />
-                                  {' جاري التحميل...'}
+                                  {' جارٍ التحميل...'}
                                 </>
                               ) : (
-                                'اختر ملف...'
+                                'اختر ملف الشعار...'
                               )}
                             </Button>
                             <Form.Control
@@ -252,10 +252,10 @@ const SettingsPage = () => {
                               {isUploading === 'regional_local_logo_path' ? (
                                 <>
                                   <Spinner as="span" animation="border" size="sm" />
-                                  {' جاري التحميل...'}
+                                  {' جارٍ التحميل...'}
                                 </>
                               ) : (
-                                'اختر ملف...'
+                                'اختر ملف الشعار...'
                               )}
                             </Button>
                             <Form.Control
@@ -284,7 +284,7 @@ const SettingsPage = () => {
                       <Card.Body>
                         <Form.Group as={Row} className="mb-3">
                           <Form.Label column sm={4}>
-                            عمر البلوغ (للتقارير والتصنيف)
+                            سن الرشد (للتقارير والتصنيف)
                           </Form.Label>
                           <Col sm={8}>
                             <Form.Control
@@ -304,7 +304,7 @@ const SettingsPage = () => {
                       </Card.Body>
                     </Card>
                   </Tab>
-                  <Tab eventKey="backup" title="سياسة النسخ الاحتياطي">
+                  <Tab eventKey="backup" title="النسخ الاحتياطي">
                     <Card className="border-0">
                       <Card.Body>
                         <Form.Group className="mb-3">
@@ -337,7 +337,7 @@ const SettingsPage = () => {
                           />
                         </Form.Group>
                         <Form.Group className="mb-3">
-                          <Form.Label>تكرار النسخ الاحتياطي</Form.Label>
+                          <Form.Label>جدولة النسخ الاحتياطي</Form.Label>
                           <Form.Select
                             name="backup_frequency"
                             value={settings.backup_frequency || 'daily'}
@@ -359,12 +359,12 @@ const SettingsPage = () => {
                             {isBackingUp ? (
                               <>
                                 <Spinner as="span" animation="border" size="sm" />
-                                {' جاري النسخ...'}
+                                {' جارٍ النسخ...'}
                               </>
                             ) : (
                               <>
                                 <i className="fas fa-play-circle me-2"></i>
-                                تشغيل النسخ الاحتياطي الآن
+                                نسخ احتياطي فوري
                               </>
                             )}
                           </Button>
@@ -372,8 +372,8 @@ const SettingsPage = () => {
                             <small
                               className={backupStatus.success ? 'text-success' : 'text-danger'}
                             >
-                              آخر نسخة احتياطية: {new Date(backupStatus.timestamp).toLocaleString()}{' '}
-                              - {backupStatus.success ? 'نجحت' : 'فشلت'}
+                              آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()}{' '}
+                              ({backupStatus.success ? 'نجحت' : 'فشلت'})
                             </small>
                           )}
                         </div>
@@ -387,10 +387,10 @@ const SettingsPage = () => {
                     {isSubmitting ? (
                       <>
                         <Spinner as="span" animation="border" size="sm" />
-                        {' جاري الحفظ...'}
+                        {' جارٍ الحفظ...'}
                       </>
                     ) : (
-                      'حفظ الإعدادات'
+                      'حفظ التغييرات'
                     )}
                   </Button>
                 </div>

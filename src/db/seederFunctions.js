@@ -156,7 +156,7 @@ const dummyTeachers = [
 ];
 
 const dummyStudents = [
-  // Male Students
+  // Male Kids
   {
     name: 'أحمد محمد الصغير',
     gender: 'Male',
@@ -168,7 +168,7 @@ const dummyStudents = [
     parent_name: 'محمد الصغير',
     parent_contact: '+21670123456',
     memorization_level: 'الجزء 1-5',
-    school_name: 'مدسة ابن خلدون',
+    school_name: 'مدرسة ابن خلدون',
     grade_level: 'الصف الثالث',
   },
   {
@@ -185,21 +185,7 @@ const dummyStudents = [
     school_name: 'مدرسة الزهراء',
     grade_level: 'الصف السادس',
   },
-  {
-    name: 'عمر خالد المبارك',
-    gender: 'Male',
-    age: 15,
-    status: 'active',
-    address: 'أريانة - السيجومي',
-    contact_info: '+21670333456',
-    email: 'omar.student@quran-center.tn',
-    parent_name: 'خالد المبارك',
-    parent_contact: '+21670333456',
-    memorization_level: 'الجزء 11-15',
-    school_name: 'مدرسة عمر بن الخطاب',
-    grade_level: 'الصف التاسع',
-  },
-  // Female Students
+  // Female Kids
   {
     name: 'فاطمة الزهراء محمد',
     gender: 'Female',
@@ -228,19 +214,55 @@ const dummyStudents = [
     school_name: 'مدرسة عائشة',
     grade_level: 'الصف الخامس',
   },
+  // Adult Men
+  {
+    name: 'عمر خالد المبارك',
+    gender: 'Male',
+    age: 25,
+    status: 'active',
+    address: 'أريانة - السيجومي',
+    contact_info: '+21670333456',
+    email: 'omar.student@quran-center.tn',
+    memorization_level: 'الجزء 11-15',
+    occupation: 'مهندس',
+    civil_status: 'Single',
+  },
+  {
+    name: 'علي بن سالم',
+    gender: 'Male',
+    age: 42,
+    status: 'active',
+    address: 'تونس - باردو',
+    contact_info: '+21671111222',
+    email: 'ali.salem.student@quran-center.tn',
+    memorization_level: 'كاملاً',
+    occupation: 'طبيب',
+    civil_status: 'Married',
+  },
+  // Adult Women
   {
     name: 'سارة إبراهيم',
     gender: 'Female',
-    age: 14,
+    age: 28,
     status: 'active',
     address: 'منوبة - طبربة',
     contact_info: '+21670663456',
     email: 'sarah.student@quran-center.tn',
-    parent_name: 'إبراهيم',
-    parent_contact: '+21670663456',
     memorization_level: 'الجزء 8-12',
-    school_name: 'مدرسة سارة',
-    grade_level: 'الصف الثامن',
+    occupation: 'معلمة',
+    civil_status: 'Married',
+  },
+  {
+    name: 'مريم بنت أحمد',
+    gender: 'Female',
+    age: 35,
+    status: 'inactive',
+    address: 'بن عروس - المروج',
+    contact_info: '+21672222333',
+    email: 'mariem.ahmed.student@quran-center.tn',
+    memorization_level: '15 جزء',
+    occupation: 'ربة منزل',
+    civil_status: 'Married',
   },
 ];
 
@@ -420,8 +442,10 @@ async function seedStudents() {
         parent_contact,
         memorization_level,
         school_name,
-        grade_level
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        grade_level,
+        occupation,
+        civil_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await runQuery(sql, [
         student.name,
@@ -436,6 +460,8 @@ async function seedStudents() {
         student.memorization_level || '',
         student.school_name || '',
         student.grade_level || '',
+        student.occupation || '',
+        student.civil_status || '',
       ]);
       insertedCount++;
     }

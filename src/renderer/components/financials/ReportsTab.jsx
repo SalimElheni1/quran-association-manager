@@ -25,7 +25,7 @@ function ReportsTab() {
         setError(null);
       } catch (err) {
         console.error('Failed to fetch report data:', err);
-        setError(err.message || 'فشل في جلب بيانات التقارير.');
+        setError(err.message || 'فشل جلب بيانات التقارير.');
       } finally {
         setLoading(false);
       }
@@ -50,13 +50,13 @@ function ReportsTab() {
   return (
     <div>
       <Card className="mb-4">
-        <Card.Header as="h4" className="bg-dark text-white">الملخص الكلي (لجميع الأوقات)</Card.Header>
+        <Card.Header as="h4" className="bg-dark text-white">الملخص المالي العام</Card.Header>
         <Card.Body>
             <Row>
                 <Col md={4}>
                     <Card bg="light">
                         <Card.Body className="text-center">
-                            <Card.Title>إجمالي الدخل</Card.Title>
+                            <Card.Title>إجمالي الإيرادات</Card.Title>
                             <Card.Text className="h3 text-success">{summary?.totalIncome.toFixed(2) || '0.00'}</Card.Text>
                         </Card.Body>
                     </Card>
@@ -85,7 +85,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="success" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>الدخل (هذا الشهر)</Card.Title>
+              <Card.Title>الإيرادات (الشهر الحالي)</Card.Title>
               <Card.Text className="h3">{snapshot?.totalIncomeThisMonth.toFixed(2) || '0.00'}</Card.Text>
             </Card.Body>
           </Card>
@@ -93,7 +93,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="danger" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>المصروفات (هذا الشهر)</Card.Title>
+              <Card.Title>المصروفات (الشهر الحالي)</Card.Title>
               <Card.Text className="h3">{snapshot?.totalExpensesThisMonth.toFixed(2) || '0.00'}</Card.Text>
             </Card.Body>
           </Card>
@@ -101,7 +101,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="info" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>الرصيد (هذا الشهر)</Card.Title>
+              <Card.Title>الرصيد (الشهر الحالي)</Card.Title>
               <Card.Text className="h3">{(snapshot?.totalIncomeThisMonth - snapshot?.totalExpensesThisMonth).toFixed(2) || '0.00'}</Card.Text>
             </Card.Body>
           </Card>
@@ -111,20 +111,20 @@ function ReportsTab() {
       {canViewDetailedReport ? (
         <>
           <Card className="mb-4">
-            <Card.Header as="h4">بيان الأنشطة (هذا الشهر)</Card.Header>
+            <Card.Header as="h4">كشف الأنشطة (الشهر الحالي)</Card.Header>
             <Card.Body>
               <h5>الإيرادات</h5>
               <Table striped bordered size="sm">
                 <tbody>
-                  <tr><td>رسوم دراسية</td><td>{activities?.studentFees.toFixed(2)}</td></tr>
-                  <tr><td>تبرعات نقدية</td><td>{activities?.cashDonations.toFixed(2)}</td></tr>
+                  <tr><td>رسوم التسجيل</td><td>{activities?.studentFees.toFixed(2)}</td></tr>
+                  <tr><td>تبرعات وهبات</td><td>{activities?.cashDonations.toFixed(2)}</td></tr>
                   <tr className="table-success"><th>مجموع الإيرادات</th><th>{totalMonthlyRevenue.toFixed(2)}</th></tr>
                 </tbody>
               </Table>
               <h5 className="mt-4">المصروفات</h5>
               <Table striped bordered size="sm">
                 <tbody>
-                  <tr><td>رواتب</td><td>{activities?.salaries.toFixed(2)}</td></tr>
+                  <tr><td>رواتب وأجور</td><td>{activities?.salaries.toFixed(2)}</td></tr>
                   {activities?.expensesByCategory.map(exp => (
                     <tr key={exp.category}><td>{exp.category}</td><td>{exp.total.toFixed(2)}</td></tr>
                   ))}
@@ -133,14 +133,14 @@ function ReportsTab() {
               </Table>
               <hr />
               <div className="d-flex justify-content-between h4">
-                <span>النتيجة الصافية:</span>
+                <span>النتيجة الصافية للشهر:</span>
                 <span className={netMonthlyResult >= 0 ? 'text-success' : 'text-danger'}>{netMonthlyResult.toFixed(2)}</span>
               </div>
             </Card.Body>
           </Card>
 
           <Card>
-            <Card.Header as="h4">أحدث المعاملات</Card.Header>
+            <Card.Header as="h4">آخر العمليات المالية</Card.Header>
             <Card.Body>
               <Table striped bordered hover responsive size="sm">
                 <thead>
@@ -167,7 +167,7 @@ function ReportsTab() {
         </>
       ) : (
         <Alert variant="info">
-          ليس لديك الصلاحية لعرض التقارير التفصيلية.
+          لا تملك الصلاحيات اللازمة لعرض التقارير المفصلة.
         </Alert>
       )}
     </div>

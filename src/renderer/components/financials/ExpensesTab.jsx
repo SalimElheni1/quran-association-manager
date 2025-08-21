@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import ExpenseFormModal from './ExpenseFormModal';
+import ConfirmationModal from '../ConfirmationModal';
 
 function ExpensesTab() {
   const [expenses, setExpenses] = useState([]);
@@ -8,6 +9,8 @@ function ExpensesTab() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
 
   const fetchExpenses = async () => {
     try {
@@ -17,7 +20,7 @@ function ExpensesTab() {
       setError(null);
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
-      setError(err.message || 'فشل في جلب قائمة المصاريف.');
+      setError(err.message || 'فشل جلب قائمة المصاريف.');
     } finally {
       setLoading(false);
     }
@@ -51,19 +54,26 @@ function ExpensesTab() {
       handleHideModal();
     } catch (err) {
       console.error('Failed to save expense:', err);
-      setError(err.message || 'فشل في حفظ المصروف.');
+      setError(err.message || 'فشل حفظ المصروف.');
     }
   };
 
-  const handleDelete = async (expenseId) => {
-    if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المصروف؟')) {
-      try {
-        await window.electronAPI.deleteExpense(expenseId);
-        setExpenses(expenses.filter((exp) => exp.id !== expenseId));
-      } catch (err) {
-        console.error('Failed to delete expense:', err);
-        setError(err.message || 'فشل في حذف المصروف.');
-      }
+  const handleDeleteRequest = (expense) => {
+    setExpenseToDelete(expense);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!expenseToDelete) return;
+    try {
+      await window.electronAPI.deleteExpense(expenseToDelete.id);
+      setExpenses(expenses.filter((exp) => exp.id !== expenseToDelete.id));
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+      setError(err.message || 'فشل حذف المصروف.');
+    } finally {
+      setShowDeleteModal(false);
+      setExpenseToDelete(null);
     }
   };
 
@@ -81,8 +91,8 @@ function ExpensesTab() {
     <div>
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>قائمة المصاريف</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة مصروف جديد</Button>
+        <h4>سجل المصاريف والنثريات</h4>
+        <Button variant="primary" onClick={() => handleShowModal()}>إضافة مصروف</Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -110,7 +120,7 @@ function ExpensesTab() {
                   <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(expense)}>
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDelete(expense.id)}>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(expense)}>
                     حذف
                   </Button>
                 </td>
@@ -131,6 +141,15 @@ function ExpensesTab() {
         onHide={handleHideModal}
         onSave={handleSave}
         expense={editingExpense}
+      />
+      <ConfirmationModal
+        show={showDeleteModal}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={confirmDelete}
+        title="تأكيد حذف المصروف"
+        body={`هل أنت متأكد من رغبتك في حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، حذف"
       />
     </div>
   );

@@ -114,7 +114,7 @@ const ProfilePage = () => {
         <Col lg={10}>
           <Card>
             <Card.Header as="h3" className="text-center bg-primary text-white">
-              الملف الشخصي
+              ملفي الشخصي
             </Card.Header>
             <Card.Body>
               <Form onSubmit={handleSubmit}>
@@ -160,7 +160,7 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>الاسم الأخير</Form.Label>
+                          <Form.Label>اللقب</Form.Label>
                           <Form.Control
                             type="text"
                             name="last_name"
@@ -184,7 +184,7 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>الرقم الوطني</Form.Label>
+                          <Form.Label>رقم ب.ت.و</Form.Label>
                           <Form.Control
                             type="text"
                             name="national_id"
@@ -197,13 +197,13 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>الحالة الاجتماعية</Form.Label>
+                          <Form.Label>الحالة المدنية</Form.Label>
                           <Form.Select
                             name="civil_status"
                             value={profile.civil_status || ''}
                             onChange={handleProfileChange}
                           >
-                            <option value="">اختر...</option>
+                            <option value="">اختر الحالة...</option>
                             <option value="Single">أعزب/عزباء</option>
                             <option value="Married">متزوج/متزوجة</option>
                             <option value="Divorced">مطلق/مطلقة</option>
@@ -264,7 +264,7 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>نوع التوظيف</Form.Label>
+                          <Form.Label>طبيعة العمل</Form.Label>
                           <Form.Select
                             name="employment_type"
                             value={profile.employment_type || ''}
@@ -291,7 +291,7 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>تاريخ البدء</Form.Label>
+                          <Form.Label>تاريخ البداية</Form.Label>
                           <Form.Control
                             type="date"
                             name="start_date"
@@ -302,7 +302,7 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>تاريخ الانتهاء</Form.Label>
+                          <Form.Label>تاريخ النهاية</Form.Label>
                           <Form.Control
                             type="date"
                             name="end_date"
@@ -335,7 +335,7 @@ const ProfilePage = () => {
                           name="current_password"
                           value={passwordData.current_password}
                           onChange={handlePasswordChange}
-                          placeholder="اتركها فارغة لعدم التغيير"
+                          placeholder="اترك الحقل فارغاً لعدم التغيير"
                           label="كلمة المرور الحالية"
                         />
                       </Col>
@@ -372,7 +372,7 @@ const ProfilePage = () => {
                           role="status"
                           aria-hidden="true"
                         />
-                        {' جاري الحفظ...'}
+                        {' جارٍ الحفظ...'}
                       </>
                     ) : (
                       'حفظ التغييرات'

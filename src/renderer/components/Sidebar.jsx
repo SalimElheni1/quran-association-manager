@@ -15,60 +15,60 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <h3>📖 مدير الفروع</h3>
+          <h3>📖 مدير الفروع القرآنية</h3>
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">
             <i className="fas fa-home"></i>
-            <span>لوحة التحكم</span>
+            <span>الرئيسية</span>
           </NavLink>
           <NavLink to="/students" className="nav-link">
             <i className="fas fa-users"></i>
-            <span>الطلاب</span>
+            <span>شؤون الطلاب</span>
           </NavLink>
           <NavLink to="/teachers" className="nav-link">
             <i className="fas fa-chalkboard-teacher"></i>
-            <span>المعلمين</span>
+            <span>شؤون المعلمين</span>
           </NavLink>
           <NavLink to="/classes" className="nav-link">
             <i className="fas fa-school"></i>
-            <span>الفصول الدراسية</span>
+            <span>الفصول</span>
           </NavLink>
           <NavLink to="/attendance" className="nav-link">
             <i className="fas fa-calendar-check"></i>
-            <span>تسجيل الحضور</span>
+            <span>الحضور والغياب</span>
           </NavLink>
           {['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(user?.role) && (
             <NavLink to="/financials" className="nav-link">
               <i className="fas fa-wallet"></i>
-              <span>المالية</span>
+              <span>الشؤون المالية</span>
             </NavLink>
           )}
           <NavLink to="/profile" className="nav-link">
             <i className="fas fa-user-cog"></i>
-            <span>الملف الشخصي</span>
+            <span>ملفي الشخصي</span>
           </NavLink>
           <NavLink to="/exports" className="nav-link">
             <i className="fas fa-file-export"></i>
-            <span>تصدير البيانات</span>
+            <span>التصدير</span>
           </NavLink>
           {user?.role === 'Superadmin' && (
             <NavLink to="/users" className="nav-link">
               <i className="fas fa-user-shield"></i>
-              <span>إدارة المستخدمين</span>
+              <span>المستخدمون</span>
             </NavLink>
           )}
           {user?.role === 'Superadmin' && (
             <NavLink to="/settings" className="nav-link">
               <i className="fas fa-cog"></i>
-              <span>الإعدادات</span>
+              <span>إعدادات النظام</span>
             </NavLink>
           )}
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">
         <i className="fas fa-sign-out-alt"></i>
-        <span>تسجيل الخروج</span>
+        <span>خروج</span>
       </button>
     </aside>
   );
