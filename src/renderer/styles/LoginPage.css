@@ -20,9 +20,11 @@
   margin-bottom: 2rem;
 }
 
-.signin-header i {
-  font-size: 3rem;
-  color: #0d9488; /* Primary color from mockup */
+.signin-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 1rem;
 }
 
 .signin-card .btn-primary {

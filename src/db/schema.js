@@ -132,10 +132,10 @@ const schema = `
 
   -- Insert default settings if they don't exist
   INSERT OR IGNORE INTO settings (key, value) VALUES
-    ('national_association_name', ''),
+    ('national_association_name', 'الرابطة الوطنية للقرآن الكريم'),
     ('regional_association_name', ''),
     ('local_branch_name', ''),
-    ('national_logo_path', ''),
+    ('national_logo_path', 'assets/logos/g247.png'),
     ('regional_local_logo_path', ''),
     ('backup_path', ''),
     ('backup_enabled', 'false'),

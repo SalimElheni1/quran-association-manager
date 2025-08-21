@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '../components/PasswordInput';
 import '../styles/LoginPage.css';
+import logo from '../assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -16,14 +17,11 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setError('');
     setLoading(true);
     const response = await login(username, password);
     if (response.success) {
       navigate('/');
-      navigate('/');
     } else {
-      setError(response.message || 'فشل تسجيل الدخول');
       setError(response.message || 'فشل تسجيل الدخول');
     }
     setLoading(false);
@@ -34,7 +32,7 @@ function LoginPage() {
       <Card className="signin-card">
         <Card.Body>
           <div className="signin-header">
-            <i className="fas fa-mosque"></i>
+            <img src={logo} alt="Logo" className="signin-logo" />
             <h1>تسجيل الدخول</h1>
           </div>
           {error && <Alert variant="danger">{error}</Alert>}
