@@ -290,7 +290,7 @@ const SettingsPage = () => {
                             <Form.Control
                               type="number"
                               name="adultAgeThreshold"
-                              value={settings.adultAgeThreshold || ''}
+                              value={settings.adultAgeThreshold || 18}
                               onChange={handleChange}
                               min="1"
                               max="100"

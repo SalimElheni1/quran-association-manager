@@ -12,7 +12,7 @@ const db = require('../src/db/db');
 
 // Mock dependencies
 jest.mock('../src/db/db', () => ({
-  allQuery: jest.fn(),
+  allQuery: jest.fn().mockResolvedValue([]),
 }));
 
 // Mock Electron's BrowserWindow

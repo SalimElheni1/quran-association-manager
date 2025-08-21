@@ -7,8 +7,26 @@ const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
+const {
+  handleGetFinancialSummary,
+  handleGetPayments,
+  handleGetSalaries,
+  handleGetDonations,
+  handleGetExpenses,
+} = require('./financialHandlers');
 
 // --- Data Fetching ---
+async function fetchFinancialData() {
+  const [summary, payments, salaries, donations, expenses] = await Promise.all([
+    handleGetFinancialSummary(),
+    handleGetPayments(),
+    handleGetSalaries(),
+    handleGetDonations(),
+    handleGetExpenses(),
+  ]);
+  return { summary, payments, salaries, donations, expenses };
+}
+
 async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
@@ -160,6 +178,72 @@ async function generateXlsx(columns, data, outputPath) {
   await workbook.xlsx.writeFile(outputPath);
 }
 
+async function generateFinancialXlsx(data, outputPath) {
+  const workbook = new ExcelJS.Workbook();
+
+  // Summary Sheet
+  const summarySheet = workbook.addWorksheet('الملخص');
+  summarySheet.views = [{ rightToLeft: true }];
+  summarySheet.addRow(['الملخص المالي العام']);
+  summarySheet.addRow(['إجمالي الدخل', data.summary.totalIncome]);
+  summarySheet.addRow(['إجمالي المصروفات', data.summary.totalExpenses]);
+  summarySheet.addRow(['الرصيد الإجمالي', data.summary.balance]);
+
+  // Payments Sheet
+  const paymentsSheet = workbook.addWorksheet('الرسوم الدراسية');
+  paymentsSheet.views = [{ rightToLeft: true }];
+  paymentsSheet.columns = [
+    { header: 'الطالب', key: 'student_name', width: 25 },
+    { header: 'المبلغ', key: 'amount', width: 15 },
+    { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
+    { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
+    { header: 'ملاحظات', key: 'notes', width: 30 },
+  ];
+  paymentsSheet.addRows(data.payments);
+
+  // Salaries Sheet
+  const salariesSheet = workbook.addWorksheet('الرواتب');
+  salariesSheet.views = [{ rightToLeft: true }];
+  salariesSheet.columns = [
+    { header: 'المعلم', key: 'teacher_name', width: 25 },
+    { header: 'المبلغ', key: 'amount', width: 15 },
+    { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
+    { header: 'ملاحظات', key: 'notes', width: 30 },
+  ];
+  salariesSheet.addRows(data.salaries);
+
+  // Donations Sheet
+  const donationsSheet = workbook.addWorksheet('التبرعات');
+  donationsSheet.views = [{ rightToLeft: true }];
+  donationsSheet.columns = [
+    { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
+    { header: 'نوع التبرع', key: 'donation_type', width: 15 },
+    { header: 'القيمة / الوصف', key: 'amount', width: 20 },
+    { header: 'تاريخ التبرع', key: 'donation_date', width: 20 },
+    { header: 'ملاحظات', key: 'notes', width: 30 },
+  ];
+  donationsSheet.addRows(
+    data.donations.map((d) => ({
+      ...d,
+      amount: d.donation_type === 'Cash' ? d.amount : d.description,
+    })),
+  );
+
+  // Expenses Sheet
+  const expensesSheet = workbook.addWorksheet('المصاريف');
+  expensesSheet.views = [{ rightToLeft: true }];
+  expensesSheet.columns = [
+    { header: 'الفئة', key: 'category', width: 20 },
+    { header: 'المبلغ', key: 'amount', width: 15 },
+    { header: 'تاريخ الصرف', key: 'expense_date', width: 20 },
+    { header: 'المسؤول', key: 'responsible_person', width: 25 },
+    { header: 'الوصف', key: 'description', width: 30 },
+  ];
+  expensesSheet.addRows(data.expenses);
+
+  await workbook.xlsx.writeFile(outputPath);
+}
+
 // --- DOCX Generation ---
 function generateDocx(title, columns, data, outputPath) {
   const localizedData = localizeData(data);
@@ -212,7 +296,9 @@ function generateDocx(title, columns, data, outputPath) {
 
 module.exports = {
   fetchExportData,
+  fetchFinancialData,
   generatePdf,
   generateXlsx,
+  generateFinancialXlsx,
   generateDocx,
 };
