@@ -82,7 +82,19 @@ const copyLogoAsset = async (tempPath, app) => {
  * @returns {Promise<Object>} A promise that resolves to a success message.
  */
 const updateSettingsHandler = async (settingsData) => {
-  const validatedData = await settingsValidationSchema.validateAsync(settingsData);
+  // Create a mutable copy to avoid modifying the original object from the renderer
+  const dataToSave = { ...settingsData };
+
+  // Strip the protocol from logo paths before saving to the database
+  const protocol = 'safe-image://';
+  if (dataToSave.national_logo_path && dataToSave.national_logo_path.startsWith(protocol)) {
+    dataToSave.national_logo_path = dataToSave.national_logo_path.slice(protocol.length);
+  }
+  if (dataToSave.regional_local_logo_path && dataToSave.regional_local_logo_path.startsWith(protocol)) {
+    dataToSave.regional_local_logo_path = dataToSave.regional_local_logo_path.slice(protocol.length);
+  }
+
+  const validatedData = await settingsValidationSchema.validateAsync(dataToSave);
 
   await db.runQuery('BEGIN TRANSACTION;');
   try {
