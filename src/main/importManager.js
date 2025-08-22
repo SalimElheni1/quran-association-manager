@@ -1,73 +1,74 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { getDatabasePath, isDbOpen, closeDatabase, initializeDatabase } = require('../db/db');
-const { getSalt, deriveKey } = require('./keyManager');
+const PizZip = require('pizzip');
+const Store = require('electron-store');
+const { getDatabasePath, isDbOpen, closeDatabase } = require('../db/db');
+const { deriveKey } = require('./keyManager');
 const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 
-/**
- * Checks if a database file is a plaintext SQLite database.
- * A plaintext SQLite DB starts with 'SQLite format 3\0'. An encrypted one will not.
- * @param {string} filePath Path to the database file.
- * @returns {Promise<boolean>} True if the file is plaintext, false otherwise.
- */
-async function isPlaintextDB(filePath) {
-  try {
-    const fileHandle = await fs.open(filePath, 'r');
-    const buffer = Buffer.alloc(16);
-    await fileHandle.read(buffer, 0, 16, 0);
-    await fileHandle.close();
-    return buffer.toString('utf8', 0, 16) === 'SQLite format 3\0';
-  } catch (error) {
-    console.error('Error checking database file header:', error);
-    // If we can't read the header, assume it's not a valid DB for our purposes.
-    // Let the next validation step handle the specific error.
-    return false;
-  }
-}
+const saltStore = new Store({ name: 'db-config' });
 
 /**
- * Validates a database file by trying to open it with the current password.
- * @param {string} filePath - The path to the database file to validate.
- * @param {string} password - The current user's password to derive the key.
+ * Validates a packaged database file by unzipping it and trying to open the
+ * database with the included salt and the user-provided password.
+ * @param {string} filePath - The path to the `.qdb` backup file to validate.
+ * @param {string} password - The password to test against the database.
  * @returns {Promise<{isValid: boolean, message: string}>}
  */
 async function validateDatabaseFile(filePath, password) {
-  // 1. Check if the database is plaintext
-  if (await isPlaintextDB(filePath)) {
-    return {
-      isValid: false,
-      message: 'ملف قاعدة البيانات المحدد غير مشفر. لا يمكن استيراد قواعد بيانات غير مشفرة.',
-    };
-  }
+  try {
+    const zipFileContent = await fs.readFile(filePath);
+    const zip = new PizZip(zipFileContent);
 
-  // 2. Try to open it with the current key
-  const salt = getSalt();
-  const key = deriveKey(password, salt);
+    const dbFile = zip.file('database.sqlite');
+    const configFile = zip.file('config.json');
 
-  return new Promise((resolve) => {
-    const tempDb = new sqlite3.Database(filePath, async (err) => {
-      if (err) {
-        return resolve({ isValid: false, message: `فشل فتح الملف: ${err.message}` });
-      }
+    if (!dbFile || !configFile) {
+      return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
+    }
 
-      try {
-        // Run PRAGMA key and a simple query to verify the key.
-        await new Promise((res, rej) => tempDb.run(`PRAGMA key = '${key}'`, (e) => (e ? rej(e) : res())));
-        await new Promise((res, rej) => tempDb.get('SELECT count(*) FROM sqlite_master', (e) => (e ? rej(e) : res())));
+    const dbBuffer = dbFile.asNodeBuffer();
+    const configContent = configFile.asText();
+    const { 'db-salt': salt } = JSON.parse(configContent);
 
-        // If we got here, the key is correct.
-        tempDb.close();
-        resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
-      } catch (e) {
-        // This error most likely means the password/key is wrong.
-        tempDb.close();
-        resolve({
-          isValid: false,
-          message: 'فشل التحقق من كلمة المرور. تم تشفير هذا الملف بكلمة مرور مختلفة.',
-        });
-      }
+    if (!salt) {
+      return { isValid: false, message: 'ملف النسخ الاحتياطي لا يحتوي على مفتاح التشفير.' };
+    }
+
+    // To validate, we must write the DB to a temporary file because sqlcipher cannot open from a buffer.
+    const tempDbPath = path.join(require('os').tmpdir(), `validate-${Date.now()}.sqlite`);
+    await fs.writeFile(tempDbPath, dbBuffer);
+
+    const key = deriveKey(password, salt);
+
+    return new Promise((resolve) => {
+      const tempDb = new sqlite3.Database(tempDbPath, async (err) => {
+        if (err) {
+          await fs.unlink(tempDbPath);
+          return resolve({ isValid: false, message: `فشل فتح الملف: ${err.message}` });
+        }
+        try {
+          await new Promise((res, rej) => tempDb.run(`PRAGMA key = '${key}'`, (e) => (e ? rej(e) : res())));
+          await new Promise((res, rej) => tempDb.get('SELECT count(*) FROM sqlite_master', (e) => (e ? rej(e) : res())));
+          tempDb.close(() => {
+            fs.unlink(tempDbPath); // Clean up temp file
+            resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
+          });
+        } catch (e) {
+          tempDb.close(() => {
+            fs.unlink(tempDbPath); // Clean up temp file
+            resolve({
+              isValid: false,
+              message: 'كلمة المرور غير صحيحة لهذا النسخ الاحتياطي.',
+            });
+          });
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error during backup validation:', error);
+    return { isValid: false, message: `خطأ في قراءة ملف النسخ الاحتياطي: ${error.message}` };
+  }
 }
 
 /**
@@ -98,8 +99,7 @@ async function backupCurrentDb() {
  */
 async function replaceDatabase(importedDbPath) {
   const currentDbPath = getDatabasePath();
-  const walPath = `${currentDbPath}-wal`;
-  const shmPath = `${currentDbPath}-shm`;
+  const currentSaltPath = saltStore.path;
 
   try {
     // 1. Ensure the current DB connection is closed.
@@ -107,30 +107,27 @@ async function replaceDatabase(importedDbPath) {
       await closeDatabase();
     }
 
-    // 2. Delete the old database files (main, -wal, -shm).
-    // We wrap them in individual try/catch blocks because the -wal and -shm
-    // files might not exist, and we don't want that to throw an error.
-    try {
-      await fs.unlink(currentDbPath);
-    } catch (e) {
-      if (e.code !== 'ENOENT') console.error('Could not delete main db file:', e);
-    }
-    try {
-      await fs.unlink(walPath);
-    } catch (e) {
-      if (e.code !== 'ENOENT') console.error('Could not delete wal file:', e);
-    }
-    try {
-      await fs.unlink(shmPath);
-    } catch (e) {
-      if (e.code !== 'ENOENT') console.error('Could not delete shm file:', e);
+    // 2. Read the contents of the backup package
+    const zipFileContent = await fs.readFile(importedDbPath);
+    const zip = new PizZip(zipFileContent);
+    const dbFile = zip.file('database.sqlite');
+    const configFile = zip.file('config.json');
+
+    if (!dbFile || !configFile) {
+      throw new Error('Could not find required files in backup package.');
     }
 
-    // 3. Copy the new database file into place.
-    await fs.copyFile(importedDbPath, currentDbPath);
+    const dbBuffer = dbFile.asNodeBuffer();
+    const configBuffer = configFile.asNodeBuffer();
+
+    // 3. Overwrite the current database and salt config files
+    await fs.writeFile(currentDbPath, dbBuffer);
+    await fs.writeFile(currentSaltPath, configBuffer);
+
+    console.log('Database and salt config replaced successfully.');
     return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح.' };
   } catch (error) {
-    console.error('Failed to replace database file:', error);
+    console.error('Failed to replace database from package:', error);
     return { success: false, message: `فشل استبدال ملف قاعدة البيانات: ${error.message}` };
   }
 }

@@ -933,7 +933,18 @@ ipcMain.handle('backup:run', async (_event, settings) => {
     if (!settings) {
       throw new Error('Backup settings were not provided.');
     }
-    return await backupManager.runBackup(settings);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Save Database Backup',
+      defaultPath: `backup-${timestamp}.qdb`,
+      filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, message: 'Backup canceled by user.' };
+    }
+
+    return await backupManager.runBackup(settings, filePath);
   } catch (error) {
     console.error('Error in backup:run IPC wrapper:', error);
     return { success: false, message: error.message };
@@ -955,7 +966,7 @@ ipcMain.handle('db:import', async (_event, { password }) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Select Database to Import',
     properties: ['openFile'],
-    filters: [{ name: 'SQLite Databases', extensions: ['sqlite'] }],
+    filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
   });
 
   if (canceled || !filePaths || filePaths.length === 0) {
