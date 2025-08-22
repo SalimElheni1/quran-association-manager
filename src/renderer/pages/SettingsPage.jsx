@@ -22,6 +22,7 @@ const SettingsPage = () => {
   const [error, setError] = useState('');
   const [backupStatus, setBackupStatus] = useState(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
 
   useEffect(() => {
@@ -129,6 +130,35 @@ const SettingsPage = () => {
       toast.error(err.message);
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const handleImportDb = async () => {
+    const password = prompt(
+      'لأسباب أمنية، يرجى إدخال كلمة المرور الحالية للمتابعة. سيتم استخدامها للتحقق من توافق قاعدة البيانات المستوردة.',
+    );
+
+    if (!password) {
+      toast.warn('تم إلغاء عملية الاستيراد.');
+      return;
+    }
+
+    setIsImporting(true);
+    toast.info('بدء عملية استيراد قاعدة البيانات...');
+
+    try {
+      const result = await window.electronAPI.importDatabase({ password });
+
+      if (result.success) {
+        toast.success(result.message, { autoClose: false }); // Keep message open
+      } else {
+        toast.error(`فشل الاستيراد: ${result.message}`);
+      }
+    } catch (err) {
+      toast.error(`حدث خطأ فادح: ${err.message}`);
+      console.error(err);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -350,11 +380,11 @@ const SettingsPage = () => {
                           </Form.Select>
                         </Form.Group>
                         <hr />
-                        <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
                           <Button
                             variant="info"
                             onClick={handleRunBackup}
-                            disabled={isBackingUp || !settings.backup_path}
+                            disabled={isBackingUp || !settings.backup_path || isImporting}
                           >
                             {isBackingUp ? (
                               <>
@@ -362,10 +392,7 @@ const SettingsPage = () => {
                                 {' جارٍ النسخ...'}
                               </>
                             ) : (
-                              <>
-                                <i className="fas fa-play-circle me-2"></i>
-                                نسخ احتياطي فوري
-                              </>
+                              'نسخ احتياطي فوري'
                             )}
                           </Button>
                           {backupStatus && settings.backup_path && (
@@ -376,6 +403,28 @@ const SettingsPage = () => {
                               ({backupStatus.success ? 'نجحت' : 'فشلت'})
                             </small>
                           )}
+                        </div>
+                        <hr />
+                        <div className="mt-3">
+                          <h5 className="text-danger">منطقة الخطر</h5>
+                          <p>
+                            استيراد قاعدة بيانات سيستبدل جميع البيانات الحالية. سيتم أخذ نسخة
+                            احتياطية من بياناتك الحالية قبل المتابعة.
+                          </p>
+                          <Button
+                            variant="danger"
+                            onClick={handleImportDb}
+                            disabled={isImporting || isBackingUp}
+                          >
+                            {isImporting ? (
+                              <>
+                                <Spinner as="span" animation="border" size="sm" />
+                                {' جارٍ الاستيراد...'}
+                              </>
+                            ) : (
+                              'استيراد قاعدة بيانات'
+                            )}
+                          </Button>
                         </div>
                       </Card.Body>
                     </Card>

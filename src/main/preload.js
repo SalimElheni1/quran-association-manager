@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Backup API
   runBackup: (settings) => ipcRenderer.invoke('backup:run', settings),
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
+  importDatabase: (password) => ipcRenderer.invoke('db:import', password),
 
   // User Management API (for Superadmin)
   getUsers: () => ipcRenderer.invoke('users:get'),

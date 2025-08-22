@@ -12,6 +12,7 @@ const { getProfileHandler, updateProfileHandler } = require('./authHandlers');
 const { getSettingsHandler, updateSettingsHandler, copyLogoAsset } = require('./settingsHandlers');
 const { registerFinancialHandlers } = require('./financialHandlers');
 const backupManager = require('./backupManager');
+const importManager = require('./importManager');
 
 require('dotenv').config();
 
@@ -946,6 +947,54 @@ ipcMain.handle('backup:getStatus', () => {
   } catch (error) {
     console.error('Error in backup:getStatus IPC wrapper:', error);
     return { success: false, message: 'Could not retrieve backup status.' };
+  }
+});
+
+ipcMain.handle('db:import', async (_event, { password }) => {
+  // 1. Prompt user to select a database file
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Select Database to Import',
+    properties: ['openFile'],
+    filters: [{ name: 'SQLite Databases', extensions: ['sqlite'] }],
+  });
+
+  if (canceled || !filePaths || filePaths.length === 0) {
+    return { success: false, message: 'لم يتم تحديد أي ملف.' };
+  }
+
+  const importedDbPath = filePaths[0];
+
+  try {
+    // 2. Validate the selected file
+    const validationResult = await importManager.validateDatabaseFile(importedDbPath, password);
+    if (!validationResult.isValid) {
+      return { success: false, message: validationResult.message };
+    }
+
+    // 3. Backup the current database
+    const backupResult = await importManager.backupCurrentDb();
+    if (!backupResult.success) {
+      return { success: false, message: backupResult.message };
+    }
+
+    // 4. Replace the database file
+    const replaceResult = await importManager.replaceDatabase(importedDbPath);
+    if (!replaceResult.success) {
+      // TODO: Offer to restore from the backup we just made.
+      return { success: false, message: replaceResult.message };
+    }
+
+    // 5. Success: Inform the user that a restart is needed.
+    return {
+      success: true,
+      message: 'تم استيراد قاعدة البيانات بنجاح! يجب إعادة تشغيل التطبيق لتطبيق التغييرات.',
+    };
+  } catch (error) {
+    console.error('Error during database import process:', error);
+    return {
+      success: false,
+      message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,
+    };
   }
 });
 
