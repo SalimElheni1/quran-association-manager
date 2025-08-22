@@ -6,7 +6,11 @@ import defaultLogo from '../assets/logos/g247.png';
 
 function Sidebar() {
   const { user, logout } = useAuth();
-  const { settings, logo } = useSettings();
+  const { settings, logo, nationalLogo } = useSettings();
+
+  console.log('Sidebar settings:', settings);
+  console.log('Sidebar logo:', logo);
+  console.log('Sidebar nationalLogo:', nationalLogo);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -24,16 +28,16 @@ function Sidebar() {
               alt="Branch Logo"
               className="sidebar-logo"
             />
-            {settings.national_logo_path && settings.regional_local_logo_path && (
+            {nationalLogo && logo !== nationalLogo && (
               <img
-                src={`safe-image://${settings.national_logo_path}`}
+                src={nationalLogo}
                 alt="National Logo"
                 className="sidebar-logo-national"
               />
             )}
           </div>
           <div className="association-names">
-            <h4>{settings.national_association_name || 'مدير الفروع القرآنية'}</h4>
+            <h4>{settings.national_association_name || 'Quran Branch Manager'}</h4>
             {settings.regional_association_name && <h5>{settings.regional_association_name}</h5>}
             {settings.local_branch_name && <h6>{settings.local_branch_name}</h6>}
           </div>

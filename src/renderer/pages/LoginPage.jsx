@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -13,7 +13,10 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const { logo, settings } = useSettings();
+  const { settings, logo } = useSettings();
+
+  console.log('LoginPage settings:', settings);
+  console.log('LoginPage logo:', logo);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -39,9 +42,11 @@ function LoginPage() {
               alt="Logo"
               className="signin-logo"
             />
-            <h1>{settings.national_association_name || 'تسجيل الدخول'}</h1>
-            {settings.regional_association_name && <h2>{settings.regional_association_name}</h2>}
-            {settings.local_branch_name && <h3>{settings.local_branch_name}</h3>}
+            <div className="association-names-login">
+              <h1>{settings.national_association_name || 'Quran Branch Manager'}</h1>
+              {settings.regional_association_name && <h2>{settings.regional_association_name}</h2>}
+              {settings.local_branch_name && <h3>{settings.local_branch_name}</h3>}
+            </div>
           </div>
           {error && <Alert variant="danger">{error}</Alert>}
           <Form onSubmit={handleSubmit}>

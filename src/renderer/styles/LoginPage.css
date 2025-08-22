@@ -27,6 +27,28 @@
   margin-bottom: 1rem;
 }
 
+.association-names-login {
+  margin-top: 1rem;
+}
+
+.association-names-login h1 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.association-names-login h2 {
+  font-size: 1.2rem;
+  color: #475569;
+  margin: 0;
+}
+
+.association-names-login h3 {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+}
+
 .signin-card .btn-primary {
   background-color: #0d9488;
   border-color: #0d9488;
