@@ -137,10 +137,14 @@ async function replaceDatabase(importedDbPath) {
 
     const dbBuffer = dbFile.asNodeBuffer();
     const configBuffer = configFile.asNodeBuffer();
+    const configJson = JSON.parse(configBuffer.toString());
 
     // 3. Overwrite the current database and salt config files
     await fs.writeFile(currentDbPath, dbBuffer);
     await fs.writeFile(currentSaltPath, configBuffer);
+
+    // 4. IMPORTANT: Update the in-memory store to prevent using a cached old salt
+    saltStore.set('db-salt', configJson['db-salt']);
 
     console.log('Database and salt config replaced successfully.');
     return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح.' };
