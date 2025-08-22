@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [associationName, setAssociationName] = useState('📖 مدير الفروع القرآنية');
+
+  useEffect(() => {
+    const fetchAssociationName = async () => {
+      try {
+        const response = await window.electronAPI.getSettings();
+        if (response.success && response.settings) {
+          const {
+            national_association_name,
+            regional_association_name,
+            local_branch_name,
+          } = response.settings;
+          const parts = [
+            national_association_name,
+            regional_association_name,
+            local_branch_name,
+          ].filter(Boolean); // Filter out empty or null values
+          if (parts.length > 0) {
+            setAssociationName(parts.join(' — '));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings for sidebar:', err);
+      }
+    };
+    fetchAssociationName();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -15,7 +42,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <h3>📖 مدير الفروع القرآنية</h3>
+          <h3>{associationName}</h3>
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">

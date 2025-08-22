@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const db = require('../db/db');
 const exportManager = require('./exportManager');
@@ -842,6 +843,35 @@ ipcMain.handle('settings:update', async (_event, settingsData) => {
   } catch (error) {
     console.error('Error in settings:update IPC wrapper:', error);
     return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('settings:getLogo', async () => {
+  try {
+    const { settings } = await getSettingsHandler();
+    const userDataPath = app.getPath('userData');
+
+    // Check for regional/local logo first, as it takes precedence.
+    if (settings.regional_local_logo_path) {
+      const logoPath = path.join(userDataPath, settings.regional_local_logo_path);
+      if (fs.existsSync(logoPath)) {
+        return { success: true, path: `safe-image://${settings.regional_local_logo_path}` };
+      }
+    }
+
+    // Then check for a user-uploaded national logo.
+    if (settings.national_logo_path) {
+      const logoPath = path.join(userDataPath, settings.national_logo_path);
+      if (fs.existsSync(logoPath)) {
+        return { success: true, path: `safe-image://${settings.national_logo_path}` };
+      }
+    }
+
+    // Fallback to null if no custom logo is found. The renderer will use the default.
+    return { success: true, path: null };
+  } catch (error) {
+    console.error('Failed to get logo:', error);
+    return { success: false, message: `Error getting logo: ${error.message}` };
   }
 });
 
