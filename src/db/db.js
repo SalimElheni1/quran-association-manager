@@ -290,6 +290,10 @@ async function closeDatabase() {
   }
 }
 
+function isDbOpen() {
+  return db && db.open;
+}
+
 module.exports = {
   initializeDatabase,
   closeDatabase,
@@ -298,4 +302,5 @@ module.exports = {
   allQuery,
   getDb,
   getDatabasePath,
+  isDbOpen,
 };
