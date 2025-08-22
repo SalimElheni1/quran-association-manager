@@ -1,67 +1,59 @@
-const fs = require('fs');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const Store = require('electron-store');
+const PizZip = require('pizzip');
 const { getDatabasePath } = require('../db/db');
 
 const store = new Store();
+const saltStore = new Store({ name: 'db-config' });
 
 /**
  * Runs the database backup process.
  * @param {Object} settings - The application settings object.
  * @returns {Promise<{success: boolean, message: string}>}
  */
-const runBackup = async (settings) => {
-  console.log('Backup process started...');
+const runBackup = async (settings, backupFilePath) => {
+  console.log('Packaged backup process started...');
 
-  if (!settings.backup_enabled || !settings.backup_path) {
-    const message = 'Backup is not enabled or path is not configured.';
-    console.log(`Backup check failed: ${message}`);
-    store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
-    return { success: false, message };
-  }
+  const sourceDbPath = getDatabasePath();
+  const sourceSaltPath = saltStore.path;
 
-  console.log(`Backup settings validated. Enabled: ${settings.backup_enabled}, Path: ${settings.backup_path}`);
-  const sourcePath = getDatabasePath();
-  const destPath = settings.backup_path;
-
-  // 1. Check if source exists
-  if (!fs.existsSync(sourcePath)) {
-    const message = `Source database file not found at: ${sourcePath}`;
-    console.log(`Backup check failed: ${message}`);
-    store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
-    return { success: false, message };
-  }
-
-  console.log(`Source database found at: ${sourcePath}`);
-
-  // 2. Check if destination directory exists and is writable
   try {
-    fs.accessSync(destPath, fs.constants.W_OK);
-    console.log(`Destination directory is writable: ${destPath}`);
-  } catch (error) {
-    const message = `Backup destination path is not accessible or writable: ${destPath}`;
-    console.log(`Backup check failed: ${message}`, error);
-    store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
-    return { success: false, message };
-  }
+    // 1. Check if source files exist
+    if (!fsSync.existsSync(sourceDbPath)) {
+      throw new Error(`Source database file not found at: ${sourceDbPath}`);
+    }
+    if (!fsSync.existsSync(sourceSaltPath)) {
+      throw new Error(`Source salt file not found at: ${sourceSaltPath}`);
+    }
 
-  // 3. Create timestamped filename
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFileName = `backup-${timestamp}.sqlite`;
-  const backupFilePath = path.join(destPath, backupFileName);
+    console.log(`Source database found at: ${sourceDbPath}`);
+    console.log(`Source salt config found at: ${sourceSaltPath}`);
 
-  // 4. Copy the file
-  try {
-    const startTime = Date.now();
-    fs.copyFileSync(sourcePath, backupFilePath);
-    const duration = (Date.now() - startTime) / 1000; // in seconds
+    // 2. Read file contents
+    const dbFileContent = await fs.readFile(sourceDbPath);
+    const saltFileContent = await fs.readFile(sourceSaltPath);
 
-    const message = `Backup completed successfully in ${duration.toFixed(2)}s.`;
+    // 3. Create a zip package
+    const zip = new PizZip();
+    zip.file('database.sqlite', dbFileContent);
+    zip.file('config.json', saltFileContent);
+
+    const zipContent = zip.generate({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+    });
+
+    // 4. Write the package to the destination
+    await fs.writeFile(backupFilePath, zipContent);
+
+    const message = `Backup completed successfully.`;
     store.set('last_backup_status', { success: true, message, timestamp: new Date().toISOString() });
     console.log(message, `Path: ${backupFilePath}`);
     return { success: true, message };
   } catch (error) {
-    const message = `Failed to copy database file: ${error.message}`;
+    const message = `Failed to create backup package: ${error.message}`;
     store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
     console.error(message);
     return { success: false, message };
