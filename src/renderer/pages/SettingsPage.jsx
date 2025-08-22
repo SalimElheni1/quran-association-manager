@@ -14,6 +14,7 @@ import {
   Image,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import PasswordPromptModal from '../components/PasswordPromptModal';
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState(null);
@@ -24,6 +25,7 @@ const SettingsPage = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -133,11 +135,12 @@ const SettingsPage = () => {
     }
   };
 
-  const handleImportDb = async () => {
-    const password = prompt(
-      'لأسباب أمنية، يرجى إدخال كلمة المرور الحالية للمتابعة. سيتم استخدامها للتحقق من توافق قاعدة البيانات المستوردة.',
-    );
+  const handleImportDb = () => {
+    setShowPasswordModal(true);
+  };
 
+  const handlePasswordConfirm = async (password) => {
+    setShowPasswordModal(false);
     if (!password) {
       toast.warn('تم إلغاء عملية الاستيراد.');
       return;
@@ -448,6 +451,13 @@ const SettingsPage = () => {
           </Card>
         </Col>
       </Row>
+      <PasswordPromptModal
+        show={showPasswordModal}
+        onHide={() => setShowPasswordModal(false)}
+        onConfirm={handlePasswordConfirm}
+        title="تأكيد استيراد قاعدة البيانات"
+        body="لأسباب أمنية، يرجى إدخال كلمة المرور الحالية للمتابعة. سيتم استخدامها للتحقق من توافق قاعدة البيانات المستوردة."
+      />
     </Container>
   );
 };
