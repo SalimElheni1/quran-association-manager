@@ -12,18 +12,17 @@ function Sidebar() {
       try {
         const response = await window.electronAPI.getSettings();
         if (response.success && response.settings) {
-          const {
-            national_association_name,
-            regional_association_name,
-            local_branch_name,
-          } = response.settings;
+          const { national_association_name, regional_association_name, local_branch_name } =
+            response.settings;
           const parts = [
             national_association_name,
             regional_association_name,
             local_branch_name,
           ].filter(Boolean); // Filter out empty or null values
-          if (parts.length > 0) {
-            setAssociationName(parts.join(' — '));
+          if (parts.length === 3) {
+            setAssociationName([parts[0], parts[2]].join('  '));
+          } else if (parts.length === 2) {
+            setAssociationName(parts.join('  '));
           }
         }
       } catch (err) {
@@ -42,7 +41,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <h3>{associationName}</h3>
+          <h6>{associationName}</h6>
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">
