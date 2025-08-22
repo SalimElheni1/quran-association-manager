@@ -984,10 +984,16 @@ ipcMain.handle('db:import', async (_event, { password }) => {
       return { success: false, message: replaceResult.message };
     }
 
-    // 5. Success: Inform the user that a restart is needed.
+    // 5. Success: Inform the user that a restart is needed, then relaunch the app.
+    // The relaunch will happen after a short delay to allow the UI to show the success message.
+    setTimeout(() => {
+      app.relaunch();
+      app.quit();
+    }, 1000);
+
     return {
       success: true,
-      message: 'تم استيراد قاعدة البيانات بنجاح! يجب إعادة تشغيل التطبيق لتطبيق التغييرات.',
+      message: 'تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق الآن.',
     };
   } catch (error) {
     console.error('Error during database import process:', error);
