@@ -41,7 +41,6 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
 
   if (!app.isPackaged) {
@@ -819,6 +818,10 @@ ipcMain.handle('auth:updateProfile', async (_event, { token, profileData }) => {
 
 ipcMain.handle('settings:get', async () => {
   try {
+    // Gracefully handle calls made before the database is unlocked
+    if (!db.isDbOpen()) {
+      return { success: true, settings: {} };
+    }
     return await getSettingsHandler();
   } catch (error) {
     console.error('Error in settings:get IPC wrapper:', error);
@@ -849,6 +852,10 @@ ipcMain.handle('settings:update', async (_event, settingsData) => {
 
 ipcMain.handle('settings:getLogo', async () => {
   try {
+    // Gracefully handle calls made before the database is unlocked
+    if (!db.isDbOpen()) {
+      return { success: true, path: null };
+    }
     const { settings } = await getSettingsHandler();
     const userDataPath = app.getPath('userData');
 
