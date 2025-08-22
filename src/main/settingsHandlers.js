@@ -36,6 +36,15 @@ const getSettingsHandler = async () => {
     }
     return acc;
   }, {});
+
+  // Prepend the safe-image protocol to logo paths before sending to renderer
+  if (settings.national_logo_path) {
+    settings.national_logo_path = `safe-image://${settings.national_logo_path}`;
+  }
+  if (settings.regional_local_logo_path) {
+    settings.regional_local_logo_path = `safe-image://${settings.regional_local_logo_path}`;
+  }
+
   return { success: true, settings };
 };
 

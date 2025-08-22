@@ -26,16 +26,17 @@ export function SettingsProvider({ children }) {
   }, []);
 
   const determineLogos = (settings) => {
-    let primaryLogoPath = 'assets/logos/g247.png'; // Default logo
-    if (settings && settings.regional_local_logo_path && settings.regional_local_logo_path.trim() !== '') {
-      primaryLogoPath = `safe-image://${settings.regional_local_logo_path}`;
-    } else if (settings && settings.national_logo_path && settings.national_logo_path.trim() !== '') {
-      primaryLogoPath = `safe-image://${settings.national_logo_path}`;
+    // The settings object now comes with pre-formatted URLs
+    let primaryLogo = null;
+    if (settings && settings.regional_local_logo_path) {
+      primaryLogo = settings.regional_local_logo_path;
+    } else if (settings && settings.national_logo_path) {
+      primaryLogo = settings.national_logo_path;
     }
-    setLogo(primaryLogoPath);
+    setLogo(primaryLogo);
 
-    if (settings && settings.national_logo_path && settings.national_logo_path.trim() !== '') {
-      setNationalLogo(`safe-image://${settings.national_logo_path}`);
+    if (settings && settings.national_logo_path) {
+      setNationalLogo(settings.national_logo_path);
     }
   };
 

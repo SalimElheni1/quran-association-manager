@@ -20,7 +20,7 @@ function Sidebar() {
         <div className="sidebar-header">
           <div className="logo-container">
             <img
-              src={logo && logo.startsWith('safe-image://') ? logo : defaultLogo}
+              src={logo || defaultLogo}
               alt="Branch Logo"
               className="sidebar-logo"
             />

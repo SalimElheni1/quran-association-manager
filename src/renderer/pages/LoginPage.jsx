@@ -35,7 +35,7 @@ function LoginPage() {
         <Card.Body>
           <div className="signin-header">
             <img
-              src={logo && logo.startsWith('safe-image://') ? logo : defaultLogo}
+              src={logo || defaultLogo}
               alt="Logo"
               className="signin-logo"
             />

@@ -380,20 +380,6 @@ const SettingsPage = () => {
                       </Card.Body>
                     </Card>
                   </Tab>
-                  <Tab eventKey="debug" title="DEBUG">
-                    <Card className="border-0">
-                      <Card.Body>
-                        <Alert variant="info">
-                          <Alert.Heading>Raw Settings Data</Alert.Heading>
-                          <p>This is for debugging purposes only. It shows the raw settings data as it is stored in the database.</p>
-                          <hr />
-                          <pre>
-                            <code>{JSON.stringify(settings, null, 2)}</code>
-                          </pre>
-                        </Alert>
-                      </Card.Body>
-                    </Card>
-                  </Tab>
                 </Tabs>
 
                 <div className="d-grid mt-4">
