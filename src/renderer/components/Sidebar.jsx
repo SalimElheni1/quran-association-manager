@@ -7,10 +7,6 @@ import defaultLogo from '../assets/logos/g247.png';
 function Sidebar() {
   const { user, logout } = useAuth();
   const { settings, logo, nationalLogo } = useSettings();
-
-  console.log('Sidebar settings:', settings);
-  console.log('Sidebar logo:', logo);
-  console.log('Sidebar nationalLogo:', nationalLogo);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -37,7 +33,7 @@ function Sidebar() {
             )}
           </div>
           <div className="association-names">
-            <h4>{settings.national_association_name || 'Quran Branch Manager'}</h4>
+            <h4>{settings.national_association_name || 'مدير الفروع القرآنية'}</h4>
             {settings.regional_association_name && <h5>{settings.regional_association_name}</h5>}
             {settings.local_branch_name && <h6>{settings.local_branch_name}</h6>}
           </div>

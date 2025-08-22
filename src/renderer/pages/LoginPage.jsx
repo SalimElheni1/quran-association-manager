@@ -14,9 +14,6 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const { settings, logo } = useSettings();
-
-  console.log('LoginPage settings:', settings);
-  console.log('LoginPage logo:', logo);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -43,7 +40,7 @@ function LoginPage() {
               className="signin-logo"
             />
             <div className="association-names-login">
-              <h1>{settings.national_association_name || 'Quran Branch Manager'}</h1>
+              <h1>{settings.national_association_name || 'مدير الفروع القرآنية'}</h1>
               {settings.regional_association_name && <h2>{settings.regional_association_name}</h2>}
               {settings.local_branch_name && <h3>{settings.local_branch_name}</h3>}
             </div>
