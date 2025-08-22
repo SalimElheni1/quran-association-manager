@@ -16,6 +16,7 @@ const saltStore = new Store({ name: 'db-config' });
  * @returns {Promise<{isValid: boolean, message: string}>}
  */
 async function validateDatabaseFile(filePath, password) {
+  let tempDbPath; // Define here to be accessible in the final catch block
   try {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
@@ -35,38 +36,53 @@ async function validateDatabaseFile(filePath, password) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي لا يحتوي على مفتاح التشفير.' };
     }
 
-    // To validate, we must write the DB to a temporary file because sqlcipher cannot open from a buffer.
-    const tempDbPath = path.join(require('os').tmpdir(), `validate-${Date.now()}.sqlite`);
+    tempDbPath = path.join(require('os').tmpdir(), `validate-${Date.now()}.sqlite`);
     await fs.writeFile(tempDbPath, dbBuffer);
 
     const key = deriveKey(password, salt);
 
     return new Promise((resolve) => {
-      const tempDb = new sqlite3.Database(tempDbPath, async (err) => {
+      const tempDb = new sqlite3.Database(tempDbPath, (err) => {
         if (err) {
-          await fs.unlink(tempDbPath);
+          fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
           return resolve({ isValid: false, message: `فشل فتح الملف: ${err.message}` });
         }
-        try {
-          await new Promise((res, rej) => tempDb.run(`PRAGMA key = '${key}'`, (e) => (e ? rej(e) : res())));
-          await new Promise((res, rej) => tempDb.get('SELECT count(*) FROM sqlite_master', (e) => (e ? rej(e) : res())));
-          tempDb.close(() => {
-            fs.unlink(tempDbPath); // Clean up temp file
-            resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
-          });
-        } catch (e) {
-          tempDb.close(() => {
-            fs.unlink(tempDbPath); // Clean up temp file
-            resolve({
-              isValid: false,
-              message: 'كلمة المرور غير صحيحة لهذا النسخ الاحتياطي.',
+
+        const pragmaPromise = new Promise((res, rej) =>
+          tempDb.run(`PRAGMA key = '${key}'`, (e) => (e ? rej(e) : res())),
+        );
+
+        pragmaPromise
+          .then(
+            () =>
+              new Promise((res, rej) =>
+                tempDb.get('SELECT count(*) FROM sqlite_master', (e) => (e ? rej(e) : res())),
+              ),
+          )
+          .then(() => {
+            tempDb.close((closeErr) => {
+              if (closeErr) console.error('Error closing validated DB:', closeErr);
+              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
+              resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
+            });
+          })
+          .catch(() => {
+            tempDb.close((closeErr) => {
+              if (closeErr) console.error('Error closing invalid DB:', closeErr);
+              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
+              resolve({
+                isValid: false,
+                message: 'كلمة المرور غير صحيحة لهذا النسخ الاحتياطي.',
+              });
             });
           });
-        }
       });
     });
   } catch (error) {
     console.error('Error during backup validation:', error);
+    if (tempDbPath) {
+      fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file on error', e));
+    }
     return { isValid: false, message: `خطأ في قراءة ملف النسخ الاحتياطي: ${error.message}` };
   }
 }
