@@ -48,34 +48,36 @@ async function validateDatabaseFile(filePath, password) {
           return resolve({ isValid: false, message: `فشل فتح الملف: ${err.message}` });
         }
 
-        const pragmaPromise = new Promise((res, rej) =>
-          tempDb.run(`PRAGMA key = '${key}'`, (e) => (e ? rej(e) : res())),
-        );
+        // Chain of operations for validation
+        tempDb.serialize(() => {
+          // 1. Set the key. This itself doesn't error on wrong key.
+          tempDb.run(`PRAGMA key = '${key}'`);
 
-        pragmaPromise
-          .then(
-            () =>
-              new Promise((res, rej) =>
-                tempDb.get('SELECT count(*) FROM sqlite_master', (e) => (e ? rej(e) : res())),
-              ),
-          )
-          .then(() => {
-            tempDb.close((closeErr) => {
-              if (closeErr) console.error('Error closing validated DB:', closeErr);
+          // 2. Attempt a write operation. This WILL fail if the key is wrong.
+          tempDb.run('CREATE TABLE __validation_test__ (id INT)', (createErr) => {
+            if (createErr) {
+              // This is the expected path for a wrong password.
+              tempDb.close();
               fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
-              resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
-            });
-          })
-          .catch(() => {
-            tempDb.close((closeErr) => {
-              if (closeErr) console.error('Error closing invalid DB:', closeErr);
-              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
-              resolve({
+              return resolve({
                 isValid: false,
                 message: 'كلمة المرور غير صحيحة لهذا النسخ الاحتياطي.',
               });
+            }
+
+            // 3. If creation succeeds, drop the table to clean up.
+            tempDb.run('DROP TABLE __validation_test__', (dropErr) => {
+              if (dropErr) {
+                // This would be an unexpected error.
+                console.error('Failed to drop validation table:', dropErr);
+              }
+              // 4. Close DB and resolve success.
+              tempDb.close();
+              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
+              return resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
             });
           });
+        });
       });
     });
   } catch (error) {
