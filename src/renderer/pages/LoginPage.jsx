@@ -1,18 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '../components/PasswordInput';
 import '../styles/LoginPage.css';
-import logo from '../assets/logos/g247.png';
+import defaultLogo from '../assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [displayLogo, setDisplayLogo] = useState(defaultLogo);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const response = await window.electronAPI.getLogo();
+        if (response.success && response.path) {
+          setDisplayLogo(response.path);
+        }
+      } catch (err) {
+        console.error('Failed to fetch logo:', err);
+      }
+    };
+    fetchLogo();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +47,7 @@ function LoginPage() {
       <Card className="signin-card">
         <Card.Body>
           <div className="signin-header">
-            <img src={logo} alt="Logo" className="signin-logo" />
+            <img src={displayLogo} alt="Logo" className="signin-logo" />
             <h1>تسجيل الدخول</h1>
           </div>
           {error && <Alert variant="danger">{error}</Alert>}

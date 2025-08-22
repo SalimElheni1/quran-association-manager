@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
   uploadLogo: () => ipcRenderer.invoke('settings:uploadLogo'),
+  getLogo: () => ipcRenderer.invoke('settings:getLogo'),
 
   // Dialog API
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
