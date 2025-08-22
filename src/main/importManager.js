@@ -98,11 +98,35 @@ async function backupCurrentDb() {
  */
 async function replaceDatabase(importedDbPath) {
   const currentDbPath = getDatabasePath();
+  const walPath = `${currentDbPath}-wal`;
+  const shmPath = `${currentDbPath}-shm`;
+
   try {
-    // Ensure the current DB connection is closed before replacing the file
+    // 1. Ensure the current DB connection is closed.
     if (isDbOpen()) {
       await closeDatabase();
     }
+
+    // 2. Delete the old database files (main, -wal, -shm).
+    // We wrap them in individual try/catch blocks because the -wal and -shm
+    // files might not exist, and we don't want that to throw an error.
+    try {
+      await fs.unlink(currentDbPath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('Could not delete main db file:', e);
+    }
+    try {
+      await fs.unlink(walPath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('Could not delete wal file:', e);
+    }
+    try {
+      await fs.unlink(shmPath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('Could not delete shm file:', e);
+    }
+
+    // 3. Copy the new database file into place.
     await fs.copyFile(importedDbPath, currentDbPath);
     return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح.' };
   } catch (error) {
