@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '../components/PasswordInput';
 import '../styles/LoginPage.css';
-import logo from '../assets/logos/g247.png';
+import defaultLogo from '../assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -12,6 +13,7 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { logo, settings } = useSettings();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -32,8 +34,14 @@ function LoginPage() {
       <Card className="signin-card">
         <Card.Body>
           <div className="signin-header">
-            <img src={logo} alt="Logo" className="signin-logo" />
-            <h1>تسجيل الدخول</h1>
+            <img
+              src={logo && logo.startsWith('safe-image://') ? logo : defaultLogo}
+              alt="Logo"
+              className="signin-logo"
+            />
+            <h1>{settings.national_association_name || 'تسجيل الدخول'}</h1>
+            {settings.regional_association_name && <h2>{settings.regional_association_name}</h2>}
+            {settings.local_branch_name && <h3>{settings.local_branch_name}</h3>}
           </div>
           {error && <Alert variant="danger">{error}</Alert>}
           <Form onSubmit={handleSubmit}>

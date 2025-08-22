@@ -1,9 +1,12 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import defaultLogo from '../assets/logos/g247.png';
 
 function Sidebar() {
   const { user, logout } = useAuth();
+  const { settings, logo } = useSettings();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -15,7 +18,25 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
-          <h3>📖 مدير الفروع القرآنية</h3>
+          <div className="logo-container">
+            <img
+              src={logo && logo.startsWith('safe-image://') ? logo : defaultLogo}
+              alt="Branch Logo"
+              className="sidebar-logo"
+            />
+            {settings.national_logo_path && settings.regional_local_logo_path && (
+              <img
+                src={`safe-image://${settings.national_logo_path}`}
+                alt="National Logo"
+                className="sidebar-logo-national"
+              />
+            )}
+          </div>
+          <div className="association-names">
+            <h4>{settings.national_association_name || 'مدير الفروع القرآنية'}</h4>
+            {settings.regional_association_name && <h5>{settings.regional_association_name}</h5>}
+            {settings.local_branch_name && <h6>{settings.local_branch_name}</h6>}
+          </div>
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">

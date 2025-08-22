@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { SettingsProvider } from './contexts/SettingsContext';
 import MainLayout from './layouts/MainLayout';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
@@ -16,9 +17,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
+    <SettingsProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
         path="/"
         element={
           <ProtectedRoute>
@@ -39,6 +41,7 @@ function App() {
         <Route path="/exports" element={<ExportsPage />} />
       </Route>
     </Routes>
+    </SettingsProvider>
   );
 }
 

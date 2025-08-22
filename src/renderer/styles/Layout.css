@@ -27,6 +27,52 @@
   font-size: 1.5rem;
 }
 
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sidebar-logo {
+  max-width: 80px;
+  height: auto;
+  border-radius: 50%;
+}
+
+.sidebar-logo-national {
+  max-width: 40px;
+  height: auto;
+  border-radius: 50%;
+}
+
+.association-names {
+  text-align: center;
+}
+
+.association-names h4,
+.association-names h5,
+.association-names h6 {
+  margin: 0;
+  font-weight: normal;
+}
+
+.association-names h4 {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.association-names h5 {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.association-names h6 {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 .nav-links {
   display: flex;
   flex-direction: column;
