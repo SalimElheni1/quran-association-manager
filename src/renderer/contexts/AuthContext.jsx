@@ -33,6 +33,19 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, [token]);
 
+  // Listen for a force-logout event from the main process
+  useEffect(() => {
+    const removeListener = window.electronAPI.onForceLogout(() => {
+      console.log('Received force-logout signal from main process. Logging out.');
+      logout();
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => {
+      removeListener();
+    };
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const login = async (username, password) => {
     const response = await window.electronAPI.login({ username, password });
     if (response.success) {

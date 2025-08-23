@@ -2,8 +2,8 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
-const Store = require('electron-store');
 const { app } = require('electron');
+const Store = require('electron-store');
 const {
   getDatabasePath,
   isDbOpen,
@@ -14,6 +14,7 @@ const {
 } = require('../db/db');
 
 const saltStore = new Store({ name: 'db-config' });
+const mainStore = new Store();
 
 /**
  * Validates a packaged backup file by checking for the required contents.
@@ -123,7 +124,8 @@ async function replaceDatabase(importedDbPath, password) {
     await dbExec(getDb(), sqlScript);
     console.log('Data import completed successfully.');
 
-    // 7. Relaunch the application to apply all changes
+    // 7. Set flag to force re-login after restart and then relaunch
+    mainStore.set('force-relogin-after-restart', true);
     console.log('Database import successful. The app will now restart.');
     app.relaunch();
     app.quit();
