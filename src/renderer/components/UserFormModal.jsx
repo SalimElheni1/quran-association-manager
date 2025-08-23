@@ -84,6 +84,14 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           <Modal.Title>{isEditMode ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {isEditMode && (
+            <Row>
+              <Form.Group as={Col} className="mb-3">
+                <Form.Label>الرقم التعريفي</Form.Label>
+                <Form.Control type="text" value={formData.matricule || ''} readOnly disabled />
+              </Form.Group>
+            </Row>
+          )}
           <h5 className="form-section-title">معلومات الحساب</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">

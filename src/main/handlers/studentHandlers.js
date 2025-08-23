@@ -1,8 +1,10 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
+const { generateMatricule } = require('../matriculeService');
 
 const studentFields = [
+  'matricule',
   'name',
   'date_of_birth',
   'gender',
@@ -32,11 +34,12 @@ const studentFields = [
 function registerStudentHandlers() {
   ipcMain.handle('students:get', async (_event, filters) => {
     try {
-      let sql = 'SELECT id, name, date_of_birth, enrollment_date, status FROM students WHERE 1=1';
+      let sql =
+        'SELECT id, matricule, name, date_of_birth, enrollment_date, status FROM students WHERE 1=1';
       const params = [];
       if (filters?.searchTerm) {
-        sql += ' AND name LIKE ?';
-        params.push(`%${filters.searchTerm}%`);
+        sql += ' AND (name LIKE ? OR matricule LIKE ?)';
+        params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
       }
       if (filters?.genderFilter && filters.genderFilter !== 'all') {
         sql += ' AND gender = ?';
@@ -72,12 +75,17 @@ function registerStudentHandlers() {
 
   ipcMain.handle('students:add', async (_event, studentData) => {
     try {
-      const validatedData = await studentValidationSchema.validateAsync(studentData, {
+      const matricule = await generateMatricule('student');
+      const dataWithMatricule = { ...studentData, matricule };
+
+      const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
         stripUnknown: false,
       });
+
       const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
       const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
       const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
@@ -96,7 +104,12 @@ function registerStudentHandlers() {
         abortEarly: false,
         stripUnknown: false,
       });
-      const fieldsToUpdate = studentFields.filter((field) => validatedData[field] !== undefined);
+
+      // Ensure matricule is not updatable
+      const fieldsToUpdate = studentFields.filter(
+        (field) => field !== 'matricule' && validatedData[field] !== undefined,
+      );
+
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;

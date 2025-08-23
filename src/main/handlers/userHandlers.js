@@ -2,8 +2,10 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const bcrypt = require('bcryptjs');
 const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
+const { generateMatricule } = require('../matriculeService');
 
 const userFields = [
+  'matricule',
   'username',
   'password',
   'first_name',
@@ -25,12 +27,12 @@ const userFields = [
 function registerUserHandlers() {
   ipcMain.handle('users:get', async (_event, filters) => {
     let sql =
-      'SELECT id, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
+      'SELECT id, matricule, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
     const params = [];
     if (filters?.searchTerm) {
-      sql += ' AND (username LIKE ? OR first_name LIKE ? OR last_name LIKE ?)';
+      sql += ' AND (username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR matricule LIKE ?)';
       const searchTerm = `%${filters.searchTerm}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
     if (filters?.roleFilter && filters.roleFilter !== 'all') {
       sql += ' AND role = ?';
@@ -50,7 +52,10 @@ function registerUserHandlers() {
 
   ipcMain.handle('users:add', async (_event, userData) => {
     try {
-      const validatedData = await userValidationSchema.validateAsync(userData, {
+      const matricule = await generateMatricule('user');
+      const dataWithMatricule = { ...userData, matricule };
+
+      const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
         stripUnknown: false,
       });
@@ -80,7 +85,9 @@ function registerUserHandlers() {
       if (validatedData.password) {
         validatedData.password = bcrypt.hashSync(validatedData.password, 10);
       }
-      const fieldsToUpdate = userFields.filter((field) => validatedData[field] !== undefined);
+      const fieldsToUpdate = userFields.filter(
+        (field) => field !== 'matricule' && validatedData[field] !== undefined,
+      );
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;

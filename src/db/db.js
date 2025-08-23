@@ -63,7 +63,11 @@ async function seedSuperadmin() {
         ON CONFLICT(username) DO NOTHING;
       `;
 
-      await runQuery(insertSql, [username, hashedPassword, firstName, lastName, email]);
+      const result = await runQuery(insertSql, [username, hashedPassword, firstName, lastName, email]);
+      if (result.id) {
+        const matricule = `U-${result.id.toString().padStart(6, '0')}`;
+        await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
+      }
       console.log(`Superadmin created successfully: ${username}`);
     }
   } catch (error) {

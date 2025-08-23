@@ -49,6 +49,14 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
           <Modal.Title>{isEditMode ? 'تعديل بيانات المعلم' : 'إضافة معلم جديد'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {isEditMode && (
+            <Row>
+              <Form.Group as={Col} className="mb-3">
+                <Form.Label>الرقم التعريفي</Form.Label>
+                <Form.Control type="text" value={formData.matricule || ''} readOnly disabled />
+              </Form.Group>
+            </Row>
+          )}
           <h5 className="form-section-title">المعلومات الشخصية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">

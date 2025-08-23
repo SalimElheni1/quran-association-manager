@@ -94,6 +94,14 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           <Modal.Title>{isEditMode ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {isEditMode && (
+            <Row>
+              <Form.Group as={Col} className="mb-3">
+                <Form.Label>الرقم التعريفي</Form.Label>
+                <Form.Control type="text" value={formData.matricule || ''} readOnly disabled />
+              </Form.Group>
+            </Row>
+          )}
           {/* Personal Info */}
           <h5 className="form-section-title">المعلومات الشخصية</h5>
           <Row>
