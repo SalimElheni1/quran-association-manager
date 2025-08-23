@@ -91,7 +91,6 @@ function registerAttendanceHandlers() {
         await db.runQuery(sql, params);
       }
       await db.runQuery('COMMIT');
-      console.log('Attendance saved successfully');
       return { success: true };
     } catch (error) {
       await db.runQuery('ROLLBACK');

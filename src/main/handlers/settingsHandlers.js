@@ -107,7 +107,7 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       const result = await internalUpdateSettingsHandler(settingsData);
       if (result.success) {
-        console.log('Settings updated, restarting backup scheduler...');
+        console.info('Settings updated, restarting backup scheduler...');
         const { settings: newSettings } = await internalGetSettingsHandler();
         if (newSettings) {
           backupManager.startScheduler(newSettings);

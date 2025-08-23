@@ -149,7 +149,6 @@ function registerClassHandlers() {
         await db.runQuery(sql, params);
       }
       await db.runQuery('COMMIT');
-      console.log('Enrollments updated successfully');
       return { success: true };
     } catch (error) {
       await db.runQuery('ROLLBACK');

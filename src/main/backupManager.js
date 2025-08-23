@@ -53,7 +53,7 @@ async function generateSqlReplaceStatements() {
  * @returns {Promise<{success: boolean, message: string}>}
  */
 const runBackup = async (settings, backupFilePath) => {
-  console.log('SQL-based backup process started...');
+  console.info('SQL-based backup process started...');
 
   const sourceSaltPath = saltStore.path;
 
@@ -62,13 +62,13 @@ const runBackup = async (settings, backupFilePath) => {
     if (!fsSync.existsSync(sourceSaltPath)) {
       throw new Error(`Source salt file not found at: ${sourceSaltPath}`);
     }
-    console.log(`Source salt config found at: ${sourceSaltPath}`);
+    console.info(`Source salt config found at: ${sourceSaltPath}`);
 
     // 2. Generate SQL data dump and read salt file
-    console.log('Generating SQL dump...');
+    console.info('Generating SQL dump...');
     const sqlDump = await generateSqlReplaceStatements();
     const saltFileContent = await fs.readFile(sourceSaltPath);
-    console.log('SQL dump generated successfully.');
+    console.info('SQL dump generated successfully.');
 
     // 3. Create a zip package
     const zip = new PizZip();
@@ -89,7 +89,7 @@ const runBackup = async (settings, backupFilePath) => {
       message,
       timestamp: new Date().toISOString(),
     });
-    console.log(message, `Path: ${backupFilePath}`);
+    console.info(message, `Path: ${backupFilePath}`);
     return { success: true, message };
   } catch (error) {
     const message = `Failed to create SQL backup: ${error.message}`;
@@ -140,11 +140,11 @@ const startScheduler = (settings) => {
   stopScheduler(); // Stop any existing scheduler first
 
   if (!settings.backup_enabled) {
-    console.log('Backup scheduler is disabled.');
+    console.info('Backup scheduler is disabled.');
     return;
   }
 
-  console.log(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
+  console.info(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
 
   // Check every hour to see if a backup is due
   schedulerIntervalId = setInterval(
@@ -153,7 +153,7 @@ const startScheduler = (settings) => {
       // For simplicity here, we use the settings from when it was started.
       // A more robust implementation would fetch settings inside the interval.
       if (settings.backup_enabled && isBackupDue(settings)) {
-        console.log('Scheduled backup is due. Running now...');
+        console.info('Scheduled backup is due. Running now...');
         await runBackup(settings);
       }
     },
@@ -168,7 +168,7 @@ const stopScheduler = () => {
   if (schedulerIntervalId) {
     clearInterval(schedulerIntervalId);
     schedulerIntervalId = null;
-    console.log('Backup scheduler stopped.');
+    console.info('Backup scheduler stopped.');
   }
 };
 

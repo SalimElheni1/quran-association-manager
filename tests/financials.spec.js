@@ -1,23 +1,9 @@
-const { app } = require('electron');
 const {
   handleGetExpenses,
-  handleAddExpense,
-  handleUpdateExpense,
-  handleDeleteExpense,
-  handleGetDonations,
   handleAddDonation,
-  handleUpdateDonation,
-  handleDeleteDonation,
   handleGetSalaries,
-  handleAddSalary,
-  handleUpdateSalary,
-  handleDeleteSalary,
   handleGetPayments,
-  handleAddPayment,
-  handleUpdatePayment,
-  handleDeletePayment,
   handleGetFinancialSummary,
-  handleGetChartData,
 } = require('../src/main/financialHandlers');
 const db = require('../src/db/db');
 

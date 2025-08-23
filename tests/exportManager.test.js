@@ -10,7 +10,6 @@ const {
 } = require('../src/main/exportManager');
 const db = require('../src/db/db');
 const PizZip = require('pizzip');
-const Docxtemplater = require('docxtemplater');
 
 // Mock dependencies
 jest.mock('../src/db/db', () => ({

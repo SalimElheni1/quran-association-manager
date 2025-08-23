@@ -32,7 +32,6 @@ function getDatabasePath() {
       fs.mkdirSync(localDbDir, { recursive: true });
     }
     dbPath = path.join(localDbDir, 'quran_assoc_manager.sqlite');
-    console.log(`Running in Node.js script, using local DB path: ${dbPath}`);
   }
 
   return dbPath;
@@ -44,7 +43,7 @@ async function seedSuperadmin() {
     const existingAdmin = await getQuery(existingSql, ['Superadmin']);
 
     if (!existingAdmin) {
-      console.log('No superadmin found. Creating superadmin from .env...');
+      console.info('No superadmin found. Creating superadmin from .env...');
 
       // Get values from .env with fallbacks
       const username = process.env.SUPERADMIN_USERNAME || 'admin';
@@ -63,12 +62,18 @@ async function seedSuperadmin() {
         ON CONFLICT(username) DO NOTHING;
       `;
 
-      const result = await runQuery(insertSql, [username, hashedPassword, firstName, lastName, email]);
+      const result = await runQuery(insertSql, [
+        username,
+        hashedPassword,
+        firstName,
+        lastName,
+        email,
+      ]);
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
       }
-      console.log(`Superadmin created successfully: ${username}`);
+      console.info(`Superadmin created successfully: ${username}`);
     }
   } catch (error) {
     console.error('Failed to seed superadmin:', error);
@@ -99,7 +104,7 @@ function isDbEncrypted(filePath) {
  * @param {string} key The encryption key.
  */
 async function migrateToEncrypted(dbPath, key) {
-  console.log('Plaintext database detected. Starting migration to encrypted format...');
+  console.warn('Plaintext database detected. Starting migration to encrypted format...');
   const backupPath = `${dbPath}.old_plaintext`;
 
   // 1. Rename the existing plaintext DB to create a backup
@@ -116,7 +121,7 @@ async function migrateToEncrypted(dbPath, key) {
         await dbRun(encryptedDb, 'DETACH DATABASE plaintext');
         await dbClose(encryptedDb);
         fs.unlinkSync(backupPath); // Delete the plaintext backup
-        console.log('Database migration completed successfully.');
+        console.info('Database migration completed successfully.');
         resolve();
       } catch (migrationErr) {
         reject(migrationErr);
@@ -126,7 +131,6 @@ async function migrateToEncrypted(dbPath, key) {
 }
 
 async function runMigrations() {
-  console.log('Checking for pending migrations...');
   const migrationsDir = path.join(__dirname, 'migrations');
 
   if (!fs.existsSync(migrationsDir)) {
@@ -138,14 +142,12 @@ async function runMigrations() {
 
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
-      console.log(`Applying migration: ${file}`);
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         await runQuery('BEGIN TRANSACTION;', []);
         await dbExec(db, migrationSql); // Use the raw exec for migration files
         await runQuery('INSERT INTO migrations (name) VALUES (?)', [file]);
         await runQuery('COMMIT;');
-        console.log(`Successfully applied migration: ${file}`);
       } catch (err) {
         await runQuery('ROLLBACK;');
         // If the error is "duplicate column name", it means the migration was likely
@@ -163,7 +165,6 @@ async function runMigrations() {
       }
     }
   }
-  console.log('All migrations are up to date.');
 }
 
 /**
@@ -210,17 +211,17 @@ async function initializeDatabase(password) {
     await getQuery('SELECT count(*) FROM sqlite_master');
 
     if (!dbExists) {
-      console.log('New database created. Initializing schema and default data...');
+      console.info('New database created. Initializing schema and default data...');
       await dbExec(db, schema);
       await runMigrations();
       await seedSuperadmin();
-      console.log('Database schema and default data initialized.');
+      console.info('Database schema and default data initialized.');
     } else {
       // For existing DBs, we still check migrations
       await runMigrations();
     }
 
-    console.log(`Database initialized successfully at ${dbPath}`);
+    console.info(`Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null; // Clear the invalid db connection
     console.error('Failed to open database. The password may be incorrect.', error);
@@ -292,7 +293,7 @@ async function closeDatabase() {
   if (db && db.open) {
     await dbClose(db);
     db = null;
-    console.log('Database connection closed.');
+    console.info('Database connection closed.');
   }
 }
 

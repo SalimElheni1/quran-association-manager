@@ -43,7 +43,7 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
+    icon: path.join(app.getAppPath(), app.isPackaged ? 'g247.png' : 'public/g247.png'),
   });
 
   if (!app.isPackaged) {

@@ -1,9 +1,11 @@
 const Joi = require('joi');
 
 const studentValidationSchema = Joi.object({
-  matricule: Joi.string().pattern(/^S-\d{6}$/).messages({
-    'string.pattern.base': 'الرقم التعريفي للطالب غير صالح.',
-  }),
+  matricule: Joi.string()
+    .pattern(/^S-\d{6}$/)
+    .messages({
+      'string.pattern.base': 'الرقم التعريفي للطالب غير صالح.',
+    }),
   name: Joi.string().min(3).max(100).required().messages({
     'string.base': 'الاسم يجب أن يكون نصاً',
     'string.empty': 'الاسم مطلوب',
@@ -42,9 +44,11 @@ const classValidationSchema = Joi.object({
 }).unknown(true);
 
 const teacherValidationSchema = Joi.object({
-  matricule: Joi.string().pattern(/^T-\d{6}$/).messages({
-    'string.pattern.base': 'الرقم التعريفي للمعلم غير صالح.',
-  }),
+  matricule: Joi.string()
+    .pattern(/^T-\d{6}$/)
+    .messages({
+      'string.pattern.base': 'الرقم التعريفي للمعلم غير صالح.',
+    }),
   name: Joi.string().min(3).max(100).required().messages({
     'string.base': 'الاسم يجب أن يكون نصاً',
     'string.empty': 'الاسم مطلوب',
@@ -65,9 +69,11 @@ const teacherValidationSchema = Joi.object({
 }).unknown(true);
 
 const userValidationSchema = Joi.object({
-  matricule: Joi.string().pattern(/^U-\d{6}$/).messages({
-    'string.pattern.base': 'الرقم التعريفي للمستخدم غير صالح.',
-  }),
+  matricule: Joi.string()
+    .pattern(/^U-\d{6}$/)
+    .messages({
+      'string.pattern.base': 'الرقم التعريفي للمستخدم غير صالح.',
+    }),
   username: Joi.string().alphanum().min(3).max(30).required(),
   password: Joi.string().min(8).required(),
   first_name: Joi.string().min(2).max(50).required(),

@@ -6,7 +6,6 @@ async function refreshSettings() {
   try {
     const { settings } = await internalGetSettingsHandler();
     settingsCache = settings;
-    console.log('Settings cache refreshed:', settingsCache);
   } catch (error) {
     console.error('Failed to refresh settings cache:', error);
     // In case of error, fall back to a default or previously known good state

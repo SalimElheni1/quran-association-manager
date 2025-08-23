@@ -1,14 +1,10 @@
 const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandlers');
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
-const fs = require('fs');
-const path = require('path');
 const backupManager = require('../src/main/backupManager');
 
 // Mock dependencies
 jest.mock('../src/db/db');
-jest.mock('fs');
-jest.mock('path');
 jest.mock('../src/main/backupManager');
 // Mock settingsManager and get a reference to the mock function
 const mockRefreshSettings = jest.fn();

@@ -8,6 +8,7 @@ const mockZipInstance = {
 
 let shouldThrow = false;
 
+// eslint-disable-next-line no-unused-vars
 const PizZip = jest.fn((content) => {
   if (shouldThrow) {
     throw new Error('Invalid zip file');

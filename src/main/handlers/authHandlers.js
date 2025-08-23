@@ -94,7 +94,6 @@ const updateProfileHandler = async (token, profileData) => {
 
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
-    console.log(`Login attempt for user: ${username}`);
     try {
       // 1. Initialize and decrypt the database with the provided password.
       // This is the most critical step.

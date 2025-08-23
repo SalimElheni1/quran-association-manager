@@ -18,7 +18,7 @@ function getSalt() {
   let salt = store.get(SALT_KEY);
 
   if (!salt) {
-    console.log('No database salt found. Generating a new one.');
+    console.warn('No database salt found. Generating a new one.');
     // A 16-byte salt is standard and secure.
     salt = crypto.randomBytes(16).toString('hex');
     store.set(SALT_KEY, salt);
