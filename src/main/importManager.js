@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const PizZip = require('pizzip');
 const Store = require('electron-store');
+const { app } = require('electron');
 const { getDatabasePath, isDbOpen, closeDatabase } = require('../db/db');
 const { deriveKey } = require('./keyManager');
 const sqlite3 = require('@journeyapps/sqlcipher').verbose();
@@ -146,8 +147,13 @@ async function replaceDatabase(importedDbPath) {
     // 4. IMPORTANT: Update the in-memory store to prevent using a cached old salt
     saltStore.set('db-salt', configJson['db-salt']);
 
-    console.log('Database and salt config replaced successfully.');
-    return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح.' };
+    console.log('Database and salt config replaced successfully. The app will now restart.');
+
+    // 5. Relaunch the application to apply the new database
+    app.relaunch();
+    app.quit();
+
+    return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.' };
   } catch (error) {
     console.error('Failed to replace database from package:', error);
     return { success: false, message: `فشل استبدال ملف قاعدة البيانات: ${error.message}` };
