@@ -443,26 +443,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'السعة', key: 'capacity', width: 10 },
         { header: 'الجنس', key: 'gender', width: 15 },
       ],
-      dummyData: [
-        {
-          name: 'فصل التجويد المتقدم',
-          class_type: 'حلقة',
-          teacher_matricule: 'T-000001',
-          gender: 'women',
-          status: 'pending',
-          capacity: 20,
-          schedule: '[{"day":"Monday","time":"After Asr"}]',
-        },
-        {
-          name: 'فصل القراءات',
-          class_type: 'دورة',
-          teacher_matricule: 'T-000002',
-          gender: 'men',
-          status: 'pending',
-          capacity: 15,
-          start_date: '2024-09-01',
-        },
-      ],
     },
     {
       name: 'الرسوم الدراسية',
@@ -473,14 +453,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
-      dummyData: [
-        {
-          student_matricule: 'S-000001',
-          amount: 100,
-          payment_date: '2024-09-01',
-          payment_method: 'Cash',
-        },
-      ],
     },
     {
       name: 'الرواتب',
@@ -489,9 +461,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
-      ],
-      dummyData: [
-        { teacher_matricule: 'T-000001', amount: 1500, payment_date: '2024-09-05' },
       ],
     },
     {
@@ -546,20 +515,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
         { header: 'الحالة (present/absent/late/excused)', key: 'status', width: 25 },
       ],
-      dummyData: [
-        {
-          student_matricule: 'S-000001',
-          class_name: 'فصل التجويد المتقدم',
-          date: '2024-09-02',
-          status: 'present',
-        },
-        {
-          student_matricule: 'S-000002',
-          class_name: 'فصل التجويد المتقدم',
-          date: '2024-09-02',
-          status: 'absent',
-        },
-      ],
     },
   ];
 
@@ -573,7 +528,14 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
 
     // Set columns first, which creates the header row
     worksheet.columns = sheetInfo.columns;
-    worksheet.getRow(1).font = { bold: true };
+
+    // Add a comment to the matricule header to explain its use
+    if (sheetInfo.columns.some((c) => c.key === 'matricule')) {
+      worksheet.getCell('A2').note =
+        'اتركه فارغًا للسجلات الجديدة. سيقوم النظام بإنشاء رقم تعريفي تلقائيًا.\n\nاستخدم هذا الحقل فقط للإشارة إلى السجلات الموجودة لتحديثها.';
+    }
+
+    worksheet.getRow(2).font = { bold: true }; // Header row is now row 2
 
     // Insert the warning message as the new first row
     worksheet.spliceRows(1, 0, [warningMessage]);
