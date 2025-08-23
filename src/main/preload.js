@@ -98,4 +98,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Exports API
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),
+
+  // Listener for events from main process
+  onForceLogout: (callback) => {
+    const handler = (event, ...args) => callback(event, ...args);
+    ipcRenderer.on('force-logout', handler);
+    return () => {
+      ipcRenderer.removeListener('force-logout', handler);
+    };
+  },
 });

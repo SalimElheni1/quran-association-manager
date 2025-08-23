@@ -51,6 +51,7 @@ const createWindow = () => {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
   }
+  return mainWindow;
 };
 
 app.whenReady().then(async () => {
@@ -78,7 +79,19 @@ app.whenReady().then(async () => {
     });
 
     Menu.setApplicationMenu(null);
-    createWindow();
+    const mainWindow = createWindow();
+
+    // Check if a re-login is required after an import/restore operation
+    const forceRelogin = store.get('force-relogin-after-restart');
+    if (forceRelogin) {
+      console.log('Force re-login flag is set. Sending force-logout signal to renderer.');
+      // Wait for the window to be ready to receive events before sending
+      mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.send('force-logout');
+        store.delete('force-relogin-after-restart');
+        console.log('Force re-login flag cleared.');
+      });
+    }
 
     // Register all financial IPC handlers
     registerFinancialHandlers();
