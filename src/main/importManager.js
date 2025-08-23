@@ -42,6 +42,32 @@ async function validateDatabaseFile(filePath) {
 }
 
 /**
+ * Retries unlinking a file if it's busy, common on Windows.
+ * @param {string} filePath - The path to the file to delete.
+ * @param {number} retries - The maximum number of retries.
+ * @param {number} delay - The delay between retries in milliseconds.
+ */
+async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await fs.unlink(filePath);
+      console.log(`Successfully unlinked ${filePath}`);
+      return; // Success
+    } catch (error) {
+      if (error.code === 'EBUSY' && i < retries - 1) {
+        console.warn(`EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        // Re-throw the last error or any other error
+        console.error(`Failed to unlink ${filePath} after ${i + 1} attempts.`);
+        throw error;
+      }
+    }
+  }
+}
+
+
+/**
  * Replaces the current database by importing data from a SQL dump file.
  * @param {string} importedDbPath - Path to the `.qdb` backup file.
  * @param {string} password - The user's password for the database.
@@ -84,7 +110,7 @@ async function replaceDatabase(importedDbPath, password) {
     // 4. Delete the old database file, if it exists
     if (fsSync.existsSync(currentDbPath)) {
       console.log(`Deleting old database file at ${currentDbPath}...`);
-      await fs.unlink(currentDbPath);
+      await unlinkWithRetry(currentDbPath);
     }
 
     // 5. Initialize a new, empty, encrypted database with the new salt
