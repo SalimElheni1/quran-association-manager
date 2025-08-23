@@ -53,7 +53,14 @@ function StudentDetailsModal({ show, handleClose, student }) {
         <h5 className="form-section-title">المعلومات الشخصية</h5>
         <Row>
           <DetailItem label="الاسم الكامل" value={student.name} />
-          <DetailItem label="تاريخ الميلاد" value={student.date_of_birth?.split('T')[0]} />
+          <DetailItem
+            label="تاريخ الميلاد"
+            value={
+              student.date_of_birth
+                ? new Date(student.date_of_birth).toLocaleDateString('en-GB')
+                : null
+            }
+          />
           <DetailItem label="العمر" value={calculateAge(student.date_of_birth)} />
           <DetailItem label="الجنس" value={student.gender} />
           <DetailItem label="رقم الهوية" value={student.national_id} />
