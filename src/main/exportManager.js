@@ -297,7 +297,7 @@ function generateDocx(title, columns, data, outputPath) {
 // --- Excel (XLSX) Template Generation ---
 async function generateExcelTemplate(outputPath) {
   const workbook = new ExcelJS.Workbook();
-  const warningMessage = '⚠️ Do not modify column titles or structure, only add data rows.';
+  const warningMessage = '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
 
   const sheets = [
     {
@@ -411,8 +411,9 @@ async function generateExcelTemplate(outputPath) {
 
     // Style the new warning row
     const warningRow = worksheet.getRow(1);
-    warningRow.font = { color: { argb: 'FFFF0000' }, bold: true };
-    warningRow.getCell(1).alignment = { horizontal: 'center' };
+    warningRow.font = { color: { argb: 'FFFF0000' }, bold: true, size: 14 };
+    warningRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    warningRow.height = 30;
     worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length);
 
     // Add dummy data
