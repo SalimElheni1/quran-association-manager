@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../../db/db');
 const { userUpdateValidationSchema } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
+const { refreshSettings } = require('../settingsManager');
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
@@ -114,7 +115,8 @@ function registerAuthHandlers() {
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
-      // 4. On success, generate JWT and return user data.
+      // 4. On success, refresh settings cache, generate JWT, and return user data.
+      await refreshSettings();
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         process.env.JWT_SECRET,
