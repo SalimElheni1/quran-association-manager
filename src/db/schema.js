@@ -140,7 +140,9 @@ const schema = `
     ('backup_path', ''),
     ('backup_enabled', 'false'),
     ('backup_frequency', 'daily'),
-    ('president_full_name', '');
+    ('president_full_name', ''),
+    ('backup_reminder_enabled', 'true'),
+    ('backup_reminder_frequency_days', '7');
 `;
 
 module.exports = schema;
