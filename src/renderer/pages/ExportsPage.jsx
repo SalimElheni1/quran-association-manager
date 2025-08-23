@@ -382,11 +382,11 @@ const ImportTabPanel = () => {
           <Button variant="success" onClick={handleImport} disabled={isLoading}>
             {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
           </Button>
-          {process.env.NODE_ENV === 'development' && (
+          {/* {process.env.NODE_ENV === 'development' && (
             <Button variant="warning" onClick={handleGenerateDevTemplate} disabled={isLoading}>
               {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب تطوير'}
             </Button>
-          )}
+          )} */}
         </div>
 
         {message.text && <Alert variant={message.type}>{message.text}</Alert>}
