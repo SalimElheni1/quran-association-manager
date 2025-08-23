@@ -103,6 +103,7 @@ function UsersPage() {
           <thead>
             <tr>
               <th>#</th>
+              <th>الرقم التعريفي</th>
               <th>الاسم الكامل</th>
               <th>اسم المستخدم</th>
               <th>الدور</th>
@@ -115,6 +116,7 @@ function UsersPage() {
               users.map((user, index) => (
                 <tr key={user.id}>
                   <td>{index + 1}</td>
+                  <td>{user.matricule}</td>
                   <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
                   <td>{user.username}</td>
                   <td>

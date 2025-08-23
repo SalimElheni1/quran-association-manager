@@ -1,8 +1,10 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');
+const { generateMatricule } = require('../matriculeService');
 
 const teacherFields = [
+  'matricule',
   'name',
   'national_id',
   'contact_info',
@@ -20,7 +22,10 @@ const teacherFields = [
 function registerTeacherHandlers() {
   ipcMain.handle('teachers:add', async (_event, teacherData) => {
     try {
-      const validatedData = await teacherValidationSchema.validateAsync(teacherData, {
+      const matricule = await generateMatricule('teacher');
+      const dataWithMatricule = { ...teacherData, matricule };
+
+      const validatedData = await teacherValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
         stripUnknown: false,
       });
@@ -44,7 +49,9 @@ function registerTeacherHandlers() {
         abortEarly: false,
         stripUnknown: false,
       });
-      const fieldsToUpdate = teacherFields.filter((field) => validatedData[field] !== undefined);
+      const fieldsToUpdate = teacherFields.filter(
+        (field) => field !== 'matricule' && validatedData[field] !== undefined,
+      );
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE teachers SET ${setClauses} WHERE id = ?`;
@@ -71,11 +78,12 @@ function registerTeacherHandlers() {
 
   ipcMain.handle('teachers:get', async (_event, filters) => {
     try {
-      let sql = 'SELECT id, name, contact_info, specialization, gender FROM teachers WHERE 1=1';
+      let sql =
+        'SELECT id, matricule, name, contact_info, specialization, gender FROM teachers WHERE 1=1';
       const params = [];
       if (filters?.searchTerm) {
-        sql += ' AND name LIKE ?';
-        params.push(`%${filters.searchTerm}%`);
+        sql += ' AND (name LIKE ? OR matricule LIKE ?)';
+        params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
       }
       if (filters?.genderFilter && filters.genderFilter !== 'all') {
         sql += ' AND gender = ?';

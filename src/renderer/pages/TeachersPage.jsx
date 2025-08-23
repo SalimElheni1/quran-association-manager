@@ -128,7 +128,7 @@ function TeachersPage() {
           </InputGroup.Text>
           <Form.Control
             type="search"
-            placeholder="البحث بالاسم..."
+            placeholder="البحث بالاسم أو الرقم التعريفي..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -162,6 +162,7 @@ function TeachersPage() {
           <thead>
             <tr>
               <th>#</th>
+              <th>الرقم التعريفي</th>
               <th>الاسم واللقب</th>
               <th>رقم الهاتف</th>
               <th>التخصص</th>
@@ -173,6 +174,7 @@ function TeachersPage() {
               teachers.map((teacher, index) => (
                 <tr key={teacher.id}>
                   <td>{index + 1}</td>
+                  <td>{teacher.matricule}</td>
                   <td>{teacher.name}</td>
                   <td>{teacher.contact_info || '-'}</td>
                   <td>{teacher.specialization || '-'}</td>

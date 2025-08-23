@@ -164,7 +164,7 @@ function StudentsPage() {
           </InputGroup.Text>
           <Form.Control
             type="search"
-            placeholder="البحث بالاسم..."
+            placeholder="البحث بالاسم أو الرقم التعريفي..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -208,6 +208,7 @@ function StudentsPage() {
           <thead>
             <tr>
               <th>#</th>
+              <th>الرقم التعريفي</th>
               <th>الاسم واللقب</th>
               <th>العمر</th>
               <th>تاريخ التسجيل</th>
@@ -220,6 +221,7 @@ function StudentsPage() {
               students.map((student, index) => (
                 <tr key={student.id}>
                   <td>{index + 1}</td>
+                  <td>{student.matricule}</td>
                   <td>{student.name}</td>
                   <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
                   <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>

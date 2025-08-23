@@ -94,6 +94,7 @@ function StudentDetailsModal({ show, handleClose, student }) {
         {/* Association Info */}
         <h5 className="form-section-title">معلومات الجمعية</h5>
         <Row>
+          <DetailItem label="الرقم التعريفي" value={student.matricule} />
           <DetailItem
             label="الحالة"
             value={statusTranslations[student.status] || student.status}

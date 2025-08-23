@@ -306,6 +306,7 @@ async function generateExcelTemplate(outputPath) {
     {
       name: 'الطلاب',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'الاسم واللقب', key: 'name', width: 25 },
         { header: 'تاريخ الميلاد', key: 'date_of_birth', width: 15 },
         { header: 'الجنس', key: 'gender', width: 10 },
@@ -333,6 +334,7 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
+          matricule: 'S-000001',
           name: 'علي محمد',
           date_of_birth: '2005-04-10',
           gender: 'Male',
@@ -341,6 +343,7 @@ async function generateExcelTemplate(outputPath) {
           memorization_level: '5 أجزاء',
         },
         {
+          matricule: 'S-000002',
           name: 'سارة عبدالله',
           date_of_birth: '2006-08-22',
           gender: 'Female',
@@ -355,6 +358,7 @@ async function generateExcelTemplate(outputPath) {
     {
       name: 'المعلمون',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'الاسم واللقب', key: 'name', width: 25 },
         { header: 'رقم الهوية', key: 'national_id', width: 20 },
         { header: 'رقم الهاتف', key: 'contact_info', width: 20 },
@@ -370,6 +374,7 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
+          matricule: 'T-000001',
           name: 'فاطمة الزهراء',
           national_id: '101010101',
           email: 'fatima@example.com',
@@ -378,6 +383,7 @@ async function generateExcelTemplate(outputPath) {
           gender: 'Female',
         },
         {
+          matricule: 'T-000002',
           name: 'خالد حسين',
           national_id: '202020202',
           email: 'khaled@example.com',
@@ -390,6 +396,7 @@ async function generateExcelTemplate(outputPath) {
     {
       name: 'المستخدمون',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'اسم المستخدم', key: 'username', width: 20 },
         { header: 'الاسم الأول', key: 'first_name', width: 20 },
         { header: 'اللقب', key: 'last_name', width: 20 },
@@ -408,6 +415,7 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
+          matricule: 'U-000001',
           username: 'manager_user',
           first_name: 'أحمد',
           last_name: 'محمود',
@@ -417,6 +425,7 @@ async function generateExcelTemplate(outputPath) {
           national_id: '303030303',
         },
         {
+          matricule: 'U-000002',
           username: 'admin_user',
           first_name: 'نورة',
           last_name: 'سالم',

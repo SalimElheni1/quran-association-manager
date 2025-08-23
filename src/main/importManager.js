@@ -15,6 +15,7 @@ const {
   getQuery,
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
+const { generateMatricule } = require('./matriculeService');
 
 const saltStore = new Store({ name: 'db-config' });
 const mainStore = new Store();
@@ -176,6 +177,8 @@ async function importExcelData(filePath) {
 }
 
 async function processStudentRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
     date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
@@ -186,53 +189,153 @@ async function processStudentRow(row, headerRow) {
     status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
     national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
   };
+
   if (!data.name) return { success: false, message: 'اسم الطالب مطلوب.' };
-  const existingStudent = await getQuery('SELECT id FROM students WHERE name = ? OR national_id = ?', [data.name, data.national_id]);
-  if (existingStudent) return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO students (${fields.join(', ')}) VALUES (${placeholders})`, values);
+
+  if (matricule) {
+    // Update existing record
+    const existingStudent = await getQuery('SELECT id FROM students WHERE matricule = ?', [
+      matricule,
+    ]);
+    if (!existingStudent) {
+      return { success: false, message: `الطالب بالرقم التعريفي "${matricule}" غير موجود.` };
+    }
+
+    if (fields.length === 0) {
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' }; // Nothing to update
+    }
+
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => data[k]), matricule];
+    await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+  // Insert new record
+  const existingStudent = await getQuery('SELECT id FROM students WHERE name = ? OR national_id = ?', [
+    data.name,
+    data.national_id,
+  ]);
+  if (existingStudent) {
+    return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
+  }
+
+  const newMatricule = await generateMatricule('student');
+  const allData = { ...data, matricule: newMatricule };
+
+  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+
+  await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
 }
 
 async function processTeacherRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
     national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
     contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
   };
-  if (!data.name || !data.national_id) return { success: false, message: 'اسم المعلم ورقم الهوية مطلوبان.' };
-  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [data.national_id]);
-  if (existingTeacher) return { success: false, message: `المعلم برقم الهوية "${data.national_id}" موجود بالفعل.` };
+
+  if (!data.name) return { success: false, message: 'اسم المعلم مطلوب.' };
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO teachers (${fields.join(', ')}) VALUES (${placeholders})`, values);
+
+  if (matricule) {
+    // Update existing record
+    const existingTeacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [
+      matricule,
+    ]);
+    if (!existingTeacher) {
+      return { success: false, message: `المعلم بالرقم التعريفي "${matricule}" غير موجود.` };
+    }
+
+    if (fields.length === 0) {
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    }
+
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => data[k]), matricule];
+    await runQuery(`UPDATE teachers SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+  // Insert new record
+  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
+    data.national_id,
+  ]);
+  if (existingTeacher) {
+    return { success: false, message: `المعلم برقم الهوية "${data.national_id}" موجود بالفعل.` };
+  }
+
+  const newMatricule = await generateMatricule('teacher');
+  const allData = { ...data, matricule: newMatricule };
+
+  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+
+  await runQuery(`INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
 }
 
 async function processUserRow(row, headerRow) {
-  const password = Math.random().toString(36).slice(-8);
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+
   const data = {
     username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
     first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
     last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-    password: bcrypt.hashSync(password, 10),
     role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
     employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
   };
+
   if (!data.username || !data.first_name || !data.last_name || !data.role || !data.employment_type) {
     return { success: false, message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.' };
   }
-  const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
-  if (existingUser) return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO users (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true, newUser: { username: data.username, password: password } };
+
+  if (matricule) {
+    // Update existing record
+    const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
+    if (!existingUser) {
+      return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
+    }
+
+    if (fields.length === 0) {
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    }
+
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => data[k]), matricule];
+    await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+  // Insert new record
+  const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
+  if (existingUser) {
+    return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
+  }
+
+  const password = Math.random().toString(36).slice(-8);
+  const newMatricule = await generateMatricule('user');
+  const allData = {
+    ...data,
+    matricule: newMatricule,
+    password: bcrypt.hashSync(password, 10),
+  };
+
+  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+
+  await runQuery(`INSERT INTO users (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  return { success: true, newUser: { username: data.username, password } };
 }
 
 async function processClassRow(row, headerRow) {
