@@ -299,7 +299,6 @@ async function generateExcelTemplate(outputPath) {
   const workbook = new ExcelJS.Workbook();
   const warningMessage = '⚠️ Do not modify column titles or structure, only add data rows.';
 
-  // Define sheets and their columns
   const sheets = [
     {
       name: 'الطلاب',
@@ -329,6 +328,10 @@ async function generateExcelTemplate(outputPath) {
         { header: 'أفراد العائلة المسجلون', key: 'related_family_members', width: 30 },
         { header: 'ملاحظات المساعدة المالية', key: 'financial_assistance_notes', width: 30 },
       ],
+      dummyData: [
+        { name: 'علي محمد', date_of_birth: '2005-04-10', gender: 'Male', national_id: '111222333', status: 'active', memorization_level: '5 أجزاء' },
+        { name: 'سارة عبدالله', date_of_birth: '2006-08-22', gender: 'Female', national_id: '222333444', status: 'active', memorization_level: '3 أجزاء', parent_name: 'عبدالله أحمد', parent_contact: '555-123-456' }
+      ]
     },
     {
       name: 'المعلمون',
@@ -346,6 +349,10 @@ async function generateExcelTemplate(outputPath) {
         { header: 'أوقات التوفر', key: 'availability', width: 30 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
+      dummyData: [
+        { name: 'فاطمة الزهراء', national_id: '101010101', email: 'fatima@example.com', specialization: 'تجويد', years_of_experience: 5, gender: 'Female' },
+        { name: 'خالد حسين', national_id: '202020202', email: 'khaled@example.com', specialization: 'قراءات', years_of_experience: 8, gender: 'Male' }
+      ]
     },
     {
       name: 'المستخدمون',
@@ -366,6 +373,10 @@ async function generateExcelTemplate(outputPath) {
         { header: 'الحالة', key: 'status', width: 15 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
+      dummyData: [
+        { username: 'manager_user', first_name: 'أحمد', last_name: 'محمود', role: 'Manager', employment_type: 'contract', email: 'manager@example.com', national_id: '303030303' },
+        { username: 'admin_user', first_name: 'نورة', last_name: 'سالم', role: 'Admin', employment_type: 'volunteer', email: 'admin@example.com', national_id: '404040404' }
+      ]
     },
     {
       name: 'الفصول',
@@ -380,6 +391,10 @@ async function generateExcelTemplate(outputPath) {
         { header: 'السعة', key: 'capacity', width: 10 },
         { header: 'الجنس', key: 'gender', width: 15 },
       ],
+      dummyData: [
+        { name: 'فصل التجويد المتقدم', class_type: 'حلقة', teacher_national_id: '101010101', gender: 'women', status: 'pending', capacity: 20, schedule: '[{"day":"Monday","time":"After Asr"}]' },
+        { name: 'فصل القراءات', class_type: 'دورة', teacher_national_id: '202020202', gender: 'men', status: 'pending', capacity: 15, start_date: '2024-09-01' }
+      ]
     },
   ];
 
@@ -387,18 +402,23 @@ async function generateExcelTemplate(outputPath) {
     const worksheet = workbook.addWorksheet(sheetInfo.name);
     worksheet.views = [{ rightToLeft: true }];
 
-    // Add warning message row
-    const warningRow = worksheet.addRow([warningMessage]);
-    warningRow.font = { color: { argb: 'FF0000' }, bold: true };
-    worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length); // Merge cells for the warning
-    warningRow.getCell(1).alignment = { horizontal: 'center' };
-
-    // Add header row
-    const headerRow = worksheet.addRow(sheetInfo.columns.map(c => c.header));
-    headerRow.font = { bold: true };
-
-    // Set column properties
+    // Set columns first, which creates the header row
     worksheet.columns = sheetInfo.columns;
+    worksheet.getRow(1).font = { bold: true };
+
+    // Insert the warning message as the new first row
+    worksheet.spliceRows(1, 0, [warningMessage]);
+
+    // Style the new warning row
+    const warningRow = worksheet.getRow(1);
+    warningRow.font = { color: { argb: 'FFFF0000' }, bold: true };
+    warningRow.getCell(1).alignment = { horizontal: 'center' };
+    worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length);
+
+    // Add dummy data
+    if (sheetInfo.dummyData) {
+      worksheet.addRows(sheetInfo.dummyData);
+    }
   }
 
   await workbook.xlsx.writeFile(outputPath);
