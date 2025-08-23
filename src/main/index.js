@@ -974,35 +974,44 @@ ipcMain.handle('backup:getStatus', () => {
   }
 });
 
-ipcMain.handle('db:import', async (_event, { password }) => {
-  // 1. Check if a password was provided.
-  if (!password) {
-    return { success: false, message: 'كلمة المرور مطلوبة لإكمال عملية الاستيراد.' };
+ipcMain.handle('db:import', async (_event, { password, userId }) => {
+  // 1. Check if a password and user ID were provided.
+  if (!password || !userId) {
+    return { success: false, message: 'بيانات المصادقة غير كاملة.' };
   }
-
-  // 2. Prompt user to select a database file.
-  const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Select Database to Import',
-    properties: ['openFile'],
-    filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
-  });
-
-  if (canceled || !filePaths || !filePaths[0]) {
-    return { success: false, message: 'لم يتم تحديد أي ملف.' };
-  }
-
-  const importedDbPath = filePaths[0];
 
   try {
-    // 3. Validate the backup file structure.
+    // 2. Verify the provided password against the current user's hash in the DB.
+    const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+    if (!currentUser) {
+      return { success: false, message: 'المستخدم الحالي غير موجود.' };
+    }
+
+    const isMatch = await bcrypt.compare(password, currentUser.password);
+    if (!isMatch) {
+      return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
+    }
+
+    // 3. Prompt user to select a database file.
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Select Database to Import',
+      properties: ['openFile'],
+      filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+    });
+
+    if (canceled || !filePaths || !filePaths[0]) {
+      return { success: false, message: 'لم يتم تحديد أي ملف.' };
+    }
+
+    const importedDbPath = filePaths[0];
+
+    // 4. Validate the backup file structure.
     const validationResult = await importManager.validateDatabaseFile(importedDbPath);
     if (!validationResult.isValid) {
       return { success: false, message: validationResult.message };
     }
 
-    // 4. Replace the database. This function now handles everything:
-    // closing the old DB, replacing salt, deleting the old DB,
-    // creating a new one, running the SQL script, and restarting the app.
+    // 5. Replace the database.
     const replaceResult = await importManager.replaceDatabase(importedDbPath, password);
 
     // This part of the code will likely not be reached if the import is successful,
