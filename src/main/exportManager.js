@@ -435,7 +435,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       columns: [
         { header: 'اسم الفصل', key: 'name', width: 25 },
         { header: 'نوع الفصل', key: 'class_type', width: 20 },
-        { header: 'رقم هوية المعلم', key: 'teacher_national_id', width: 20 },
+        { header: 'الرقم التعريفي للمعلم', key: 'teacher_matricule', width: 25 },
         { header: 'الجدول الزمني (JSON)', key: 'schedule', width: 30 },
         { header: 'تاريخ البدء', key: 'start_date', width: 15 },
         { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
@@ -447,7 +447,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         {
           name: 'فصل التجويد المتقدم',
           class_type: 'حلقة',
-          teacher_national_id: '101010101',
+          teacher_matricule: 'T-000001',
           gender: 'women',
           status: 'pending',
           capacity: 20,
@@ -456,7 +456,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         {
           name: 'فصل القراءات',
           class_type: 'دورة',
-          teacher_national_id: '202020202',
+          teacher_matricule: 'T-000002',
           gender: 'men',
           status: 'pending',
           capacity: 15,
@@ -467,7 +467,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'الرسوم الدراسية',
       columns: [
-        { header: 'رقم هوية الطالب', key: 'student_national_id', width: 20 },
+        { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
         { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
@@ -475,7 +475,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
       dummyData: [
         {
-          student_national_id: '111222333',
+          student_matricule: 'S-000001',
           amount: 100,
           payment_date: '2024-09-01',
           payment_method: 'Cash',
@@ -485,13 +485,13 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'الرواتب',
       columns: [
-        { header: 'رقم هوية المعلم', key: 'teacher_national_id', width: 20 },
+        { header: 'الرقم التعريفي للمعلم', key: 'teacher_matricule', width: 25 },
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
       dummyData: [
-        { teacher_national_id: '101010101', amount: 1500, payment_date: '2024-09-05' },
+        { teacher_matricule: 'T-000001', amount: 1500, payment_date: '2024-09-05' },
       ],
     },
     {
@@ -539,22 +539,22 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
     },
     {
-      name: 'الحضور',
+      name: 'الحاضر',
       columns: [
-        { header: 'رقم هوية الطالب', key: 'student_national_id', width: 20 },
+        { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
         { header: 'اسم الفصل', key: 'class_name', width: 25 },
         { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
         { header: 'الحالة (present/absent/late/excused)', key: 'status', width: 25 },
       ],
       dummyData: [
         {
-          student_national_id: '111222333',
+          student_matricule: 'S-000001',
           class_name: 'فصل التجويد المتقدم',
           date: '2024-09-02',
           status: 'present',
         },
         {
-          student_national_id: '222333444',
+          student_matricule: 'S-000002',
           class_name: 'فصل التجويد المتقدم',
           date: '2024-09-02',
           status: 'absent',
