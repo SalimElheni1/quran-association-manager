@@ -28,8 +28,7 @@ function getSetting(key) {
   return settingsCache[key];
 }
 
-// Initial load of settings
-refreshSettings();
+// Initial load of settings is now handled after login.
 
 module.exports = {
   getSetting,

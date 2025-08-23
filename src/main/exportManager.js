@@ -461,6 +461,103 @@ async function generateExcelTemplate(outputPath) {
         },
       ],
     },
+    {
+      name: 'الرسوم الدراسية',
+      columns: [
+        { header: 'رقم هوية الطالب', key: 'student_national_id', width: 20 },
+        { header: 'المبلغ', key: 'amount', width: 15 },
+        { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
+        { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+        {
+          student_national_id: '111222333',
+          amount: 100,
+          payment_date: '2024-09-01',
+          payment_method: 'Cash',
+        },
+      ],
+    },
+    {
+      name: 'الرواتب',
+      columns: [
+        { header: 'رقم هوية المعلم', key: 'teacher_national_id', width: 20 },
+        { header: 'المبلغ', key: 'amount', width: 15 },
+        { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+        { teacher_national_id: '101010101', amount: 1500, payment_date: '2024-09-05' },
+      ],
+    },
+    {
+      name: 'التبرعات',
+      columns: [
+        { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
+        { header: 'نوع التبرع (Cash/In-kind)', key: 'donation_type', width: 20 },
+        { header: 'المبلغ (للتبرع النقدي)', key: 'amount', width: 20 },
+        { header: 'وصف (للتبرع العيني)', key: 'description', width: 30 },
+        { header: 'تاريخ التبرع (YYYY-MM-DD)', key: 'donation_date', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+        {
+          donor_name: 'فاعل خير',
+          donation_type: 'Cash',
+          amount: 500,
+          donation_date: '2024-09-10',
+        },
+        {
+          donor_name: 'مكتبة المدينة',
+          donation_type: 'In-kind',
+          description: '50 مصحف',
+          donation_date: '2024-09-11',
+        },
+      ],
+    },
+    {
+      name: 'المصاريف',
+      columns: [
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'المبلغ', key: 'amount', width: 15 },
+        { header: 'تاريخ الصرف (YYYY-MM-DD)', key: 'expense_date', width: 20 },
+        { header: 'المسؤول', key: 'responsible_person', width: 25 },
+        { header: 'الوصف', key: 'description', width: 30 },
+      ],
+      dummyData: [
+        {
+          category: 'فواتير',
+          amount: 150,
+          expense_date: '2024-09-03',
+          responsible_person: 'أحمد محمود',
+          description: 'فاتورة الكهرباء',
+        },
+      ],
+    },
+    {
+      name: 'الحضور',
+      columns: [
+        { header: 'رقم هوية الطالب', key: 'student_national_id', width: 20 },
+        { header: 'اسم الفصل', key: 'class_name', width: 25 },
+        { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
+        { header: 'الحالة (present/absent/late/excused)', key: 'status', width: 25 },
+      ],
+      dummyData: [
+        {
+          student_national_id: '111222333',
+          class_name: 'فصل التجويد المتقدم',
+          date: '2024-09-02',
+          status: 'present',
+        },
+        {
+          student_national_id: '222333444',
+          class_name: 'فصل التجويد المتقدم',
+          date: '2024-09-02',
+          status: 'absent',
+        },
+      ],
+    },
   ];
 
   for (const sheetInfo of sheets) {
