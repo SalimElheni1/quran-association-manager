@@ -600,6 +600,48 @@ ipcMain.handle('export:generate', async (_event, { exportType, format, columns, 
   }
 });
 
+ipcMain.handle('import:generate-template', async () => {
+  try {
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Save Import Template',
+      defaultPath: `import-template-${Date.now()}.xlsx`,
+      filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
+    });
+
+    if (!filePath) {
+      return { success: false, message: 'Template generation canceled by user.' };
+    }
+
+    await exportManager.generateExcelTemplate(filePath);
+
+    return { success: true, message: `Template saved to ${filePath}` };
+  } catch (error) {
+    console.error('Error during template generation:', error);
+    return { success: false, message: `Template generation failed: ${error.message}` };
+  }
+});
+
+ipcMain.handle('import:execute', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Select Excel File to Import',
+      properties: ['openFile'],
+      filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
+    });
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, message: 'Import canceled by user.' };
+    }
+
+    const results = await importManager.importExcelData(filePaths[0]);
+
+    return { success: true, ...results };
+  } catch (error) {
+    console.error('Error during import execution:', error);
+    return { success: false, message: `Import failed: ${error.message}` };
+  }
+});
+
 ipcMain.handle('users:get', async (_event, filters) => {
   let sql = 'SELECT id, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
   const params = [];

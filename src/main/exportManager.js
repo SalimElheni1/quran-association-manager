@@ -294,6 +294,116 @@ function generateDocx(title, columns, data, outputPath) {
   fs.writeFileSync(outputPath, buf);
 }
 
+// --- Excel (XLSX) Template Generation ---
+async function generateExcelTemplate(outputPath) {
+  const workbook = new ExcelJS.Workbook();
+  const warningMessage = '⚠️ Do not modify column titles or structure, only add data rows.';
+
+  // Define sheets and their columns
+  const sheets = [
+    {
+      name: 'الطلاب',
+      columns: [
+        { header: 'الاسم واللقب', key: 'name', width: 25 },
+        { header: 'تاريخ الميلاد', key: 'date_of_birth', width: 15 },
+        { header: 'الجنس', key: 'gender', width: 10 },
+        { header: 'العنوان', key: 'address', width: 30 },
+        { header: 'رقم الهاتف', key: 'contact_info', width: 20 },
+        { header: 'البريد الإلكتروني', key: 'email', width: 25 },
+        { header: 'الحالة', key: 'status', width: 15 },
+        { header: 'مستوى الحفظ', key: 'memorization_level', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+        { header: 'اسم ولي الأمر', key: 'parent_name', width: 25 },
+        { header: 'صلة القرابة', key: 'guardian_relation', width: 15 },
+        { header: 'هاتف ولي الأمر', key: 'parent_contact', width: 20 },
+        { header: 'البريد الإلكتروني للولي', key: 'guardian_email', width: 25 },
+        { header: 'جهة الاتصال في حالات الطوارئ', key: 'emergency_contact_name', width: 25 },
+        { header: 'هاتف الطوارئ', key: 'emergency_contact_phone', width: 20 },
+        { header: 'الحالة الصحية', key: 'health_conditions', width: 30 },
+        { header: 'رقم الهوية', key: 'national_id', width: 20 },
+        { header: 'اسم المدرسة', key: 'school_name', width: 25 },
+        { header: 'المستوى الدراسي', key: 'grade_level', width: 15 },
+        { header: 'المستوى التعليمي', key: 'educational_level', width: 20 },
+        { header: 'المهنة', key: 'occupation', width: 20 },
+        { header: 'الحالة الاجتماعية', key: 'civil_status', width: 15 },
+        { header: 'أفراد العائلة المسجلون', key: 'related_family_members', width: 30 },
+        { header: 'ملاحظات المساعدة المالية', key: 'financial_assistance_notes', width: 30 },
+      ],
+    },
+    {
+      name: 'المعلمون',
+      columns: [
+        { header: 'الاسم واللقب', key: 'name', width: 25 },
+        { header: 'رقم الهوية', key: 'national_id', width: 20 },
+        { header: 'رقم الهاتف', key: 'contact_info', width: 20 },
+        { header: 'البريد الإلكتروني', key: 'email', width: 25 },
+        { header: 'العنوان', key: 'address', width: 30 },
+        { header: 'تاريخ الميلاد', key: 'date_of_birth', width: 15 },
+        { header: 'الجنس', key: 'gender', width: 10 },
+        { header: 'المستوى التعليمي', key: 'educational_level', width: 20 },
+        { header: 'التخصص', key: 'specialization', width: 20 },
+        { header: 'سنوات الخبرة', key: 'years_of_experience', width: 15 },
+        { header: 'أوقات التوفر', key: 'availability', width: 30 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+    },
+    {
+      name: 'المستخدمون',
+      columns: [
+        { header: 'اسم المستخدم', key: 'username', width: 20 },
+        { header: 'الاسم الأول', key: 'first_name', width: 20 },
+        { header: 'اللقب', key: 'last_name', width: 20 },
+        { header: 'تاريخ الميلاد', key: 'date_of_birth', width: 15 },
+        { header: 'رقم الهوية', key: 'national_id', width: 20 },
+        { header: 'البريد الإلكتروني', key: 'email', width: 25 },
+        { header: 'رقم الهاتف', key: 'phone_number', width: 20 },
+        { header: 'المهنة', key: 'occupation', width: 20 },
+        { header: 'الحالة الاجتماعية', key: 'civil_status', width: 15 },
+        { header: 'نوع التوظيف', key: 'employment_type', width: 15 },
+        { header: 'تاريخ البدء', key: 'start_date', width: 15 },
+        { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
+        { header: 'الدور', key: 'role', width: 20 },
+        { header: 'الحالة', key: 'status', width: 15 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+    },
+    {
+      name: 'الفصول',
+      columns: [
+        { header: 'اسم الفصل', key: 'name', width: 25 },
+        { header: 'نوع الفصل', key: 'class_type', width: 20 },
+        { header: 'رقم هوية المعلم', key: 'teacher_national_id', width: 20 },
+        { header: 'الجدول الزمني (JSON)', key: 'schedule', width: 30 },
+        { header: 'تاريخ البدء', key: 'start_date', width: 15 },
+        { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
+        { header: 'الحالة', key: 'status', width: 15 },
+        { header: 'السعة', key: 'capacity', width: 10 },
+        { header: 'الجنس', key: 'gender', width: 15 },
+      ],
+    },
+  ];
+
+  for (const sheetInfo of sheets) {
+    const worksheet = workbook.addWorksheet(sheetInfo.name);
+    worksheet.views = [{ rightToLeft: true }];
+
+    // Add warning message row
+    const warningRow = worksheet.addRow([warningMessage]);
+    warningRow.font = { color: { argb: 'FF0000' }, bold: true };
+    worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length); // Merge cells for the warning
+    warningRow.getCell(1).alignment = { horizontal: 'center' };
+
+    // Add header row
+    const headerRow = worksheet.addRow(sheetInfo.columns.map(c => c.header));
+    headerRow.font = { bold: true };
+
+    // Set column properties
+    worksheet.columns = sheetInfo.columns;
+  }
+
+  await workbook.xlsx.writeFile(outputPath);
+}
+
 module.exports = {
   fetchExportData,
   fetchFinancialData,
@@ -301,4 +411,5 @@ module.exports = {
   generateXlsx,
   generateFinancialXlsx,
   generateDocx,
+  generateExcelTemplate,
 };
