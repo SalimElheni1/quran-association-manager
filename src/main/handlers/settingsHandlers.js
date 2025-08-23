@@ -17,6 +17,8 @@ const settingsValidationSchema = Joi.object({
   backup_enabled: Joi.boolean(),
   backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
   adultAgeThreshold: Joi.number().integer().min(1).max(100).required(),
+  backup_reminder_enabled: Joi.boolean(),
+  backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
 });
 
 const internalGetSettingsHandler = async () => {

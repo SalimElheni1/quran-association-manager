@@ -384,6 +384,34 @@ const SettingsPage = () => {
                             <option value="monthly">شهريًا</option>
                           </Form.Select>
                         </Form.Group>
+
+                        <h5 className="mt-4">تنبيهات النسخ الاحتياطي</h5>
+                        <Form.Group className="mb-3">
+                          <Form.Check
+                            type="switch"
+                            id="backup-reminder-enabled-switch"
+                            label="تفعيل التنبيهات لعمل نسخ احتياطية"
+                            name="backup_reminder_enabled"
+                            checked={settings.backup_reminder_enabled || false}
+                            onChange={handleChange}
+                          />
+                        </Form.Group>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={8}>
+                            تذكيري بعد مرور (أيام)
+                          </Form.Label>
+                          <Col sm={4}>
+                            <Form.Control
+                              type="number"
+                              name="backup_reminder_frequency_days"
+                              value={settings.backup_reminder_frequency_days || 7}
+                              onChange={handleChange}
+                              disabled={!settings.backup_reminder_enabled}
+                              min="1"
+                              max="365"
+                            />
+                          </Col>
+                        </Form.Group>
                         <hr />
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <Button

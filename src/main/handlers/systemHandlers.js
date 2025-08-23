@@ -3,10 +3,38 @@ const db = require('../../db/db');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
+const { internalGetSettingsHandler } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
 
-const store = new Store();
+async function handleGetBackupReminderStatus() {
+  try {
+    const store = new Store();
+    const { settings } = await internalGetSettingsHandler();
+
+    if (!settings.backup_reminder_enabled) {
+      return { showReminder: false };
+    }
+
+    const lastBackupStatus = store.get('last_backup_status');
+    if (!lastBackupStatus || !lastBackupStatus.timestamp) {
+      return { showReminder: true, daysSinceLastBackup: Infinity };
+    }
+
+    const lastBackupDate = new Date(lastBackupStatus.timestamp);
+    const today = new Date();
+    const daysSinceLastBackup = Math.floor((today - lastBackupDate) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceLastBackup > settings.backup_reminder_frequency_days) {
+      return { showReminder: true, daysSinceLastBackup };
+    }
+
+    return { showReminder: false };
+  } catch (error) {
+    console.error('Error checking backup reminder status:', error);
+    return { showReminder: false, error: 'Could not check backup status.' };
+  }
+}
 
 function registerSystemHandlers() {
   ipcMain.handle('get-app-version', () => {
@@ -139,6 +167,7 @@ function registerSystemHandlers() {
 
   ipcMain.handle('backup:getStatus', () => {
     try {
+      const store = new Store();
       const lastBackupStatus = store.get('last_backup_status');
       return { success: true, status: lastBackupStatus };
     } catch (error) {
@@ -182,6 +211,8 @@ function registerSystemHandlers() {
       };
     }
   });
+
+  ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
 }
 
-module.exports = { registerSystemHandlers };
+module.exports = { registerSystemHandlers, handleGetBackupReminderStatus };
