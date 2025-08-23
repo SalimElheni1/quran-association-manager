@@ -591,6 +591,41 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     }
   }
 
+  // --- Add Data Validations for Dropdowns ---
+  const studentsSheet = workbook.getWorksheet('الطلاب');
+  const teachersSheet = workbook.getWorksheet('المعلمون');
+  const classesSheet = workbook.getWorksheet('الفصول');
+  const attendanceSheet = workbook.getWorksheet('الحاضر');
+  const paymentsSheet = workbook.getWorksheet('الرسوم الدراسية');
+  const salariesSheet = workbook.getWorksheet('الرواتب');
+
+  // Define ranges for the dropdown lists. Covers the dummy data + 1000 extra rows.
+  const studentMatriculeRange = `'الطلاب'!$A$3:$A$1002`;
+  const teacherMatriculeRange = `'المعلمون'!$A$3:$A$1002`;
+
+  const applyValidation = (worksheet, column, range) => {
+    if (!worksheet) return;
+    for (let i = 3; i <= 1002; i++) {
+      worksheet.getCell(`${column}${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [range],
+        showErrorMessage: true,
+        error: 'الرجاء الاختيار من القائمة المنسدلة.',
+      };
+    }
+  };
+
+  applyValidation(paymentsSheet, 'A', studentMatriculeRange);
+  applyValidation(salariesSheet, 'A', teacherMatriculeRange);
+  applyValidation(classesSheet, 'C', teacherMatriculeRange);
+  applyValidation(attendanceSheet, 'A', studentMatriculeRange);
+
+
+  if (returnDefsOnly) {
+    return sheets;
+  }
+
   await workbook.xlsx.writeFile(outputPath);
 }
 
