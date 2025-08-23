@@ -87,10 +87,16 @@ function PaymentsTab() {
 
   return (
     <div>
-      {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>سجل الرسوم الدراسية</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة دفعة</Button>
+        <Button variant="primary" onClick={() => handleShowModal()}>
+          إضافة دفعة
+        </Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -115,10 +121,19 @@ function PaymentsTab() {
                 <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td>{payment.notes}</td>
                 <td>
-                  <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(payment)}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => handleShowModal(payment)}
+                  >
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(payment)}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleDeleteRequest(payment)}
+                  >
                     حذف
                   </Button>
                 </td>

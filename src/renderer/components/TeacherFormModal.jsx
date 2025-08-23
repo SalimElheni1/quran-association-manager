@@ -80,6 +80,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
                 value={formData.contact_info || ''}
                 onChange={handleChange}
               />
+              <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
               <Form.Label>البريد الإلكتروني</Form.Label>
@@ -89,6 +90,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
                 value={formData.email || ''}
                 onChange={handleChange}
               />
+              <Form.Text className="text-muted">(مثال: user@example.com)</Form.Text>
             </Form.Group>
           </Row>
           <Row>

@@ -60,6 +60,9 @@ function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
+              <Form.Text className="text-muted">
+                (يجب أن يكون بالإنجليزية: حروف وأرقام فقط)
+              </Form.Text>
             </Form.Group>
             <PasswordInput
               name="password"

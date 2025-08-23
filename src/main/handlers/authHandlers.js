@@ -1,42 +1,9 @@
-const Joi = require('joi');
+const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../db/db');
-
-// This Joi schema is imported from the main index, but it should be defined here or in a shared validation file.
-// For now, we redefine it to keep this module self-contained for clarity.
-const userValidationSchema = Joi.object({
-  username: Joi.string().alphanum().min(3).max(30).required(),
-  password: Joi.string().min(8).required(),
-  first_name: Joi.string().min(2).max(50).required(),
-  last_name: Joi.string().min(2).max(50).required(),
-  employment_type: Joi.string().valid('volunteer', 'contract').allow(null, ''),
-  role: Joi.string()
-    .valid('Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor')
-    .required(),
-  date_of_birth: Joi.date().iso().allow(null, ''),
-  national_id: Joi.string().allow(null, ''),
-  email: Joi.string()
-    .email({ tlds: { allow: false } })
-    .allow(null, ''),
-  phone_number: Joi.string()
-    .pattern(/^[0-9\s+()-]+$/)
-    .allow(null, ''),
-  occupation: Joi.string().allow(null, ''),
-  civil_status: Joi.string().valid('Single', 'Married', 'Divorced', 'Widowed').allow(null, ''),
-  end_date: Joi.date().iso().allow(null, ''),
-  notes: Joi.string().allow(null, ''),
-  start_date: Joi.when('employment_type', {
-    is: 'contract',
-    then: Joi.date().iso().required(),
-    otherwise: Joi.date().iso().allow(null, ''),
-  }),
-}).unknown(true);
-
-const userUpdateValidationSchema = userValidationSchema.keys({
-  password: Joi.string().min(8).allow(null, ''),
-  status: Joi.string().valid('active', 'inactive').required(),
-});
+const db = require('../../db/db');
+const { userUpdateValidationSchema } = require('../validationSchemas');
+const Joi = require('joi'); // Keep Joi for the complex password confirmation
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
@@ -124,7 +91,70 @@ const updateProfileHandler = async (token, profileData) => {
   return { success: true, message: 'تم تحديث الملف الشخصي بنجاح.' };
 };
 
+function registerAuthHandlers() {
+  ipcMain.handle('auth:login', async (_event, { username, password }) => {
+    console.log(`Login attempt for user: ${username}`);
+    try {
+      // 1. Initialize and decrypt the database with the provided password.
+      // This is the most critical step.
+      await db.initializeDatabase(password);
+
+      // 2. Now that the DB is open, find the user.
+      const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
+
+      if (!user) {
+        await db.closeDatabase(); // Close DB on failure
+        return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+      }
+
+      // 3. Compare the password hash.
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        await db.closeDatabase(); // Close DB on failure
+        return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+      }
+
+      // 4. On success, generate JWT and return user data.
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '8h' },
+      );
+      return {
+        success: true,
+        token,
+        user: { id: user.id, username: user.username, role: user.role },
+      };
+    } catch (error) {
+      console.error('Error in auth:login handler:', error.message);
+      await db.closeDatabase(); // Ensure DB is closed on any error.
+      return { success: false, message: 'حدث خطأ غير متوقع في الخادم.' };
+    }
+  });
+
+  ipcMain.handle('auth:getProfile', async (_event, { token }) => {
+    try {
+      return await getProfileHandler(token);
+    } catch (error) {
+      console.error('Error in auth:getProfile IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('auth:updateProfile', async (_event, { token, profileData }) => {
+    try {
+      return await updateProfileHandler(token, profileData);
+    } catch (error) {
+      console.error('Error in auth:updateProfile IPC wrapper:', error);
+      if (error.isJoi) {
+        const messages = error.details.map((d) => d.message).join('; ');
+        return { success: false, message: `بيانات غير صالحة: ${messages}` };
+      }
+      return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
+    }
+  });
+}
+
 module.exports = {
-  getProfileHandler,
-  updateProfileHandler,
+  registerAuthHandlers,
 };

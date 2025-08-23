@@ -51,13 +51,18 @@ describe('Backup Manager', () => {
 
       // Check the generated SQL for correct quote escaping
       const generatedSql = PizZip.mockInstance.file.mock.calls[0][1];
-      expect(generatedSql).toContain("INSERT INTO \"students\" (\"id\", \"name\") VALUES (1, 'Alice''s');");
+      expect(generatedSql).toContain(
+        'REPLACE INTO "students" ("id", "name") VALUES (1, \'Alice\'\'s\');',
+      );
 
       expect(fs.readFile).toHaveBeenCalledWith(mockStore.path);
 
       expect(PizZip).toHaveBeenCalledTimes(1);
       expect(PizZip.mockInstance.file).toHaveBeenCalledWith('backup.sql', expect.any(String));
-      expect(PizZip.mockInstance.file).toHaveBeenCalledWith('config.json', '{"db-salt":"mock-salt"}');
+      expect(PizZip.mockInstance.file).toHaveBeenCalledWith(
+        'config.json',
+        '{"db-salt":"mock-salt"}',
+      );
       expect(PizZip.mockInstance.generate).toHaveBeenCalledWith({
         type: 'nodebuffer',
         compression: 'DEFLATE',
@@ -104,7 +109,10 @@ describe('Backup Manager', () => {
       expect(fs.writeFile).not.toHaveBeenCalled();
       expect(mockStore.set).toHaveBeenCalledWith(
         'last_backup_status',
-        expect.objectContaining({ success: false, message: expect.stringContaining(dbError.message) }),
+        expect.objectContaining({
+          success: false,
+          message: expect.stringContaining(dbError.message),
+        }),
       );
       expect(result.success).toBe(false);
     });

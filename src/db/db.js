@@ -191,7 +191,9 @@ async function initializeDatabase(password) {
 
   // --- Open the Database ---
   db = await new Promise((resolve, reject) => {
-    const connection = new sqlite3.Database(dbPath, (err) => (err ? reject(err) : resolve(connection)));
+    const connection = new sqlite3.Database(dbPath, (err) =>
+      err ? reject(err) : resolve(connection),
+    );
   });
 
   await dbRun(db, `PRAGMA key = '${key}'`);

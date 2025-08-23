@@ -6,13 +6,24 @@ const mockZipInstance = {
   generate: mockGenerate,
 };
 
-const PizZip = jest.fn(() => mockZipInstance);
+let shouldThrow = false;
+
+const PizZip = jest.fn((content) => {
+  if (shouldThrow) {
+    throw new Error('Invalid zip file');
+  }
+  return mockZipInstance;
+});
 
 // Add a way to access the mocks from tests
 PizZip.mockInstance = mockZipInstance;
+PizZip.mockShouldThrow = (val) => {
+  shouldThrow = val;
+};
 
 // Custom clear function to reset the internal mocks and the main mock itself
 PizZip.mockClear = () => {
+  shouldThrow = false;
   mockFile.mockClear();
   mockGenerate.mockClear();
   // Manually reset the main mock's calls and results to avoid recursion

@@ -37,7 +37,7 @@ async function fetchExportData({ type, fields, options = {} }) {
   let whereClauses = ['1=1'];
 
   switch (type) {
-    case 'students':
+    case 'students': {
       query = `SELECT ${fieldSelection} FROM students`;
       const adultAge = getSetting('adultAgeThreshold');
       if (options.gender) {
@@ -58,7 +58,8 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
       break;
-    case 'teachers':
+    }
+    case 'teachers': {
       query = `SELECT ${fieldSelection} FROM teachers`;
       if (options.gender) {
         if (options.gender === 'men') {
@@ -71,6 +72,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
       break;
+    }
     case 'admins':
       query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
       break;
@@ -297,7 +299,8 @@ function generateDocx(title, columns, data, outputPath) {
 // --- Excel (XLSX) Template Generation ---
 async function generateExcelTemplate(outputPath) {
   const workbook = new ExcelJS.Workbook();
-  const warningMessage = '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
+  const warningMessage =
+    '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
 
   const sheets = [
     {
@@ -329,9 +332,25 @@ async function generateExcelTemplate(outputPath) {
         { header: 'ملاحظات المساعدة المالية', key: 'financial_assistance_notes', width: 30 },
       ],
       dummyData: [
-        { name: 'علي محمد', date_of_birth: '2005-04-10', gender: 'Male', national_id: '111222333', status: 'active', memorization_level: '5 أجزاء' },
-        { name: 'سارة عبدالله', date_of_birth: '2006-08-22', gender: 'Female', national_id: '222333444', status: 'active', memorization_level: '3 أجزاء', parent_name: 'عبدالله أحمد', parent_contact: '555-123-456' }
-      ]
+        {
+          name: 'علي محمد',
+          date_of_birth: '2005-04-10',
+          gender: 'Male',
+          national_id: '111222333',
+          status: 'active',
+          memorization_level: '5 أجزاء',
+        },
+        {
+          name: 'سارة عبدالله',
+          date_of_birth: '2006-08-22',
+          gender: 'Female',
+          national_id: '222333444',
+          status: 'active',
+          memorization_level: '3 أجزاء',
+          parent_name: 'عبدالله أحمد',
+          parent_contact: '555-123-456',
+        },
+      ],
     },
     {
       name: 'المعلمون',
@@ -350,9 +369,23 @@ async function generateExcelTemplate(outputPath) {
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
       dummyData: [
-        { name: 'فاطمة الزهراء', national_id: '101010101', email: 'fatima@example.com', specialization: 'تجويد', years_of_experience: 5, gender: 'Female' },
-        { name: 'خالد حسين', national_id: '202020202', email: 'khaled@example.com', specialization: 'قراءات', years_of_experience: 8, gender: 'Male' }
-      ]
+        {
+          name: 'فاطمة الزهراء',
+          national_id: '101010101',
+          email: 'fatima@example.com',
+          specialization: 'تجويد',
+          years_of_experience: 5,
+          gender: 'Female',
+        },
+        {
+          name: 'خالد حسين',
+          national_id: '202020202',
+          email: 'khaled@example.com',
+          specialization: 'قراءات',
+          years_of_experience: 8,
+          gender: 'Male',
+        },
+      ],
     },
     {
       name: 'المستخدمون',
@@ -374,9 +407,25 @@ async function generateExcelTemplate(outputPath) {
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
       dummyData: [
-        { username: 'manager_user', first_name: 'أحمد', last_name: 'محمود', role: 'Manager', employment_type: 'contract', email: 'manager@example.com', national_id: '303030303' },
-        { username: 'admin_user', first_name: 'نورة', last_name: 'سالم', role: 'Admin', employment_type: 'volunteer', email: 'admin@example.com', national_id: '404040404' }
-      ]
+        {
+          username: 'manager_user',
+          first_name: 'أحمد',
+          last_name: 'محمود',
+          role: 'Manager',
+          employment_type: 'contract',
+          email: 'manager@example.com',
+          national_id: '303030303',
+        },
+        {
+          username: 'admin_user',
+          first_name: 'نورة',
+          last_name: 'سالم',
+          role: 'Admin',
+          employment_type: 'volunteer',
+          email: 'admin@example.com',
+          national_id: '404040404',
+        },
+      ],
     },
     {
       name: 'الفصول',
@@ -392,9 +441,25 @@ async function generateExcelTemplate(outputPath) {
         { header: 'الجنس', key: 'gender', width: 15 },
       ],
       dummyData: [
-        { name: 'فصل التجويد المتقدم', class_type: 'حلقة', teacher_national_id: '101010101', gender: 'women', status: 'pending', capacity: 20, schedule: '[{"day":"Monday","time":"After Asr"}]' },
-        { name: 'فصل القراءات', class_type: 'دورة', teacher_national_id: '202020202', gender: 'men', status: 'pending', capacity: 15, start_date: '2024-09-01' }
-      ]
+        {
+          name: 'فصل التجويد المتقدم',
+          class_type: 'حلقة',
+          teacher_national_id: '101010101',
+          gender: 'women',
+          status: 'pending',
+          capacity: 20,
+          schedule: '[{"day":"Monday","time":"After Asr"}]',
+        },
+        {
+          name: 'فصل القراءات',
+          class_type: 'دورة',
+          teacher_national_id: '202020202',
+          gender: 'men',
+          status: 'pending',
+          capacity: 15,
+          start_date: '2024-09-01',
+        },
+      ],
     },
   ];
 

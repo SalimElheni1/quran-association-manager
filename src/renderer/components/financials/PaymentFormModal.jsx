@@ -87,7 +87,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
               required
             />
           </Form.Group>
-           <Form.Group className="mb-3" controlId="formPaymentMethod">
+          <Form.Group className="mb-3" controlId="formPaymentMethod">
             <Form.Label>طريقة الدفع</Form.Label>
             <Form.Control
               as="select"

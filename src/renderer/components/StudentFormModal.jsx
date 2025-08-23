@@ -159,6 +159,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   value={formData.contact_info || ''}
                   onChange={handleChange}
                 />
+                <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
               </Form.Group>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentEmail">
                 <Form.Label>البريد الإلكتروني (الطالب)</Form.Label>
@@ -168,6 +169,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   value={formData.email || ''}
                   onChange={handleChange}
                 />
+                <Form.Text className="text-muted">(مثال: user@example.com)</Form.Text>
               </Form.Group>
             </Row>
           )}
@@ -207,6 +209,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     value={formData.parent_contact || ''}
                     onChange={handleChange}
                   />
+                  <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
                 </Form.Group>
                 <Form.Group as={Col} md="6" className="mb-3" controlId="formGuardianEmail">
                   <Form.Label>بريد ولي الأمر الإلكتروني</Form.Label>
@@ -216,6 +219,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     value={formData.guardian_email || ''}
                     onChange={handleChange}
                   />
+                  <Form.Text className="text-muted">(مثال: user@example.com)</Form.Text>
                 </Form.Group>
               </Row>
               <hr />
@@ -244,6 +248,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     value={formData.emergency_contact_phone || ''}
                     onChange={handleChange}
                   />
+                  <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
                 </Form.Group>
               </Row>
               <Row>

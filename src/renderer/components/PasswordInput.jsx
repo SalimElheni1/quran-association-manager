@@ -10,6 +10,7 @@ const PasswordInput = ({
   required = false,
   label = 'كلمة المرور',
   className = 'mb-2',
+  helpText,
   ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +52,7 @@ const PasswordInput = ({
           {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
         </Button>
       </div>
+      {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
     </Form.Group>
   );
 };
