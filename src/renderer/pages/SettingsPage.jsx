@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Container,
   Row,
@@ -17,6 +18,7 @@ import { toast } from 'react-toastify';
 import PasswordPromptModal from '../components/PasswordPromptModal';
 
 const SettingsPage = () => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,7 +152,7 @@ const SettingsPage = () => {
     toast.info('بدء عملية استيراد قاعدة البيانات...');
 
     try {
-      const result = await window.electronAPI.importDatabase({ password });
+      const result = await window.electronAPI.importDatabase({ password, userId: user.id });
 
       if (result.success) {
         toast.success(result.message, { autoClose: false }); // Keep message open
