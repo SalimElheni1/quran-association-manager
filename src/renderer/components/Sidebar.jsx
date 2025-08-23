@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [associationName, setAssociationName] = useState('📖 مدير الفروع القرآنية');
+  const [associationName, setAssociationName] = useState('📖الرابطة الوطنية للقرآن الكريم ');
 
   useEffect(() => {
     const fetchAssociationName = async () => {
