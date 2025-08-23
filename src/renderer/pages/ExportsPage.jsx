@@ -245,6 +245,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
 };
 
 const studentsAdultFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
   { key: 'name', label: 'الاسم واللقب' },
   { key: 'national_id', label: 'رقم ب.ت.و' },
   { key: 'date_of_birth', label: 'تاريخ الميلاد' },
@@ -259,6 +260,7 @@ const studentsAdultFields = [
 ];
 
 const studentsKidsFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
   { key: 'name', label: 'الاسم واللقب' },
   { key: 'date_of_birth', label: 'تاريخ الميلاد' },
   { key: 'gender', label: 'الجنس' },
@@ -277,6 +279,7 @@ const arabicFieldDefinitions = {
   students: studentsAdultFields, // Default to adult fields
   studentsKids: studentsKidsFields,
   teachers: [
+    { key: 'matricule', label: 'الرقم التعريفي' },
     { key: 'name', label: 'الاسم واللقب' },
     { key: 'national_id', label: 'رقم ب.ت.و' },
     { key: 'contact_info', label: 'رقم الهاتف' },
@@ -285,6 +288,7 @@ const arabicFieldDefinitions = {
     { key: 'years_of_experience', label: 'سنوات الخبرة' },
   ],
   admins: [
+    { key: 'matricule', label: 'الرقم التعريفي' },
     { key: 'username', label: 'اسم المستخدم' },
     { key: 'first_name', label: 'الاسم الأول' },
     { key: 'last_name', label: 'اللقب' },

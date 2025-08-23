@@ -622,11 +622,9 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
   applyValidation(attendanceSheet, 'A', studentMatriculeRange);
 
 
-  if (returnDefsOnly) {
-    return sheets;
+  if (outputPath) {
+    await workbook.xlsx.writeFile(outputPath);
   }
-
-  await workbook.xlsx.writeFile(outputPath);
 }
 
 // --- Dev Data Generation ---
@@ -635,58 +633,71 @@ async function generateDevExcelTemplate(outputPath) {
   const warningMessage =
     '⚠️ This is a development template. Do not use in production. Do not modify headers.';
 
+  // Comprehensive dummy data
   const studentData = [
-    { name: 'أحمد بن علي', national_id: '111000111', gender: 'Male', date_of_birth: '2005-01-15', status: 'active' },
-    { name: 'فاطمة بنت محمد', national_id: '222000222', gender: 'Female', date_of_birth: '2006-03-20', status: 'active' },
-    { name: 'خالد عبد الله', national_id: '333000333', gender: 'Male', date_of_birth: '2004-07-10', status: 'inactive' },
-    { name: 'عائشة عمر', national_id: '444000444', gender: 'Female', date_of_birth: '2007-11-05', status: 'active' },
-    { name: 'يوسف إبراهيم', national_id: '555000555', gender: 'Male', date_of_birth: '1998-02-25', status: 'graduated' },
-    { name: 'مريم حسن', national_id: '666000666', gender: 'Female', date_of_birth: '1999-09-12', status: 'active' },
+    { name: 'أحمد بن علي (طفل)', national_id: '111000111', gender: 'Male', date_of_birth: '2015-01-15', status: 'active', parent_name: 'علي' },
+    { name: 'فاطمة بنت محمد (مراهقة)', national_id: '222000222', gender: 'Female', date_of_birth: '2008-03-20', status: 'active', school_name: 'مدرسة الأمل' },
+    { name: 'خالد عبد الله (بالغ)', national_id: '333000333', gender: 'Male', date_of_birth: '1995-07-10', status: 'inactive', occupation: 'مهندس' },
+    { name: 'عائشة عمر (بالغة)', national_id: '444000444', gender: 'Female', date_of_birth: '1999-11-05', status: 'active', educational_level: 'جامعي' },
   ];
 
   const teacherData = [
-    { name: 'الأستاذ محمود', national_id: '999888777', specialization: 'تجويد', email: 'mahmoud@dev.com' },
-    { name: 'الأستاذة سعاد', national_id: '888777666', specialization: 'حفظ', email: 'souad@dev.com' },
+    { name: 'الأستاذ محمود', national_id: '999888777', specialization: 'تجويد', email: 'mahmoud@dev.com', availability: 'دوام كامل' },
+    { name: 'الأستاذة سعاد', national_id: '888777666', specialization: 'حفظ', email: 'souad@dev.com', availability: 'صباحي فقط' },
   ];
 
+  const userData = [
+      { username: 'fin_manager', first_name: 'مدير', last_name: 'المالية', role: 'FinanceManager', employment_type: 'contract', start_date: '2023-01-01' },
+      { username: 'session_sup', first_name: 'مشرف', last_name: 'الحصص', role: 'SessionSupervisor', employment_type: 'volunteer' },
+  ]
+
   const classData = [
-      { name: 'حلقة التجويد للمبتدئين', teacher_national_id: '999888777', gender: 'all' },
-      { name: 'دورة الحفظ المكثفة', teacher_national_id: '888777666', gender: 'all' },
+      { name: 'حلقة التجويد للمبتدئين', teacher_matricule: 'T-000001', gender: 'all', capacity: 15, status: 'active' },
+      { name: 'دورة الحفظ المكثفة', teacher_matricule: 'T-000002', gender: 'men', capacity: 10, status: 'pending' },
+      { name: 'فصل الصغار', teacher_matricule: 'T-000001', gender: 'kids', capacity: 20, status: 'active' },
   ];
 
   const paymentData = [
-      { student_national_id: '111000111', amount: 50, payment_date: '2024-09-01' },
-      { student_national_id: '222000222', amount: 50, payment_date: '2024-09-02' },
+      { student_matricule: 'S-000001', amount: 50, payment_date: '2024-09-01' },
+      { student_matricule: 'S-000002', amount: 50, payment_date: '2024-09-02' },
+      { student_matricule: 'S-000004', amount: 75, payment_date: '2024-09-03' },
   ];
 
   const salaryData = [
-      { teacher_national_id: '999888777', amount: 1200, payment_date: '2024-09-05' },
+      { teacher_matricule: 'T-000001', amount: 1200, payment_date: '2024-09-05' },
+      { teacher_matricule: 'T-000002', amount: 1350, payment_date: '2024-09-05' },
   ];
 
   const donationData = [
       { donor_name: 'فاعل خير (للتطوير)', donation_type: 'Cash', amount: 1000, donation_date: '2024-09-10' },
+      { donor_name: 'مكتبة (للتطوير)', donation_type: 'In-kind', description: '100 مصحف', donation_date: '2024-09-11' },
   ];
 
   const expenseData = [
-      { category: 'لوازم مكتبية', amount: 75, expense_date: '2024-09-03' },
+      { category: 'لوازم مكتبية', amount: 75, expense_date: '2024-09-03', responsible_person: 'مدير المالية' },
+      { category: 'كهرباء وماء', amount: 250, expense_date: '2024-09-04', responsible_person: 'مدير المالية' },
   ];
 
   const attendanceData = [
-      { student_national_id: '111000111', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'present' },
-      { student_national_id: '222000222', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'absent' },
+      { student_matricule: 'S-000001', class_name: 'فصل الصغار', date: '2024-09-06', status: 'present' },
+      { student_matricule: 'S-000002', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'absent' },
+      { student_matricule: 'S-000001', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-07', status: 'late' }, // Student in multiple classes
   ];
 
 
+  const allSheetDefs = await generateExcelTemplate(null, true);
+  const getCols = (name) => allSheetDefs.find(s => s.name === name).columns;
+
   const sheets = [
-    { name: 'الطلاب', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الطلاب').columns, dummyData: studentData },
-    { name: 'المعلمون', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'المعلمون').columns, dummyData: teacherData },
-    { name: 'الفصول', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الفصول').columns, dummyData: classData },
-    { name: 'الرسوم الدراسية', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الرسوم الدراسية').columns, dummyData: paymentData },
-    { name: 'الرواتب', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الرواتب').columns, dummyData: salaryData },
-    { name: 'التبرعات', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'التبرعات').columns, dummyData: donationData },
-    { name: 'المصاريف', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'المصاريف').columns, dummyData: expenseData },
-    { name: 'الحاضر', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الحضور').columns, dummyData: attendanceData },
-    // No users sheet for dev data to avoid conflicts with superadmin
+    { name: 'الطلاب', columns: getCols('الطلاب'), dummyData: studentData },
+    { name: 'المعلمون', columns: getCols('المعلمون'), dummyData: teacherData },
+    { name: 'المستخدمون', columns: getCols('المستخدمون'), dummyData: userData },
+    { name: 'الفصول', columns: getCols('الفصول'), dummyData: classData },
+    { name: 'الرسوم الدراسية', columns: getCols('الرسوم الدراسية'), dummyData: paymentData },
+    { name: 'الرواتب', columns: getCols('الرواتب'), dummyData: salaryData },
+    { name: 'التبرعات', columns: getCols('التبرعات'), dummyData: donationData },
+    { name: 'المصاريف', columns: getCols('المصاريف'), dummyData: expenseData },
+    { name: 'الحاضر', columns: getCols('الحاضر'), dummyData: attendanceData },
   ];
 
   for (const sheetInfo of sheets) {
