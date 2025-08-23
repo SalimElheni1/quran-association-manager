@@ -94,7 +94,11 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                 value={formData.username || ''}
                 onChange={handleChange}
                 required
+                disabled={isEditMode}
               />
+              <Form.Text className="text-muted">
+                (يجب أن يكون بالإنجليزية: حروف وأرقام فقط، لا يمكن تغييره بعد الإنشاء)
+              </Form.Text>
             </Form.Group>
             <PasswordInput
               name="password"
@@ -103,6 +107,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               placeholder={isEditMode ? 'اتركه فارغاً لعدم التغيير' : ''}
               required={!isEditMode}
               label="كلمة المرور"
+              helpText={!isEditMode ? '(8 أحرف على الأقل)' : ''}
             />
           </Row>
 

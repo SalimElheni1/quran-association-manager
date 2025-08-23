@@ -9,13 +9,13 @@ const {
   generateDocx,
 } = require('../src/main/exportManager');
 const db = require('../src/db/db');
+const PizZip = require('pizzip');
+const Docxtemplater = require('docxtemplater');
 
 // Mock dependencies
 jest.mock('../src/db/db', () => ({
   allQuery: jest.fn().mockResolvedValue([]),
 }));
-
-// Mock Electron's BrowserWindow
 jest.mock('electron', () => ({
   BrowserWindow: jest.fn(() => ({
     loadFile: jest.fn().mockResolvedValue(),
@@ -25,6 +25,8 @@ jest.mock('electron', () => ({
     close: jest.fn(),
   })),
 }));
+jest.mock('pizzip');
+jest.mock('docxtemplater');
 
 describe('exportManager', () => {
   let tmpDir;
@@ -68,8 +70,6 @@ describe('exportManager', () => {
       expect(instance.loadFile).toHaveBeenCalledWith(expect.any(String)); // Check it loads a temp file
       expect(instance.webContents.printToPDF).toHaveBeenCalled();
 
-      // We can't check the file content easily, but we know the mock buffer is written
-      // This confirms the flow is correct.
       const writtenContent = fs.readFileSync(outputPath);
       expect(writtenContent.toString()).toBe('dummy pdf content');
     });
@@ -101,6 +101,11 @@ describe('exportManager', () => {
         fs.mkdirSync(templateDir, { recursive: true });
       }
       fs.writeFileSync(docxTemplatePath, 'this is not a zip file');
+
+      // Configure the PizZip mock to throw an error when instantiated
+      PizZip.mockImplementation(() => {
+        throw new Error("Can't find end of central directory : is this a zip file ?");
+      });
 
       expect(() => {
         generateDocx('Title', [], [], outputPath);

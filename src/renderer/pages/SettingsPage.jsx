@@ -277,7 +277,7 @@ const SettingsPage = () => {
                           )}
                         </Form.Group>
                         <Form.Group className="mb-3">
-                          <Form.Label>شعار الجمعية الإقليمية/المحلية</Form.Label>
+                          <Form.Label>شعار الفرع الجهوي/المحلي</Form.Label>
                           <InputGroup>
                             <Button
                               variant="outline-secondary"
@@ -404,8 +404,8 @@ const SettingsPage = () => {
                             <small
                               className={backupStatus.success ? 'text-success' : 'text-danger'}
                             >
-                              آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()}{' '}
-                              ({backupStatus.success ? 'نجحت' : 'فشلت'})
+                              آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()} (
+                              {backupStatus.success ? 'نجحت' : 'فشلت'})
                             </small>
                           )}
                         </div>

@@ -87,10 +87,16 @@ function SalariesTab() {
 
   return (
     <div>
-      {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>سجل الرواتب والأجور</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة راتب</Button>
+        <Button variant="primary" onClick={() => handleShowModal()}>
+          إضافة راتب
+        </Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -113,10 +119,19 @@ function SalariesTab() {
                 <td>{new Date(salary.payment_date).toLocaleDateString()}</td>
                 <td>{salary.notes}</td>
                 <td>
-                  <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(salary)}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => handleShowModal(salary)}
+                  >
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(salary)}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleDeleteRequest(salary)}
+                  >
                     حذف
                   </Button>
                 </td>

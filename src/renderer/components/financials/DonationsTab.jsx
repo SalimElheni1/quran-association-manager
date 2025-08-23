@@ -87,10 +87,16 @@ function DonationsTab() {
 
   return (
     <div>
-      {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>سجل التبرعات والهبات</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة تبرع</Button>
+        <Button variant="primary" onClick={() => handleShowModal()}>
+          إضافة تبرع
+        </Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -113,16 +119,27 @@ function DonationsTab() {
                 <td>{donation.donation_type === 'Cash' ? 'نقدي' : 'عيني'}</td>
                 <td className="text-start">
                   {donation.donation_type === 'Cash'
-                    ? (donation.amount ? donation.amount.toFixed(2) : '0.00')
+                    ? donation.amount
+                      ? donation.amount.toFixed(2)
+                      : '0.00'
                     : donation.description}
                 </td>
                 <td>{new Date(donation.donation_date).toLocaleDateString()}</td>
                 <td>{donation.notes}</td>
                 <td>
-                  <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(donation)}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => handleShowModal(donation)}
+                  >
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(donation)}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleDeleteRequest(donation)}
+                  >
                     حذف
                   </Button>
                 </td>

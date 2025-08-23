@@ -58,7 +58,7 @@ function Sidebar() {
           </NavLink>
           <NavLink to="/classes" className="nav-link">
             <i className="fas fa-school"></i>
-            <span>الفصول</span>
+            <span>الفصول الدراسية</span>
           </NavLink>
           <NavLink to="/attendance" className="nav-link">
             <i className="fas fa-calendar-check"></i>
@@ -76,18 +76,18 @@ function Sidebar() {
           </NavLink>
           <NavLink to="/exports" className="nav-link">
             <i className="fas fa-file-export"></i>
-            <span>التصدير</span>
+            <span>تصدير البيانات</span>
           </NavLink>
           {user?.role === 'Superadmin' && (
             <NavLink to="/users" className="nav-link">
               <i className="fas fa-user-shield"></i>
-              <span>المستخدمون</span>
+              <span>إدارة المستخدمين</span>
             </NavLink>
           )}
           {user?.role === 'Superadmin' && (
             <NavLink to="/settings" className="nav-link">
               <i className="fas fa-cog"></i>
-              <span>إعدادات النظام</span>
+              <span>الإعدادات</span>
             </NavLink>
           )}
         </nav>

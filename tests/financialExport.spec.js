@@ -42,10 +42,34 @@ describe('Financial Export', () => {
   it('should generate a multi-sheet excel file', async () => {
     const mockData = {
       summary: { totalIncome: 1000, totalExpenses: 70, balance: 930 },
-      payments: [{ student_name: 's1', amount: 100, payment_method: 'cash', payment_date: '2025-01-01', notes: '' }],
+      payments: [
+        {
+          student_name: 's1',
+          amount: 100,
+          payment_method: 'cash',
+          payment_date: '2025-01-01',
+          notes: '',
+        },
+      ],
       salaries: [{ teacher_name: 't1', amount: 50, payment_date: '2025-01-01', notes: '' }],
-      donations: [{ donor_name: 'd1', donation_type: 'Cash', amount: 200, donation_date: '2025-01-01', notes: '' }],
-      expenses: [{ category: 'c1', amount: 20, expense_date: '2025-01-01', responsible_person: 'p1', description: '' }],
+      donations: [
+        {
+          donor_name: 'd1',
+          donation_type: 'Cash',
+          amount: 200,
+          donation_date: '2025-01-01',
+          notes: '',
+        },
+      ],
+      expenses: [
+        {
+          category: 'c1',
+          amount: 20,
+          expense_date: '2025-01-01',
+          responsible_person: 'p1',
+          description: '',
+        },
+      ],
     };
     const outputPath = path.join(tmpDir, 'financial-report.xlsx');
 

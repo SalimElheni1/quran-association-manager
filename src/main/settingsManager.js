@@ -1,10 +1,10 @@
-const { getSettingsHandler } = require('./settingsHandlers');
+const { internalGetSettingsHandler } = require('./handlers/settingsHandlers');
 
 let settingsCache = null;
 
 async function refreshSettings() {
   try {
-    const { settings } = await getSettingsHandler();
+    const { settings } = await internalGetSettingsHandler();
     settingsCache = settings;
     console.log('Settings cache refreshed:', settingsCache);
   } catch (error) {

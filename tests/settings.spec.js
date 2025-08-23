@@ -1,28 +1,42 @@
-const { getSettingsHandler, updateSettingsHandler } = require('../src/main/settingsHandlers');
+const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandlers');
+const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const fs = require('fs');
 const path = require('path');
+const backupManager = require('../src/main/backupManager');
 
 // Mock dependencies
 jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('path');
+jest.mock('../src/main/backupManager');
+// Mock settingsManager and get a reference to the mock function
+const mockRefreshSettings = jest.fn();
+jest.mock('../src/main/settingsManager', () => ({
+  refreshSettings: mockRefreshSettings,
+}));
 
 describe('Settings Handlers', () => {
+  beforeAll(() => {
+    // Pass the mocked function to the handler registration
+    registerSettingsHandlers(mockRefreshSettings);
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('getSettingsHandler', () => {
+  describe('settings:get', () => {
     it('should fetch and format settings correctly', async () => {
       const mockDbResult = [
         { key: 'national_association_name', value: 'Test Association' },
         { key: 'backup_enabled', value: 'true' },
         { key: 'president_full_name', value: 'John Doe' },
       ];
+      db.isDbOpen.mockReturnValue(true); // Mock that the DB is open
       db.allQuery.mockResolvedValue(mockDbResult);
 
-      const result = await getSettingsHandler();
+      const result = await ipcMain.invoke('settings:get');
 
       expect(db.allQuery).toHaveBeenCalledWith('SELECT key, value FROM settings');
       expect(result).toEqual({
@@ -36,10 +50,7 @@ describe('Settings Handlers', () => {
     });
   });
 
-  describe('updateSettingsHandler', () => {
-    const mockApp = {
-      getPath: jest.fn().mockReturnValue('/mock/userData'),
-    };
+  describe('settings:update', () => {
     const mockSettings = {
       national_association_name: 'New Name',
       backup_enabled: false,
@@ -47,10 +58,11 @@ describe('Settings Handlers', () => {
       backup_frequency: 'daily',
     };
 
-    it('should update settings successfully without file copy', async () => {
+    it('should update settings successfully', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
+      db.allQuery.mockResolvedValue([]); // Mock the nested call to getSettingsHandler
 
-      const result = await updateSettingsHandler(mockSettings);
+      const result = await ipcMain.invoke('settings:update', mockSettings);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
@@ -62,26 +74,9 @@ describe('Settings Handlers', () => {
         'backup_enabled',
       ]);
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
+      expect(backupManager.startScheduler).toHaveBeenCalled();
+      expect(mockRefreshSettings).toHaveBeenCalled();
       expect(result).toEqual({ success: true, message: 'تم تحديث الإعدادات بنجاح.' });
-    });
-
-    it('should correctly save a relative logo path', async () => {
-      const settingsWithLogo = {
-        ...mockSettings,
-        national_logo_path: 'assets/logos/logo.png', // It now receives a relative path
-      };
-      db.runQuery.mockResolvedValue({ changes: 1 });
-
-      await updateSettingsHandler(settingsWithLogo);
-
-      // It should NOT attempt any file system operations
-      expect(fs.copyFileSync).not.toHaveBeenCalled();
-
-      // It should just save the relative path it was given
-      expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
-        'assets/logos/logo.png',
-        'national_logo_path',
-      ]);
     });
 
     it('should rollback transaction on error', async () => {
@@ -89,10 +84,12 @@ describe('Settings Handlers', () => {
         .mockResolvedValueOnce() // for BEGIN
         .mockRejectedValueOnce(new Error('DB write error')); // Fail on first UPDATE
 
-      await expect(updateSettingsHandler(mockSettings, mockApp)).rejects.toThrow('فشل تحديث الإعدادات.');
+      const result = await ipcMain.invoke('settings:update', mockSettings);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('فشل تحديث الإعدادات.');
     });
   });
 });

@@ -1,6 +1,5 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
-const path = require('path');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
@@ -85,12 +84,20 @@ const runBackup = async (settings, backupFilePath) => {
     await fs.writeFile(backupFilePath, zipContent);
 
     const message = `Backup completed successfully.`;
-    store.set('last_backup_status', { success: true, message, timestamp: new Date().toISOString() });
+    store.set('last_backup_status', {
+      success: true,
+      message,
+      timestamp: new Date().toISOString(),
+    });
     console.log(message, `Path: ${backupFilePath}`);
     return { success: true, message };
   } catch (error) {
     const message = `Failed to create SQL backup: ${error.message}`;
-    store.set('last_backup_status', { success: false, message, timestamp: new Date().toISOString() });
+    store.set('last_backup_status', {
+      success: false,
+      message,
+      timestamp: new Date().toISOString(),
+    });
     console.error(message);
     return { success: false, message };
   }
@@ -140,15 +147,18 @@ const startScheduler = (settings) => {
   console.log(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
 
   // Check every hour to see if a backup is due
-  schedulerIntervalId = setInterval(async () => {
-    // Re-fetch settings in case they changed, though restarting the scheduler is better.
-    // For simplicity here, we use the settings from when it was started.
-    // A more robust implementation would fetch settings inside the interval.
-    if (settings.backup_enabled && isBackupDue(settings)) {
-      console.log('Scheduled backup is due. Running now...');
-      await runBackup(settings);
-    }
-  }, 1000 * 60 * 60); // Check every hour
+  schedulerIntervalId = setInterval(
+    async () => {
+      // Re-fetch settings in case they changed, though restarting the scheduler is better.
+      // For simplicity here, we use the settings from when it was started.
+      // A more robust implementation would fetch settings inside the interval.
+      if (settings.backup_enabled && isBackupDue(settings)) {
+        console.log('Scheduled backup is due. Running now...');
+        await runBackup(settings);
+      }
+    },
+    1000 * 60 * 60,
+  ); // Check every hour
 };
 
 /**

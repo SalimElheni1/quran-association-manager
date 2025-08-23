@@ -1,4 +1,4 @@
-const { ipcMain, app } = require('electron');
+const { ipcMain } = require('electron');
 // const fs = require('fs');
 // const path = require('path');
 // const PDFDocument = require('pdfkit');
@@ -18,7 +18,6 @@ function createHandler(handler) {
   };
 }
 
-
 // --- Expense Handlers ---
 async function handleGetExpenses() {
   return allQuery('SELECT * FROM expenses ORDER BY expense_date DESC');
@@ -26,7 +25,13 @@ async function handleGetExpenses() {
 async function handleAddExpense(event, expense) {
   const { category, amount, expense_date, responsible_person, description } = expense;
   const sql = `INSERT INTO expenses (category, amount, expense_date, responsible_person, description) VALUES (?, ?, ?, ?, ?)`;
-  const result = await runQuery(sql, [category, amount, expense_date, responsible_person, description]);
+  const result = await runQuery(sql, [
+    category,
+    amount,
+    expense_date,
+    responsible_person,
+    description,
+  ]);
   return getQuery('SELECT * FROM expenses WHERE id = ?', [result.id]);
 }
 async function handleUpdateExpense(event, expense) {
@@ -47,7 +52,14 @@ async function handleGetDonations() {
 async function handleAddDonation(event, donation) {
   const { donor_name, amount, donation_date, notes, donation_type, description } = donation;
   const sql = `INSERT INTO donations (donor_name, amount, donation_date, notes, donation_type, description) VALUES (?, ?, ?, ?, ?, ?)`;
-  const result = await runQuery(sql, [donor_name, amount, donation_date, notes, donation_type, description]);
+  const result = await runQuery(sql, [
+    donor_name,
+    amount,
+    donation_date,
+    notes,
+    donation_type,
+    description,
+  ]);
   return getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
 }
 async function handleUpdateDonation(event, donation) {
@@ -75,13 +87,19 @@ async function handleAddSalary(event, salary) {
   const { teacher_id, amount, payment_date, notes } = salary;
   const sql = `INSERT INTO salaries (teacher_id, amount, payment_date, notes) VALUES (?, ?, ?, ?)`;
   const result = await runQuery(sql, [teacher_id, amount, payment_date, notes]);
-  return getQuery('SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?', [result.id]);
+  return getQuery(
+    'SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?',
+    [result.id],
+  );
 }
 async function handleUpdateSalary(event, salary) {
   const { id, teacher_id, amount, payment_date, notes } = salary;
   const sql = `UPDATE salaries SET teacher_id = ?, amount = ?, payment_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [teacher_id, amount, payment_date, notes, id]);
-  return getQuery('SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?', [id]);
+  return getQuery(
+    'SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?',
+    [id],
+  );
 }
 async function handleDeleteSalary(event, salaryId) {
   await runQuery('DELETE FROM salaries WHERE id = ?', [salaryId]);
@@ -102,13 +120,19 @@ async function handleAddPayment(event, payment) {
   const { student_id, amount, payment_date, payment_method, notes } = payment;
   const sql = `INSERT INTO payments (student_id, amount, payment_date, payment_method, notes) VALUES (?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [student_id, amount, payment_date, payment_method, notes]);
-  return getQuery('SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?', [result.id]);
+  return getQuery(
+    'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
+    [result.id],
+  );
 }
 async function handleUpdatePayment(event, payment) {
   const { id, student_id, amount, payment_date, payment_method, notes } = payment;
   const sql = `UPDATE payments SET student_id = ?, amount = ?, payment_date = ?, payment_method = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [student_id, amount, payment_date, payment_method, notes, id]);
-  return getQuery('SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?', [id]);
+  return getQuery(
+    'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
+    [id],
+  );
 }
 async function handleDeletePayment(event, paymentId) {
   await runQuery('DELETE FROM payments WHERE id = ?', [paymentId]);
@@ -117,17 +141,17 @@ async function handleDeletePayment(event, paymentId) {
 
 // --- Reporting Handlers ---
 async function handleGetStatementOfActivities() {
-    const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
-    const now = new Date().toISOString();
+  const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
+  const now = new Date().toISOString();
 
-    // Statement of Activities Data
-    const feesSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
-    const donationsSql = `SELECT SUM(amount) as total FROM donations WHERE donation_type = 'Cash' AND donation_date BETWEEN ? AND ?`;
-    const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
-    const expensesSql = `SELECT category, SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category`;
+  // Statement of Activities Data
+  const feesSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
+  const donationsSql = `SELECT SUM(amount) as total FROM donations WHERE donation_type = 'Cash' AND donation_date BETWEEN ? AND ?`;
+  const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
+  const expensesSql = `SELECT category, SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category`;
 
-    // Recent Transactions Data
-    const recentTransactionsSql = `
+  // Recent Transactions Data
+  const recentTransactionsSql = `
         SELECT date, type, details, amount FROM (
             SELECT payment_date as date, 'دفعة رسوم' as type, 'دفعة من الطالب ' || s.name as details, amount FROM payments p JOIN students s ON p.student_id = s.id
             UNION ALL
@@ -143,89 +167,82 @@ async function handleGetStatementOfActivities() {
         LIMIT 10;
     `;
 
-    const [
-        fees,
-        donations,
-        salaries,
-        expenses,
-        recentTransactions,
-    ] = await Promise.all([
-        getQuery(feesSql, [startOfMonth, now]),
-        getQuery(donationsSql, [startOfMonth, now]),
-        getQuery(salariesSql, [startOfMonth, now]),
-        allQuery(expensesSql, [startOfMonth, now]),
-        allQuery(recentTransactionsSql),
-    ]);
+  const [
+    fees,
+    donations,
+    salaries,
+    expenses,
+    recentTransactions
+  ] = await Promise.all([
+    getQuery(feesSql, [startOfMonth, now]),
+    getQuery(donationsSql, [startOfMonth, now]),
+    getQuery(salariesSql, [startOfMonth, now]),
+    allQuery(expensesSql, [startOfMonth, now]),
+    allQuery(recentTransactionsSql),
+  ]);
 
-    return {
-        studentFees: fees?.total || 0,
-        cashDonations: donations?.total || 0,
-        salaries: salaries?.total || 0,
-        expensesByCategory: expenses,
-        recentTransactions,
-    };
+  return {
+    studentFees: fees?.total || 0,
+    cashDonations: donations?.total || 0,
+    salaries: salaries?.total || 0,
+    expensesByCategory: expenses,
+    recentTransactions,
+  };
 }
 
 async function handleGetMonthlySnapshot() {
-    const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
-    const now = new Date().toISOString();
+  const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
+  const now = new Date().toISOString();
 
-    const incomeSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
-    const expensesSql = `SELECT SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?`;
-    const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
-    const paymentCountSql = `SELECT COUNT(*) as count FROM payments WHERE payment_date BETWEEN ? AND ?`;
-    const largestExpenseSql = `SELECT MAX(amount) as max FROM expenses WHERE expense_date BETWEEN ? AND ?`;
+  const incomeSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
+  const expensesSql = `SELECT SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?`;
+  const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
+  const paymentCountSql = `SELECT COUNT(*) as count FROM payments WHERE payment_date BETWEEN ? AND ?`;
+  const largestExpenseSql = `SELECT MAX(amount) as max FROM expenses WHERE expense_date BETWEEN ? AND ?`;
 
-    const [
-        monthlyIncome,
-        monthlyExpenses,
-        monthlySalaries,
-        paymentCount,
-        largestExpense,
-    ] = await Promise.all([
-        getQuery(incomeSql, [startOfMonth, now]),
-        getQuery(expensesSql, [startOfMonth, now]),
-        getQuery(salariesSql, [startOfMonth, now]),
-        getQuery(paymentCountSql, [startOfMonth, now]),
-        getQuery(largestExpenseSql, [startOfMonth, now]),
+  const [monthlyIncome, monthlyExpenses, monthlySalaries, paymentCount, largestExpense] =
+    await Promise.all([
+      getQuery(incomeSql, [startOfMonth, now]),
+      getQuery(expensesSql, [startOfMonth, now]),
+      getQuery(salariesSql, [startOfMonth, now]),
+      getQuery(paymentCountSql, [startOfMonth, now]),
+      getQuery(largestExpenseSql, [startOfMonth, now]),
     ]);
 
-    return {
-        totalIncomeThisMonth: monthlyIncome?.total || 0,
-        totalExpensesThisMonth: (monthlyExpenses?.total || 0) + (monthlySalaries?.total || 0),
-        paymentsThisMonth: paymentCount?.count || 0,
-        largestExpenseThisMonth: largestExpense?.max || 0,
-    };
+  return {
+    totalIncomeThisMonth: monthlyIncome?.total || 0,
+    totalExpensesThisMonth: (monthlyExpenses?.total || 0) + (monthlySalaries?.total || 0),
+    paymentsThisMonth: paymentCount?.count || 0,
+    largestExpenseThisMonth: largestExpense?.max || 0,
+  };
 }
 
-
 async function handleGetFinancialSummary() {
-    const incomeSql = `
+  const incomeSql = `
         SELECT 'Payments' as source, SUM(amount) as total FROM payments
         UNION ALL
         SELECT 'Donations' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash'
     `;
-    const expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses`;
-    const salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries`;
+  const expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses`;
+  const salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries`;
 
-    const [income, expenses, salaries] = await Promise.all([
-        allQuery(incomeSql),
-        allQuery(expensesSql),
-        allQuery(salariesSql)
-    ]);
+  const [income, expenses, salaries] = await Promise.all([
+    allQuery(incomeSql),
+    allQuery(expensesSql),
+    allQuery(salariesSql),
+  ]);
 
-    const totalIncome = income.reduce((acc, item) => acc + (item.total || 0), 0);
-    const totalExpenses = (expenses[0]?.total || 0) + (salaries[0]?.total || 0);
+  const totalIncome = income.reduce((acc, item) => acc + (item.total || 0), 0);
+  const totalExpenses = (expenses[0]?.total || 0) + (salaries[0]?.total || 0);
 
-    return {
-        totalIncome,
-        totalExpenses,
-        balance: totalIncome - totalExpenses,
-        incomeBreakdown: income,
-        expenseBreakdown: [...expenses, ...salaries]
-    };
+  return {
+    totalIncome,
+    totalExpenses,
+    balance: totalIncome - totalExpenses,
+    incomeBreakdown: income,
+    expenseBreakdown: [...expenses, ...salaries],
+  };
 }
-
 
 // --- PDF Report Generation (Disabled) ---
 // const FONT_REGULAR = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2');
@@ -234,7 +251,6 @@ async function handleGetFinancialSummary() {
 
 // --- Excel Report Generation (Disabled) ---
 // async function handleGenerateExcelReport() { ... }
-
 
 function registerFinancialHandlers() {
   ipcMain.handle('get-expenses', createHandler(handleGetExpenses));

@@ -89,10 +89,16 @@ function ExpensesTab() {
 
   return (
     <div>
-      {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>سجل المصاريف والنثريات</h4>
-        <Button variant="primary" onClick={() => handleShowModal()}>إضافة مصروف</Button>
+        <Button variant="primary" onClick={() => handleShowModal()}>
+          إضافة مصروف
+        </Button>
       </div>
       <Table striped bordered hover responsive>
         <thead>
@@ -117,10 +123,19 @@ function ExpensesTab() {
                 <td>{expense.responsible_person}</td>
                 <td>{expense.description}</td>
                 <td>
-                  <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowModal(expense)}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => handleShowModal(expense)}
+                  >
                     تعديل
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(expense)}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleDeleteRequest(expense)}
+                  >
                     حذف
                   </Button>
                 </td>

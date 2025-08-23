@@ -1,6 +1,5 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
-const path = require('path');
 const PizZip = require('pizzip');
 const { app } = require('electron');
 const Store = require('electron-store');
@@ -14,7 +13,6 @@ const {
   dbExec,
   runQuery,
   getQuery,
-  allQuery,
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
 
@@ -61,7 +59,9 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
       return; // Success
     } catch (error) {
       if (error.code === 'EBUSY' && i < retries - 1) {
-        console.warn(`EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        console.warn(
+          `EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`,
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         // Re-throw the last error or any other error
@@ -71,7 +71,6 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
     }
   }
 }
-
 
 /**
  * Replaces the current database by importing data from a SQL dump file.
@@ -135,7 +134,10 @@ async function replaceDatabase(importedDbPath, password) {
     app.relaunch();
     app.quit();
 
-    return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.' };
+    return {
+      success: true,
+      message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
+    };
   } catch (error) {
     console.error('Failed to replace database from package:', error);
     // Attempt to restore previous state if something went wrong
@@ -162,7 +164,6 @@ const getColumnIndex = (headerRow, headerText) => {
   });
   return index;
 };
-
 
 async function importExcelData(filePath) {
   const workbook = new ExcelJS.Workbook();
@@ -226,7 +227,6 @@ async function importExcelData(filePath) {
   await processSheet('المستخدمون', processUserRow);
   await processSheet('الفصول', processClassRow);
 
-
   return results;
 }
 
@@ -245,7 +245,8 @@ async function processStudentRow(row, headerRow) {
     guardian_relation: row.getCell(getColumnIndex(headerRow, 'صلة القرابة')).value,
     parent_contact: row.getCell(getColumnIndex(headerRow, 'هاتف ولي الأمر')).value,
     guardian_email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني للولي')).value?.text,
-    emergency_contact_name: row.getCell(getColumnIndex(headerRow, 'جهة الاتصال في حالات الطوارئ')).value,
+    emergency_contact_name: row.getCell(getColumnIndex(headerRow, 'جهة الاتصال في حالات الطوارئ'))
+      .value,
     emergency_contact_phone: row.getCell(getColumnIndex(headerRow, 'هاتف الطوارئ')).value,
     health_conditions: row.getCell(getColumnIndex(headerRow, 'الحالة الصحية')).value,
     national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
@@ -255,21 +256,25 @@ async function processStudentRow(row, headerRow) {
     occupation: row.getCell(getColumnIndex(headerRow, 'المهنة')).value,
     civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية')).value,
     related_family_members: row.getCell(getColumnIndex(headerRow, 'أفراد العائلة المسجلون')).value,
-    financial_assistance_notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات المساعدة المالية')).value,
+    financial_assistance_notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات المساعدة المالية'))
+      .value,
   };
 
   if (!data.name) {
-    return { success: false, message: "اسم الطالب مطلوب." };
+    return { success: false, message: 'اسم الطالب مطلوب.' };
   }
 
-  const existingStudent = await getQuery('SELECT id FROM students WHERE name = ? OR national_id = ?', [data.name, data.national_id]);
+  const existingStudent = await getQuery(
+    'SELECT id FROM students WHERE name = ? OR national_id = ?',
+    [data.name, data.national_id],
+  );
   if (existingStudent) {
     return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
   }
 
-  const fields = Object.keys(data).filter(k => data[k] !== null && data[k] !== undefined);
+  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map(k => data[k]);
+  const values = fields.map((k) => data[k]);
 
   const sql = `INSERT INTO students (${fields.join(', ')}) VALUES (${placeholders})`;
   await runQuery(sql, values);
@@ -294,17 +299,19 @@ async function processTeacherRow(row, headerRow) {
   };
 
   if (!data.name || !data.national_id) {
-    return { success: false, message: "اسم المعلم ورقم الهوية مطلوبان." };
+    return { success: false, message: 'اسم المعلم ورقم الهوية مطلوبان.' };
   }
 
-  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [data.national_id]);
+  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
+    data.national_id,
+  ]);
   if (existingTeacher) {
     return { success: false, message: `المعلم برقم الهوية "${data.national_id}" موجود بالفعل.` };
   }
 
-  const fields = Object.keys(data).filter(k => data[k] !== null && data[k] !== undefined);
+  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map(k => data[k]);
+  const values = fields.map((k) => data[k]);
 
   const sql = `INSERT INTO teachers (${fields.join(', ')}) VALUES (${placeholders})`;
   await runQuery(sql, values);
@@ -313,57 +320,73 @@ async function processTeacherRow(row, headerRow) {
 }
 
 async function processUserRow(row, headerRow) {
-    const password = Math.random().toString(36).slice(-8);
-    const hashedPassword = bcrypt.hashSync(password, 10);
+  const password = Math.random().toString(36).slice(-8);
+  const hashedPassword = bcrypt.hashSync(password, 10);
 
-    const data = {
-        username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
-        first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
-        last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-        password: hashedPassword,
-        date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-        national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-        email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
-        phone_number: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-        occupation: row.getCell(getColumnIndex(headerRow, 'المهنة')).value,
-        civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية')).value,
-        employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
-        start_date: row.getCell(getColumnIndex(headerRow, 'تاريخ البدء')).value,
-        end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء')).value,
-        role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
-        status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value || 'active',
-        notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
+  const data = {
+    username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
+    first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
+    last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
+    password: hashedPassword,
+    date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
+    national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
+    email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
+    phone_number: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
+    occupation: row.getCell(getColumnIndex(headerRow, 'المهنة')).value,
+    civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية')).value,
+    employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
+    start_date: row.getCell(getColumnIndex(headerRow, 'تاريخ البدء')).value,
+    end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء')).value,
+    role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
+    status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value || 'active',
+    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
+  };
+
+  if (
+    !data.username ||
+    !data.first_name ||
+    !data.last_name ||
+    !data.role ||
+    !data.employment_type
+  ) {
+    return {
+      success: false,
+      message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.',
     };
+  }
 
-    if (!data.username || !data.first_name || !data.last_name || !data.role || !data.employment_type) {
-        return { success: false, message: "اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة." };
-    }
+  const existingUser = await getQuery(
+    'SELECT id FROM users WHERE username = ? OR email = ? OR national_id = ?',
+    [data.username, data.email, data.national_id],
+  );
+  if (existingUser) {
+    return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
+  }
 
-    const existingUser = await getQuery('SELECT id FROM users WHERE username = ? OR email = ? OR national_id = ?', [data.username, data.email, data.national_id]);
-    if (existingUser) {
-        return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
-    }
+  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
+  const placeholders = fields.map(() => '?').join(', ');
+  const values = fields.map((k) => data[k]);
 
-    const fields = Object.keys(data).filter(k => data[k] !== null && data[k] !== undefined);
-    const placeholders = fields.map(() => '?').join(', ');
-    const values = fields.map(k => data[k]);
+  const sql = `INSERT INTO users (${fields.join(', ')}) VALUES (${placeholders})`;
+  await runQuery(sql, values);
 
-    const sql = `INSERT INTO users (${fields.join(', ')}) VALUES (${placeholders})`;
-    await runQuery(sql, values);
-
-    return { success: true, newUser: { username: data.username, password: password } };
+  return { success: true, newUser: { username: data.username, password: password } };
 }
-
 
 async function processClassRow(row, headerRow) {
   const teacherNationalId = row.getCell(getColumnIndex(headerRow, 'رقم هوية المعلم')).value;
   if (!teacherNationalId) {
-    return { success: false, message: "رقم هوية المعلم مطلوب." };
+    return { success: false, message: 'رقم هوية المعلم مطلوب.' };
   }
 
-  const teacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [teacherNationalId]);
+  const teacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
+    teacherNationalId,
+  ]);
   if (!teacher) {
-    return { success: false, message: `لم يتم العثور على معلم برقم الهوية "${teacherNationalId}".` };
+    return {
+      success: false,
+      message: `لم يتم العثور على معلم برقم الهوية "${teacherNationalId}".`,
+    };
   }
 
   const data = {
@@ -379,12 +402,12 @@ async function processClassRow(row, headerRow) {
   };
 
   if (!data.name) {
-    return { success: false, message: "اسم الفصل مطلوب." };
+    return { success: false, message: 'اسم الفصل مطلوب.' };
   }
 
-  const fields = Object.keys(data).filter(k => data[k] !== null && data[k] !== undefined);
+  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map(k => data[k]);
+  const values = fields.map((k) => data[k]);
 
   const sql = `INSERT INTO classes (${fields.join(', ')}) VALUES (${placeholders})`;
   await runQuery(sql, values);
