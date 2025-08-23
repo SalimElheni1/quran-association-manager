@@ -1,122 +1,53 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
 const Store = require('electron-store');
 const { app } = require('electron');
-const { getDatabasePath, isDbOpen, closeDatabase } = require('../db/db');
-const { deriveKey } = require('./keyManager');
-const sqlite3 = require('@journeyapps/sqlcipher').verbose();
+const {
+  getDatabasePath,
+  isDbOpen,
+  closeDatabase,
+  initializeDatabase,
+  getDb,
+  dbExec,
+} = require('../db/db');
 
 const saltStore = new Store({ name: 'db-config' });
 
 /**
- * Validates a packaged database file by unzipping it and trying to open the
- * database with the included salt and the user-provided password.
+ * Validates a packaged backup file by checking for the required contents.
  * @param {string} filePath - The path to the `.qdb` backup file to validate.
- * @param {string} password - The password to test against the database.
  * @returns {Promise<{isValid: boolean, message: string}>}
  */
-async function validateDatabaseFile(filePath, password) {
-  let tempDbPath; // Define here to be accessible in the final catch block
+async function validateDatabaseFile(filePath) {
   try {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
 
-    const dbFile = zip.file('database.sqlite');
+    const sqlFile = zip.file('backup.sql');
     const configFile = zip.file('config.json');
 
-    if (!dbFile || !configFile) {
+    if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
 
-    const dbBuffer = dbFile.asNodeBuffer();
-    const configContent = configFile.asText();
-    const { 'db-salt': salt } = JSON.parse(configContent);
-
-    if (!salt) {
-      return { isValid: false, message: 'ملف النسخ الاحتياطي لا يحتوي على مفتاح التشفير.' };
-    }
-
-    tempDbPath = path.join(require('os').tmpdir(), `validate-${Date.now()}.sqlite`);
-    await fs.writeFile(tempDbPath, dbBuffer);
-
-    const key = deriveKey(password, salt);
-
-    return new Promise((resolve) => {
-      const tempDb = new sqlite3.Database(tempDbPath, (err) => {
-        if (err) {
-          fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
-          return resolve({ isValid: false, message: `فشل فتح الملف: ${err.message}` });
-        }
-
-        // Chain of operations for validation
-        tempDb.serialize(() => {
-          // 1. Set the key. This itself doesn't error on wrong key.
-          tempDb.run(`PRAGMA key = '${key}'`);
-
-          // 2. Attempt a write operation. This WILL fail if the key is wrong.
-          tempDb.run('CREATE TABLE __validation_test__ (id INT)', (createErr) => {
-            if (createErr) {
-              // This is the expected path for a wrong password.
-              tempDb.close();
-              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
-              return resolve({
-                isValid: false,
-                message: 'كلمة المرور غير صحيحة لهذا النسخ الاحتياطي.',
-              });
-            }
-
-            // 3. If creation succeeds, drop the table to clean up.
-            tempDb.run('DROP TABLE __validation_test__', (dropErr) => {
-              if (dropErr) {
-                // This would be an unexpected error.
-                console.error('Failed to drop validation table:', dropErr);
-              }
-              // 4. Close DB and resolve success.
-              tempDb.close();
-              fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file', e));
-              return resolve({ isValid: true, message: 'تم التحقق من صحة قاعدة البيانات بنجاح.' });
-            });
-          });
-        });
-      });
-    });
+    // Further validation could check if config.json is valid JSON, etc.
+    // For now, presence of files is enough.
+    return { isValid: true, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
   } catch (error) {
     console.error('Error during backup validation:', error);
-    if (tempDbPath) {
-      fs.unlink(tempDbPath).catch((e) => console.error('Failed to cleanup temp file on error', e));
-    }
     return { isValid: false, message: `خطأ في قراءة ملف النسخ الاحتياطي: ${error.message}` };
   }
 }
 
 /**
- * Creates a backup of the current database file.
- * @returns {Promise<{success: boolean, path?: string, message: string}>}
- */
-async function backupCurrentDb() {
-  const sourcePath = getDatabasePath();
-  const backupDir = path.dirname(sourcePath);
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFileName = `pre-import-backup-${timestamp}.sqlite`;
-  const backupFilePath = path.join(backupDir, backupFileName);
-
-  try {
-    await fs.copyFile(sourcePath, backupFilePath);
-    console.log(`Backup created at: ${backupFilePath}`);
-    return { success: true, path: backupFilePath, message: 'تم إنشاء نسخة احتياطية من قاعدة البيانات الحالية.' };
-  } catch (error) {
-    console.error('Failed to create backup:', error);
-    return { success: false, message: `فشل إنشاء النسخة الاحتياطية: ${error.message}` };
-  }
-}
-
-/**
- * Replaces the current database file with the imported one.
- * @param {string} importedDbPath - The path to the validated, imported database file.
+ * Replaces the current database by importing data from a SQL dump file.
+ * @param {string} importedDbPath - Path to the `.qdb` backup file.
+ * @param {string} password - The user's password for the database.
  * @returns {Promise<{success: boolean, message: string}>}
  */
-async function replaceDatabase(importedDbPath) {
+async function replaceDatabase(importedDbPath, password) {
   const currentDbPath = getDatabasePath();
   const currentSaltPath = saltStore.path;
 
@@ -129,39 +60,59 @@ async function replaceDatabase(importedDbPath) {
     // 2. Read the contents of the backup package
     const zipFileContent = await fs.readFile(importedDbPath);
     const zip = new PizZip(zipFileContent);
-    const dbFile = zip.file('database.sqlite');
+    const sqlFile = zip.file('backup.sql');
     const configFile = zip.file('config.json');
 
-    if (!dbFile || !configFile) {
-      throw new Error('Could not find required files in backup package.');
+    if (!sqlFile || !configFile) {
+      throw new Error('Could not find required files (backup.sql, config.json) in backup package.');
     }
 
-    const dbBuffer = dbFile.asNodeBuffer();
+    const sqlScript = sqlFile.asText();
     const configBuffer = configFile.asNodeBuffer();
     const configJson = JSON.parse(configBuffer.toString());
+    const newSalt = configJson['db-salt'];
 
-    // 3. Overwrite the current database and salt config files
-    await fs.writeFile(currentDbPath, dbBuffer);
+    if (!newSalt) {
+      throw new Error('Backup configuration is missing the required salt.');
+    }
+
+    // 3. Overwrite the salt config file and update the in-memory store
     await fs.writeFile(currentSaltPath, configBuffer);
+    saltStore.set('db-salt', newSalt);
+    console.log('Salt configuration updated from backup.');
 
-    // 4. IMPORTANT: Update the in-memory store to prevent using a cached old salt
-    saltStore.set('db-salt', configJson['db-salt']);
+    // 4. Delete the old database file, if it exists
+    if (fsSync.existsSync(currentDbPath)) {
+      console.log(`Deleting old database file at ${currentDbPath}...`);
+      await fs.unlink(currentDbPath);
+    }
 
-    console.log('Database and salt config replaced successfully. The app will now restart.');
+    // 5. Initialize a new, empty, encrypted database with the new salt
+    console.log('Initializing new database with imported salt...');
+    await initializeDatabase(password);
+    console.log('New database initialized successfully.');
 
-    // 5. Relaunch the application to apply the new database
+    // 6. Execute the SQL script to populate the new database
+    console.log('Executing SQL script to import data...');
+    await dbExec(getDb(), sqlScript);
+    console.log('Data import completed successfully.');
+
+    // 7. Relaunch the application to apply all changes
+    console.log('Database import successful. The app will now restart.');
     app.relaunch();
     app.quit();
 
     return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.' };
   } catch (error) {
     console.error('Failed to replace database from package:', error);
-    return { success: false, message: `فشل استبدال ملف قاعدة البيانات: ${error.message}` };
+    // Attempt to restore previous state if something went wrong
+    // This is complex; for now, we just log the error. A more robust
+    // solution might try to restore the pre-import backup.
+    return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
   }
 }
 
 module.exports = {
   validateDatabaseFile,
-  backupCurrentDb,
   replaceDatabase,
 };

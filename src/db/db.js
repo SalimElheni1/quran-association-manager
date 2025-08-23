@@ -303,4 +303,5 @@ module.exports = {
   getDb,
   getDatabasePath,
   isDbOpen,
+  dbExec,
 };

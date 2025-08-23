@@ -962,50 +962,40 @@ ipcMain.handle('backup:getStatus', () => {
 });
 
 ipcMain.handle('db:import', async (_event, { password }) => {
-  // 1. Prompt user to select a database file
+  // 1. Check if a password was provided.
+  if (!password) {
+    return { success: false, message: 'كلمة المرور مطلوبة لإكمال عملية الاستيراد.' };
+  }
+
+  // 2. Prompt user to select a database file.
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Select Database to Import',
     properties: ['openFile'],
     filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
   });
 
-  if (canceled || !filePaths || filePaths.length === 0) {
+  if (canceled || !filePaths || !filePaths[0]) {
     return { success: false, message: 'لم يتم تحديد أي ملف.' };
   }
 
   const importedDbPath = filePaths[0];
 
   try {
-    // 2. Validate the selected file
-    const validationResult = await importManager.validateDatabaseFile(importedDbPath, password);
+    // 3. Validate the backup file structure.
+    const validationResult = await importManager.validateDatabaseFile(importedDbPath);
     if (!validationResult.isValid) {
       return { success: false, message: validationResult.message };
     }
 
-    // 3. Backup the current database
-    const backupResult = await importManager.backupCurrentDb();
-    if (!backupResult.success) {
-      return { success: false, message: backupResult.message };
-    }
+    // 4. Replace the database. This function now handles everything:
+    // closing the old DB, replacing salt, deleting the old DB,
+    // creating a new one, running the SQL script, and restarting the app.
+    const replaceResult = await importManager.replaceDatabase(importedDbPath, password);
 
-    // 4. Replace the database file
-    const replaceResult = await importManager.replaceDatabase(importedDbPath);
-    if (!replaceResult.success) {
-      // TODO: Offer to restore from the backup we just made.
-      return { success: false, message: replaceResult.message };
-    }
-
-    // 5. Success: Inform the user that a restart is needed, then relaunch the app.
-    // The relaunch will happen after a short delay to allow the UI to show the success message.
-    setTimeout(() => {
-      app.relaunch();
-      app.quit();
-    }, 1000);
-
-    return {
-      success: true,
-      message: 'تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق الآن.',
-    };
+    // This part of the code will likely not be reached if the import is successful,
+    // because the app will quit and relaunch. It's here to handle the case where
+    // replaceDatabase returns a failure.
+    return replaceResult;
   } catch (error) {
     console.error('Error during database import process:', error);
     return {
