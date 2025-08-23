@@ -9,11 +9,13 @@ const store = new Store();
 const saltStore = new Store({ name: 'db-config' });
 
 /**
- * Generates a SQL script of INSERT statements for all data in the database.
+ * Generates a SQL script of REPLACE statements for all data in the database.
+ * Using REPLACE (or INSERT OR REPLACE) handles conflicts with pre-existing data
+ * (e.g., default settings) during the import process.
  * @returns {Promise<string>} A string containing the full SQL dump.
  */
-async function generateSqlInsertStatements() {
-  const insertStatements = [];
+async function generateSqlReplaceStatements() {
+  const replaceStatements = [];
   // Get all user-defined tables, excluding the migrations tracking table
   const tables = await allQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'",
@@ -37,10 +39,11 @@ async function generateSqlInsertStatements() {
           return val;
         })
         .join(', ');
-      insertStatements.push(`INSERT INTO "${tableName}" (${columnNames}) VALUES (${values});`);
+      // Use REPLACE INTO to avoid UNIQUE constraint errors on import
+      replaceStatements.push(`REPLACE INTO "${tableName}" (${columnNames}) VALUES (${values});`);
     }
   }
-  return insertStatements.join('\n');
+  return replaceStatements.join('\n');
 }
 
 /**
@@ -64,7 +67,7 @@ const runBackup = async (settings, backupFilePath) => {
 
     // 2. Generate SQL data dump and read salt file
     console.log('Generating SQL dump...');
-    const sqlDump = await generateSqlInsertStatements();
+    const sqlDump = await generateSqlReplaceStatements();
     const saltFileContent = await fs.readFile(sourceSaltPath);
     console.log('SQL dump generated successfully.');
 
