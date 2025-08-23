@@ -21,9 +21,24 @@ const settingsValidationSchema = Joi.object({
   backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
 });
 
+const defaultSettings = {
+  national_association_name: 'الرابطة الوطنية للقرآن الكريم',
+  regional_association_name: '',
+  local_branch_name: '',
+  national_logo_path: 'assets/logos/g247.png',
+  regional_local_logo_path: '',
+  backup_path: '',
+  backup_enabled: false,
+  backup_frequency: 'daily',
+  president_full_name: '',
+  adultAgeThreshold: 18,
+  backup_reminder_enabled: true,
+  backup_reminder_frequency_days: 7,
+};
+
 const internalGetSettingsHandler = async () => {
   const results = await db.allQuery('SELECT key, value FROM settings');
-  const settings = results.reduce((acc, { key, value }) => {
+  const dbSettings = results.reduce((acc, { key, value }) => {
     // Convert string representations of booleans and numbers back to their types
     if (value === 'true') {
       acc[key] = true;
@@ -36,6 +51,10 @@ const internalGetSettingsHandler = async () => {
     }
     return acc;
   }, {});
+
+  // Merge database settings with defaults to ensure all keys are present
+  const settings = { ...defaultSettings, ...dbSettings };
+
   return { success: true, settings };
 };
 
