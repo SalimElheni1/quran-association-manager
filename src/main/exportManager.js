@@ -297,7 +297,7 @@ function generateDocx(title, columns, data, outputPath) {
 }
 
 // --- Excel (XLSX) Template Generation ---
-async function generateExcelTemplate(outputPath) {
+async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
   const workbook = new ExcelJS.Workbook();
   const warningMessage =
     '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
@@ -334,7 +334,6 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
-          matricule: 'S-000001',
           name: 'علي محمد',
           date_of_birth: '2005-04-10',
           gender: 'Male',
@@ -343,7 +342,6 @@ async function generateExcelTemplate(outputPath) {
           memorization_level: '5 أجزاء',
         },
         {
-          matricule: 'S-000002',
           name: 'سارة عبدالله',
           date_of_birth: '2006-08-22',
           gender: 'Female',
@@ -374,7 +372,6 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
-          matricule: 'T-000001',
           name: 'فاطمة الزهراء',
           national_id: '101010101',
           email: 'fatima@example.com',
@@ -383,7 +380,6 @@ async function generateExcelTemplate(outputPath) {
           gender: 'Female',
         },
         {
-          matricule: 'T-000002',
           name: 'خالد حسين',
           national_id: '202020202',
           email: 'khaled@example.com',
@@ -415,7 +411,6 @@ async function generateExcelTemplate(outputPath) {
       ],
       dummyData: [
         {
-          matricule: 'U-000001',
           username: 'manager_user',
           first_name: 'أحمد',
           last_name: 'محمود',
@@ -425,7 +420,6 @@ async function generateExcelTemplate(outputPath) {
           national_id: '303030303',
         },
         {
-          matricule: 'U-000002',
           username: 'admin_user',
           first_name: 'نورة',
           last_name: 'سالم',
@@ -569,6 +563,10 @@ async function generateExcelTemplate(outputPath) {
     },
   ];
 
+  if (returnDefsOnly) {
+    return sheets;
+  }
+
   for (const sheetInfo of sheets) {
     const worksheet = workbook.addWorksheet(sheetInfo.name);
     worksheet.views = [{ rightToLeft: true }];
@@ -596,6 +594,82 @@ async function generateExcelTemplate(outputPath) {
   await workbook.xlsx.writeFile(outputPath);
 }
 
+// --- Dev Data Generation ---
+async function generateDevExcelTemplate(outputPath) {
+  const workbook = new ExcelJS.Workbook();
+  const warningMessage =
+    '⚠️ This is a development template. Do not use in production. Do not modify headers.';
+
+  const studentData = [
+    { name: 'أحمد بن علي', national_id: '111000111', gender: 'Male', date_of_birth: '2005-01-15', status: 'active' },
+    { name: 'فاطمة بنت محمد', national_id: '222000222', gender: 'Female', date_of_birth: '2006-03-20', status: 'active' },
+    { name: 'خالد عبد الله', national_id: '333000333', gender: 'Male', date_of_birth: '2004-07-10', status: 'inactive' },
+    { name: 'عائشة عمر', national_id: '444000444', gender: 'Female', date_of_birth: '2007-11-05', status: 'active' },
+    { name: 'يوسف إبراهيم', national_id: '555000555', gender: 'Male', date_of_birth: '1998-02-25', status: 'graduated' },
+    { name: 'مريم حسن', national_id: '666000666', gender: 'Female', date_of_birth: '1999-09-12', status: 'active' },
+  ];
+
+  const teacherData = [
+    { name: 'الأستاذ محمود', national_id: '999888777', specialization: 'تجويد', email: 'mahmoud@dev.com' },
+    { name: 'الأستاذة سعاد', national_id: '888777666', specialization: 'حفظ', email: 'souad@dev.com' },
+  ];
+
+  const classData = [
+      { name: 'حلقة التجويد للمبتدئين', teacher_national_id: '999888777', gender: 'all' },
+      { name: 'دورة الحفظ المكثفة', teacher_national_id: '888777666', gender: 'all' },
+  ];
+
+  const paymentData = [
+      { student_national_id: '111000111', amount: 50, payment_date: '2024-09-01' },
+      { student_national_id: '222000222', amount: 50, payment_date: '2024-09-02' },
+  ];
+
+  const salaryData = [
+      { teacher_national_id: '999888777', amount: 1200, payment_date: '2024-09-05' },
+  ];
+
+  const donationData = [
+      { donor_name: 'فاعل خير (للتطوير)', donation_type: 'Cash', amount: 1000, donation_date: '2024-09-10' },
+  ];
+
+  const expenseData = [
+      { category: 'لوازم مكتبية', amount: 75, expense_date: '2024-09-03' },
+  ];
+
+  const attendanceData = [
+      { student_national_id: '111000111', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'present' },
+      { student_national_id: '222000222', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'absent' },
+  ];
+
+
+  const sheets = [
+    { name: 'الطلاب', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الطلاب').columns, dummyData: studentData },
+    { name: 'المعلمون', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'المعلمون').columns, dummyData: teacherData },
+    { name: 'الفصول', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الفصول').columns, dummyData: classData },
+    { name: 'الرسوم الدراسية', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الرسوم الدراسية').columns, dummyData: paymentData },
+    { name: 'الرواتب', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الرواتب').columns, dummyData: salaryData },
+    { name: 'التبرعات', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'التبرعات').columns, dummyData: donationData },
+    { name: 'المصاريف', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'المصاريف').columns, dummyData: expenseData },
+    { name: 'الحاضر', columns: (await generateExcelTemplate(null, true)).find(s => s.name === 'الحضور').columns, dummyData: attendanceData },
+    // No users sheet for dev data to avoid conflicts with superadmin
+  ];
+
+  for (const sheetInfo of sheets) {
+    const worksheet = workbook.addWorksheet(sheetInfo.name);
+    worksheet.views = [{ rightToLeft: true }];
+    worksheet.columns = sheetInfo.columns;
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.spliceRows(1, 0, [warningMessage]);
+    const warningRow = worksheet.getRow(1);
+    warningRow.font = { color: { argb: 'FFFF0000' }, bold: true, size: 14 };
+    worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length);
+    worksheet.addRows(sheetInfo.dummyData);
+  }
+
+  await workbook.xlsx.writeFile(outputPath);
+}
+
+
 module.exports = {
   fetchExportData,
   fetchFinancialData,
@@ -604,4 +678,5 @@ module.exports = {
   generateFinancialXlsx,
   generateDocx,
   generateExcelTemplate,
+  generateDevExcelTemplate,
 };

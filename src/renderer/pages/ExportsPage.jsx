@@ -323,6 +323,24 @@ const ImportTabPanel = () => {
     }
   };
 
+  const handleGenerateDevTemplate = async () => {
+    setIsLoading(true);
+    setMessage({ type: '', text: '' });
+    setImportResults(null);
+    try {
+      const result = await window.electronAPI.generateDevTemplate();
+      if (result.success) {
+        setMessage({ type: 'success', text: 'تم إنشاء قالب التطوير بنجاح!' });
+      } else {
+        setMessage({ type: 'danger', text: `فشل إنشاء القالب: ${result.message}` });
+      }
+    } catch (error) {
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleImport = async () => {
     setIsLoading(true);
     setMessage({ type: '', text: '' });
@@ -360,6 +378,11 @@ const ImportTabPanel = () => {
           <Button variant="success" onClick={handleImport} disabled={isLoading}>
             {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button variant="warning" onClick={handleGenerateDevTemplate} disabled={isLoading}>
+              {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب تطوير'}
+            </Button>
+          )}
         </div>
 
         {message.text && <Alert variant={message.type}>{message.text}</Alert>}

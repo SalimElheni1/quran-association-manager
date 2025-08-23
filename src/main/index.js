@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const path = require('path');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
@@ -13,6 +13,7 @@ const { registerAuthHandlers } = require('./handlers/authHandlers');
 const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
 const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { generateDevExcelTemplate } = require('./exportManager');
 
 require('dotenv').config();
 
@@ -94,6 +95,25 @@ app.whenReady().then(async () => {
     }
 
     // Register all IPC handlers
+    ipcMain.handle('export:generate-dev-template', async () => {
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Dev Excel Template',
+        defaultPath: `quran-assoc-dev-template-${Date.now()}.xlsx`,
+        filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
+      });
+
+      if (filePath) {
+        try {
+          await generateDevExcelTemplate(filePath);
+          return { success: true, path: filePath };
+        } catch (error) {
+          console.error('Failed to generate dev excel template:', error);
+          return { success: false, message: error.message };
+        }
+      }
+      return { success: false, message: 'Save cancelled by user.' };
+    });
+
     registerFinancialHandlers();
     registerStudentHandlers();
     registerTeacherHandlers();
