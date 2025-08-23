@@ -339,13 +339,22 @@ async function processUserRow(row, headerRow) {
 }
 
 async function processClassRow(row, headerRow) {
-  const teacherNationalId = row.getCell(getColumnIndex(headerRow, 'رقم هوية المعلم')).value;
-  if (!teacherNationalId) return { success: false, message: 'رقم هوية المعلم مطلوب.' };
-  const teacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [teacherNationalId]);
-  if (!teacher) return { success: false, message: `لم يتم العثور على معلم برقم الهوية "${teacherNationalId}".` };
+  const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
+  if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
+  const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
+  if (!teacher) {
+    return { success: false, message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".` };
+  }
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value,
     teacher_id: teacher.id,
+    class_type: row.getCell(getColumnIndex(headerRow, 'نوع الفصل'))?.value,
+    schedule: row.getCell(getColumnIndex(headerRow, 'الجدول الزمني (JSON)'))?.value,
+    start_date: row.getCell(getColumnIndex(headerRow, 'تاريخ البدء'))?.value,
+    end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء'))?.value,
+    status: row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value,
+    capacity: row.getCell(getColumnIndex(headerRow, 'السعة'))?.value,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value,
   };
   if (!data.name) return { success: false, message: 'اسم الفصل مطلوب.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
@@ -356,10 +365,12 @@ async function processClassRow(row, headerRow) {
 }
 
 async function processPaymentRow(row, headerRow) {
-  const studentNationalId = row.getCell(getColumnIndex(headerRow, 'رقم هوية الطالب')).value;
-  if (!studentNationalId) return { success: false, message: 'رقم هوية الطالب مطلوب.' };
-  const student = await getQuery('SELECT id FROM students WHERE national_id = ?', [studentNationalId]);
-  if (!student) return { success: false, message: `لم يتم العثور على طالب برقم الهوية "${studentNationalId}".` };
+  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
+  if (!studentMatricule) return { success: false, message: 'الرقم التعريفي للطالب مطلوب.' };
+  const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
+  if (!student) {
+    return { success: false, message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".` };
+  }
   const data = {
     student_id: student.id,
     amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
@@ -376,10 +387,12 @@ async function processPaymentRow(row, headerRow) {
 }
 
 async function processSalaryRow(row, headerRow) {
-  const teacherNationalId = row.getCell(getColumnIndex(headerRow, 'رقم هوية المعلم')).value;
-  if (!teacherNationalId) return { success: false, message: 'رقم هوية المعلم مطلوب.' };
-  const teacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [teacherNationalId]);
-  if (!teacher) return { success: false, message: `لم يتم العثور على معلم برقم الهوية "${teacherNationalId}".` };
+  const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
+  if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
+  const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
+  if (!teacher) {
+    return { success: false, message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".` };
+  }
   const data = {
     teacher_id: teacher.id,
     amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
@@ -430,11 +443,15 @@ async function processExpenseRow(row, headerRow) {
 }
 
 async function processAttendanceRow(row, headerRow) {
-  const studentNationalId = row.getCell(getColumnIndex(headerRow, 'رقم هوية الطالب')).value;
+  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
   const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
-  if (!studentNationalId || !className) return { success: false, message: 'رقم هوية الطالب واسم الفصل مطلوبان.' };
-  const student = await getQuery('SELECT id FROM students WHERE national_id = ?', [studentNationalId]);
-  if (!student) return { success: false, message: `لم يتم العثور على طالب برقم الهوية "${studentNationalId}".` };
+  if (!studentMatricule || !className) {
+    return { success: false, message: 'الرقم التعريفي للطالب واسم الفصل مطلوبان.' };
+  }
+  const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
+  if (!student) {
+    return { success: false, message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".` };
+  }
   const classData = await getQuery('SELECT id FROM classes WHERE name = ?', [className]);
   if (!classData) return { success: false, message: `لم يتم العثور على فصل باسم "${className}".` };
   const data = {
