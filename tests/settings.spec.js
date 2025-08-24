@@ -35,13 +35,26 @@ describe('Settings Handlers', () => {
       const result = await ipcMain.invoke('settings:get');
 
       expect(db.allQuery).toHaveBeenCalledWith('SELECT key, value FROM settings');
+      // The handler merges DB settings over a set of defaults.
+      // The test must expect the final, merged object.
+      const expectedSettings = {
+        national_association_name: 'Test Association', // Overridden by mock
+        regional_association_name: '',
+        local_branch_name: '',
+        national_logo_path: 'assets/logos/g247.png',
+        regional_local_logo_path: '',
+        backup_path: '',
+        backup_enabled: true, // Overridden by mock
+        backup_frequency: 'daily',
+        president_full_name: 'John Doe', // Overridden by mock
+        adultAgeThreshold: 18,
+        backup_reminder_enabled: true,
+        backup_reminder_frequency_days: 7,
+      };
+
       expect(result).toEqual({
         success: true,
-        settings: {
-          national_association_name: 'Test Association',
-          backup_enabled: true,
-          president_full_name: 'John Doe',
-        },
+        settings: expectedSettings,
       });
     });
   });
