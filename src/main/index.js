@@ -113,7 +113,9 @@ app.whenReady().then(async () => {
       const url = new URL(request.url);
       // The pathname will be like `/index.html`, so we remove the leading slash.
       const relativePath = url.pathname.slice(1);
-      const absolutePath = path.join(__dirname, '../../dist', relativePath);
+      // Correctly point to the 'dist/renderer' directory where Vite builds the assets.
+      // Use app.getAppPath() for a robust path to the application's root.
+      const absolutePath = path.join(app.getAppPath(), 'dist/renderer', relativePath);
       // Use net.fetch with a file:// URL, which is the recommended modern approach.
       return net.fetch(url.pathToFileURL(absolutePath).toString());
     });
