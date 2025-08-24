@@ -31,16 +31,6 @@ const store = new Store();
 // to work correctly with our custom `app://` and `safe-image://` schemes.
 // This must be done before the app's 'ready' event.
 protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'app',
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true,
-      stream: true,
-      corsEnabled: true,
-    },
-  },
   { scheme: 'safe-image', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
@@ -96,7 +86,9 @@ const createWindow = () => {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadURL('app://index.html');
+    // Use `loadFile` for a more direct and robust way to load the local HTML file.
+    const indexPath = path.join(app.getAppPath(), 'dist/renderer/index.html');
+    mainWindow.loadFile(indexPath);
     // Keep DevTools open to confirm the fix or see any new errors.
     // This should be removed for the final release.
     mainWindow.webContents.openDevTools();
@@ -108,18 +100,7 @@ app.whenReady().then(async () => {
   // Register a custom protocol to safely serve images from the app's data directory.
   // This prevents exposing the entire filesystem to the renderer process.
   try {
-    // Use the modern `protocol.handle` API to serve files from the packaged app.
-    protocol.handle('app', (request) => {
-      const url = new URL(request.url);
-      // The pathname will be like `/index.html`, so we remove the leading slash.
-      const relativePath = url.pathname.slice(1);
-      // Correctly point to the 'dist/renderer' directory where Vite builds the assets.
-      // Use app.getAppPath() for a robust path to the application's root.
-      const absolutePath = path.join(app.getAppPath(), 'dist/renderer', relativePath);
-      // Use net.fetch with a file:// URL, which is the recommended modern approach.
-      return net.fetch(url.pathToFileURL(absolutePath).toString());
-    });
-
+    // The `app://` protocol is no longer needed as we now use `loadFile`.
     // Use `protocol.handle` for the safe-image protocol as well for consistency.
     protocol.handle('safe-image', (request) => {
       const url = new URL(request.url);
