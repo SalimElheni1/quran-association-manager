@@ -4,6 +4,7 @@ const PizZip = require('pizzip');
 const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
+const path = require('path');
 const {
   getDatabasePath,
   isDbOpen,
@@ -13,9 +14,9 @@ const {
   dbExec,
   runQuery,
   getQuery,
-} = require('../db/db');
+} = require(path.join(__dirname, '..', 'db', 'db.js'));
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('./matriculeService');
+const { generateMatricule } = require(path.join(__dirname, 'matriculeService.js'));
 
 const saltStore = new Store({ name: 'db-config' });
 const mainStore = new Store();

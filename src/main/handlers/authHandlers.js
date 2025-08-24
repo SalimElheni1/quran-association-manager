@@ -1,10 +1,11 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../../db/db');
-const { userUpdateValidationSchema } = require('../validationSchemas');
+const path = require('path');
+const db = require(path.join(__dirname, '..', '..', 'db', 'db.js'));
+const { userUpdateValidationSchema } = require(path.join(__dirname, '..', 'validationSchemas.js'));
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
-const { refreshSettings } = require('../settingsManager');
+const { refreshSettings } = require(path.join(__dirname, '..', 'settingsManager.js'));
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({

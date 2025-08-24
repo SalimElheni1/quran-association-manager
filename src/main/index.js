@@ -1,20 +1,19 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const path = require('path');
-const fs = require('fs');
-const db = require('../db/db');
-const { refreshSettings } = require('./settingsManager');
+const db = require(path.join(__dirname, '..', 'db', 'db.js'));
+const { refreshSettings } = require(path.join(__dirname, 'settingsManager.js'));
 const Store = require('electron-store');
-const { registerFinancialHandlers } = require('./financialHandlers');
-const { registerStudentHandlers } = require('./handlers/studentHandlers');
-const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
-const { registerClassHandlers } = require('./handlers/classHandlers');
-const { registerUserHandlers } = require('./handlers/userHandlers');
-const { registerAttendanceHandlers } = require('./handlers/attendanceHandlers');
-const { registerAuthHandlers } = require('./handlers/authHandlers');
-const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
-const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
-const { registerSystemHandlers } = require('./handlers/systemHandlers');
-const { generateDevExcelTemplate } = require('./exportManager');
+const { registerFinancialHandlers } = require(path.join(__dirname, 'financialHandlers.js'));
+const { registerStudentHandlers } = require(path.join(__dirname, 'handlers', 'studentHandlers.js'));
+const { registerTeacherHandlers } = require(path.join(__dirname, 'handlers', 'teacherHandlers.js'));
+const { registerClassHandlers } = require(path.join(__dirname, 'handlers', 'classHandlers.js'));
+const { registerUserHandlers } = require(path.join(__dirname, 'handlers', 'userHandlers.js'));
+const { registerAttendanceHandlers } = require(path.join(__dirname, 'handlers', 'attendanceHandlers.js'));
+const { registerAuthHandlers } = require(path.join(__dirname, 'handlers', 'authHandlers.js'));
+const { registerSettingsHandlers } = require(path.join(__dirname, 'handlers', 'settingsHandlers.js'));
+const { registerDashboardHandlers } = require(path.join(__dirname, 'handlers', 'dashboardHandlers.js'));
+const { registerSystemHandlers } = require(path.join(__dirname, 'handlers', 'systemHandlers.js'));
+const { generateDevExcelTemplate } = require(path.join(__dirname, 'exportManager.js'));
 
 require('dotenv').config();
 
