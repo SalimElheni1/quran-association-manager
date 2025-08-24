@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const Store = require('electron-store');
