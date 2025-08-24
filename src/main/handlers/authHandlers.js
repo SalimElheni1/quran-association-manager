@@ -94,41 +94,46 @@ const updateProfileHandler = async (token, profileData) => {
 
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
-    console.log(`Login attempt for user: ${username}`);
+    console.log(`[AUTH_LOG] Login attempt for user: ${username}`);
     try {
-      // 1. Initialize and decrypt the database with the provided password.
-      // This is the most critical step.
+      console.log('[AUTH_LOG] Step 1: Initializing database...');
       await db.initializeDatabase(password);
+      console.log('[AUTH_LOG] Step 1 complete. Database initialization returned.');
 
-      // 2. Now that the DB is open, find the user.
+      console.log('[AUTH_LOG] Step 2: Finding user...');
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
+      console.log(`[AUTH_LOG] Step 2 complete. User found: ${!!user}`);
 
       if (!user) {
-        // DO NOT close DB on failure, just return error
+        console.log('[AUTH_LOG] Login failure: User not found.');
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
-      // 3. Compare the password hash.
+      console.log('[AUTH_LOG] Step 3: Comparing password hash...');
       const isMatch = await bcrypt.compare(password, user.password);
+      console.log(`[AUTH_LOG] Step 3 complete. Password match: ${isMatch}`);
+
       if (!isMatch) {
-        // DO NOT close DB on failure, just return error
+        console.log('[AUTH_LOG] Login failure: Password does not match.');
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
-      // 4. On success, refresh settings cache, generate JWT, and return user data.
+      console.log('[AUTH_LOG] Step 4: Login success. Refreshing settings and generating token...');
       await refreshSettings();
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '8h' },
       );
+      console.log('[AUTH_LOG] Step 4 complete. Token generated.');
       return {
         success: true,
         token,
         user: { id: user.id, username: user.username, role: user.role },
       };
     } catch (error) {
-      console.error('Error in auth:login handler:', error.message);
+      console.error('[AUTH_LOG] CRITICAL ERROR in auth:login handler:', error.message);
+      console.log('[AUTH_LOG] Closing database due to critical error.');
       await db.closeDatabase(); // Ensure DB is closed on any error.
       return { success: false, message: 'حدث خطأ غير متوقع في الخادم.' };
     }
