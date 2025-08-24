@@ -10,7 +10,7 @@
     "electron-start": "electron .",
     "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
     "build": "vite build",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --win",
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
@@ -29,7 +29,6 @@
     "exceljs": "^4.4.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
-    "jwt-decode": "^4.0.0",
     "pizzip": "^3.2.0",
     "react": "^19.0.0-rc-f994737d14-20240522",
     "react-bootstrap": "^2.10.4",
@@ -57,12 +56,41 @@
   "build": {
     "appId": "com.manus.quranbranchmanager",
     "productName": "Quran Branch Manager",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
     "files": [
       "dist/renderer/**/*",
-      "src/main/**/*"
+      "src/main/**/*",
+      "!**/.vscode/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
-    "directories": {
-      "output": "release"
+    "asarUnpack": [
+      "node_modules/@journeyapps/sqlcipher/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "executableName": "QuranBranchManager",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "shortcutName": "${productName}",
+      "uninstallDisplayName": "${productName}",
+      "createDesktopShortcut": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
