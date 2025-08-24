@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../../db/db');
+const fs = require('fs'); // Import fs
 const { userUpdateValidationSchema } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { refreshSettings } = require('../settingsManager');
@@ -95,9 +96,16 @@ const updateProfileHandler = async (token, profileData) => {
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
     try {
-      // 1. Initialize and decrypt the database with the provided password.
-      // This is the most critical step.
-      await db.initializeDatabase(password);
+      // 1. Determine if this is the first run by checking if the DB file exists.
+      const dbPath = db.getDatabasePath();
+      const isFirstRun = !fs.existsSync(dbPath);
+
+      // On first run, the DB must be initialized with the default superadmin password
+      // because that's the password that will be used to seed the first user.
+      const dbPassword = isFirstRun ? process.env.SUPERADMIN_PASSWORD || 'Admin123!' : password;
+
+      // Initialize and decrypt the database.
+      await db.initializeDatabase(dbPassword);
 
       // 2. Now that the DB is open, find the user.
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
