@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Container,
@@ -18,6 +19,7 @@ import { toast } from 'react-toastify';
 import PasswordPromptModal from '../components/PasswordPromptModal';
 
 const SettingsPage = () => {
+  const { state } = useLocation();
   const { user } = useAuth();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,8 @@ const SettingsPage = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
+
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -193,7 +197,13 @@ const SettingsPage = () => {
             </Card.Header>
             <Card.Body>
               <Form onSubmit={handleSubmit}>
-                <Tabs defaultActiveKey="association" id="settings-tabs" className="mb-3" fill>
+                <Tabs
+                  activeKey={activeTab}
+                  onSelect={(k) => setActiveTab(k)}
+                  id="settings-tabs"
+                  className="mb-3"
+                  fill
+                >
                   <Tab eventKey="association" title="بيانات الجمعية/الفرع">
                     <Card className="border-0">
                       <Card.Body>

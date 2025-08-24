@@ -61,21 +61,31 @@ app.whenReady().then(async () => {
   try {
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
-        const url = request.url.substr('safe-image://'.length);
+        const url = request.url.replace('safe-image://', '');
         const decodedUrl = decodeURI(url);
-        const safePath = path.join(app.getPath('userData'), decodedUrl);
 
-        // Ensure the path is within the intended directory to prevent path traversal attacks.
-        const safeDir = path.join(app.getPath('userData'), 'assets', 'logos');
-        if (path.dirname(safePath).startsWith(safeDir)) {
-          callback({ path: safePath });
+        // Determine the base path based on environment
+        const isDev = !app.isPackaged;
+        const basePath = isDev ? process.cwd() : process.resourcesPath;
+
+        // Construct the full path
+        const fullPath = path.join(basePath, 'public', decodedUrl);
+
+        if (fs.existsSync(fullPath)) {
+          callback({ path: fullPath });
         } else {
-          console.error('Blocked request for an unsafe path:', safePath);
-          callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+          // Fallback for user-uploaded images in userData
+          const userImagePath = path.join(app.getPath('userData'), decodedUrl);
+          if (fs.existsSync(userImagePath)) {
+            callback({ path: userImagePath });
+          } else {
+            console.error(`File not found: ${fullPath} and ${userImagePath}`);
+            callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+          }
         }
       } catch (error) {
         console.error('Error in safe-image protocol handler:', error);
-        callback({ error: -6 });
+        callback({ error: -2 }); // net::FAILED
       }
     });
 
