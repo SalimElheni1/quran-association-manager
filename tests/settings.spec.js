@@ -32,6 +32,15 @@ describe('Settings Handlers', () => {
         { key: 'national_association_name', value: 'Test Association' },
         { key: 'backup_enabled', value: 'true' },
         { key: 'president_full_name', value: 'John Doe' },
+        { key: 'adultAgeThreshold', value: '18' },
+        { key: 'backup_frequency', value: 'daily' },
+        { key: 'backup_path', value: '' },
+        { key: 'backup_reminder_enabled', value: 'true' },
+        { key: 'backup_reminder_frequency_days', value: '7' },
+        { key: 'local_branch_name', value: '' },
+        { key: 'national_logo_path', value: 'assets/logos/g247.png' },
+        { key: 'regional_association_name', value: '' },
+        { key: 'regional_local_logo_path', value: '' },
       ];
       db.isDbOpen.mockReturnValue(true); // Mock that the DB is open
       db.allQuery.mockResolvedValue(mockDbResult);
@@ -45,6 +54,15 @@ describe('Settings Handlers', () => {
           national_association_name: 'Test Association',
           backup_enabled: true,
           president_full_name: 'John Doe',
+          adultAgeThreshold: 18,
+          backup_frequency: 'daily',
+          backup_path: '',
+          backup_reminder_enabled: true,
+          backup_reminder_frequency_days: 7,
+          local_branch_name: '',
+          national_logo_path: 'assets/logos/g247.png',
+          regional_association_name: '',
+          regional_local_logo_path: '',
         },
       });
     });
