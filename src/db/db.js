@@ -226,15 +226,6 @@ async function initializeDatabase(password) {
     console.info(`Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null; // Clear the invalid db connection
-
-    // Check if this is a SQLCipher key error.
-    if (error.message.includes('SQLITE_NOTADB')) {
-      const dbPath = getDatabasePath();
-      const specificError = `Failed to open database: The file at "${dbPath}" is not a valid database or the encryption key is incorrect. If you've changed the SUPERADMIN_PASSWORD in your .env file, you must delete the old database file to regenerate it with the new password.`;
-      console.error(specificError);
-      throw new Error(specificError);
-    }
-
     console.error('Failed to open database. The password may be incorrect.', error);
     throw new Error('Incorrect password or corrupt database.');
   }
