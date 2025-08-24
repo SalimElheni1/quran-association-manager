@@ -132,10 +132,15 @@ function registerAuthHandlers() {
         user: { id: user.id, username: user.username, role: user.role },
       };
     } catch (error) {
-      console.error('[AUTH_LOG] CRITICAL ERROR in auth:login handler:', error.message);
-      console.log('[AUTH_LOG] Closing database due to critical error.');
-      await db.closeDatabase(); // Ensure DB is closed on any error.
-      return { success: false, message: 'حدث خطأ غير متوقع في الخادم.' };
+      console.error('[AUTH_LOG] ERROR in auth:login handler:', error.message);
+      // Only close the database for truly critical, non-recoverable errors.
+      // An incorrect password is a recoverable failure, and we want to keep the DB object
+      // (even if the connection failed) for the next attempt.
+      if (error.message !== 'Incorrect password or corrupt database.') {
+        console.log('[AUTH_LOG] Closing database due to unexpected error.');
+        await db.closeDatabase();
+      }
+      return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
     }
   });
 
