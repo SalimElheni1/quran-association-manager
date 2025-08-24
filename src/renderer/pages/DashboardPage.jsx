@@ -45,7 +45,7 @@ function DashboardPage() {
   }, []);
 
   const handleGoToBackupPage = () => {
-    navigate('/exports');
+    navigate('/settings', { state: { defaultTab: 'backup' } });
   };
 
   return (
