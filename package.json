@@ -5,7 +5,7 @@
   "main": "src/main/index.js",
   "author": {
     "name": "Quran Association",
-    "email": "dev@example.com"
+    "email": "elheni.selim@gmail.com"
   },
   "license": "MIT",
   "scripts": {
@@ -60,13 +60,17 @@
     "appId": "com.manus.quranbranchmanager",
     "productName": "Quran Branch Manager",
     "files": [
-      "dist/renderer/**/*",
+      "dist",
       "src/main/**/*",
       "public/g247.png",
       "!**/*.spec.js",
       "!**/*.test.js",
       "!**/__mocks__/*",
-      "!.env*"
+      "!.env*",
+      {
+        "from": "src/db",
+        "to": "src/db"
+      }
     ],
     "directories": {
       "output": "release"

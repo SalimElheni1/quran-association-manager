@@ -115,7 +115,8 @@ async function migrateToEncrypted(dbPath, key) {
     const encryptedDb = new sqlite3.Database(dbPath, async (err) => {
       if (err) return reject(err);
       try {
-        await dbRun(encryptedDb, `PRAGMA key = '${key}'`);
+        // Use the recommended hex format for the key to avoid issues with special characters
+        await dbRun(encryptedDb, `PRAGMA key = "x'${key}'"`);
         await dbRun(encryptedDb, `ATTACH DATABASE '${backupPath}' AS plaintext KEY ''`);
         await dbRun(encryptedDb, 'SELECT sqlcipher_export("main", "plaintext")');
         await dbRun(encryptedDb, 'DETACH DATABASE plaintext');
@@ -201,7 +202,8 @@ async function initializeDatabase(password) {
     );
   });
 
-  await dbRun(db, `PRAGMA key = '${key}'`);
+  // Use the recommended hex format for the key
+  await dbRun(db, `PRAGMA key = "x'${key}'"`);
   await dbRun(db, 'PRAGMA journal_mode = WAL');
   await dbRun(db, 'PRAGMA foreign_keys = ON');
 
