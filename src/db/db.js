@@ -3,6 +3,7 @@ const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
+const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
 const { getSalt, deriveKey } = require('../main/keyManager');
@@ -172,16 +173,23 @@ async function runMigrations() {
  * @param {string} password The user's password, used to derive the encryption key.
  */
 async function initializeDatabase(password) {
+  console.log('[DB_LOG] InitializeDatabase called.');
   if (db && db.open) {
+    console.log('[DB_LOG] Database already open. Skipping initialization.');
     return; // Already initialized
   }
 
   const dbPath = getDatabasePath();
+  console.log(`[DB_LOG] Database path: ${dbPath}`);
   const salt = getSalt();
   const key = deriveKey(password, salt);
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+  console.log(`[DB_LOG] Using salt from keyManager. Key hash: ${keyHash}`);
+
 
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
+    console.log('[DB_LOG] Plaintext database detected. Starting migration...');
     try {
       await migrateToEncrypted(dbPath, key);
     } catch (migrationError) {
@@ -192,38 +200,55 @@ async function initializeDatabase(password) {
   }
 
   const dbExists = fs.existsSync(dbPath);
+  console.log(`[DB_LOG] Database file exists: ${dbExists}`);
 
   // --- Open the Database ---
+  console.log('[DB_LOG] Opening database connection...');
   db = await new Promise((resolve, reject) => {
-    const connection = new sqlite3.Database(dbPath, (err) =>
-      err ? reject(err) : resolve(connection),
-    );
+    const connection = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('[DB_LOG] Failed to create database connection object.', err);
+        return reject(err);
+      }
+      console.log('[DB_LOG] Database connection object created.');
+      resolve(connection);
+    });
   });
 
-  await dbRun(db, `PRAGMA key = '${key}'`);
-  await dbRun(db, 'PRAGMA journal_mode = WAL');
-  await dbRun(db, 'PRAGMA foreign_keys = ON');
-
-  // --- Verify Key and Setup Schema/Seed if new ---
   try {
-    // This simple query will fail if the key is wrong.
+    console.log('[DB_LOG] Setting PRAGMA key...');
+    await dbRun(db, `PRAGMA key = '${key}'`);
+    console.log('[DB_LOG] PRAGMA key set successfully.');
+
+    console.log('[DB_LOG] Setting PRAGMA journal_mode...');
+    await dbRun(db, 'PRAGMA journal_mode = WAL');
+    console.log('[DB_LOG] PRAGMA journal_mode set to WAL.');
+
+    console.log('[DB_LOG] Setting PRAGMA foreign_keys...');
+    await dbRun(db, 'PRAGMA foreign_keys = ON');
+    console.log('[DB_LOG] PRAGMA foreign_keys set to ON.');
+
+    // --- Verify Key and Setup Schema/Seed if new ---
+    console.log('[DB_LOG] Verifying database key with a test query...');
     await getQuery('SELECT count(*) FROM sqlite_master');
+    console.log('[DB_LOG] Database key is correct.');
+
 
     if (!dbExists) {
-      console.log('New database created. Initializing schema and default data...');
+      console.log('[DB_LOG] New database detected. Initializing schema and default data...');
       await dbExec(db, schema);
       await runMigrations();
       await seedSuperadmin();
-      console.log('Database schema and default data initialized.');
+      console.log('[DB_LOG] Database schema and default data initialized.');
     } else {
-      // For existing DBs, we still check migrations
+      console.log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
 
-    console.log(`Database initialized successfully at ${dbPath}`);
+    console.log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null; // Clear the invalid db connection
-    console.error('Failed to open database. The password may be incorrect.', error);
+    console.error('[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.', error);
     throw new Error('Incorrect password or corrupt database.');
   }
 }
