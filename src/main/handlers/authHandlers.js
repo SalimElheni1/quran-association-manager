@@ -104,14 +104,14 @@ function registerAuthHandlers() {
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
 
       if (!user) {
-        await db.closeDatabase(); // Close DB on failure
+        // DO NOT close DB on failure, just return error
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
       // 3. Compare the password hash.
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        await db.closeDatabase(); // Close DB on failure
+        // DO NOT close DB on failure, just return error
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
