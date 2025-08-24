@@ -63,28 +63,30 @@ app.whenReady().then(async () => {
       try {
         const url = request.url.replace('safe-image://', '');
         const decodedUrl = decodeURI(url);
+        let fullPath;
 
-        // Determine the base path based on environment
-        const isDev = !app.isPackaged;
-        const basePath = isDev ? process.cwd() : process.resourcesPath;
-
-        // Construct the full path
-        const fullPath = path.join(basePath, 'public', decodedUrl);
+        // Check for absolute paths first (for user-uploaded content)
+        if (path.isAbsolute(decodedUrl) && fs.existsSync(decodedUrl)) {
+          fullPath = decodedUrl;
+        } else {
+          // Otherwise, resolve relative to app assets
+          if (app.isPackaged) {
+            // In production, assets are in the 'dist/renderer' folder relative to resourcesPath
+            fullPath = path.join(process.resourcesPath, 'dist/renderer', decodedUrl);
+          } else {
+            // In development, assets are in the 'public' folder at the project root
+            fullPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+          }
+        }
 
         if (fs.existsSync(fullPath)) {
           callback({ path: fullPath });
         } else {
-          // Fallback for user-uploaded images in userData
-          const userImagePath = path.join(app.getPath('userData'), decodedUrl);
-          if (fs.existsSync(userImagePath)) {
-            callback({ path: userImagePath });
-          } else {
-            console.error(`File not found: ${fullPath} and ${userImagePath}`);
-            callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
-          }
+          console.error(`[safe-image] File not found: ${fullPath}`);
+          callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
         }
       } catch (error) {
-        console.error('Error in safe-image protocol handler:', error);
+        console.error('[safe-image] protocol handler error:', error);
         callback({ error: -2 }); // net::FAILED
       }
     });
