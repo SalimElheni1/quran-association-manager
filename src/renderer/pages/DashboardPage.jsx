@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Row, Col, Alert, Button, Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StatCard from '../components/StatCard';
@@ -7,13 +8,13 @@ import TodaysClasses from '../components/TodaysClasses';
 import '../styles/DashboardPage.css';
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     studentCount: null,
     teacherCount: null,
     classCount: null,
   });
   const [backupReminder, setBackupReminder] = useState({ show: false, message: '' });
-  const [isBackingUp, setIsBackingUp] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -43,33 +44,8 @@ function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const handleRunBackup = async () => {
-    setIsBackingUp(true);
-    toast.info('بدء عملية النسخ الاحتياطي...');
-    try {
-      // We need to get the backup_path from settings to run a manual backup
-      const settingsResponse = await window.electronAPI.getSettings();
-      if (!settingsResponse.success || !settingsResponse.settings.backup_path) {
-        toast.error('الرجاء تحديد مسار النسخ الاحتياطي في الإعدادات أولاً.');
-        return;
-      }
-
-      const response = await window.electronAPI.runBackup({
-        backup_path: settingsResponse.settings.backup_path,
-        backup_enabled: true,
-      });
-
-      if (response.success) {
-        toast.success(response.message);
-        setBackupReminder({ show: false, message: '' }); // Hide reminder on successful backup
-      } else {
-        toast.error(response.message);
-      }
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setIsBackingUp(false);
-    }
+  const handleGoToBackupPage = () => {
+    navigate('/exports');
   };
 
   return (
@@ -90,15 +66,8 @@ function DashboardPage() {
             <i className="fas fa-exclamation-triangle me-2"></i>
             {backupReminder.message}
           </div>
-          <Button variant="outline-dark" size="sm" onClick={handleRunBackup} disabled={isBackingUp}>
-            {isBackingUp ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" />
-                {' جاري...'}
-              </>
-            ) : (
-              'إنشاء نسخة احتياطية الآن'
-            )}
+          <Button variant="outline-dark" size="sm" onClick={handleGoToBackupPage}>
+            الانتقال إلى صفحة النسخ الاحتياطي
           </Button>
         </Alert>
       )}
