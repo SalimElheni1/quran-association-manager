@@ -14,9 +14,9 @@ const {
   dbExec,
   runQuery,
   getQuery,
-} = require('../db/db');
+} = require(path.join(__dirname, '..', 'db', 'db'));
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('./matriculeService');
+const { generateMatricule } = require(path.join(__dirname, 'matriculeService'));
 
 const saltStore = new Store({ name: 'db-config' });
 const mainStore = new Store();

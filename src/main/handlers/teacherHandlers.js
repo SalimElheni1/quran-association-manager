@@ -1,8 +1,8 @@
 const path = require('path');
 const { ipcMain } = require('electron');
-const db = require('../../db/db');
-const { teacherValidationSchema } = require('../validationSchemas');
-const { generateMatricule } = require('../matriculeService');
+const db = require(path.join(__dirname, '..', '..', 'db', 'db'));
+const { teacherValidationSchema } = require(path.join(__dirname, '..', 'validationSchemas'));
+const { generateMatricule } = require(path.join(__dirname, '..', 'matriculeService'));
 
 const teacherFields = [
   'matricule',
