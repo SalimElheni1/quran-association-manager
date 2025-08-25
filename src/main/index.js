@@ -1,20 +1,20 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const path = require('path');
-const db = require(path.resolve(__dirname, '../db/db'));
-const { refreshSettings } = require(path.resolve(__dirname, './settingsManager'));
-const Store = require('electron-store');
-const { registerFinancialHandlers } = require(path.resolve(__dirname, './financialHandlers'));
-const { registerStudentHandlers } = require(path.resolve(__dirname, './handlers/studentHandlers'));
-const { registerTeacherHandlers } = require(path.resolve(__dirname, './handlers/teacherHandlers'));
-const { registerClassHandlers } = require(path.resolve(__dirname, './handlers/classHandlers'));
-const { registerUserHandlers } = require(path.resolve(__dirname, './handlers/userHandlers'));
-const { registerAttendanceHandlers } = require(path.resolve(__dirname, './handlers/attendanceHandlers'));
-const { registerAuthHandlers } = require(path.resolve(__dirname, './handlers/authHandlers'));
-const { registerSettingsHandlers } = require(path.resolve(__dirname, './handlers/settingsHandlers'));
-const { registerDashboardHandlers } = require(path.resolve(__dirname, './handlers/dashboardHandlers'));
-const { registerSystemHandlers } = require(path.resolve(__dirname, './handlers/systemHandlers'));
-const { generateDevExcelTemplate } = require(path.resolve(__dirname, './exportManager'));
 const fs = require('fs');
+const Store = require('electron-store');
+const db = require('../db/db');
+const { refreshSettings } = require('./settingsManager');
+const { registerFinancialHandlers } = require('./financialHandlers');
+const { registerStudentHandlers } = require('./handlers/studentHandlers');
+const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
+const { registerClassHandlers } = require('./handlers/classHandlers');
+const { registerUserHandlers } = require('./handlers/userHandlers');
+const { registerAttendanceHandlers } = require('./handlers/attendanceHandlers');
+const { registerAuthHandlers } = require('./handlers/authHandlers');
+const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
+const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
+const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { generateDevExcelTemplate } = require('./exportManager');
 
 require('dotenv').config();
 
@@ -168,4 +168,3 @@ app.on('will-quit', async () => {
 // --- Attendance IPC Handlers ---
 
 // --- Backup IPC Handlers ---
-const store = new Store();

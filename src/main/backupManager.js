@@ -3,7 +3,7 @@ const fsSync = require('fs');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const path = require('path');
-const { allQuery } = require(path.resolve(__dirname, '../db/db'));
+const { allQuery } = require('../db/db');
 
 const store = new Store();
 const saltStore = new Store({ name: 'db-config' });

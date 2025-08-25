@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import ClassFormModal from '../components/ClassFormModal';
-import ConfirmationModal from '../components/ConfirmationModal';
-import ClassDetailsModal from '../components/ClassDetailsModal'; // We will create this next
-import EnrollmentModal from '../components/EnrollmentModal';
-import '../styles/StudentsPage.css'; // Reuse styles
+import ClassFormModal from '@/components/ClassFormModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import ClassDetailsModal from '@/components/ClassDetailsModal'; // We will create this next
+import EnrollmentModal from '@/components/EnrollmentModal';
+import '@/styles/StudentsPage.css'; // Reuse styles
 
 function ClassesPage() {
   const [classes, setClasses] = useState([]);

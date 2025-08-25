@@ -1,12 +1,9 @@
-const path = require('path');
-const { getAppRoot } = require(path.join(__dirname, '..', 'app-path.js'));
 const { ipcMain } = require('electron');
 const path = require('path');
-const { getAppRoot } = require('../app-path');
-const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
+const db = require('../../db/db');
 const bcrypt = require('bcryptjs');
-const { userValidationSchema, userUpdateValidationSchema } = require(path.join(getAppRoot(), 'src', 'main', 'validationSchemas.js'));
-const { generateMatricule } = require(path.join(getAppRoot(), 'src', 'main', 'matriculeService.js'));
+const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
+const { generateMatricule } = require('../matriculeService');
 
 const userFields = [
   'matricule',

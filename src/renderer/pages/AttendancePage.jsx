@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-bootstrap';
 import { useSearchParams } from 'react-router-dom';
-import '../styles/AttendancePage.css';
+import '@/styles/AttendancePage.css';
 import { toast } from 'react-toastify';
 
 function AttendancePage() {

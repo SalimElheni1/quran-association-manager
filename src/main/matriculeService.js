@@ -1,5 +1,5 @@
 const path = require('path');
-const { getQuery } = require(path.resolve(__dirname, '../db/db'));
+const { getQuery } = require('../db/db');
 
 /**
  * Generates a new, unique matricule for a given entity type.
