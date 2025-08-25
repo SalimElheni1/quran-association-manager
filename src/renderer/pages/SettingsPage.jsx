@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Container,
   Row,
@@ -16,7 +16,7 @@ import {
   Image,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import PasswordPromptModal from '../components/PasswordPromptModal';
+import PasswordPromptModal from '@/components/PasswordPromptModal';
 
 const SettingsPage = () => {
   const { state } = useLocation();

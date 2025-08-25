@@ -1,8 +1,8 @@
 const path = require('path');
 const { ipcMain } = require('electron');
-const db = require(path.resolve(__dirname, '../../db/db'));
-const { teacherValidationSchema } = require(path.resolve(__dirname, '../validationSchemas'));
-const { generateMatricule } = require(path.resolve(__dirname, '../matriculeService'));
+const db = require('../../db/db');
+const { teacherValidationSchema } = require('../validationSchemas');
+const { generateMatricule } = require('../matriculeService');
 
 const teacherFields = [
   'matricule',

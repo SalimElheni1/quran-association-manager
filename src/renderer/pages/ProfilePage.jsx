@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import PasswordInput from '../components/PasswordInput';
+import PasswordInput from '@/components/PasswordInput';
 
 const ProfilePage = () => {
   const { token } = useAuth();

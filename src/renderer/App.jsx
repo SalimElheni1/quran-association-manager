@@ -1,18 +1,18 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import MainLayout from './layouts/MainLayout';
-import DashboardPage from './pages/DashboardPage';
-import LoginPage from './pages/LoginPage';
-import StudentsPage from './pages/StudentsPage';
-import TeachersPage from './pages/TeachersPage';
-import ClassesPage from './pages/ClassesPage';
-import UsersPage from './pages/UsersPage';
-import AttendancePage from './pages/AttendancePage';
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import FinancialsPage from './pages/FinancialsPage';
-import ExportsPage from './pages/ExportsPage';
-import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from '@/layouts/MainLayout';
+import DashboardPage from '@/pages/DashboardPage';
+import LoginPage from '@/pages/LoginPage';
+import StudentsPage from '@/pages/StudentsPage';
+import TeachersPage from '@/pages/TeachersPage';
+import ClassesPage from '@/pages/ClassesPage';
+import UsersPage from '@/pages/UsersPage';
+import AttendancePage from '@/pages/AttendancePage';
+import ProfilePage from '@/pages/ProfilePage';
+import SettingsPage from '@/pages/SettingsPage';
+import FinancialsPage from '@/pages/FinancialsPage';
+import ExportsPage from '@/pages/ExportsPage';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 function App() {
   return (

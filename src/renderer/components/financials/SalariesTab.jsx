@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
-import SalaryFormModal from './SalaryFormModal';
-import ConfirmationModal from '../ConfirmationModal';
+import SalaryFormModal from '@/components/financials/SalaryFormModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 function SalariesTab() {
   const [salaries, setSalaries] = useState([]);

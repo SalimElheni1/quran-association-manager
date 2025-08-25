@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import '../styles/StudentsPage.css'; // Reuse styles
-import UserFormModal from '../components/UserFormModal';
-import ConfirmationModal from '../components/ConfirmationModal';
+import '@/styles/StudentsPage.css'; // Reuse styles
+import UserFormModal from '@/components/UserFormModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 function UsersPage() {
   const [users, setUsers] = useState([]);

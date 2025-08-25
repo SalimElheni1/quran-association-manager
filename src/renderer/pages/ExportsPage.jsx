@@ -11,7 +11,7 @@ import {
   OverlayTrigger,
   Tooltip,
 } from 'react-bootstrap';
-import '../styles/ExportsPage.css';
+import '@/styles/ExportsPage.css';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
   const [genderFilter, setGenderFilter] = useState('all');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
-import DonationFormModal from './DonationFormModal';
-import ConfirmationModal from '../ConfirmationModal';
+import DonationFormModal from '@/components/financials/DonationFormModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 function DonationsTab() {
   const [donations, setDonations] = useState([]);

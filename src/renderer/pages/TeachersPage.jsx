@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import TeacherFormModal from '../components/TeacherFormModal';
-import ConfirmationModal from '../components/ConfirmationModal';
-import TeacherDetailsModal from '../components/TeacherDetailsModal';
+import TeacherFormModal from '@/components/TeacherFormModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import TeacherDetailsModal from '@/components/TeacherDetailsModal';
 // We can reuse the same page styles from the students page
-import '../styles/StudentsPage.css';
+import '@/styles/StudentsPage.css';
 
 function TeachersPage() {
   const [teachers, setTeachers] = useState([]);

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
-import PasswordInput from '../components/PasswordInput';
-import '../styles/LoginPage.css';
-import defaultLogo from '../assets/logos/g247.png';
+import PasswordInput from '@/components/PasswordInput';
+import '@/styles/LoginPage.css';
+
+// The default logo is served from the public folder.
+// Vite handles this automatically.
+const defaultLogo = '/assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');

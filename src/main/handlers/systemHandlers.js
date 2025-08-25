@@ -1,9 +1,9 @@
 const path = require('path');
 const { ipcMain, app, dialog } = require('electron');
-const db = require(path.resolve(__dirname, '../../db/db'));
-const exportManager = require(path.resolve(__dirname, '../exportManager'));
-const importManager = require(path.resolve(__dirname, '../importManager'));
-const backupManager = require(path.resolve(__dirname, '../backupManager'));
+const db = require('../../db/db');
+const exportManager = require('../exportManager');
+const importManager = require('../importManager');
+const backupManager = require('../backupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
