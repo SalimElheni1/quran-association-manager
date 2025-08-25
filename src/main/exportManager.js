@@ -5,16 +5,15 @@ const { BrowserWindow } = require('electron');
 const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-const { getAppRoot } = require('./app-path');
-const { allQuery } = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
-const { getSetting } = require(path.join(getAppRoot(), 'src', 'main', 'settingsManager.js'));
+const { allQuery } = require(path.resolve(__dirname, '../db/db'));
+const { getSetting } = require(path.resolve(__dirname, './settingsManager'));
 const {
   handleGetFinancialSummary,
   handleGetPayments,
   handleGetSalaries,
   handleGetDonations,
   handleGetExpenses,
-} = require(path.join(getAppRoot(), 'src', 'main', 'financialHandlers.js'));
+} = require(path.resolve(__dirname, './financialHandlers'));
 
 // --- Data Fetching ---
 async function fetchFinancialData() {

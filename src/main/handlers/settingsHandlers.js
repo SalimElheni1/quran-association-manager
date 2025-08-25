@@ -1,10 +1,9 @@
 const { ipcMain, app, dialog } = require('electron');
 const Joi = require('joi');
-const path = require('path');
-const { getAppRoot } = require('../app-path');
-const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
+const db = require('../../db/db');
 const fs = require('fs');
-const backupManager = require(path.join(getAppRoot(), 'src', 'main', 'backupManager.js'));
+const path = require('path');
+const backupManager = require('../backupManager');
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({
