@@ -1,5 +1,6 @@
 const path = require('path');
-const { getQuery } = require(path.join(__dirname, '..', 'db', 'db.js'));
+const { getAppRoot } = require('./app-path');
+const { getQuery } = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
 
 /**
  * Generates a new, unique matricule for a given entity type.

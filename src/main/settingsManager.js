@@ -6,15 +6,11 @@ async function refreshSettings() {
   try {
     const { settings } = await internalGetSettingsHandler();
     settingsCache = settings;
-    console.log('Settings cache refreshed:', settingsCache);
+    console.log('Settings cache refreshed.');
   } catch (error) {
     console.error('Failed to refresh settings cache:', error);
-    // In case of error, fall back to a default or previously known good state
-    if (!settingsCache) {
-      settingsCache = {
-        adultAgeThreshold: 18, // Default fallback
-      };
-    }
+    // In case of error, we might want to keep the old cache or clear it.
+    // For now, we'll keep it to avoid breaking things that depend on it.
   }
 }
 
@@ -28,9 +24,7 @@ function getSetting(key) {
   return settingsCache[key];
 }
 
-// Initial load of settings is now handled after login.
-
 module.exports = {
-  getSetting,
   refreshSettings,
+  getSetting,
 };

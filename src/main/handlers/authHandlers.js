@@ -2,10 +2,13 @@ const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const db = require(path.join(__dirname, '..', '..', 'db', 'db.js'));
-const { userUpdateValidationSchema } = require(path.join(__dirname, '..', 'validationSchemas.js'));
+const { getAppRoot } = require('../app-path');
+
+const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
+const { userUpdateValidationSchema } = require(path.join(getAppRoot(), 'src', 'main', 'validationSchemas.js'));
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
-const { refreshSettings } = require(path.join(__dirname, '..', 'settingsManager.js'));
+const { refreshSettings } = require(path.join(getAppRoot(), 'src', 'main', 'settingsManager.js'));
+
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
@@ -95,50 +98,30 @@ const updateProfileHandler = async (token, profileData) => {
 
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
-    console.log(`[AUTH_LOG] Login attempt for user: ${username}`);
     try {
-      console.log('[AUTH_LOG] Step 1: Initializing database...');
       await db.initializeDatabase(password);
-      console.log('[AUTH_LOG] Step 1 complete. Database initialization returned.');
-
-      console.log('[AUTH_LOG] Step 2: Finding user...');
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
-      console.log(`[AUTH_LOG] Step 2 complete. User found: ${!!user}`);
-
       if (!user) {
-        console.log('[AUTH_LOG] Login failure: User not found.');
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
-
-      console.log('[AUTH_LOG] Step 3: Comparing password hash...');
       const isMatch = await bcrypt.compare(password, user.password);
-      console.log(`[AUTH_LOG] Step 3 complete. Password match: ${isMatch}`);
-
       if (!isMatch) {
-        console.log('[AUTH_LOG] Login failure: Password does not match.');
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
-
-      console.log('[AUTH_LOG] Step 4: Login success. Refreshing settings and generating token...');
       await refreshSettings();
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '8h' },
       );
-      console.log('[AUTH_LOG] Step 4 complete. Token generated.');
       return {
         success: true,
         token,
         user: { id: user.id, username: user.username, role: user.role },
       };
     } catch (error) {
-      console.error('[AUTH_LOG] ERROR in auth:login handler:', error.message);
-      // Only close the database for truly critical, non-recoverable errors.
-      // An incorrect password is a recoverable failure, and we want to keep the DB object
-      // (even if the connection failed) for the next attempt.
+      console.error('Error in auth:login handler:', error.message);
       if (error.message !== 'Incorrect password or corrupt database.') {
-        console.log('[AUTH_LOG] Closing database due to unexpected error.');
         await db.closeDatabase();
       }
       return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };

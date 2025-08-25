@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const path = require('path');
-const db = require(path.join(__dirname, '..', '..', 'db', 'db.js'));
+const { getAppRoot } = require('../app-path');
+const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
 
 function registerAttendanceHandlers() {
   ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {

@@ -1,10 +1,7 @@
 const { ipcMain } = require('electron');
 const path = require('path');
-// const fs = require('fs');
-// const path = require('path');
-// const PDFDocument = require('pdfkit');
-// const ExcelJS = require('exceljs');
-const { allQuery, runQuery, getQuery } = require(path.join(__dirname, '..', 'db', 'db.js'));
+const { getAppRoot } = require('../app-path');
+const { allQuery, runQuery, getQuery } = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
