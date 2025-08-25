@@ -1,6 +1,6 @@
 const path = require('path');
 const { ipcMain } = require('electron');
-const db = require('../../db/db');
+const db = require(path.join(__dirname, '..', '..', 'db', 'db'));
 
 function registerDashboardHandlers() {
   ipcMain.handle('get-dashboard-stats', async () => {
