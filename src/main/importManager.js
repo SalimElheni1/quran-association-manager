@@ -5,7 +5,6 @@ const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
 const path = require('path');
-const { getAppRoot } = require('./app-path');
 const {
   getDatabasePath,
   isDbOpen,
@@ -15,9 +14,9 @@ const {
   dbExec,
   runQuery,
   getQuery,
-} = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
+} = require(path.resolve(__dirname, '../db/db'));
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require(path.join(getAppRoot(), 'src', 'main', 'matriculeService.js'));
+const { generateMatricule } = require(path.resolve(__dirname, './matriculeService'));
 
 const saltStore = new Store({ name: 'db-config' });
 const mainStore = new Store();

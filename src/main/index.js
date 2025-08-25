@@ -1,20 +1,19 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const path = require('path');
-const { getAppRoot } = require('./app-path');
-const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
-const { refreshSettings } = require(path.join(getAppRoot(), 'src', 'main', 'settingsManager.js'));
+const db = require(path.resolve(__dirname, '../db/db'));
+const { refreshSettings } = require(path.resolve(__dirname, './settingsManager'));
 const Store = require('electron-store');
-const { registerFinancialHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'financialHandlers.js'));
-const { registerStudentHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'studentHandlers.js'));
-const { registerTeacherHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'teacherHandlers.js'));
-const { registerClassHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'classHandlers.js'));
-const { registerUserHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'userHandlers.js'));
-const { registerAttendanceHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'attendanceHandlers.js'));
-const { registerAuthHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'authHandlers.js'));
-const { registerSettingsHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'settingsHandlers.js'));
-const { registerDashboardHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'dashboardHandlers.js'));
-const { registerSystemHandlers } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'systemHandlers.js'));
-const { generateDevExcelTemplate } = require(path.join(getAppRoot(), 'src', 'main', 'exportManager.js'));
+const { registerFinancialHandlers } = require(path.resolve(__dirname, './financialHandlers'));
+const { registerStudentHandlers } = require(path.resolve(__dirname, './handlers/studentHandlers'));
+const { registerTeacherHandlers } = require(path.resolve(__dirname, './handlers/teacherHandlers'));
+const { registerClassHandlers } = require(path.resolve(__dirname, './handlers/classHandlers'));
+const { registerUserHandlers } = require(path.resolve(__dirname, './handlers/userHandlers'));
+const { registerAttendanceHandlers } = require(path.resolve(__dirname, './handlers/attendanceHandlers'));
+const { registerAuthHandlers } = require(path.resolve(__dirname, './handlers/authHandlers'));
+const { registerSettingsHandlers } = require(path.resolve(__dirname, './handlers/settingsHandlers'));
+const { registerDashboardHandlers } = require(path.resolve(__dirname, './handlers/dashboardHandlers'));
+const { registerSystemHandlers } = require(path.resolve(__dirname, './handlers/systemHandlers'));
+const { generateDevExcelTemplate } = require(path.resolve(__dirname, './exportManager'));
 const fs = require('fs');
 
 require('dotenv').config();
@@ -73,11 +72,9 @@ app.whenReady().then(async () => {
         } else {
           // Otherwise, resolve relative to app assets
           if (app.isPackaged) {
-            // In production, assets are in the 'dist/renderer' folder relative to resourcesPath
-            fullPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'renderer', decodedUrl);
+            fullPath = path.join(process.resourcesPath, 'app.asar', 'public', decodedUrl);
           } else {
-            // In development, assets are in the 'public' folder at the project root
-            fullPath = path.join(getAppRoot(), 'public', decodedUrl);
+            fullPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
           }
         }
 

@@ -1,9 +1,8 @@
 const { ipcMain } = require('electron');
 const path = require('path');
-const { getAppRoot } = require('../app-path');
-const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
-const { classValidationSchema } = require(path.join(getAppRoot(), 'src', 'main', 'validationSchemas.js'));
-const { getSetting } = require(path.join(getAppRoot(), 'src', 'main', 'settingsManager.js'));
+const db = require(path.resolve(__dirname, '../../db/db'));
+const { classValidationSchema } = require(path.resolve(__dirname, '../validationSchemas'));
+const { getSetting } = require(path.resolve(__dirname, '../settingsManager'));
 
 const classFields = [
   'name',

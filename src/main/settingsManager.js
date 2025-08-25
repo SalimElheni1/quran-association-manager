@@ -1,4 +1,5 @@
-const { internalGetSettingsHandler } = require('./handlers/settingsHandlers');
+const path = require('path');
+const { internalGetSettingsHandler } = require(path.resolve(__dirname, './handlers/settingsHandlers'));
 
 let settingsCache = null;
 
