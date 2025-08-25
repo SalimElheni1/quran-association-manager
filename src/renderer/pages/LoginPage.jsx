@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '../components/PasswordInput';
 import '../styles/LoginPage.css';
-import defaultLogo from '../../../public/assets/logos/g247.png';
+import defaultLogo from '../assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');

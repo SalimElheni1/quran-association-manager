@@ -1,10 +1,11 @@
 const { ipcMain, app, dialog } = require('electron');
 const path = require('path');
-const db = require(path.join(__dirname, '..', '..', 'db', 'db.js'));
-const exportManager = require(path.join(__dirname, '..', 'exportManager.js'));
-const importManager = require(path.join(__dirname, '..', 'importManager.js'));
-const backupManager = require(path.join(__dirname, '..', 'backupManager.js'));
-const { internalGetSettingsHandler } = require(path.join(__dirname, 'settingsHandlers.js'));
+const { getAppRoot } = require('../app-path');
+const db = require(path.join(getAppRoot(), 'src', 'db', 'db.js'));
+const exportManager = require(path.join(getAppRoot(), 'src', 'main', 'exportManager.js'));
+const importManager = require(path.join(getAppRoot(), 'src', 'main', 'importManager.js'));
+const backupManager = require(path.join(getAppRoot(), 'src', 'main', 'backupManager.js'));
+const { internalGetSettingsHandler } = require(path.join(getAppRoot(), 'src', 'main', 'handlers', 'settingsHandlers.js'));
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
 
