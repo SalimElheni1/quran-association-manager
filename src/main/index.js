@@ -16,6 +16,8 @@ const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
+const store = new Store();
+
 require('dotenv').config();
 
 if (require('electron-squirrel-startup')) {
