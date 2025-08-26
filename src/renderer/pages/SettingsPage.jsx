@@ -32,7 +32,6 @@ const SettingsPage = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
-
   useEffect(() => {
     const fetchInitialData = async () => {
       try {

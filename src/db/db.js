@@ -41,30 +41,44 @@ function getDatabasePath() {
 
 async function seedSuperadmin() {
   try {
-    const existingSql = 'SELECT id FROM users WHERE role = ?';
-    const existingAdmin = await getQuery(existingSql, ['Superadmin']);
+    const existingAdmin = await getQuery('SELECT id FROM users WHERE role = ?', ['Superadmin']);
 
     if (!existingAdmin) {
-      console.log('No superadmin found. Creating superadmin from .env...');
+      console.log('No superadmin found. Seeding default superadmin...');
 
-      // Get values from .env with fallbacks
-      const username = process.env.SUPERADMIN_USERNAME || 'admin';
-      const password = process.env.SUPERADMIN_PASSWORD || 'Admin123!';
-      const email = process.env.SUPERADMIN_EMAIL || 'admin@example.com';
-      const firstName = process.env.SUPERADMIN_FIRST_NAME || 'System';
-      const lastName = process.env.SUPERADMIN_LAST_NAME || 'Admin';
+      let username, password, email, firstName, lastName;
 
-      // Use asynchronous bcrypt methods
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+      // In development, use environment variables. In production, use secure defaults.
+      if (app && !app.isPackaged) {
+        console.log('Development mode detected. Using .env for superadmin credentials.');
+        username = process.env.SUPERADMIN_USERNAME || 'superadmin';
+        password = process.env.SUPERADMIN_PASSWORD || '123456';
+        email = process.env.SUPERADMIN_EMAIL || 'superadmin@example.com';
+        firstName = process.env.SUPERADMIN_FIRST_NAME || 'Super';
+        lastName = process.env.SUPERADMIN_LAST_NAME || 'Admin';
+      } else {
+        // Production: Use hardcoded defaults. The user will be prompted to change this.
+        username = 'superadmin';
+        password = '123456';
+        email = 'superadmin@example.com';
+        firstName = 'Super';
+        lastName = 'Admin';
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       const insertSql = `
         INSERT INTO users (username, password, role, first_name, last_name, email)
         VALUES (?, ?, 'Superadmin', ?, ?, ?)
-        ON CONFLICT(username) DO NOTHING;
       `;
 
-      const result = await runQuery(insertSql, [username, hashedPassword, firstName, lastName, email]);
+      const result = await runQuery(insertSql, [
+        username,
+        hashedPassword,
+        firstName,
+        lastName,
+        email,
+      ]);
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
@@ -186,7 +200,6 @@ async function initializeDatabase(password) {
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   console.log(`[DB_LOG] Using salt from keyManager. Key hash: ${keyHash}`);
 
-
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
     console.log('[DB_LOG] Plaintext database detected. Starting migration...');
@@ -233,7 +246,6 @@ async function initializeDatabase(password) {
     await getQuery('SELECT count(*) FROM sqlite_master');
     console.log('[DB_LOG] Database key is correct.');
 
-
     if (!dbExists) {
       console.log('[DB_LOG] New database detected. Initializing schema and default data...');
       await dbExec(db, schema);
@@ -248,7 +260,10 @@ async function initializeDatabase(password) {
     console.log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null; // Clear the invalid db connection
-    console.error('[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.', error);
+    console.error(
+      '[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.',
+      error,
+    );
     throw new Error('Incorrect password or corrupt database.');
   }
 }

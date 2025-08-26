@@ -25,7 +25,7 @@ const defaultSettings = {
   national_association_name: 'الرابطة الوطنية للقرآن الكريم',
   regional_association_name: '',
   local_branch_name: '',
-  national_logo_path: 'assets/logos/g247.png',
+  national_logo_path: '/assets/logos/g247.png',
   regional_local_logo_path: '',
   backup_path: '',
   backup_enabled: false,

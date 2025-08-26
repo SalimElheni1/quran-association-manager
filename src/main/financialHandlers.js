@@ -163,13 +163,7 @@ async function handleGetStatementOfActivities() {
         LIMIT 10;
     `;
 
-  const [
-    fees,
-    donations,
-    salaries,
-    expenses,
-    recentTransactions
-  ] = await Promise.all([
+  const [fees, donations, salaries, expenses, recentTransactions] = await Promise.all([
     getQuery(feesSql, [startOfMonth, now]),
     getQuery(donationsSql, [startOfMonth, now]),
     getQuery(salariesSql, [startOfMonth, now]),
