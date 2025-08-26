@@ -1,5 +1,4 @@
 const { ipcMain } = require('electron');
-const path = require('path');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { getSetting } = require('../settingsManager');

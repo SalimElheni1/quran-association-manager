@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // =================================================================================
 // PRODUCTION CRASH LOGGER
@@ -37,22 +38,45 @@ const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
 
-require('dotenv').config();
-
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
+  require('dotenv').config();
   require('electron-reloader')(module);
 }
 
-if (!process.env.JWT_SECRET) {
+// =================================================================================
+// JWT SECRET MANAGEMENT
+// =================================================================================
+// In production, we manage the JWT secret using electron-store for persistence.
+// In development, we use the .env file.
+let jwtSecret;
+if (app.isPackaged) {
+  // Production: get from store or generate a new one
+  jwtSecret = store.get('jwt_secret');
+  if (!jwtSecret) {
+    console.log('JWT secret not found in store, generating a new one...');
+    jwtSecret = crypto.randomBytes(32).toString('hex');
+    store.set('jwt_secret', jwtSecret);
+    console.log('New JWT secret generated and stored.');
+  }
+} else {
+  // Development: get from .env file
+  jwtSecret = process.env.JWT_SECRET;
+}
+
+if (!jwtSecret) {
   console.error(
-    'FATAL ERROR: JWT_SECRET is not defined in the .env file. The application cannot start securely.',
+    'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
   );
   app.quit();
 }
+// Make the secret available to the rest of the app via process.env
+process.env.JWT_SECRET = jwtSecret;
+// =================================================================================
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({

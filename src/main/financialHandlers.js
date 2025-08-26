@@ -1,5 +1,4 @@
 const { ipcMain } = require('electron');
-const path = require('path');
 const { allQuery, runQuery, getQuery } = require('../db/db');
 
 // --- Generic Error Handler ---
