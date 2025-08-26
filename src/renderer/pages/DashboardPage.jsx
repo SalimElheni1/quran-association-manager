@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row, Col, Alert, Button, Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import StatCard from '@/components/StatCard';
-import QuickActions from '@/components/QuickActions';
-import TodaysClasses from '@/components/TodaysClasses';
-import '@/styles/DashboardPage.css';
+import StatCard from '@renderer/components/StatCard';
+import QuickActions from '@renderer/components/QuickActions';
+import TodaysClasses from '@renderer/components/TodaysClasses';
+import '@renderer/styles/DashboardPage.css';
 
 function DashboardPage() {
   const navigate = useNavigate();

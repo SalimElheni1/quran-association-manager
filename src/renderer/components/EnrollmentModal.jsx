@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, ListGroup, Row, Col, Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import '@/styles/EnrollmentModal.css';
+import '@renderer/styles/EnrollmentModal.css';
 
 function EnrollmentModal({ show, handleClose, classData }) {
   const [enrolled, setEnrolled] = useState([]);

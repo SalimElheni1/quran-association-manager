@@ -1,10 +1,10 @@
 import React from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
-import ExpensesTab from '@/components/financials/ExpensesTab';
-import DonationsTab from '@/components/financials/DonationsTab';
-import SalariesTab from '@/components/financials/SalariesTab';
-import PaymentsTab from '@/components/financials/PaymentsTab';
-import ReportsTab from '@/components/financials/ReportsTab';
+import ExpensesTab from '@renderer/components/financials/ExpensesTab';
+import DonationsTab from '@renderer/components/financials/DonationsTab';
+import SalariesTab from '@renderer/components/financials/SalariesTab';
+import PaymentsTab from '@renderer/components/financials/PaymentsTab';
+import ReportsTab from '@renderer/components/financials/ReportsTab';
 
 function FinancialsPage() {
   return (

@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
-import App from '@/App';
-import { AuthProvider } from '@/contexts/AuthContext';
+import App from '@renderer/App';
+import { AuthProvider } from '@renderer/contexts/AuthContext';
 import '@fortawesome/fontawesome-free/css/all.min.css'; // Import Font Awesome locally
 import 'bootstrap/dist/css/bootstrap.rtl.min.css'; // Import Bootstrap RTL CSS
-import '@/styles/index.css';
+import '@renderer/styles/index.css';
 import { ToastContainer } from 'react-toastify';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
