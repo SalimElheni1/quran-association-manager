@@ -22,6 +22,107 @@ describe('Authentication Handlers', () => {
     jest.clearAllMocks();
   });
 
+  describe('auth:login', () => {
+    it('should login successfully with correct credentials', async () => {
+      const mockUser = {
+        id: 1,
+        username: 'testuser',
+        password: 'hashedPassword',
+        role: 'Admin',
+      };
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(true);
+      jwt.sign.mockReturnValue('mock-token');
+
+      const result = await ipcMain.invoke('auth:login', {
+        username: 'testuser',
+        password: 'password123',
+      });
+
+      expect(db.initializeDatabase).not.toHaveBeenCalled();
+      expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM users WHERE username = ?', [
+        'testuser',
+      ]);
+      expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'hashedPassword');
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: 1, username: 'testuser', role: 'Admin' },
+        'test-secret',
+        { expiresIn: '8h' },
+      );
+      expect(result.success).toBe(true);
+      expect(result.token).toBe('mock-token');
+    });
+
+    it('should initialize the database if it is not open', async () => {
+      const mockUser = {
+        id: 1,
+        username: 'testuser',
+        password: 'hashedPassword',
+        role: 'Admin',
+      };
+      db.isDbOpen.mockReturnValue(false); // DB is not open
+      db.initializeDatabase.mockResolvedValue(); // Mock initialization
+      db.getQuery.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(true);
+      jwt.sign.mockReturnValue('mock-token');
+
+      await ipcMain.invoke('auth:login', {
+        username: 'testuser',
+        password: 'password123',
+      });
+
+      expect(db.initializeDatabase).toHaveBeenCalled();
+    });
+
+    it('should return an error for incorrect username', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue(null); // User not found
+
+      const result = await ipcMain.invoke('auth:login', {
+        username: 'wronguser',
+        password: 'password123',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('اسم المستخدم أو كلمة المرور غير صحيحة');
+    });
+
+    it('should return an error for incorrect password', async () => {
+      const mockUser = {
+        id: 1,
+        username: 'testuser',
+        password: 'hashedPassword',
+        role: 'Admin',
+      };
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(false); // Password doesn't match
+
+      const result = await ipcMain.invoke('auth:login', {
+        username: 'testuser',
+        password: 'wrongpassword',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('اسم المستخدم أو كلمة المرور غير صحيحة');
+    });
+
+    it('should handle database errors during login', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockRejectedValue(new Error('DB connection failed'));
+
+      const result = await ipcMain.invoke('auth:login', {
+        username: 'testuser',
+        password: 'password123',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('DB connection failed');
+      expect(db.closeDatabase).toHaveBeenCalled();
+    });
+  });
+
   describe('auth:getProfile', () => {
     it('should return user profile on valid token', async () => {
       const mockToken = 'valid-token';

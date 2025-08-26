@@ -1,43 +1,33 @@
 const crypto = require('crypto');
 const Store = require('electron-store');
 
-// We use electron-store to save the public salt.
-// This is NOT a secret. Its purpose is to make the key derivation unique per database.
+// We use electron-store to save the database's unique encryption key.
+// This key is generated once and stored securely on the user's machine.
 const store = new Store({
-  name: 'db-config',
+  name: 'db-secure-config', // Use a different name to avoid conflicts
+  encryptionKey: 'your-base64-encoded-master-key', // In a real app, use a more secure way to get this key
 });
 
-const SALT_KEY = 'db-salt';
+const DB_KEY_NAME = 'db-encryption-key';
 
 /**
- * Retrieves the database salt.
- * If a salt doesn't exist, it generates a new one, stores it, and returns it.
- * @returns {string} The salt as a hex string.
+ * Retrieves the database encryption key.
+ * If a key doesn't exist, it generates a new secure 256-bit key,
+ * stores it, and returns it.
+ * @returns {string} The database encryption key as a hex string.
  */
-function getSalt() {
-  let salt = store.get(SALT_KEY);
+function getDbKey() {
+  let key = store.get(DB_KEY_NAME);
 
-  if (!salt) {
-    console.log('No database salt found. Generating a new one.');
-    // A 16-byte salt is standard and secure.
-    salt = crypto.randomBytes(16).toString('hex');
-    store.set(SALT_KEY, salt);
+  if (!key) {
+    console.log('No database encryption key found. Generating a new one.');
+    // Generate a secure, random 32-byte (256-bit) key.
+    key = crypto.randomBytes(32).toString('hex');
+    store.set(DB_KEY_NAME, key);
+    console.log('New database encryption key generated and stored.');
   }
 
-  return salt;
+  return key;
 }
 
-/**
- * Derives a 256-bit encryption key from a password and salt using PBKDF2.
- * @param {string} password The user's password.
- * @param {string} salt The database salt.
- * @returns {string} The derived key as a hex string.
- */
-function deriveKey(password, salt) {
-  const iterations = 250000; // High iteration count for security
-  const keylen = 32; // 32 bytes = 256 bits
-  const digest = 'sha512';
-  return crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('hex');
-}
-
-module.exports = { getSalt, deriveKey };
+module.exports = { getDbKey };

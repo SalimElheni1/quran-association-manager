@@ -100,9 +100,19 @@ const createWindow = () => {
 };
 
 app.whenReady().then(async () => {
-  // Register a custom protocol to safely serve images from the app's data directory.
-  // This prevents exposing the entire filesystem to the renderer process.
   try {
+    // =============================================================================
+    // INITIALIZE DATABASE
+    // =============================================================================
+    // This is the new standard: initialize the DB as soon as the app is ready.
+    // The key is managed internally, so no password is needed here.
+    console.log('App is ready, initializing database...');
+    await db.initializeDatabase();
+    console.log('Database initialized successfully.');
+    // =============================================================================
+
+    // Register a custom protocol to safely serve images from the app's data directory.
+    // This prevents exposing the entire filesystem to the renderer process.
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
         const url = request.url.replace('safe-image://', '');

@@ -95,7 +95,12 @@ const updateProfileHandler = async (token, profileData) => {
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
     try {
-      await db.initializeDatabase(password);
+      // The database is now initialized on app startup, not here.
+      // We just need to make sure it's open.
+      if (!db.isDbOpen()) {
+        await db.initializeDatabase();
+      }
+
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
       if (!user) {
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
