@@ -41,7 +41,41 @@ The Quran Branch Manager application is designed to modernize and streamline the
 - **Version:** 1.0
 - **As of:** August 2025
 
-## 2. Development Guide
+## 2. Design Decisions and Implementation Plans
+
+This section provides insight into the design and implementation of major features.
+
+### 2.1. Matricule System Implementation
+
+A key feature implemented is the matricule (registration number) system for all core entities (students, teachers, users).
+
+#### 2.1.1. Why a Matricule? (Benefits)
+
+The previous system's reliance on auto-incrementing integer `id`s and user-provided data like `name` or `national_id` for identification was brittle and opaque. The matricule system addresses this by providing:
+
+- **Reliability:** A unique, system-generated, and immutable matricule (e.g., `S-000001`) as the single source of truth.
+- **Clarity:** A prefixed format (`S-` for students, `T-` for teachers, `U-` for users) for instant recognition.
+- **Robust Imports:** Enables reliable "update-or-create" logic for Excel imports.
+- **Improved Search:** A simple, guaranteed-unique value for searching.
+
+#### 2.1.2. Alternatives Considered
+
+- **Integer Keys (Current):** Simple but not suitable for external systems.
+- **UUIDs (v4):** Globally unique but long, unreadable, and overkill for this application's needs.
+- **Hashed Composite Keys:** Brittle, as changes to source data would change the key.
+- **Prefixed Sequential ID (Proposed):** The best fit, offering readability and solving the import/export problem.
+
+#### 2.1.3. Phased Rollout Plan
+
+The implementation was planned in several phases:
+
+1.  **Database & Migration:** Add a `matricule` column and back-populate it for all existing records.
+2.  **Backend Logic:** Create a service to generate new matricules and update the `add` handlers.
+3.  **Excel & IPC:** Update the import/export logic to be matricule-aware.
+4.  **Frontend UI:** Display and allow searching by matricule.
+5.  **Testing & Validation:** Add unit, integration, and E2E tests.
+
+## 3. Development Guide
 
 This section serves as the comprehensive and definitive resource for setting up, developing, and maintaining the Quran Branch Manager application. It provides a clear, accurate, and up-to-date roadmap for all developers, particularly those new to the project or the technologies involved.
 
@@ -928,7 +962,157 @@ services:
 
 To use Docker, install Docker Desktop and then run `docker-compose up` in your project root.
 
-## 3. Technology Stack: Core Technologies and Rationale
+### 2.6. Coding Conventions
+
+#### 2.6.1. Translation and Notification Conventions
+
+This document outlines the conventions for user-facing text (translations) and notifications within the Quran Branch Manager application.
+
+##### Arabic Language Conventions
+
+The application's primary user-facing language is Arabic. The following conventions should be followed to ensure consistency and a professional tone:
+
+1.  **Clarity and Formality**: Use clear, formal Arabic. Avoid colloquialisms or overly casual language. For example, use "الشؤون المالية" instead of "المالية".
+2.  **Conciseness**: Keep labels and button texts concise and to the point. For example, use "إضافة طالب" instead of "إضافة طالب جديد".
+3.  **Consistency**: Use consistent terminology throughout the application. For example, always use "شؤون الطلاب" to refer to student management.
+4.  **Contextual Accuracy**: Ensure that the translation accurately reflects the context of the UI element. For example, use "الرئيسية" for the main dashboard link.
+
+##### Notification System
+
+All user notifications should be displayed using toast messages. The application uses the `react-toastify` library for this purpose. A centralized utility has been created at `src/renderer/utils/toast.js` to standardize the appearance and behavior of these notifications.
+
+###### Usage
+
+To display a notification, import the appropriate function from the `toast.js` utility:
+
+```javascript
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast';
+
+// Example usage
+showSuccessToast('تم تحديث البيانات بنجاح!');
+showErrorToast('فشل في تحميل البيانات.');
+```
+
+###### Notification Types
+
+*   **Success (`showSuccessToast`)**: Use for successful operations, such as creating, updating, or deleting data. The message should be specific and confirm the action that was taken (e.g., "تم حذف الطالب 'اسم الطالب' بنجاح.").
+*   **Error (`showErrorToast`)**: Use for failed operations or unexpected errors. The message should clearly state what went wrong.
+*   **Info (`showInfoToast`)**: Use for general information or neutral messages.
+*   **Warning (`showWarningToast`)**: Use for non-critical issues or to warn the user about a potential problem.
+
+###### Raw Alerts
+
+Raw `alert()` or `window.confirm()` calls should not be used. For confirmations, use the `ConfirmationModal` component to provide a consistent and professional user experience.
+
+### 2.7. Path Handling in Electron + Vite
+
+This document outlines the best practices for handling paths in an Electron application that uses Vite as the bundler for the renderer process. Correctly managing paths is critical because they behave differently in the development environment versus the packaged production application.
+
+#### The Core Problem
+
+In development, files are loaded from their original locations in the source tree. In a packaged production app, files are bundled into a single archive (an `.asar` file), and paths become relative to the application's executable. A path that works in development (e.g., `../assets/icon.png`) will break in production if not handled correctly.
+
+We must distinguish between two types of paths:
+1.  **Compile-Time Paths:** These are the paths used in `import` and `require()` statements to link modules together. They are resolved by the bundler (Vite/Rollup) or the Node.js runtime at build time.
+2.  **Runtime Paths:** These are paths used to access the filesystem *while the application is running*. This includes accessing databases, writing logs, reading user-generated content, or loading static assets like icons.
+
+---
+
+#### 2.7.1. Compile-Time Paths (Imports & Requires)
+
+For linking modules in your code, you should **never** use `path.join`. These paths are not dynamic; they are part of the static code structure.
+
+##### For the Renderer Process (Vite)
+
+The renderer process code (in `src/renderer`) is bundled by Vite.
+
+- **Best Practice:** Use Vite's **path aliasing** feature. This makes imports cleaner, easier to maintain, and independent of the file's location.
+
+- **How-to:** Configure `resolve.alias` in `vite.config.js`:
+  ```javascript
+  // vite.config.js
+  import { defineConfig } from 'vite';
+  import path from 'path';
+
+  export default defineConfig({
+    // ... other configs
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@renderer': path.resolve(__dirname, './src/renderer'),
+        '@main': path.resolve(__dirname, './src/main'),
+        '@db': path.resolve(__dirname, './src/db'),
+      },
+    },
+  });
+  ```
+- **Usage:**
+  ```javascript
+  // Instead of: import MyComponent from '../../components/MyComponent';
+  import MyComponent from '@renderer/components/MyComponent';
+
+  // Instead of: import { someUtil } from '../../../utils';
+  import { someUtil } from '@/utils';
+  ```
+
+##### For the Main Process (Node.js)
+
+The main process files (in `src/main`) are not bundled by Vite but are run directly by Electron's Node.js runtime. Vite aliases do not work here.
+
+- **Best Practice:** Use **static relative paths**. They are simple, efficient, and universally understood by Node.js.
+
+- **Usage:**
+  ```javascript
+  // Correct:
+  const db = require('../db/db');
+  const { registerUserHandlers } = require('./handlers/userHandlers');
+
+  // Incorrect (DO NOT DO THIS):
+  // const db = require(path.join(__dirname, '..', 'db', 'db'));
+  ```
+
+---
+
+#### 2.7.2. Runtime Paths (Filesystem Access)
+
+For accessing files and directories while the app is running, you **must** use absolute paths constructed dynamically with `path.join`. This is the only way to ensure the path points to the correct location in both development and production.
+
+##### Key Electron APIs & Variables
+
+- **`app.isPackaged`**: A boolean that is `true` when the application is running from a packaged archive. Use this to create different paths for dev and prod if necessary.
+
+- **`app.getPath(name)`**: The most reliable method for getting standard system directories. Always use this for user-specific data.
+  - `app.getPath('userData')`: The primary location for storing application state, databases, and configuration files.
+  - `app.getPath('documents')`: For user-facing files they might want to access directly.
+  - `app.getPath('logs')`: For application log files.
+  - `app.getPath('temp')`: For temporary files.
+
+- **`__dirname`**:
+  - **In Development**: The absolute path to the directory containing the currently executing script.
+  - **In Production**: The absolute path to the directory containing the script *inside the .asar archive*. It is read-only. Useful for accessing assets bundled with your app.
+
+- **`process.resourcesPath`**:
+  - **In Development**: Points to the `node_modules/electron/dist/resources` directory.
+  - **In Production**: Points to the `resources` directory inside the application's installation folder (alongside the `.asar` archive). This is the best place to put external assets (like executables or templates) that should not be bundled inside the `.asar` file.
+
+##### Example: Accessing the Database
+
+The database file should live in the `userData` directory so the application has write permissions.
+
+```javascript
+// src/db/db.js
+const { app } = require('electron');
+const path = require('path');
+
+// The most robust way to get the database path
+const dbPath = path.join(app.getPath('userData'), 'app_database.db');
+
+// Now use dbPath to connect...
+```
+
+By following these guidelines, we can ensure that paths are handled consistently and reliably across the entire application, in both development and production environments.
+
+## 4. Technology Stack: Core Technologies and Rationale
 
 This section provides a comprehensive overview of the technology stack chosen for the Quran Branch Manager application. Each component is selected based on its suitability for an offline-first desktop application, performance considerations, maintainability, and alignment with modern development practices. The rationale behind each choice is detailed to provide clarity and guide future development decisions.
 
@@ -1388,6 +1572,140 @@ For a visual representation of the database schema and its relationships, an Ent
 - **Relationships:** Lines connecting entities, indicating the type of relationship (e.g., one-to-many, many-to-one) and cardinality (e.g., crow's foot notation).
 
 Tools like `dbdiagram.io`, `draw.io`, or specialized database modeling tools can be used to create such diagrams from the SQL schema or by direct input. An ER diagram provides an invaluable visual aid for understanding the data model at a glance, especially for new developers joining the project.
+
+### 4.8. User Schemas and Field Definitions
+
+This document outlines the detailed schema and field definitions for various user types within the Quran Branch Manager application: Students (categorized by age and gender), Teachers, and Administrative roles (Admin/Super Admin). These definitions are derived from the provided PDF forms, augmented with best practices from general student and teacher information management systems, and tailored for consistent form generation within the application.
+
+Each schema includes a `Field Name`, `Data Type`, `Description`, `Source` (indicating if it's from a PDF, research, or derived), and `Applicability` (specifying which user sub-category it applies to).
+
+#### 4.8.1. Student Schemas
+
+Student data management is central to the Quran Branch Manager application. To accommodate the diverse needs of different age groups and genders, the student schema is designed with common core fields and specific fields tailored to children, teenagers, and adults. This approach ensures comprehensive data capture while maintaining flexibility for form generation.
+
+##### 4.8.1.1. Core Student Fields (Applicable to All Students)
+
+These fields are fundamental and apply to all students regardless of age or gender. They form the base of every student record.
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `fullName`           | TEXT      | Full name of the student.                                                                               | PDF (Both)         | All Students         |
+| `dateOfBirth`        | DATE      | Student's date of birth.                                                                                | PDF (Both)         | All Students         |
+| `gender`             | TEXT      | Student's gender (e.g., 'Male', 'Female').                                                              | Derived            | All Students         |
+| `address`            | TEXT      | Student's residential address.                                                                          | PDF (Both)         | All Students         |
+| `phoneNumber`        | TEXT      | Student's primary contact phone number.                                                                 | PDF (Both)         | All Students         |
+| `email`              | TEXT      | Student's email address.                                                                                | PDF (Both)         | All Students         |
+| `enrollmentDate`     | DATE      | Date when the student was officially enrolled in the association.                                       | Research           | All Students         |
+| `status`             | TEXT      | Current status of the student (e.g., 'Active', 'Inactive', 'Graduated', 'On Leave').                    | Research           | All Students         |
+| `branchId`           | INTEGER   | Foreign key linking to the `branches` table, indicating the student's associated branch.                | Derived (DB Schema)| All Students         |
+| `memorizationLevel`  | TEXT      | Current level of Quran memorization (e.g., 'Juz Amma', 'Half Quran', 'Full Quran', 'Specific Surahs'). | PDF (Adult)        | All Students         |
+| `notes`              | TEXT      | Any additional notes or remarks about the student.                                                      | Research           | All Students         |
+
+##### 4.8.1.2. Student Fields by Category
+
+###### 4.8.1.2.1. Kids (Ages ~4-12)
+
+This category focuses on younger students, where parental involvement is high. The fields reflect the need for guardian information.
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `guardianName`       | TEXT      | Full name of the primary guardian/parent.                                                               | PDF (Children)     | Kids                 |
+| `guardianRelation`   | TEXT      | Relationship of the guardian to the child (e.g., 'Father', 'Mother', 'Grandparent').                    | Research           | Kids                 |
+| `guardianPhoneNumber`| TEXT      | Guardian's contact phone number.                                                                        | PDF (Children)     | Kids                 |
+| `guardianEmail`      | TEXT      | Guardian's email address.                                                                               | Research           | Kids                 |
+| `emergencyContactName`| TEXT      | Name of an emergency contact person.                                                                    | Research           | Kids                 |
+| `emergencyContactPhone`| TEXT      | Phone number of the emergency contact.                                                                  | Research           | Kids                 |
+| `healthConditions`   | TEXT      | Any relevant health conditions or allergies.                                                            | Research           | Kids                 |
+
+###### 4.8.1.2.2. Teens (Ages ~13-18)
+
+Teenagers might have more independence but still require guardian oversight. The `nationalId` field becomes relevant here, though it might be optional.
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `nationalId`         | TEXT      | National Identity Card (CIN) number. **Optional for some teens.**                                       | PDF (Adult)        | Teens, Adults        |
+| `guardianName`       | TEXT      | Full name of the primary guardian/parent (still relevant for legal purposes).                           | Derived            | Teens                |
+| `guardianPhoneNumber`| TEXT      | Guardian's contact phone number.                                                                        | Derived            | Teens                |
+| `schoolName`         | TEXT      | Name of the school the teen attends.                                                                    | Research           | Teens                |
+| `gradeLevel`         | TEXT      | Current grade or academic level.                                                                        | Research           | Teens                |
+
+###### 4.8.1.2.3. Adults (Ages 18+)
+
+Adult students are typically self-reliant. Fields focus on their personal and professional details.
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | PDF (Adult)        | Teens, Adults        |
+| `educationalLevel`   | TEXT      | Highest educational qualification (e.g., 'High School', 'Bachelor', 'Master', 'PhD').                   | PDF (Adult)        | Adults               |
+| `occupation`         | TEXT      | Current profession or occupation.                                                                       | PDF (Adult)        | Adults               |
+
+##### 4.8.1.3. Student Category Logic for Form Generation
+
+When generating forms for students, the application should dynamically adjust fields based on the student's age and potentially gender. A common approach is to use the `dateOfBirth` field to determine the age category.
+
+*   **Kids:** If `age <= 12` (or a similar threshold).
+*   **Teens:** If `13 <= age <= 18`.
+*   **Adults:** If `age > 18`.
+
+Gender (`Male`/`Female`) will primarily influence UI presentation (e.g., honorifics, specific visual elements) rather than field availability, except for specific gender-segregated programs if applicable (which would be handled by `class` or `program` fields).
+
+#### 4.8.2. Teacher Schema
+
+The teacher schema focuses on professional qualifications, contact information, and specialization areas relevant to Quranic education. This allows for efficient assignment of teachers to classes based on their expertise.
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `fullName`           | TEXT      | Full name of the teacher.                                                                               | Research           | All Teachers         |
+| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | Research           | All Teachers         |
+| `phoneNumber`        | TEXT      | Teacher's primary contact phone number.                                                                 | Research           | All Teachers         |
+| `email`              | TEXT      | Teacher's email address.                                                                                | Research           | All Teachers         |
+| `address`            | TEXT      | Teacher's residential address.                                                                          | Research           | All Teachers         |
+| `dateOfBirth`        | DATE      | Teacher's date of birth.                                                                                | Research           | All Teachers         |
+| `gender`             | TEXT      | Teacher's gender (e.g., 'Male', 'Female').                                                              | Research           | All Teachers         |
+| `educationalLevel`   | TEXT      | Highest educational qualification (e.g., 'Bachelor in Islamic Studies', 'Master in Quranic Sciences').  | PDF (Adult)        | All Teachers         |
+| `specialization`     | TEXT      | Area of expertise in Quranic studies (e.g., 'Tajweed', 'Hifz', 'Tafsir', 'Arabic Language').            | PDF (Adult)        | All Teachers         |
+| `yearsOfExperience`  | INTEGER   | Number of years teaching experience.                                                                    | Research           | All Teachers         |
+| `availability`       | TEXT      | Teacher's general availability (e.g., 'Weekdays Mornings', 'Evenings', 'Full-time').                    | Research           | All Teachers         |
+| `assignedBranchId`   | INTEGER   | Foreign key linking to the `branches` table, indicating the teacher's primary assigned branch.          | Derived (DB Schema)| All Teachers         |
+| `notes`              | TEXT      | Any additional notes or remarks about the teacher.                                                      | Research           | All Teachers         |
+
+#### 4.8.3. Admin and Super Admin Schemas
+
+Administrative roles require fields primarily focused on identification, contact, and role assignment within the system. Security and access control are paramount for these roles.
+
+##### 4.8.3.1. Core Admin/Super Admin Fields
+
+| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
+| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
+| `userId`             | INTEGER   | Unique identifier for the user account (primary key).                                                   | Derived (DB Schema)| All Admins           |
+| `username`           | TEXT      | Unique username for login.                                                                              | Derived (DB Schema)| All Admins           |
+| `passwordHash`       | TEXT      | Hashed password for secure authentication.                                                              | Derived (DB Schema)| All Admins           |
+| `role`               | TEXT      | User's role (e.g., 'Admin', 'Superadmin').                                                              | Derived (DB Schema)| All Admins           |
+| `fullName`           | TEXT      | Full name of the administrator.                                                                         | Research           | All Admins           |
+| `phoneNumber`        | TEXT      | Administrator's contact phone number.                                                                   | Research           | All Admins           |
+| `email`              | TEXT      | Administrator's email address.                                                                          | Research           | All Admins           |
+| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | Research           | All Admins           |
+| `assignedBranchId`   | INTEGER   | Foreign key linking to the `branches` table, indicating the admin's primary assigned branch (if applicable).| Derived (DB Schema)| Admin (Branch Admin) |
+| `lastLogin`          | DATETIME  | Timestamp of the last successful login.                                                                 | Research           | All Admins           |
+| `createdAt`          | DATETIME  | Timestamp when the user account was created.                                                            | Derived (DB Schema)| All Admins           |
+| `updatedAt`          | DATETIME  | Timestamp of the last update to the user record.                                                        | Research           | All Admins           |
+
+##### 4.8.3.2. Role-Specific Considerations
+
+*   **Superadmin:** This role typically has full system access and is not usually tied to a specific `branchId`. The `assignedBranchId` field would be null or irrelevant for a Superadmin.
+*   **Branch Admin:** This role is specifically tied to a `branchId`, limiting their scope of management to a particular branch.
+
+#### 4.8.4. Consistent Form Generation and Categorization
+
+To ensure consistent form generation in the application, the following principles should be applied:
+
+*   **Dynamic Field Rendering:** Forms should be dynamically rendered based on the user type and, for students, their age category. This means that when adding a new student, the application would first ask for `dateOfBirth` (and perhaps `gender`), then dynamically present the relevant fields (`guardianName` for kids, `nationalId` for teens/adults, `occupation` for adults, etc.).
+*   **Reusability:** Common fields (like `fullName`, `phoneNumber`, `email`) should be defined once and reused across different user types to ensure consistency in data capture and validation logic.
+*   **Validation Rules:** Each field should have associated validation rules (e.g., `phoneNumber` must be numeric, `email` must be a valid email format, `nationalId` must adhere to a specific format and length). These rules should be enforced at the form level (frontend) and the API/database level (backend).
+*   **Categorization Fields:** Fields like `gender`, `age`, `educationalLevel`, and `specialization` serve as important categorization fields that can be used for filtering, reporting, and assigning users to specific programs or classes. These should often be implemented as dropdowns or selection lists in the UI to ensure data consistency.
+*   **Data Integrity:** Ensure that foreign key relationships (e.g., `branchId`, `assignedBranchId`) are properly enforced to maintain data integrity across related tables.
+
+By adhering to these structured schemas and form generation principles, the Quran Branch Manager application can efficiently manage diverse user data, provide a tailored user experience during data entry, and support robust reporting and analysis capabilities.
 
 ## 5. API Reference: Inter-Process Communication (IPC) and Database Interactions
 

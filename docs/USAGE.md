@@ -2,7 +2,17 @@
 
 This document provides essential information for users, stakeholders, and contributors of the Quran Branch Manager application. It covers the application's requirements, a user guide, and guidelines for contributing to the project.
 
-## 1. Requirements
+## 1. Project Overview
+
+The Quran Branch Manager application is designed to modernize and streamline the administrative operations of Quranic associations, specifically the National Quran Association in Tunisia. Its primary goal is to transition from manual, paper-based, and Excel-driven workflows to a fully digital, centralized, and efficient system.
+
+### Core Problems Addressed
+- Outdated manual, paper-based, and Excel-driven administrative workflows.
+- Lack of a centralized system for managing student records, classes, and teachers.
+- Inefficient processes for attendance monitoring and report generation.
+- Difficulty in sharing information between branches and with the main organization.
+
+## 2. Requirements
 
 This section outlines the functional and non-functional requirements for the Quran Branch Manager application. It details what the system is expected to do and the quality attributes it must possess.
 
@@ -60,7 +70,7 @@ Non-functional requirements specify criteria that can be used to judge the opera
   - Respectful, Islamic-aligned UI elements.
   - Dark Mode support for user comfort.
   - Accessibility for users with varied technical literacy.
-  - Adherence to WCAG (Web Content Accessibility Guidelines) principles for inclusive design.
+  - Adherence to WCAG (Web Content Accessibility Guidelines) for inclusive design.
 - **Reliability & Data Integrity:**
   - Offline-first functionality: Ensure data availability and performance without internet connectivity.
   - Persistent local data storage (SQLite).
