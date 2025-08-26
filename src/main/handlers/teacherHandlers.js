@@ -1,4 +1,3 @@
-const path = require('path');
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');

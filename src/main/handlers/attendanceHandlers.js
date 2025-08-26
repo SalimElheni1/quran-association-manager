@@ -1,5 +1,4 @@
 const { ipcMain } = require('electron');
-const path = require('path');
 const db = require('../../db/db');
 
 function registerAttendanceHandlers() {

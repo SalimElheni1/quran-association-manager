@@ -1,4 +1,3 @@
-const path = require('path');
 const { internalGetSettingsHandler } = require('./handlers/settingsHandlers');
 
 let settingsCache = null;
