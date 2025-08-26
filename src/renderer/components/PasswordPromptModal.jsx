@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import PasswordInput from '@/components/PasswordInput';
+import PasswordInput from '@renderer/components/PasswordInput';
 
 const PasswordPromptModal = ({ show, onHide, onConfirm, title, body }) => {
   const [password, setPassword] = useState('');

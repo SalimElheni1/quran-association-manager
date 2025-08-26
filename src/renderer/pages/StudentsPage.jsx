@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Badge, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import StudentFormModal from '@/components/StudentFormModal';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import StudentDetailsModal from '@/components/StudentDetailsModal';
-import '@/styles/StudentsPage.css';
+import StudentFormModal from '@renderer/components/StudentFormModal';
+import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
+import '@renderer/styles/StudentsPage.css';
 
 function StudentsPage() {
   const [students, setStudents] = useState([]); // This will now hold only the filtered students

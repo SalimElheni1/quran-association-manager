@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import PasswordInput from '@/components/PasswordInput';
+import PasswordInput from '@renderer/components/PasswordInput';
 
 function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   const [formData, setFormData] = useState({});

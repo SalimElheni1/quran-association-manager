@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
-import ExpenseFormModal from '@/components/financials/ExpenseFormModal';
-import ConfirmationModal from '@/components/ConfirmationModal';
+import ExpenseFormModal from '@renderer/components/financials/ExpenseFormModal';
+import ConfirmationModal from '@renderer/components/ConfirmationModal';
 
 function ExpensesTab() {
   const [expenses, setExpenses] = useState([]);

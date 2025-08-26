@@ -1,20 +1,39 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+
+// =================================================================================
+// PRODUCTION CRASH LOGGER
+// =================================================================================
+if (app.isPackaged) {
+  process.on('uncaughtException', (error) => {
+    const logMessage = `[${new Date().toISOString()}] Uncaught Exception:\n${error.stack || error}\n`;
+    // Place the log in the directory next to the executable
+    const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
+    try {
+      fs.writeFileSync(logPath, logMessage, { encoding: 'utf-8' });
+    } catch (e) {
+      console.error('Failed to write crash log:', e);
+    }
+    // Ensure the app exits
+    process.exit(1);
+  });
+}
+// =================================================================================
 const Store = require('electron-store');
-const db = require(path.join(__dirname, '..', 'db', 'db'));
-const { refreshSettings } = require(path.join(__dirname, 'settingsManager'));
-const { registerFinancialHandlers } = require(path.join(__dirname, 'financialHandlers'));
-const { registerStudentHandlers } = require(path.join(__dirname, 'handlers', 'studentHandlers'));
-const { registerTeacherHandlers } = require(path.join(__dirname, 'handlers', 'teacherHandlers'));
-const { registerClassHandlers } = require(path.join(__dirname, 'handlers', 'classHandlers'));
-const { registerUserHandlers } = require(path.join(__dirname, 'handlers', 'userHandlers'));
-const { registerAttendanceHandlers } = require(path.join(__dirname, 'handlers', 'attendanceHandlers'));
-const { registerAuthHandlers } = require(path.join(__dirname, 'handlers', 'authHandlers'));
-const { registerSettingsHandlers } = require(path.join(__dirname, 'handlers', 'settingsHandlers'));
-const { registerDashboardHandlers } = require(path.join(__dirname, 'handlers', 'dashboardHandlers'));
-const { registerSystemHandlers } = require(path.join(__dirname, 'handlers', 'systemHandlers'));
-const { generateDevExcelTemplate } = require(path.join(__dirname, 'exportManager'));
+const db = require('../db/db');
+const { refreshSettings } = require('./settingsManager');
+const { registerFinancialHandlers } = require('./financialHandlers');
+const { registerStudentHandlers } = require('./handlers/studentHandlers');
+const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
+const { registerClassHandlers } = require('./handlers/classHandlers');
+const { registerUserHandlers } = require('./handlers/userHandlers');
+const { registerAttendanceHandlers } = require('./handlers/attendanceHandlers');
+const { registerAuthHandlers } = require('./handlers/authHandlers');
+const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
+const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
+const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
 
