@@ -6,7 +6,7 @@ const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
-const { getSalt, deriveKey } = require('../main/keyManager');
+const { getDbKey } = require('../main/keyManager');
 
 // --- Refactor Step 2: `db` is now managed by `getDb` ---
 let db; // This will hold our database connection object
@@ -46,26 +46,22 @@ async function seedSuperadmin() {
     if (!existingAdmin) {
       console.log('No superadmin found. Seeding default superadmin...');
 
-      let username, password, email, firstName, lastName;
+      // Generate a secure, random password for the initial superadmin.
+      // This password will be displayed to the user only once upon creation.
+      const tempPassword = crypto.randomBytes(8).toString('hex');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      // In development, use environment variables. In production, use secure defaults.
-      if (app && !app.isPackaged) {
-        console.log('Development mode detected. Using .env for superadmin credentials.');
-        username = process.env.SUPERADMIN_USERNAME || 'superadmin';
-        password = process.env.SUPERADMIN_PASSWORD || '123456';
-        email = process.env.SUPERADMIN_EMAIL || 'superadmin@example.com';
-        firstName = process.env.SUPERADMIN_FIRST_NAME || 'Super';
-        lastName = process.env.SUPERADMIN_LAST_NAME || 'Admin';
-      } else {
-        // Production: Use hardcoded defaults. The user will be prompted to change this.
-        username = 'superadmin';
-        password = '123456';
-        email = 'superadmin@example.com';
-        firstName = 'Super';
-        lastName = 'Admin';
-      }
+      // In a real application, you MUST inform the user of this password.
+      // For example, by showing it in a dialog after the first launch.
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+      console.log(`!!! TEMPORARY SUPERADMIN PASSWORD: ${tempPassword} !!!`);
+      console.log('!!! Please change this password immediately after login. !!!');
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const username = 'superadmin';
+      const email = 'superadmin@example.com';
+      const firstName = 'Super';
+      const lastName = 'Admin';
 
       const insertSql = `
         INSERT INTO users (username, password, role, first_name, last_name, email)
@@ -184,9 +180,8 @@ async function runMigrations() {
 /**
  * Initializes the database connection. This is the main entry point for the DB.
  * It handles key derivation, migration, and schema setup.
- * @param {string} password The user's password, used to derive the encryption key.
  */
-async function initializeDatabase(password) {
+async function initializeDatabase() {
   console.log('[DB_LOG] InitializeDatabase called.');
   if (db && db.open) {
     console.log('[DB_LOG] Database already open. Skipping initialization.');
@@ -195,10 +190,9 @@ async function initializeDatabase(password) {
 
   const dbPath = getDatabasePath();
   console.log(`[DB_LOG] Database path: ${dbPath}`);
-  const salt = getSalt();
-  const key = deriveKey(password, salt);
+  const key = getDbKey(); // <-- Use the new key manager
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-  console.log(`[DB_LOG] Using salt from keyManager. Key hash: ${keyHash}`);
+  console.log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
