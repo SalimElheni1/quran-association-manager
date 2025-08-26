@@ -21,17 +21,13 @@ describe('System Handlers', () => {
 
   describe('handleGetBackupReminderStatus', () => {
     it('should not show reminder if disabled in settings', async () => {
-      db.allQuery.mockResolvedValue([
-        { key: 'backup_reminder_enabled', value: 'false' },
-      ]);
+      db.allQuery.mockResolvedValue([{ key: 'backup_reminder_enabled', value: 'false' }]);
       const result = await handleGetBackupReminderStatus();
       expect(result.showReminder).toBe(false);
     });
 
     it('should show reminder if no previous backup exists', async () => {
-      db.allQuery.mockResolvedValue([
-        { key: 'backup_reminder_enabled', value: 'true' },
-      ]);
+      db.allQuery.mockResolvedValue([{ key: 'backup_reminder_enabled', value: 'true' }]);
       mockStoreGet.mockReturnValue(null);
       const result = await handleGetBackupReminderStatus();
       expect(result.showReminder).toBe(true);

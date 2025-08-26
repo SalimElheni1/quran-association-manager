@@ -17,8 +17,5 @@ module.exports = {
   clearMocks: true,
 
   // The paths to modules that run some code to configure or set up the testing environment before each test
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/release/'
-  ],
+  testPathIgnorePatterns: ['/node_modules/', '/release/'],
 };

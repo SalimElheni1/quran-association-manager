@@ -4,7 +4,6 @@ const PizZip = require('pizzip');
 const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
-const path = require('path');
 const {
   getDatabasePath,
   isDbOpen,
@@ -114,7 +113,12 @@ const REQUIRED_COLUMNS = {
   الرواتب: ['الرقم التعريفي للمعلم', 'المبلغ', 'تاريخ الدفع (YYYY-MM-DD)'],
   التبرعات: ['اسم المتبرع', 'نوع التبرع (Cash/In-kind)', 'تاريخ التبرع (YYYY-MM-DD)'],
   المصاريف: ['الفئة', 'المبلغ', 'تاريخ الصرف (YYYY-MM-DD)'],
-  الحضور: ['الرقم التعريفي للطالب', 'اسم الفصل', 'التاريخ (YYYY-MM-DD)', 'الحالة (present/absent/late/excused)'],
+  الحضور: [
+    'الرقم التعريفي للطالب',
+    'اسم الفصل',
+    'التاريخ (YYYY-MM-DD)',
+    'الحالة (present/absent/late/excused)',
+  ],
 };
 
 const getColumnIndex = (headerRow, headerText) => {
@@ -141,7 +145,9 @@ async function importExcelData(filePath) {
       (colName) => getColumnIndex(headerRow, colName) === -1,
     );
     if (missingColumns.length > 0) {
-      results.errors.push(`ورقة "${sheetName}" ينقصها الأعمدة المطلوبة: ${missingColumns.join(', ')}`);
+      results.errors.push(
+        `ورقة "${sheetName}" ينقصها الأعمدة المطلوبة: ${missingColumns.join(', ')}`,
+      );
       results.errorCount += worksheet.rowCount - 2;
       return;
     }
@@ -214,10 +220,10 @@ async function processStudentRow(row, headerRow) {
     return { success: true };
   }
   // Insert new record
-  const existingStudent = await getQuery('SELECT id FROM students WHERE name = ? OR national_id = ?', [
-    data.name,
-    data.national_id,
-  ]);
+  const existingStudent = await getQuery(
+    'SELECT id FROM students WHERE name = ? OR national_id = ?',
+    [data.name, data.national_id],
+  );
   if (existingStudent) {
     return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
   }
@@ -225,7 +231,9 @@ async function processStudentRow(row, headerRow) {
   const newMatricule = await generateMatricule('student');
   const allData = { ...data, matricule: newMatricule };
 
-  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const allFields = Object.keys(allData).filter(
+    (k) => allData[k] !== null && allData[k] !== undefined,
+  );
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
 
@@ -276,7 +284,9 @@ async function processTeacherRow(row, headerRow) {
   const newMatricule = await generateMatricule('teacher');
   const allData = { ...data, matricule: newMatricule };
 
-  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const allFields = Object.keys(allData).filter(
+    (k) => allData[k] !== null && allData[k] !== undefined,
+  );
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
 
@@ -295,8 +305,17 @@ async function processUserRow(row, headerRow) {
     employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
   };
 
-  if (!data.username || !data.first_name || !data.last_name || !data.role || !data.employment_type) {
-    return { success: false, message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.' };
+  if (
+    !data.username ||
+    !data.first_name ||
+    !data.last_name ||
+    !data.role ||
+    !data.employment_type
+  ) {
+    return {
+      success: false,
+      message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.',
+    };
   }
 
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
@@ -331,7 +350,9 @@ async function processUserRow(row, headerRow) {
     password: bcrypt.hashSync(password, 10),
   };
 
-  const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
+  const allFields = Object.keys(allData).filter(
+    (k) => allData[k] !== null && allData[k] !== undefined,
+  );
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
 
@@ -344,7 +365,10 @@ async function processClassRow(row, headerRow) {
   if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
   const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
   if (!teacher) {
-    return { success: false, message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".` };
+    return {
+      success: false,
+      message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".`,
+    };
   }
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value,
@@ -370,7 +394,10 @@ async function processPaymentRow(row, headerRow) {
   if (!studentMatricule) return { success: false, message: 'الرقم التعريفي للطالب مطلوب.' };
   const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
   if (!student) {
-    return { success: false, message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".` };
+    return {
+      success: false,
+      message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
+    };
   }
   const data = {
     student_id: student.id,
@@ -379,7 +406,8 @@ async function processPaymentRow(row, headerRow) {
     payment_method: row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
-  if (!data.amount || !data.payment_date) return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
+  if (!data.amount || !data.payment_date)
+    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -392,7 +420,10 @@ async function processSalaryRow(row, headerRow) {
   if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
   const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
   if (!teacher) {
-    return { success: false, message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".` };
+    return {
+      success: false,
+      message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".`,
+    };
   }
   const data = {
     teacher_id: teacher.id,
@@ -400,7 +431,8 @@ async function processSalaryRow(row, headerRow) {
     payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع (YYYY-MM-DD)')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
-  if (!data.amount || !data.payment_date) return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
+  if (!data.amount || !data.payment_date)
+    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -417,9 +449,12 @@ async function processDonationRow(row, headerRow) {
     donation_date: row.getCell(getColumnIndex(headerRow, 'تاريخ التبرع (YYYY-MM-DD)')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
-  if (!data.donor_name || !data.donation_type || !data.donation_date) return { success: false, message: 'اسم المتبرع، نوع التبرع، وتاريخ التبرع هي حقول مطلوبة.' };
-  if (data.donation_type === 'Cash' && !data.amount) return { success: false, message: 'المبلغ مطلوب للتبرعات النقدية.' };
-  if (data.donation_type === 'In-kind' && !data.description) return { success: false, message: 'الوصف مطلوب للتبرعات العينية.' };
+  if (!data.donor_name || !data.donation_type || !data.donation_date)
+    return { success: false, message: 'اسم المتبرع، نوع التبرع، وتاريخ التبرع هي حقول مطلوبة.' };
+  if (data.donation_type === 'Cash' && !data.amount)
+    return { success: false, message: 'المبلغ مطلوب للتبرعات النقدية.' };
+  if (data.donation_type === 'In-kind' && !data.description)
+    return { success: false, message: 'الوصف مطلوب للتبرعات العينية.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -435,7 +470,8 @@ async function processExpenseRow(row, headerRow) {
     responsible_person: row.getCell(getColumnIndex(headerRow, 'المسؤول')).value,
     description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
   };
-  if (!data.category || !data.amount || !data.expense_date) return { success: false, message: 'الفئة، المبلغ، وتاريخ الصرف هي حقول مطلوبة.' };
+  if (!data.category || !data.amount || !data.expense_date)
+    return { success: false, message: 'الفئة، المبلغ، وتاريخ الصرف هي حقول مطلوبة.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -451,7 +487,10 @@ async function processAttendanceRow(row, headerRow) {
   }
   const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
   if (!student) {
-    return { success: false, message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".` };
+    return {
+      success: false,
+      message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
+    };
   }
   const classData = await getQuery('SELECT id FROM classes WHERE name = ?', [className]);
   if (!classData) return { success: false, message: `لم يتم العثور على فصل باسم "${className}".` };

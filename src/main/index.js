@@ -69,9 +69,7 @@ if (app.isPackaged) {
 }
 
 if (!jwtSecret) {
-  console.error(
-    'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
-  );
+  console.error('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
   app.quit();
 }
 // Make the secret available to the rest of the app via process.env

@@ -2,7 +2,6 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
-const path = require('path');
 const { allQuery } = require('../db/db');
 
 const store = new Store();
