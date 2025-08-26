@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Desktop application for managing Quran association branches.",
   "main": "src/main/index.js",
-  "author": "Your Name",
+  "author": "Salim Elheni",
   "license": "MIT",
   "scripts": {
     "react-dev": "vite",
