@@ -111,7 +111,9 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
         <Modal.Body>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>اسم الفصل</Form.Label>
+              <Form.Label>
+                اسم الفصل<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="name"
@@ -148,7 +150,9 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الحالة</Form.Label>
+              <Form.Label>
+                الحالة<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Select
                 name="status"
                 value={formData.status || 'pending'}

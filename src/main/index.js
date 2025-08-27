@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, clipboard } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -107,9 +107,32 @@ app.whenReady().then(async () => {
     // This is the new standard: initialize the DB as soon as the app is ready.
     // The key is managed internally, so no password is needed here.
     console.log('App is ready, initializing database...');
-    await db.initializeDatabase();
+    const tempCredentials = await db.initializeDatabase();
     console.log('Database initialized successfully.');
     // =============================================================================
+
+    Menu.setApplicationMenu(null);
+    const mainWindow = createWindow();
+
+    // If a new superadmin was created, show the credentials in a dialog
+    if (tempCredentials) {
+      const { username, password } = tempCredentials;
+      const message = `A new Superadmin has been created for you.\n\nPlease save these credentials securely. You will need them to log in for the first time. It is highly recommended to change your password after your first login.\n\nUsername: ${username}\nPassword: ${password}`;
+
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Superadmin Credentials',
+        message: 'Welcome! Your initial login details are ready.',
+        detail: message,
+        buttons: ['Copy Credentials & Close', 'Close'],
+        defaultId: 0,
+      });
+
+      if (response === 0) {
+        // Copy credentials to clipboard
+        clipboard.writeText(`Username: ${username}\nPassword: ${password}`);
+      }
+    }
 
     // Register a custom protocol to safely serve images from the app's data directory.
     // This prevents exposing the entire filesystem to the renderer process.
@@ -142,9 +165,6 @@ app.whenReady().then(async () => {
         callback({ error: -2 }); // net::FAILED
       }
     });
-
-    Menu.setApplicationMenu(null);
-    const mainWindow = createWindow();
 
     // Check if a re-login is required after an import/restore operation
     const forceRelogin = store.get('force-relogin-after-restart');

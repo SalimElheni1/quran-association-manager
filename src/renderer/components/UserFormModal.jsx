@@ -95,7 +95,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           <h5 className="form-section-title">معلومات الحساب</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>اسم المستخدم</Form.Label>
+              <Form.Label>
+                اسم المستخدم<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="username"
@@ -114,7 +116,11 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               onChange={handleChange}
               placeholder={isEditMode ? 'اتركه فارغاً لعدم التغيير' : ''}
               required={!isEditMode}
-              label="كلمة المرور"
+              label={
+                <>
+                  كلمة المرور<span className="text-danger">*</span>
+                </>
+              }
               helpText={!isEditMode ? '(8 أحرف على الأقل)' : ''}
             />
           </Row>
@@ -122,7 +128,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           <h5 className="form-section-title">المعلومات الشخصية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الاسم الأول</Form.Label>
+              <Form.Label>
+                الاسم الأول<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="first_name"
@@ -132,7 +140,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               />
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>اللقب</Form.Label>
+              <Form.Label>
+                اللقب<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="last_name"
@@ -210,7 +220,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           <h5 className="form-section-title">معلومات العمل</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>نوع التوظيف</Form.Label>
+              <Form.Label>
+                نوع التوظيف<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Select
                 name="employment_type"
                 value={formData.employment_type || 'volunteer'}
@@ -221,7 +233,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الدور في النظام</Form.Label>
+              <Form.Label>
+                الدور في النظام<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Select name="role" value={formData.role || 'Admin'} onChange={handleChange}>
                 {Object.entries(roleOptions).map(([key, label]) => (
                   <option key={key} value={key}>
@@ -247,7 +261,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           {formData.employment_type === 'contract' && (
             <Row>
               <Form.Group as={Col} md="6" className="mb-3">
-                <Form.Label>تاريخ بداية العقد</Form.Label>
+                <Form.Label>
+                  تاريخ بداية العقد<span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   type="date"
                   name="start_date"

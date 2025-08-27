@@ -79,7 +79,9 @@ const userValidationSchema = Joi.object({
   first_name: Joi.string().min(2).max(50).required(),
   last_name: Joi.string().min(2).max(50).required(),
   employment_type: Joi.string().valid('volunteer', 'contract').required(),
-  role: Joi.string().valid('Manager', 'FinanceManager', 'Admin', 'SessionSupervisor').required(),
+  role: Joi.string()
+    .valid('Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor')
+    .required(),
   date_of_birth: Joi.date().iso().allow(null, ''),
   national_id: Joi.string().allow(null, ''),
   email: Joi.string()
