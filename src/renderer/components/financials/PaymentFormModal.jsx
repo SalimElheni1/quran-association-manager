@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { error as logError } from '@renderer/utils/logger';
 
 function PaymentFormModal({ show, onHide, onSave, payment }) {
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         const result = await window.electronAPI.getStudents(); // Assuming getStudents API exists
         setStudents(result);
       } catch (err) {
-        console.error('Failed to fetch students:', err);
+        logError('Failed to fetch students:', err);
       }
     };
     fetchStudents();

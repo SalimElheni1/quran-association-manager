@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
+const { log, error: logError } = require('../logger');
 
 const studentFields = [
   'matricule',
@@ -59,7 +60,7 @@ function registerStudentHandlers() {
       sql += ' ORDER BY name ASC';
       return await db.allQuery(sql, params);
     } catch (error) {
-      console.error('Error in students:get handler:', error);
+      logError('Error in students:get handler:', error);
       throw new Error('فشل في جلب بيانات الطلاب.');
     }
   });
@@ -68,7 +69,7 @@ function registerStudentHandlers() {
     try {
       return await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
     } catch (error) {
-      console.error(`Error fetching student by id ${id}:`, error);
+      logError(`Error fetching student by id ${id}:`, error);
       throw new Error('فشل في جلب بيانات الطالب.');
     }
   });
@@ -93,7 +94,7 @@ function registerStudentHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in students:add handler:', error);
+      logError('Error in students:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -117,7 +118,7 @@ function registerStudentHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in students:update handler:', error);
+      logError('Error in students:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -129,7 +130,7 @@ function registerStudentHandlers() {
       const sql = 'DELETE FROM students WHERE id = ?';
       return await db.runQuery(sql, [id]);
     } catch (error) {
-      console.error(`Error deleting student ${id}:`, error);
+      logError(`Error deleting student ${id}:`, error);
       throw new Error('فشل حذف الطالب.');
     }
   });

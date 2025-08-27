@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { error as logError } from '@renderer/utils/logger';
 
 function SalaryFormModal({ show, onHide, onSave, salary }) {
   const [formData, setFormData] = useState({
@@ -19,7 +20,7 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
         const result = await window.electronAPI.getTeachers(); // Assuming getTeachers API exists
         setTeachers(result);
       } catch (err) {
-        console.error('Failed to fetch teachers:', err);
+        logError('Failed to fetch teachers:', err);
       }
     };
     fetchTeachers();

@@ -1,4 +1,5 @@
 const { getQuery } = require('../db/db');
+const { log, error: logError } = require('./logger');
 
 /**
  * Generates a new, unique matricule for a given entity type.
@@ -40,7 +41,7 @@ async function generateMatricule(entityType) {
 
     return `${prefix}${paddedId}`;
   } catch (error) {
-    console.error(`Failed to generate matricule for ${entityType}:`, error);
+    logError(`Failed to generate matricule for ${entityType}:`, error);
     throw new Error('فشل في إنشاء الرقم التعريفي.');
   }
 }

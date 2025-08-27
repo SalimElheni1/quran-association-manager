@@ -6,6 +6,7 @@ import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import TeacherDetailsModal from '@renderer/components/TeacherDetailsModal';
 // We can reuse the same page styles from the students page
 import '@renderer/styles/StudentsPage.css';
+import { error as logError } from '@renderer/utils/logger';
 
 function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
@@ -27,7 +28,7 @@ function TeachersPage() {
       const fetchedTeachers = await window.electronAPI.getTeachers(filters);
       setTeachers(fetchedTeachers);
     } catch (err) {
-      console.error('Error fetching teachers:', err);
+      logError('Error fetching teachers:', err);
       toast.error('فشل تحميل بيانات المعلمين.');
     } finally {
       setLoading(false);
@@ -49,7 +50,7 @@ function TeachersPage() {
       setEditingTeacher(fullTeacher);
       setShowModal(true);
     } catch (err) {
-      console.error('Error fetching full teacher details:', err);
+      logError('Error fetching full teacher details:', err);
       toast.error('فشل تحميل التفاصيل الكاملة للمعلم.');
     }
   };
@@ -65,7 +66,7 @@ function TeachersPage() {
       setTeacherToView(fullTeacher);
       setShowDetailsModal(true);
     } catch (err) {
-      console.error('Error fetching full teacher details:', err);
+      logError('Error fetching full teacher details:', err);
       toast.error('فشل تحميل التفاصيل الكاملة للمعلم.');
     }
   };
@@ -87,7 +88,7 @@ function TeachersPage() {
       fetchTeachers();
       handleCloseModal();
     } catch (err) {
-      console.error('Error saving teacher:', err);
+      logError('Error saving teacher:', err);
       const friendlyMessage = err.message.split('Error:').pop().trim();
       toast.error(friendlyMessage);
     }
@@ -105,7 +106,7 @@ function TeachersPage() {
       toast.success(`تم حذف المعلم "${teacherToDelete.name}" بنجاح.`);
       fetchTeachers();
     } catch (err) {
-      console.error('Error deleting teacher:', err);
+      logError('Error deleting teacher:', err);
       toast.error(`فشل حذف المعلم "${teacherToDelete.name}".`);
     } finally {
       setShowDeleteModal(false);

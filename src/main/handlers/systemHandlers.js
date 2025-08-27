@@ -1,5 +1,6 @@
 const { ipcMain, app, dialog } = require('electron');
 const db = require('../../db/db');
+const { log, error: logError } = require('../logger');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
@@ -31,7 +32,7 @@ async function handleGetBackupReminderStatus() {
 
     return { showReminder: false };
   } catch (error) {
-    console.error('Error checking backup reminder status:', error);
+    logError('Error checking backup reminder status:', error);
     return { showReminder: false, error: 'Could not check backup status.' };
   }
 }
@@ -84,7 +85,7 @@ function registerSystemHandlers() {
 
       return { success: true, message: `Export saved to ${filePath}` };
     } catch (error) {
-      console.error(`Error during export (${exportType}, ${format}):`, error);
+      logError(`Error during export (${exportType}, ${format}):`, error);
       return { success: false, message: `Export failed: ${error.message}` };
     }
   });
@@ -105,7 +106,7 @@ function registerSystemHandlers() {
 
       return { success: true, message: `Template saved to ${filePath}` };
     } catch (error) {
-      console.error('Error during template generation:', error);
+      logError('Error during template generation:', error);
       return { success: false, message: `Template generation failed: ${error.message}` };
     }
   });
@@ -126,7 +127,7 @@ function registerSystemHandlers() {
 
       return { success: true, ...results };
     } catch (error) {
-      console.error('Error during import execution:', error);
+      logError('Error during import execution:', error);
       return { success: false, message: `Import failed: ${error.message}` };
     }
   });
@@ -160,7 +161,7 @@ function registerSystemHandlers() {
 
       return await backupManager.runBackup(settings, filePath);
     } catch (error) {
-      console.error('Error in backup:run IPC wrapper:', error);
+      logError('Error in backup:run IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -171,7 +172,7 @@ function registerSystemHandlers() {
       const lastBackupStatus = store.get('last_backup_status');
       return { success: true, status: lastBackupStatus };
     } catch (error) {
-      console.error('Error in backup:getStatus IPC wrapper:', error);
+      logError('Error in backup:getStatus IPC wrapper:', error);
       return { success: false, message: 'Could not retrieve backup status.' };
     }
   });
@@ -204,7 +205,7 @@ function registerSystemHandlers() {
       }
       return await importManager.replaceDatabase(importedDbPath, password);
     } catch (error) {
-      console.error('Error during database import process:', error);
+      logError('Error during database import process:', error);
       return {
         success: false,
         message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,

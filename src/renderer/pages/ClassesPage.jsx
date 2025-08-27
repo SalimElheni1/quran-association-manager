@@ -6,6 +6,7 @@ import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import ClassDetailsModal from '@renderer/components/ClassDetailsModal'; // We will create this next
 import EnrollmentModal from '@renderer/components/EnrollmentModal';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
+import { error as logError } from '@renderer/utils/logger';
 
 function ClassesPage() {
   const [classes, setClasses] = useState([]);
@@ -27,7 +28,7 @@ function ClassesPage() {
       const fetchedClasses = await window.electronAPI.getClasses(filters);
       setClasses(fetchedClasses);
     } catch (err) {
-      console.error('Error fetching classes:', err);
+      logError('Error fetching classes:', err);
       toast.error('فشل تحميل بيانات الفصول الدراسية.');
     } finally {
       setLoading(false);
@@ -48,7 +49,7 @@ function ClassesPage() {
       const fullClassData = await window.electronAPI.getClassById(classData.id);
       setEditingClass(fullClassData);
     } catch (err) {
-      console.error('Error fetching full class details for edit:', err);
+      logError('Error fetching full class details for edit:', err);
       toast.error('فشل تحميل بيانات الفصل للتعديل.');
     }
     setShowModal(true); // Show modal even if fetch fails, it will show empty fields
@@ -65,7 +66,7 @@ function ClassesPage() {
       setClassToView(fullClassData);
       setShowDetailsModal(true);
     } catch (err) {
-      console.error('Error fetching full class details:', err);
+      logError('Error fetching full class details:', err);
       toast.error('فشل تحميل التفاصيل الكاملة للفصل.');
     }
   };
@@ -92,7 +93,7 @@ function ClassesPage() {
       fetchClasses();
       handleCloseModal();
     } catch (err) {
-      console.error('Error saving class:', err);
+      logError('Error saving class:', err);
       const friendlyMessage = err.message.split('Error:').pop().trim();
       toast.error(friendlyMessage);
     }
@@ -110,7 +111,7 @@ function ClassesPage() {
       toast.success(`تم حذف الفصل "${classToDelete.name}" بنجاح.`);
       fetchClasses();
     } catch (err) {
-      console.error('Error deleting class:', err);
+      logError('Error deleting class:', err);
       toast.error(`فشل حذف الفصل "${classToDelete.name}".`);
     } finally {
       setShowDeleteModal(false);

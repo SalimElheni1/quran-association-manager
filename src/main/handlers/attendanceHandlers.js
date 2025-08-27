@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
+const { log, error: logError } = require('../logger');
 
 function registerAttendanceHandlers() {
   ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
@@ -18,7 +19,7 @@ function registerAttendanceHandlers() {
       `;
       return db.allQuery(sql, [date, date]);
     } catch (error) {
-      console.error('Error fetching classes for day:', error);
+      logError('Error fetching classes for day:', error);
       throw error;
     }
   });
@@ -34,7 +35,7 @@ function registerAttendanceHandlers() {
       `;
       return db.allQuery(sql, [classId]);
     } catch (error) {
-      console.error('Error fetching students for class:', error);
+      logError('Error fetching students for class:', error);
       throw error;
     }
   });
@@ -53,7 +54,7 @@ function registerAttendanceHandlers() {
       });
       return attendanceMap;
     } catch (error) {
-      console.error('Error fetching attendance for date:', error);
+      logError('Error fetching attendance for date:', error);
       throw error;
     }
   });
@@ -91,11 +92,11 @@ function registerAttendanceHandlers() {
         await db.runQuery(sql, params);
       }
       await db.runQuery('COMMIT');
-      console.log('Attendance saved successfully');
+      log('Attendance saved successfully');
       return { success: true };
     } catch (error) {
       await db.runQuery('ROLLBACK');
-      console.error('Error saving attendance:', error);
+      logError('Error saving attendance:', error);
       throw error;
     }
   });

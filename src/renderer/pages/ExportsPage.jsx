@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { error as logError } from '@renderer/utils/logger';
 import {
   Container,
   Row,
@@ -95,7 +96,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       }
     } catch (error) {
       setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-      console.error('Export failed:', error);
+      logError('Export failed:', error);
     }
   };
 
@@ -447,7 +448,7 @@ const ExportsPage = () => {
       }
     } catch (error) {
       setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-      console.error('Export failed:', error);
+      logError('Export failed:', error);
     }
   };
 

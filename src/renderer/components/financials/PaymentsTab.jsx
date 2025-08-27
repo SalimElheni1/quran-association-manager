@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import PaymentFormModal from '@renderer/components/financials/PaymentFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import { error as logError } from '@renderer/utils/logger';
 
 function PaymentsTab() {
   const [payments, setPayments] = useState([]);
@@ -19,7 +20,7 @@ function PaymentsTab() {
       setPayments(result);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch payments:', err);
+      logError('Failed to fetch payments:', err);
       setError(err.message || 'فشل جلب قائمة الدفعات.');
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ function PaymentsTab() {
       }
       handleHideModal();
     } catch (err) {
-      console.error('Failed to save payment:', err);
+      logError('Failed to save payment:', err);
       setError(err.message || 'فشل حفظ الدفعة.');
     }
   };
@@ -67,7 +68,7 @@ function PaymentsTab() {
       await window.electronAPI.deletePayment(paymentToDelete.id);
       setPayments(payments.filter((p) => p.id !== paymentToDelete.id));
     } catch (err) {
-      console.error('Failed to delete payment:', err);
+      logError('Failed to delete payment:', err);
       setError(err.message || 'فشل حذف الدفعة.');
     } finally {
       setShowDeleteModal(false);

@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { getSetting } = require('../settingsManager');
+const { log, error: logError } = require('../logger');
 
 const classFields = [
   'name',
@@ -31,7 +32,7 @@ function registerClassHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in classes:add handler:', error);
+      logError('Error in classes:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -50,7 +51,7 @@ function registerClassHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in classes:update handler:', error);
+      logError('Error in classes:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -130,7 +131,7 @@ function registerClassHandlers() {
 
       return { enrolledStudents, notEnrolledStudents };
     } catch (error) {
-      console.error('Error fetching enrollment data:', error);
+      logError('Error fetching enrollment data:', error);
       throw error;
     }
   });
@@ -149,11 +150,11 @@ function registerClassHandlers() {
         await db.runQuery(sql, params);
       }
       await db.runQuery('COMMIT');
-      console.log('Enrollments updated successfully');
+      log('Enrollments updated successfully');
       return { success: true };
     } catch (error) {
       await db.runQuery('ROLLBACK');
-      console.error('Error updating enrollments:', error);
+      logError('Error updating enrollments:', error);
       throw error;
     }
   });

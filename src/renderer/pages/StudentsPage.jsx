@@ -5,6 +5,7 @@ import StudentFormModal from '@renderer/components/StudentFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 import '@renderer/styles/StudentsPage.css';
+import { error as logError } from '@renderer/utils/logger';
 
 function StudentsPage() {
   const [students, setStudents] = useState([]); // This will now hold only the filtered students
@@ -27,7 +28,7 @@ function StudentsPage() {
       const fetchedStudents = await window.electronAPI.getStudents(filters);
       setStudents(fetchedStudents);
     } catch (err) {
-      console.error('Error fetching students:', err);
+      logError('Error fetching students:', err);
       toast.error('فشل تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
@@ -50,7 +51,7 @@ function StudentsPage() {
       setEditingStudent(fullStudent);
       setShowModal(true);
     } catch (err) {
-      console.error('Error fetching full student details:', err);
+      logError('Error fetching full student details:', err);
       toast.error('فشل تحميل التفاصيل الكاملة للطالب.');
     }
   };
@@ -66,7 +67,7 @@ function StudentsPage() {
       setStudentToView(fullStudent);
       setShowDetailsModal(true);
     } catch (err) {
-      console.error('Error fetching full student details:', err);
+      logError('Error fetching full student details:', err);
       toast.error('فشل تحميل التفاصيل الكاملة للطالب.');
     }
   };
@@ -88,7 +89,7 @@ function StudentsPage() {
       fetchStudents(); // Refresh the list
       handleCloseModal();
     } catch (err) {
-      console.error('Error saving student:', err);
+      logError('Error saving student:', err);
       const friendlyMessage = err.message.split('Error:').pop().trim();
       toast.error(friendlyMessage);
     }
@@ -112,7 +113,7 @@ function StudentsPage() {
       toast.success(`تم حذف الطالب "${studentToDelete.name}" بنجاح.`);
       fetchStudents(); // Refresh the list
     } catch (err) {
-      console.error('Error deleting student:', err);
+      logError('Error deleting student:', err);
       toast.error(`فشل حذف الطالب "${studentToDelete.name}".`);
     } finally {
       handleCloseDeleteModal();

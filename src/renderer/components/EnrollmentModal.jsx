@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, ListGroup, Row, Col, Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import '@renderer/styles/EnrollmentModal.css';
+import { error as logError } from '@renderer/utils/logger';
 
 function EnrollmentModal({ show, handleClose, classData }) {
   const [enrolled, setEnrolled] = useState([]);
@@ -27,7 +28,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
         setEnrolled(enrolledStudents || []);
         setNotEnrolled(notEnrolledStudents || []);
       } catch (err) {
-        console.error('Error fetching enrollment data:', err);
+        logError('Error fetching enrollment data:', err);
         toast.error('فشل في تحميل بيانات تسجيل الطلاب.');
         setEnrolled([]);
         setNotEnrolled([]);
@@ -60,7 +61,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       toast.success('تم تحديث قائمة الطلاب بنجاح!');
       handleClose();
     } catch (err) {
-      console.error('Error updating enrollments:', err);
+      logError('Error updating enrollments:', err);
       toast.error('فشل في حفظ التغييرات.');
     }
   };

@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { getQuery, runQuery, allQuery } = require('./db');
+const { log, error: logError } = require('../main/logger');
 
 const getDobFromAge = (age) => {
   const today = new Date();
@@ -314,11 +315,11 @@ const getDummyClasses = (teacherIds) => {
 // Seeding Functions
 
 async function seedBranches() {
-  console.log('Seeding branches...');
+  log('Seeding branches...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM branches');
     if (count > 0) {
-      console.log('Branches already exist, skipping...');
+      log('Branches already exist, skipping...');
       return;
     }
 
@@ -326,15 +327,15 @@ async function seedBranches() {
       const sql = `INSERT INTO branches (name, location) VALUES (?, ?)`;
       await runQuery(sql, [branch.name, branch.location]);
     }
-    console.log('Successfully seeded 5 branches');
+    log('Successfully seeded 5 branches');
   } catch (error) {
-    console.error('Error seeding branches:', error);
+    logError('Error seeding branches:', error);
     throw error;
   }
 }
 
 async function seedUsers() {
-  console.log('Seeding users...');
+  log('Seeding users...');
   try {
     const existingUsers = await allQuery('SELECT username FROM users');
     const existingUsernames = existingUsers.map((user) => user.username);
@@ -342,7 +343,7 @@ async function seedUsers() {
     let insertedCount = 0;
     for (const user of dummyUsers) {
       if (existingUsernames.includes(user.username)) {
-        console.log(`User with username '${user.username}' already exists. Skipping...`);
+        log(`User with username '${user.username}' already exists. Skipping...`);
         continue;
       }
 
@@ -366,19 +367,19 @@ async function seedUsers() {
       ]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} users`);
+    log(`Successfully seeded ${insertedCount} users`);
   } catch (error) {
-    console.error('Error seeding users:', error);
+    logError('Error seeding users:', error);
     throw error;
   }
 }
 
 async function seedTeachers() {
-  console.log('Seeding teachers...');
+  log('Seeding teachers...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM teachers');
     if (count > 0) {
-      console.log('Teachers already exist, skipping...');
+      log('Teachers already exist, skipping...');
       return;
     }
 
@@ -411,19 +412,19 @@ async function seedTeachers() {
       ]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} teachers`);
+    log(`Successfully seeded ${insertedCount} teachers`);
   } catch (error) {
-    console.error('Error seeding teachers:', error);
+    logError('Error seeding teachers:', error);
     throw error;
   }
 }
 
 async function seedStudents() {
-  console.log('Seeding students...');
+  log('Seeding students...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM students');
     if (count > 0) {
-      console.log('Students already exist, skipping...');
+      log('Students already exist, skipping...');
       return;
     }
 
@@ -465,19 +466,19 @@ async function seedStudents() {
       ]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} students`);
+    log(`Successfully seeded ${insertedCount} students`);
   } catch (error) {
-    console.error('Error seeding students:', error);
+    logError('Error seeding students:', error);
     throw error;
   }
 }
 
 async function seedClasses() {
-  console.log('Seeding classes...');
+  log('Seeding classes...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM classes');
     if (count > 0) {
-      console.log('Classes already exist, skipping...');
+      log('Classes already exist, skipping...');
       return;
     }
 
@@ -485,7 +486,7 @@ async function seedClasses() {
     const femaleTeachers = await allQuery("SELECT id FROM teachers WHERE gender = 'Female'");
 
     if (maleTeachers.length === 0 || femaleTeachers.length === 0) {
-      console.log('No teachers found, skipping classes seeding...');
+      log('No teachers found, skipping classes seeding...');
       return;
     }
 
@@ -510,19 +511,19 @@ async function seedClasses() {
       ]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} classes`);
+    log(`Successfully seeded ${insertedCount} classes`);
   } catch (error) {
-    console.error('Error seeding classes:', error);
+    logError('Error seeding classes:', error);
     throw error;
   }
 }
 
 async function seedEnrollments() {
-  console.log('Seeding enrollments...');
+  log('Seeding enrollments...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM class_students');
     if (count > 0) {
-      console.log('Enrollments already exist, skipping...');
+      log('Enrollments already exist, skipping...');
       return;
     }
 
@@ -530,7 +531,7 @@ async function seedEnrollments() {
     const students = await allQuery('SELECT id FROM students');
 
     if (classes.length === 0 || students.length === 0) {
-      console.log('No classes or students found, skipping enrollments...');
+      log('No classes or students found, skipping enrollments...');
       return;
     }
 
@@ -540,25 +541,25 @@ async function seedEnrollments() {
       await runQuery(sql, [classes[i % classes.length].id, students[i % students.length].id]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} enrollments`);
+    log(`Successfully seeded ${insertedCount} enrollments`);
   } catch (error) {
-    console.error('Error seeding enrollments:', error);
+    logError('Error seeding enrollments:', error);
     throw error;
   }
 }
 
 async function seedAttendance() {
-  console.log('Seeding attendance...');
+  log('Seeding attendance...');
   try {
     const { count } = await getQuery('SELECT COUNT(*) as count FROM attendance');
     if (count > 0) {
-      console.log('Attendance already exists, skipping...');
+      log('Attendance already exists, skipping...');
       return;
     }
 
     const enrollments = await allQuery('SELECT class_id, student_id FROM class_students');
     if (enrollments.length === 0) {
-      console.log('No enrollments found, skipping attendance...');
+      log('No enrollments found, skipping attendance...');
       return;
     }
 
@@ -575,9 +576,9 @@ async function seedAttendance() {
       ]);
       insertedCount++;
     }
-    console.log(`Successfully seeded ${insertedCount} attendance records`);
+    log(`Successfully seeded ${insertedCount} attendance records`);
   } catch (error) {
-    console.error('Error seeding attendance:', error);
+    logError('Error seeding attendance:', error);
     throw error;
   }
 }

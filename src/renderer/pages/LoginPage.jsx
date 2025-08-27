@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import { error as logError } from '@renderer/utils/logger';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
 import '@renderer/styles/LoginPage.css';
@@ -26,7 +27,7 @@ function LoginPage() {
           setDisplayLogo(response.path);
         }
       } catch (err) {
-        console.error('Failed to fetch logo:', err);
+        logError('Failed to fetch logo:', err);
       }
     };
     fetchLogo();

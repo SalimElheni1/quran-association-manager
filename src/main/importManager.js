@@ -4,6 +4,7 @@ const PizZip = require('pizzip');
 const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
+const { log, error: logError, warn: logWarn } = require('./logger');
 const {
   getDatabasePath,
   isDbOpen,
@@ -31,7 +32,7 @@ async function validateDatabaseFile(filePath) {
     }
     return { isValid: true, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
   } catch (error) {
-    console.error('Error during backup validation:', error);
+    logError('Error during backup validation:', error);
     return { isValid: false, message: `خطأ في قراءة ملف النسخ الاحتياطي: ${error.message}` };
   }
 }
@@ -40,16 +41,16 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
   for (let i = 0; i < retries; i++) {
     try {
       await fs.unlink(filePath);
-      console.log(`Successfully unlinked ${filePath}`);
+      log(`Successfully unlinked ${filePath}`);
       return;
     } catch (error) {
       if (error.code === 'EBUSY' && i < retries - 1) {
-        console.warn(
+        logWarn(
           `EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
-        console.error(`Failed to unlink ${filePath} after ${i + 1} attempts.`);
+        logError(`Failed to unlink ${filePath} after ${i + 1} attempts.`);
         throw error;
       }
     }
@@ -79,19 +80,19 @@ async function replaceDatabase(importedDbPath, password) {
     }
     await fs.writeFile(currentSaltPath, configBuffer);
     saltStore.set('db-salt', newSalt);
-    console.log('Salt configuration updated from backup.');
+    log('Salt configuration updated from backup.');
     if (fsSync.existsSync(currentDbPath)) {
-      console.log(`Deleting old database file at ${currentDbPath}...`);
+      log(`Deleting old database file at ${currentDbPath}...`);
       await unlinkWithRetry(currentDbPath);
     }
-    console.log('Initializing new database with imported salt...');
+    log('Initializing new database with imported salt...');
     await initializeDatabase(password);
-    console.log('New database initialized successfully.');
-    console.log('Executing SQL script to import data...');
+    log('New database initialized successfully.');
+    log('Executing SQL script to import data...');
     await dbExec(getDb(), sqlScript);
-    console.log('Data import completed successfully.');
+    log('Data import completed successfully.');
     mainStore.set('force-relogin-after-restart', true);
-    console.log('Database import successful. The app will now restart.');
+    log('Database import successful. The app will now restart.');
     app.relaunch();
     app.quit();
     return {
@@ -99,7 +100,7 @@ async function replaceDatabase(importedDbPath, password) {
       message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
     };
   } catch (error) {
-    console.error('Failed to replace database from package:', error);
+    logError('Failed to replace database from package:', error);
     return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
   }
 }

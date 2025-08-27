@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import ExpenseFormModal from '@renderer/components/financials/ExpenseFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import { error as logError } from '@renderer/utils/logger';
 
 function ExpensesTab() {
   const [expenses, setExpenses] = useState([]);
@@ -19,7 +20,7 @@ function ExpensesTab() {
       setExpenses(result);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch expenses:', err);
+      logError('Failed to fetch expenses:', err);
       setError(err.message || 'فشل جلب قائمة المصاريف.');
     } finally {
       setLoading(false);
@@ -53,7 +54,7 @@ function ExpensesTab() {
       }
       handleHideModal();
     } catch (err) {
-      console.error('Failed to save expense:', err);
+      logError('Failed to save expense:', err);
       setError(err.message || 'فشل حفظ المصروف.');
     }
   };
@@ -69,7 +70,7 @@ function ExpensesTab() {
       await window.electronAPI.deleteExpense(expenseToDelete.id);
       setExpenses(expenses.filter((exp) => exp.id !== expenseToDelete.id));
     } catch (err) {
-      console.error('Failed to delete expense:', err);
+      logError('Failed to delete expense:', err);
       setError(err.message || 'فشل حذف المصروف.');
     } finally {
       setShowDeleteModal(false);

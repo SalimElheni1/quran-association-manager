@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Col, Row, Spinner, Alert, Table } from 'react-bootstrap';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import { error as logError } from '@renderer/utils/logger';
 
 function ReportsTab() {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ function ReportsTab() {
         setActivities(activitiesResult);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch report data:', err);
+        logError('Failed to fetch report data:', err);
         setError(err.message || 'فشل جلب بيانات التقارير.');
       } finally {
         setLoading(false);

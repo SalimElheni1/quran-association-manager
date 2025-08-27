@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import { error as logError } from '@renderer/utils/logger';
 import {
   Container,
   Row,
@@ -164,7 +165,7 @@ const SettingsPage = () => {
       }
     } catch (err) {
       toast.error(`حدث خطأ فادح: ${err.message}`);
-      console.error(err);
+      logError(err);
     } finally {
       setIsImporting(false);
     }
@@ -280,7 +281,7 @@ const SettingsPage = () => {
                               style={{ maxHeight: '100px' }}
                               onError={(e) => {
                                 e.target.style.display = 'none';
-                                console.error('Failed to load image:', settings.national_logo_path);
+                                logError('Failed to load image:', settings.national_logo_path);
                               }}
                             />
                           )}

@@ -6,6 +6,7 @@ import StatCard from '@renderer/components/StatCard';
 import QuickActions from '@renderer/components/QuickActions';
 import TodaysClasses from '@renderer/components/TodaysClasses';
 import '@renderer/styles/DashboardPage.css';
+import { error as logError } from '@renderer/utils/logger';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ function DashboardPage() {
           setBackupReminder({ show: true, message });
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        logError('Failed to fetch dashboard data:', error);
         toast.error('فشل في تحميل بيانات لوحة التحكم.');
       }
     };

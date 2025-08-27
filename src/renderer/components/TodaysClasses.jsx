@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, ListGroup, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { error as logError } from '@renderer/utils/logger';
 
 function TodaysClasses() {
   const [classes, setClasses] = useState([]);
@@ -19,7 +20,7 @@ function TodaysClasses() {
         const todaysClasses = await window.electronAPI.getTodaysClasses();
         setClasses(todaysClasses);
       } catch (error) {
-        console.error("Failed to fetch today's classes:", error);
+        logError("Failed to fetch today's classes:", error);
         toast.error('فشل في تحميل فصول اليوم.');
       } finally {
         setLoading(false);

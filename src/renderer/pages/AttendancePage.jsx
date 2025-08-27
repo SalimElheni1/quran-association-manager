@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { error as logError } from '@renderer/utils/logger';
 import {
   Form,
   Spinner,
@@ -40,7 +41,7 @@ function AttendancePage() {
         const fetchedClasses = await window.electronAPI.getClasses({ status: 'active' });
         setClasses(fetchedClasses);
       } catch (err) {
-        console.error('Error fetching active classes:', err);
+        logError('Error fetching active classes:', err);
         toast.error('فشل تحميل قائمة الفصول النشطة.');
       } finally {
         setLoadingClasses(false);
@@ -76,7 +77,7 @@ function AttendancePage() {
         const summary = await window.electronAPI.getAttendanceSummaryForClass(selectedClass);
         setSavedRecordsSummary(summary);
       } catch (err) {
-        console.error('Error fetching attendance summary:', err);
+        logError('Error fetching attendance summary:', err);
         toast.error('فشل تحميل قائمة الحضور المحفوظة.');
       }
     };
@@ -105,7 +106,7 @@ function AttendancePage() {
       setAttendanceRecords(initialRecords);
       setIsSaved(Object.keys(existingRecords).length > 0); // Set save status
     } catch (err) {
-      console.error('Error fetching students or attendance:', err);
+      logError('Error fetching students or attendance:', err);
       toast.error('فشل تحميل بيانات الطلاب أو الحضور.');
     } finally {
       setLoadingStudents(false);
@@ -150,7 +151,7 @@ function AttendancePage() {
       }
       toast.success('تم حفظ سجل الحضور بنجاح!');
     } catch (err) {
-      console.error('Error saving attendance:', err);
+      logError('Error saving attendance:', err);
       toast.error('فشل حفظ سجل الحضور.');
     } finally {
       setLoadingStudents(false);
