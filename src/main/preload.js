@@ -114,4 +114,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('force-logout', handler);
     };
   },
+  onShowInitialCredentials: (callback) => {
+    const handler = (event, ...args) => callback(event, ...args);
+    ipcRenderer.on('show-initial-credentials', handler);
+    return () => {
+      ipcRenderer.removeListener('show-initial-credentials', handler);
+    };
+  },
 });

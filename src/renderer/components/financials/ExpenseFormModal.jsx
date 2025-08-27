@@ -48,7 +48,9 @@ function ExpenseFormModal({ show, onHide, onSave, expense }) {
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formExpenseCategory">
-            <Form.Label>الفئة</Form.Label>
+            <Form.Label>
+              الفئة<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="text"
               name="category"
@@ -58,7 +60,9 @@ function ExpenseFormModal({ show, onHide, onSave, expense }) {
             />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formExpenseAmount">
-            <Form.Label>المبلغ</Form.Label>
+            <Form.Label>
+              المبلغ<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="number"
               name="amount"
@@ -68,7 +72,9 @@ function ExpenseFormModal({ show, onHide, onSave, expense }) {
             />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formExpenseDate">
-            <Form.Label>تاريخ الصرف</Form.Label>
+            <Form.Label>
+              تاريخ الصرف<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="date"
               name="expense_date"

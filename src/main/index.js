@@ -114,24 +114,12 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     const mainWindow = createWindow();
 
-    // If a new superadmin was created, show the credentials in a dialog
+    // If a new superadmin was created, send the credentials to the renderer process
+    // to be displayed in a custom modal.
     if (tempCredentials) {
-      const { username, password } = tempCredentials;
-      const message = `A new Superadmin has been created for you.\n\nPlease save these credentials securely. You will need them to log in for the first time. It is highly recommended to change your password after your first login.\n\nUsername: ${username}\nPassword: ${password}`;
-
-      const { response } = await dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Superadmin Credentials',
-        message: 'Welcome! Your initial login details are ready.',
-        detail: message,
-        buttons: ['Copy Credentials & Close', 'Close'],
-        defaultId: 0,
+      mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.send('show-initial-credentials', tempCredentials);
       });
-
-      if (response === 0) {
-        // Copy credentials to clipboard
-        clipboard.writeText(`Username: ${username}\nPassword: ${password}`);
-      }
     }
 
     // Register a custom protocol to safely serve images from the app's data directory.

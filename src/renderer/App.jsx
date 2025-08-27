@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
+import InitialCredentialsModal from '@renderer/components/InitialCredentialsModal';
 import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
 import StudentsPage from '@renderer/pages/StudentsPage';
@@ -15,10 +16,26 @@ import ExportsPage from '@renderer/pages/ExportsPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
 
 function App() {
+  const [initialCredentials, setInitialCredentials] = useState(null);
+
+  useEffect(() => {
+    // Listen for the event from the main process
+    const removeListener = window.electronAPI.onShowInitialCredentials((event, credentials) => {
+      setInitialCredentials(credentials);
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => {
+      removeListener();
+    };
+  }, []);
+
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
+    <>
+      <InitialCredentialsModal show={!!initialCredentials} credentials={initialCredentials} />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
         path="/"
         element={
           <ProtectedRoute>
