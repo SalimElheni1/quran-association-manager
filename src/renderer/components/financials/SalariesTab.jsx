@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import SalaryFormModal from '@renderer/components/financials/SalaryFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import { error as logError } from '@renderer/utils/logger';
 
 function SalariesTab() {
   const [salaries, setSalaries] = useState([]);
@@ -19,7 +20,7 @@ function SalariesTab() {
       setSalaries(result);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch salaries:', err);
+      logError('Failed to fetch salaries:', err);
       setError(err.message || 'فشل جلب قائمة الرواتب.');
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ function SalariesTab() {
       }
       handleHideModal();
     } catch (err) {
-      console.error('Failed to save salary:', err);
+      logError('Failed to save salary:', err);
       setError(err.message || 'فشل حفظ الراتب.');
     }
   };
@@ -67,7 +68,7 @@ function SalariesTab() {
       await window.electronAPI.deleteSalary(salaryToDelete.id);
       setSalaries(salaries.filter((s) => s.id !== salaryToDelete.id));
     } catch (err) {
-      console.error('Failed to delete salary:', err);
+      logError('Failed to delete salary:', err);
       setError(err.message || 'فشل حذف الراتب.');
     } finally {
       setShowDeleteModal(false);

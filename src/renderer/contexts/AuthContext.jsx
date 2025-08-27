@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { log } from '../utils/logger';
 
 const AuthContext = createContext(null);
 
@@ -11,7 +12,7 @@ export function AuthProvider({ children }) {
   // This is a safety net to ensure the frontend and backend are in sync.
   useEffect(() => {
     const removeListener = window.electronAPI.onForceLogout(() => {
-      console.log('Received force-logout signal from main process. Logging out.');
+      log('Received force-logout signal from main process. Logging out.');
       // Directly call the logout logic here to avoid any state dependencies
       localStorage.removeItem('token');
       setToken(null);

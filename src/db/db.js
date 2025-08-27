@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
 const { getDbKey } = require('../main/keyManager');
+const { log, error: logError, warn: logWarn } = require('../main/logger');
 
 // --- Refactor Step 2: `db` is now managed by `getDb` ---
 let db; // This will hold our database connection object
@@ -44,7 +45,7 @@ async function seedSuperadmin() {
     const existingAdmin = await getQuery('SELECT id FROM users WHERE role = ?', ['Superadmin']);
 
     if (!existingAdmin) {
-      console.log('No superadmin found. Seeding default superadmin...');
+      log('No superadmin found. Seeding default superadmin...');
 
       const tempPassword = crypto.randomBytes(8).toString('hex');
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
@@ -68,14 +69,14 @@ async function seedSuperadmin() {
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
       }
 
-      console.log(`Superadmin created successfully: ${username}`);
+      log(`Superadmin created successfully: ${username}`);
       // Return the credentials so they can be displayed to the user
       return { username, password: tempPassword };
     }
     // If admin already exists, do nothing and return null
     return null;
   } catch (error) {
-    console.error('Failed to seed superadmin:', error);
+    logError('Failed to seed superadmin:', error);
     throw error; // Re-throw the error to be handled by the caller
   }
 }
@@ -103,7 +104,7 @@ function isDbEncrypted(filePath) {
  * @param {string} key The encryption key.
  */
 async function migrateToEncrypted(dbPath, key) {
-  console.log('Plaintext database detected. Starting migration to encrypted format...');
+  log('Plaintext database detected. Starting migration to encrypted format...');
   const backupPath = `${dbPath}.old_plaintext`;
 
   // 1. Rename the existing plaintext DB to create a backup
@@ -120,7 +121,7 @@ async function migrateToEncrypted(dbPath, key) {
         await dbRun(encryptedDb, 'DETACH DATABASE plaintext');
         await dbClose(encryptedDb);
         fs.unlinkSync(backupPath); // Delete the plaintext backup
-        console.log('Database migration completed successfully.');
+        log('Database migration completed successfully.');
         resolve();
       } catch (migrationErr) {
         reject(migrationErr);
@@ -130,7 +131,7 @@ async function migrateToEncrypted(dbPath, key) {
 }
 
 async function runMigrations() {
-  console.log('Checking for pending migrations...');
+  log('Checking for pending migrations...');
   const migrationsDir = path.join(__dirname, 'migrations');
 
   if (!fs.existsSync(migrationsDir)) {
@@ -142,32 +143,32 @@ async function runMigrations() {
 
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
-      console.log(`Applying migration: ${file}`);
+      log(`Applying migration: ${file}`);
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         await runQuery('BEGIN TRANSACTION;', []);
         await dbExec(db, migrationSql); // Use the raw exec for migration files
         await runQuery('INSERT INTO migrations (name) VALUES (?)', [file]);
         await runQuery('COMMIT;');
-        console.log(`Successfully applied migration: ${file}`);
+        log(`Successfully applied migration: ${file}`);
       } catch (err) {
         await runQuery('ROLLBACK;');
         // If the error is "duplicate column name", it means the migration was likely
         // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
-          console.warn(
+          logWarn(
             `Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`,
           );
           // Manually insert into migrations table so it doesn't run again
           await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);
         } else {
-          console.error(`Failed to apply migration ${file}:`, err);
+          logError(`Failed to apply migration ${file}:`, err);
           throw err;
         }
       }
     }
   }
-  console.log('All migrations are up to date.');
+  log('All migrations are up to date.');
 }
 
 /**
@@ -175,81 +176,81 @@ async function runMigrations() {
  * It handles key derivation, migration, and schema setup.
  */
 async function initializeDatabase() {
-  console.log('[DB_LOG] InitializeDatabase called.');
+  log('[DB_LOG] InitializeDatabase called.');
   if (db && db.open) {
-    console.log('[DB_LOG] Database already open. Skipping initialization.');
+    log('[DB_LOG] Database already open. Skipping initialization.');
     return; // Already initialized
   }
 
   const dbPath = getDatabasePath();
-  console.log(`[DB_LOG] Database path: ${dbPath}`);
+  log(`[DB_LOG] Database path: ${dbPath}`);
   const key = getDbKey(); // <-- Use the new key manager
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-  console.log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
+  log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
-    console.log('[DB_LOG] Plaintext database detected. Starting migration...');
+    log('[DB_LOG] Plaintext database detected. Starting migration...');
     try {
       await migrateToEncrypted(dbPath, key);
     } catch (migrationError) {
-      console.error('CRITICAL: Database migration failed.', migrationError);
+      logError('CRITICAL: Database migration failed.', migrationError);
       // In a real app, you would show a fatal error dialog and quit.
       throw migrationError;
     }
   }
 
   const dbExists = fs.existsSync(dbPath);
-  console.log(`[DB_LOG] Database file exists: ${dbExists}`);
+  log(`[DB_LOG] Database file exists: ${dbExists}`);
 
   // --- Open the Database ---
-  console.log('[DB_LOG] Opening database connection...');
+  log('[DB_LOG] Opening database connection...');
   db = await new Promise((resolve, reject) => {
     const connection = new sqlite3.Database(dbPath, (err) => {
       if (err) {
-        console.error('[DB_LOG] Failed to create database connection object.', err);
+        logError('[DB_LOG] Failed to create database connection object.', err);
         return reject(err);
       }
-      console.log('[DB_LOG] Database connection object created.');
+      log('[DB_LOG] Database connection object created.');
       resolve(connection);
     });
   });
 
   try {
-    console.log('[DB_LOG] Setting PRAGMA key...');
+    log('[DB_LOG] Setting PRAGMA key...');
     await dbRun(db, `PRAGMA key = '${key}'`);
-    console.log('[DB_LOG] PRAGMA key set successfully.');
+    log('[DB_LOG] PRAGMA key set successfully.');
 
-    console.log('[DB_LOG] Setting PRAGMA journal_mode...');
+    log('[DB_LOG] Setting PRAGMA journal_mode...');
     await dbRun(db, 'PRAGMA journal_mode = WAL');
-    console.log('[DB_LOG] PRAGMA journal_mode set to WAL.');
+    log('[DB_LOG] PRAGMA journal_mode set to WAL.');
 
-    console.log('[DB_LOG] Setting PRAGMA foreign_keys...');
+    log('[DB_LOG] Setting PRAGMA foreign_keys...');
     await dbRun(db, 'PRAGMA foreign_keys = ON');
-    console.log('[DB_LOG] PRAGMA foreign_keys set to ON.');
+    log('[DB_LOG] PRAGMA foreign_keys set to ON.');
 
     // --- Verify Key and Setup Schema/Seed if new ---
-    console.log('[DB_LOG] Verifying database key with a test query...');
+    log('[DB_LOG] Verifying database key with a test query...');
     await getQuery('SELECT count(*) FROM sqlite_master');
-    console.log('[DB_LOG] Database key is correct.');
+    log('[DB_LOG] Database key is correct.');
 
     let tempCredentials = null;
     if (!dbExists) {
-      console.log('[DB_LOG] New database detected. Initializing schema and default data...');
+      log('[DB_LOG] New database detected. Initializing schema and default data...');
       await dbExec(db, schema);
       await runMigrations();
       tempCredentials = await seedSuperadmin(); // Capture credentials
-      console.log('[DB_LOG] Database schema and default data initialized.');
+      log('[DB_LOG] Database schema and default data initialized.');
     } else {
-      console.log('[DB_LOG] Existing database detected. Checking migrations...');
+      log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
 
-    console.log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
+    log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
     return tempCredentials; // Return credentials to the caller
   } catch (error) {
     db = null; // Clear the invalid db connection
-    console.error(
+    logError(
       '[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.',
       error,
     );
@@ -321,7 +322,7 @@ async function closeDatabase() {
   if (db && db.open) {
     await dbClose(db);
     db = null;
-    console.log('Database connection closed.');
+    log('Database connection closed.');
   }
 }
 

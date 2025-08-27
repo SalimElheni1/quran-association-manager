@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../db/db');
+const { log, error: logError } = require('./logger');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -7,7 +8,7 @@ function createHandler(handler) {
     try {
       return await handler(event, ...args);
     } catch (err) {
-      console.error(`Error in handler ${handler.name}:`, err.message);
+      logError(`Error in handler ${handler.name}:`, err.message);
       // Re-throw the error to be caught by the renderer process
       throw new Error(err.message || 'An unexpected error occurred in the main process.');
     }

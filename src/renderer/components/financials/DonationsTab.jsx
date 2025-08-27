@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import DonationFormModal from '@renderer/components/financials/DonationFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import { error as logError } from '@renderer/utils/logger';
 
 function DonationsTab() {
   const [donations, setDonations] = useState([]);
@@ -19,7 +20,7 @@ function DonationsTab() {
       setDonations(result);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch donations:', err);
+      logError('Failed to fetch donations:', err);
       setError(err.message || 'فشل جلب قائمة التبرعات.');
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ function DonationsTab() {
       }
       handleHideModal();
     } catch (err) {
-      console.error('Failed to save donation:', err);
+      logError('Failed to save donation:', err);
       setError(err.message || 'فشل حفظ التبرع.');
     }
   };
@@ -67,7 +68,7 @@ function DonationsTab() {
       await window.electronAPI.deleteDonation(donationToDelete.id);
       setDonations(donations.filter((d) => d.id !== donationToDelete.id));
     } catch (err) {
-      console.error('Failed to delete donation:', err);
+      logError('Failed to delete donation:', err);
       setError(err.message || 'فشل حذف التبرع.');
     } finally {
       setShowDeleteModal(false);

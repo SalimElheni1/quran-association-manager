@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
+const { log, error: logError } = require('../logger');
 
 const teacherFields = [
   'matricule',
@@ -38,7 +39,7 @@ function registerTeacherHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in teachers:add handler:', error);
+      logError('Error in teachers:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -59,7 +60,7 @@ function registerTeacherHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in teachers:update handler:', error);
+      logError('Error in teachers:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -71,7 +72,7 @@ function registerTeacherHandlers() {
       const sql = 'DELETE FROM teachers WHERE id = ?';
       return await db.runQuery(sql, [id]);
     } catch (error) {
-      console.error(`Error deleting teacher ${id}:`, error);
+      logError(`Error deleting teacher ${id}:`, error);
       throw new Error('فشل حذف المعلم.');
     }
   });
@@ -96,7 +97,7 @@ function registerTeacherHandlers() {
       sql += ' ORDER BY name ASC';
       return await db.allQuery(sql, params);
     } catch (error) {
-      console.error('Error in teachers:get handler:', error);
+      logError('Error in teachers:get handler:', error);
       throw new Error('فشل في جلب بيانات المعلمين.');
     }
   });
@@ -105,7 +106,7 @@ function registerTeacherHandlers() {
     try {
       return await db.getQuery('SELECT * FROM teachers WHERE id = ?', [id]);
     } catch (error) {
-      console.error(`Error fetching teacher by id ${id}:`, error);
+      logError(`Error fetching teacher by id ${id}:`, error);
       throw new Error('فشل في جلب بيانات المعلم.');
     }
   });

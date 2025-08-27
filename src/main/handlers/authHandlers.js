@@ -5,6 +5,7 @@ const db = require('../../db/db');
 const { userUpdateValidationSchema } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { refreshSettings } = require('../settingsManager');
+const { log, error: logError } = require('../logger');
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
@@ -121,7 +122,7 @@ function registerAuthHandlers() {
         user: { id: user.id, username: user.username, role: user.role },
       };
     } catch (error) {
-      console.error('Error in auth:login handler:', error.message);
+      logError('Error in auth:login handler:', error.message);
       if (error.message !== 'Incorrect password or corrupt database.') {
         await db.closeDatabase();
       }
@@ -133,7 +134,7 @@ function registerAuthHandlers() {
     try {
       return await getProfileHandler(token);
     } catch (error) {
-      console.error('Error in auth:getProfile IPC wrapper:', error);
+      logError('Error in auth:getProfile IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -142,7 +143,7 @@ function registerAuthHandlers() {
     try {
       return await updateProfileHandler(token, profileData);
     } catch (error) {
-      console.error('Error in auth:updateProfile IPC wrapper:', error);
+      logError('Error in auth:updateProfile IPC wrapper:', error);
       if (error.isJoi) {
         const messages = error.details.map((d) => d.message).join('; ');
         return { success: false, message: `بيانات غير صالحة: ${messages}` };

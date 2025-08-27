@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { error as logError } from '@renderer/utils/logger';
 
 const daysOfWeek = [
   { key: 'Monday', label: 'الإثنين' },
@@ -25,7 +26,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
         const teacherList = await window.electronAPI.getTeachers({});
         setTeachers(teacherList);
       } catch (error) {
-        console.error('Failed to fetch teachers for form', error);
+        logError('Failed to fetch teachers for form', error);
       }
     };
 

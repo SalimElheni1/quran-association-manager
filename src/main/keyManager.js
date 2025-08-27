@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const Store = require('electron-store');
+const { log } = require('./logger');
 
 // We use electron-store to save the database's unique encryption key.
 // This key is generated once and stored securely on the user's machine.
@@ -20,11 +21,11 @@ function getDbKey() {
   let key = store.get(DB_KEY_NAME);
 
   if (!key) {
-    console.log('No database encryption key found. Generating a new one.');
+    log('No database encryption key found. Generating a new one.');
     // Generate a secure, random 32-byte (256-bit) key.
     key = crypto.randomBytes(32).toString('hex');
     store.set(DB_KEY_NAME, key);
-    console.log('New database encryption key generated and stored.');
+    log('New database encryption key generated and stored.');
   }
 
   return key;

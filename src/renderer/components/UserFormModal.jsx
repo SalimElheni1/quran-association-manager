@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { error as logError } from '@renderer/utils/logger';
 
 function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   const [formData, setFormData] = useState({});
@@ -71,7 +72,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
       }
       onSaveSuccess();
     } catch (err) {
-      console.error('Error adding user:', err);
+      logError('Error adding user:', err);
       const friendlyMessage = err.message.split('Error:').pop().trim();
       toast.error(friendlyMessage);
     }

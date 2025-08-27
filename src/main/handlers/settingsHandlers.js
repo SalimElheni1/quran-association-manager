@@ -4,6 +4,7 @@ const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
+const { log, error: logError } = require('../logger');
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({
@@ -85,7 +86,7 @@ const internalUpdateSettingsHandler = async (settingsData) => {
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
   } catch (error) {
     await db.runQuery('ROLLBACK;');
-    console.error('Failed to update settings:', error);
+    logError('Failed to update settings:', error);
     throw new Error('فشل تحديث الإعدادات.');
   }
 };
@@ -98,7 +99,7 @@ function registerSettingsHandlers(refreshSettings) {
       }
       return await internalGetSettingsHandler();
     } catch (error) {
-      console.error('Error in settings:get IPC wrapper:', error);
+      logError('Error in settings:get IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -107,7 +108,7 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       const result = await internalUpdateSettingsHandler(settingsData);
       if (result.success) {
-        console.log('Settings updated, restarting backup scheduler...');
+        log('Settings updated, restarting backup scheduler...');
         const { settings: newSettings } = await internalGetSettingsHandler();
         if (newSettings) {
           backupManager.startScheduler(newSettings);
@@ -116,7 +117,7 @@ function registerSettingsHandlers(refreshSettings) {
       }
       return result;
     } catch (error) {
-      console.error('Error in settings:update IPC wrapper:', error);
+      logError('Error in settings:update IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -142,7 +143,7 @@ function registerSettingsHandlers(refreshSettings) {
       }
       return { success: true, path: null };
     } catch (error) {
-      console.error('Failed to get logo:', error);
+      logError('Failed to get logo:', error);
       return { success: false, message: `Error getting logo: ${error.message}` };
     }
   });
@@ -164,7 +165,7 @@ function registerSettingsHandlers(refreshSettings) {
         return { success: false, message: 'Failed to copy logo.' };
       }
     } catch (error) {
-      console.error('Failed to upload logo:', error);
+      logError('Failed to upload logo:', error);
       return { success: false, message: `Error uploading logo: ${error.message}` };
     }
   });

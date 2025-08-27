@@ -3,6 +3,7 @@ const db = require('../../db/db');
 const bcrypt = require('bcryptjs');
 const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
+const { log, error: logError } = require('../logger');
 
 const userFields = [
   'matricule',
@@ -71,7 +72,7 @@ function registerUserHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in users:add handler:', error);
+      logError('Error in users:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });
@@ -95,7 +96,7 @@ function registerUserHandlers() {
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      console.error('Error in users:update handler:', error);
+      logError('Error in users:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
   });

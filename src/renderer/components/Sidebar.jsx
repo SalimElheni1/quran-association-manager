@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import { error as logError } from '@renderer/utils/logger';
 
 function Sidebar() {
   const { user, logout } = useAuth();
@@ -26,7 +27,7 @@ function Sidebar() {
           }
         }
       } catch (err) {
-        console.error('Failed to fetch settings for sidebar:', err);
+        logError('Failed to fetch settings for sidebar:', err);
       }
     };
     fetchAssociationName();

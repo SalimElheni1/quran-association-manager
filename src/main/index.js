@@ -22,6 +22,7 @@ if (app.isPackaged) {
 }
 // =================================================================================
 const Store = require('electron-store');
+const { log, error: logError } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { registerFinancialHandlers } = require('./financialHandlers');
@@ -58,10 +59,10 @@ if (app.isPackaged) {
   // Production: get from store or generate a new one
   jwtSecret = store.get('jwt_secret');
   if (!jwtSecret) {
-    console.log('JWT secret not found in store, generating a new one...');
+    log('JWT secret not found in store, generating a new one...');
     jwtSecret = crypto.randomBytes(32).toString('hex');
     store.set('jwt_secret', jwtSecret);
-    console.log('New JWT secret generated and stored.');
+    log('New JWT secret generated and stored.');
   }
 } else {
   // Development: get from .env file
@@ -69,7 +70,7 @@ if (app.isPackaged) {
 }
 
 if (!jwtSecret) {
-  console.error('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
+  logError('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
   app.quit();
 }
 // Make the secret available to the rest of the app via process.env
@@ -106,9 +107,9 @@ app.whenReady().then(async () => {
     // =============================================================================
     // This is the new standard: initialize the DB as soon as the app is ready.
     // The key is managed internally, so no password is needed here.
-    console.log('App is ready, initializing database...');
+    log('App is ready, initializing database...');
     const tempCredentials = await db.initializeDatabase();
-    console.log('Database initialized successfully.');
+    log('Database initialized successfully.');
     // =============================================================================
 
     Menu.setApplicationMenu(null);
@@ -145,11 +146,11 @@ app.whenReady().then(async () => {
         if (fs.existsSync(fullPath)) {
           callback({ path: fullPath });
         } else {
-          console.error(`[safe-image] File not found: ${fullPath}`);
+          logError(`[safe-image] File not found: ${fullPath}`);
           callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
         }
       } catch (error) {
-        console.error('[safe-image] protocol handler error:', error);
+        logError('[safe-image] protocol handler error:', error);
         callback({ error: -2 }); // net::FAILED
       }
     });
@@ -157,16 +158,17 @@ app.whenReady().then(async () => {
     // Check if a re-login is required after an import/restore operation
     const forceRelogin = store.get('force-relogin-after-restart');
     if (forceRelogin) {
-      console.log('Force re-login flag is set. Sending force-logout signal to renderer.');
+      log('Force re-login flag is set. Sending force-logout signal to renderer.');
       // Wait for the window to be ready to receive events before sending
       mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.send('force-logout');
         store.delete('force-relogin-after-restart');
-        console.log('Force re-login flag cleared.');
+        log('Force re-login flag cleared.');
       });
     }
 
     // Register all IPC handlers
+    ipcMain.handle('get-is-packaged', () => app.isPackaged);
     ipcMain.handle('export:generate-dev-template', async () => {
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Dev Excel Template',
@@ -179,7 +181,7 @@ app.whenReady().then(async () => {
           await generateDevExcelTemplate(filePath);
           return { success: true, path: filePath };
         } catch (error) {
-          console.error('Failed to generate dev excel template:', error);
+          logError('Failed to generate dev excel template:', error);
           return { success: false, message: error.message };
         }
       }
@@ -203,7 +205,7 @@ app.whenReady().then(async () => {
       }
     });
   } catch (error) {
-    console.error('Fatal error during application startup:', error);
+    logError('Fatal error during application startup:', error);
     app.quit();
   }
 });
@@ -216,13 +218,13 @@ app.on('window-all-closed', () => {
 
 // Handle user logout to close the database connection
 ipcMain.on('logout', async () => {
-  console.log('User logging out, closing database connection.');
+  log('User logging out, closing database connection.');
   await db.closeDatabase();
 });
 
 // Gracefully close the database when the app is about to quit
 app.on('will-quit', async () => {
-  console.log('App is quitting, ensuring database is closed.');
+  log('App is quitting, ensuring database is closed.');
   await db.closeDatabase();
 });
 

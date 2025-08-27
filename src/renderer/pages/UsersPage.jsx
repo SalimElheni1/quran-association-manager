@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '@renderer/components/UserFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import { error as logError } from '@renderer/utils/logger';
 
 function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -19,7 +20,7 @@ function UsersPage() {
       const fetchedUsers = await window.electronAPI.getUsers();
       setUsers(fetchedUsers);
     } catch (err) {
-      console.error('Error fetching users:', err);
+      logError('Error fetching users:', err);
       toast.error('فشل في تحميل بيانات المستخدمين.');
     } finally {
       setLoading(false);
@@ -47,7 +48,7 @@ function UsersPage() {
       setEditingUser(fullUser);
       setShowUserModal(true);
     } catch (err) {
-      console.error('Error fetching full user details:', err);
+      logError('Error fetching full user details:', err);
       toast.error('فشل في تحميل التفاصيل الكاملة للمستخدم.');
     }
   };
@@ -64,7 +65,7 @@ function UsersPage() {
       toast.success('تم حذف المستخدم بنجاح.');
       fetchUsers();
     } catch (err) {
-      console.error('Error deleting user:', err);
+      logError('Error deleting user:', err);
       toast.error('فشل في حذف المستخدم.');
     } finally {
       setShowDeleteModal(false);

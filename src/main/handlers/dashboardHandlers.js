@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
+const { log, error: logError } = require('../logger');
 
 function registerDashboardHandlers() {
   ipcMain.handle('get-dashboard-stats', async () => {
@@ -21,7 +22,7 @@ function registerDashboardHandlers() {
         classCount: classResult.count,
       };
     } catch (error) {
-      console.error('Failed to get dashboard stats:', error);
+      logError('Failed to get dashboard stats:', error);
       // Forward a user-friendly error to the renderer process
       throw new Error('Failed to fetch dashboard statistics.');
     }
@@ -52,7 +53,7 @@ function registerDashboardHandlers() {
       const todaysClasses = await db.allQuery(sql, [`%"day":"${today}"%`]);
       return todaysClasses;
     } catch (error) {
-      console.error("Failed to get today's classes:", error);
+      logError("Failed to get today's classes:", error);
       throw new Error("Failed to fetch today's classes.");
     }
   });
