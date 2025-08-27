@@ -8,6 +8,22 @@ export default defineConfig({
   base: './', // Important for Electron to load assets correctly
   build: {
     outDir: 'dist/renderer', // Output to a 'renderer' subdirectory in 'dist'
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('exceljs')) {
+              return 'exceljs';
+            }
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react';
+            }
+            // All other node_modules into a vendor chunk
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   resolve: {
     alias: {
