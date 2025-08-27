@@ -106,7 +106,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           <h5 className="form-section-title">المعلومات الشخصية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentName">
-              <Form.Label>الاسم الكامل</Form.Label>
+              <Form.Label>
+                الاسم الكامل<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="name"
@@ -367,7 +369,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           <h5 className="form-section-title">معلومات الجمعية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentStatus">
-              <Form.Label>الحالة</Form.Label>
+              <Form.Label>
+                الحالة<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Select
                 name="status"
                 value={formData.status || 'active'}

@@ -60,7 +60,9 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
           <h5 className="form-section-title">المعلومات الشخصية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الاسم الكامل</Form.Label>
+              <Form.Label>
+                الاسم الكامل<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="name"
@@ -91,7 +93,9 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
               <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>البريد الإلكتروني</Form.Label>
+              <Form.Label>
+                البريد الإلكتروني<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="email"
                 name="email"

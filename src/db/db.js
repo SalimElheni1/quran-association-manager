@@ -46,22 +46,9 @@ async function seedSuperadmin() {
     if (!existingAdmin) {
       console.log('No superadmin found. Seeding default superadmin...');
 
-      // Generate a secure, random password for the initial superadmin.
-      // This password will be displayed to the user only once upon creation.
       const tempPassword = crypto.randomBytes(8).toString('hex');
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-      // In a real application, you MUST inform the user of this password.
-      // For example, by showing it in a dialog after the first launch.
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-      console.log(`!!! TEMPORARY SUPERADMIN PASSWORD: ${tempPassword} !!!`);
-      console.log('!!! Please change this password immediately after login. !!!');
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-
       const username = 'superadmin';
-      const email = 'superadmin@example.com';
-      const firstName = 'Super';
-      const lastName = 'Admin';
 
       const insertSql = `
         INSERT INTO users (username, password, role, first_name, last_name, email)
@@ -71,19 +58,25 @@ async function seedSuperadmin() {
       const result = await runQuery(insertSql, [
         username,
         hashedPassword,
-        firstName,
-        lastName,
-        email,
+        'Super',
+        'Admin',
+        'superadmin@example.com',
       ]);
+
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
       }
+
       console.log(`Superadmin created successfully: ${username}`);
+      // Return the credentials so they can be displayed to the user
+      return { username, password: tempPassword };
     }
+    // If admin already exists, do nothing and return null
+    return null;
   } catch (error) {
     console.error('Failed to seed superadmin:', error);
-    throw error;
+    throw error; // Re-throw the error to be handled by the caller
   }
 }
 
@@ -240,11 +233,12 @@ async function initializeDatabase() {
     await getQuery('SELECT count(*) FROM sqlite_master');
     console.log('[DB_LOG] Database key is correct.');
 
+    let tempCredentials = null;
     if (!dbExists) {
       console.log('[DB_LOG] New database detected. Initializing schema and default data...');
       await dbExec(db, schema);
       await runMigrations();
-      await seedSuperadmin();
+      tempCredentials = await seedSuperadmin(); // Capture credentials
       console.log('[DB_LOG] Database schema and default data initialized.');
     } else {
       console.log('[DB_LOG] Existing database detected. Checking migrations...');
@@ -252,6 +246,7 @@ async function initializeDatabase() {
     }
 
     console.log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
+    return tempCredentials; // Return credentials to the caller
   } catch (error) {
     db = null; // Clear the invalid db connection
     console.error(
