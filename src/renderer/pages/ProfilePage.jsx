@@ -149,7 +149,9 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>الاسم الأول</Form.Label>
+                          <Form.Label>
+                            الاسم الأول<span className="text-danger">*</span>
+                          </Form.Label>
                           <Form.Control
                             type="text"
                             name="first_name"
@@ -160,7 +162,9 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>اللقب</Form.Label>
+                          <Form.Label>
+                            اللقب<span className="text-danger">*</span>
+                          </Form.Label>
                           <Form.Control
                             type="text"
                             name="last_name"
@@ -264,7 +268,9 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>طبيعة العمل</Form.Label>
+                          <Form.Label>
+                            طبيعة العمل<span className="text-danger">*</span>
+                          </Form.Label>
                           <Form.Select
                             name="employment_type"
                             value={profile.employment_type || ''}
@@ -336,7 +342,12 @@ const ProfilePage = () => {
                           value={passwordData.current_password}
                           onChange={handlePasswordChange}
                           placeholder="اترك الحقل فارغاً لعدم التغيير"
-                          label="كلمة المرور الحالية"
+                          label={
+                            <>
+                              كلمة المرور الحالية
+                              {passwordData.new_password && <span className="text-danger">*</span>}
+                            </>
+                          }
                         />
                       </Col>
                       <Col md={4}>
@@ -345,7 +356,12 @@ const ProfilePage = () => {
                           value={passwordData.new_password}
                           onChange={handlePasswordChange}
                           placeholder="أدخل كلمة المرور الجديدة"
-                          label="كلمة المرور الجديدة"
+                          label={
+                            <>
+                              كلمة المرور الجديدة
+                              {passwordData.new_password && <span className="text-danger">*</span>}
+                            </>
+                          }
                         />
                       </Col>
                       <Col md={4}>
@@ -354,7 +370,12 @@ const ProfilePage = () => {
                           value={passwordData.confirm_new_password}
                           onChange={handlePasswordChange}
                           placeholder="أعد إدخال كلمة المرور الجديدة"
-                          label="تأكيد كلمة المرور الجديدة"
+                          label={
+                            <>
+                              تأكيد كلمة المرور الجديدة
+                              {passwordData.new_password && <span className="text-danger">*</span>}
+                            </>
+                          }
                         />
                       </Col>
                     </Row>

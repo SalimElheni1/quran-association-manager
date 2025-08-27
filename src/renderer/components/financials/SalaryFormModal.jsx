@@ -59,7 +59,9 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formSalaryTeacher">
-            <Form.Label>المعلم</Form.Label>
+            <Form.Label>
+              المعلم<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               as="select"
               name="teacher_id"
@@ -76,7 +78,9 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
             </Form.Control>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formSalaryAmount">
-            <Form.Label>المبلغ</Form.Label>
+            <Form.Label>
+              المبلغ<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="number"
               name="amount"
@@ -86,7 +90,9 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
             />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formSalaryDate">
-            <Form.Label>تاريخ الدفع</Form.Label>
+            <Form.Label>
+              تاريخ الدفع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="date"
               name="payment_date"

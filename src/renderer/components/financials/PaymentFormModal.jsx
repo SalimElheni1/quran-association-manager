@@ -61,7 +61,9 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formPaymentStudent">
-            <Form.Label>الطالب</Form.Label>
+            <Form.Label>
+              الطالب<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               as="select"
               name="student_id"
@@ -78,7 +80,9 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
             </Form.Control>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentAmount">
-            <Form.Label>المبلغ</Form.Label>
+            <Form.Label>
+              المبلغ<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="number"
               name="amount"
@@ -88,7 +92,9 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
             />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentMethod">
-            <Form.Label>طريقة الدفع</Form.Label>
+            <Form.Label>
+              طريقة الدفع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               as="select"
               name="payment_method"
@@ -103,7 +109,9 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
             </Form.Control>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentDate">
-            <Form.Label>تاريخ الدفع</Form.Label>
+            <Form.Label>
+              تاريخ الدفع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="date"
               name="payment_date"

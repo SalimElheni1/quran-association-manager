@@ -60,7 +60,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formDonationDonor">
-            <Form.Label>اسم المتبرع</Form.Label>
+            <Form.Label>
+              اسم المتبرع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="text"
               name="donor_name"
@@ -71,7 +73,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="formDonationType">
-            <Form.Label>نوع التبرع</Form.Label>
+            <Form.Label>
+              نوع التبرع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               as="select"
               name="donation_type"
@@ -85,7 +89,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
 
           {formData.donation_type === 'Cash' ? (
             <Form.Group className="mb-3" controlId="formDonationAmount">
-              <Form.Label>المبلغ</Form.Label>
+              <Form.Label>
+                المبلغ<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="number"
                 name="amount"
@@ -96,7 +102,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
             </Form.Group>
           ) : (
             <Form.Group className="mb-3" controlId="formDonationDescription">
-              <Form.Label>وصف التبرع العيني</Form.Label>
+              <Form.Label>
+                وصف التبرع العيني<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 as="textarea"
                 rows={3}
@@ -109,7 +117,9 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
           )}
 
           <Form.Group className="mb-3" controlId="formDonationDate">
-            <Form.Label>تاريخ التبرع</Form.Label>
+            <Form.Label>
+              تاريخ التبرع<span className="text-danger">*</span>
+            </Form.Label>
             <Form.Control
               type="date"
               name="donation_date"
