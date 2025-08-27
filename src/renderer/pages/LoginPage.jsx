@@ -8,7 +8,7 @@ import '@renderer/styles/LoginPage.css';
 
 // The default logo is served from the public folder.
 // Vite handles this automatically.
-const defaultLogo = '/assets/logos/g247.png';
+const defaultLogo = 'assets/logos/g247.png';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
