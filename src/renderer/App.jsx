@@ -30,32 +30,41 @@ function App() {
     };
   }, []);
 
+  const handleCloseInitialCredentialsModal = () => {
+    setInitialCredentials(null);
+  };
+
   return (
     <>
-      <InitialCredentialsModal show={!!initialCredentials} credentials={initialCredentials} />
+      <InitialCredentialsModal
+        show={!!initialCredentials}
+        credentials={initialCredentials}
+        handleClose={handleCloseInitialCredentialsModal}
+      />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
-        {/* Child routes will be rendered inside MainLayout's <Outlet> */}
-        <Route index element={<DashboardPage />} />
-        <Route path="/students" element={<StudentsPage />} />
-        <Route path="/teachers" element={<TeachersPage />} />
-        <Route path="/classes" element={<ClassesPage />} />
-        <Route path="/attendance" element={<AttendancePage />} />
-        <Route path="/financials" element={<FinancialsPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/exports" element={<ExportsPage />} />
-      </Route>
-    </Routes>
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Child routes will be rendered inside MainLayout's <Outlet> */}
+          <Route index element={<DashboardPage />} />
+          <Route path="/students" element={<StudentsPage />} />
+          <Route path="/teachers" element={<TeachersPage />} />
+          <Route path="/classes" element={<ClassesPage />} />
+          <Route path="/attendance" element={<AttendancePage />} />
+          <Route path="/financials" element={<FinancialsPage />} />
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/exports" element={<ExportsPage />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

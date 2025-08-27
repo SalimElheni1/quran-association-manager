@@ -2,27 +2,30 @@ import React from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 
-function InitialCredentialsModal({ show, credentials }) {
+function InitialCredentialsModal({ show, handleClose, credentials }) {
   if (!credentials) return null;
 
-  const handleCopy = () => {
+  const handleCopyAndClose = () => {
     const textToCopy = `Username: ${credentials.username}\nPassword: ${credentials.password}`;
     navigator.clipboard.writeText(textToCopy);
-    toast.success('تم نسخ بيانات الاعتماد بنجاح!');
+    toast.success('تم نسخ البيانات بنجاح!');
+    handleClose();
   };
 
   return (
     <Modal show={show} backdrop="static" keyboard={false} centered>
       <Modal.Header>
-        <Modal.Title>مهم: بيانات اعتماد المدير الخارق</Modal.Title>
+        <Modal.Title>تنبيه مهم: بيانات دخول رئيس الفرع</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Alert variant="warning">
-          <Alert.Heading>يرجى حفظ هذه المعلومات في مكان آمن!</Alert.Heading>
+          <Alert.Heading>الرجاء حفظ هذه المعلومات في مكان آمن.</Alert.Heading>
           <p>
-            هذه هي كلمة المرور المؤقتة للمدير الخارق. ستحتاجها لتسجيل الدخول لأول مرة.
+            هذه كلمة مرور مؤقتة خُصّصت لرئيس الفرع، وستُستخدم لتسجيل الدخول لأول مرة.
             <br />
-            <strong>نوصي بشدة بتغيير كلمة المرور هذه بعد تسجيل الدخول.</strong>
+            <strong>
+              ننصحك بتغيير كلمة المرور مباشرة بعد تسجيل الدخول حفاظًا على أمان الحساب.
+            </strong>
           </p>
         </Alert>
         <div className="p-3 bg-light rounded">
@@ -35,9 +38,9 @@ function InitialCredentialsModal({ show, credentials }) {
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="primary" onClick={handleCopy}>
+        <Button variant="primary" onClick={handleCopyAndClose}>
           <i className="fas fa-copy me-2"></i>
-          نسخ بيانات الاعتماد
+          نسخ وإغلاق
         </Button>
       </Modal.Footer>
     </Modal>
