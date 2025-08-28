@@ -6,7 +6,7 @@ const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
-const { getDbKey } = require('../main/keyManager');
+const { getDbKey, getDbSalt } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
 // --- Refactor Step 2: `db` is now managed by `getDb` ---
@@ -239,6 +239,8 @@ async function initializeDatabase() {
       log('[DB_LOG] New database detected. Initializing schema and default data...');
       await dbExec(db, schema);
       await runMigrations();
+      getDbSalt();
+      log('[DB_LOG] Database salt created.');
       tempCredentials = await seedSuperadmin(); // Capture credentials
       log('[DB_LOG] Database schema and default data initialized.');
     } else {

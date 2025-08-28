@@ -17,8 +17,8 @@ const {
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./matriculeService');
+const { setDbSalt } = require('./keyManager');
 
-const saltStore = new Store({ name: 'db-config' });
 const mainStore = new Store();
 
 async function validateDatabaseFile(filePath) {
@@ -26,7 +26,7 @@ async function validateDatabaseFile(filePath) {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
     const sqlFile = zip.file('backup.sql');
-    const configFile = zip.file('config.json');
+    const configFile = zip.file('salt.json'); // Legacy: 'config.json'
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
@@ -59,7 +59,6 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
 
 async function replaceDatabase(importedDbPath, password) {
   const currentDbPath = getDatabasePath();
-  const currentSaltPath = saltStore.path;
   try {
     if (isDbOpen()) {
       await closeDatabase();
@@ -67,9 +66,14 @@ async function replaceDatabase(importedDbPath, password) {
     const zipFileContent = await fs.readFile(importedDbPath);
     const zip = new PizZip(zipFileContent);
     const sqlFile = zip.file('backup.sql');
-    const configFile = zip.file('config.json');
+    let configFile = zip.file('salt.json');
+    // For backward compatibility, check for the old config file name
+    if (!configFile) {
+      configFile = zip.file('config.json');
+    }
+
     if (!sqlFile || !configFile) {
-      throw new Error('Could not find required files (backup.sql, config.json) in backup package.');
+      throw new Error('Could not find required files (backup.sql, salt.json) in backup package.');
     }
     const sqlScript = sqlFile.asText();
     const configBuffer = configFile.asNodeBuffer();
@@ -78,9 +82,9 @@ async function replaceDatabase(importedDbPath, password) {
     if (!newSalt) {
       throw new Error('Backup configuration is missing the required salt.');
     }
-    await fs.writeFile(currentSaltPath, configBuffer);
-    saltStore.set('db-salt', newSalt);
+    setDbSalt(newSalt);
     log('Salt configuration updated from backup.');
+
     if (fsSync.existsSync(currentDbPath)) {
       log(`Deleting old database file at ${currentDbPath}...`);
       await unlinkWithRetry(currentDbPath);
