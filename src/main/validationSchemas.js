@@ -75,7 +75,7 @@ const userValidationSchema = Joi.object({
       'string.pattern.base': 'الرقم التعريفي للمستخدم غير صالح.',
     }),
   username: Joi.string().alphanum().min(3).max(30).required(),
-  password: Joi.string().min(8).required(),
+  password: Joi.string().min(6).required(),
   first_name: Joi.string().min(2).max(50).required(),
   last_name: Joi.string().min(2).max(50).required(),
   employment_type: Joi.string().valid('volunteer', 'contract').required(),
@@ -102,7 +102,7 @@ const userValidationSchema = Joi.object({
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({
-  password: Joi.string().min(8).allow(null, ''),
+  password: Joi.string().min(6).allow(null, ''),
   status: Joi.string().valid('active', 'inactive').required(),
 });
 

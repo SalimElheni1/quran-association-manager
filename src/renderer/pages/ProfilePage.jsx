@@ -27,13 +27,18 @@ const ProfilePage = () => {
             // Format date fields for input[type="date"]
             const formattedProfile = {
               ...response.profile,
-              date_of_birth: response.profile.date_of_birth
-                ? response.profile.date_of_birth.split('T')[0]
-                : '',
-              start_date: response.profile.start_date
-                ? response.profile.start_date.split('T')[0]
-                : '',
-              end_date: response.profile.end_date ? response.profile.end_date.split('T')[0] : '',
+              date_of_birth:
+                typeof response.profile.date_of_birth === 'string'
+                  ? response.profile.date_of_birth.split('T')[0]
+                  : response.profile.date_of_birth,
+              start_date:
+                typeof response.profile.start_date === 'string'
+                  ? response.profile.start_date.split('T')[0]
+                  : response.profile.start_date,
+              end_date:
+                typeof response.profile.end_date === 'string'
+                  ? response.profile.end_date.split('T')[0]
+                  : response.profile.end_date,
             };
             setProfile(formattedProfile);
           } else {
