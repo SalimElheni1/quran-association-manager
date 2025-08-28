@@ -10,7 +10,7 @@ const { log, error: logError } = require('../logger');
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
     current_password: Joi.string().allow(null, ''),
-    new_password: Joi.string().min(8).allow(null, ''),
+    new_password: Joi.string().min(6).allow(null, ''),
     confirm_new_password: Joi.any()
       .valid(Joi.ref('new_password'))
       .when('new_password', {
