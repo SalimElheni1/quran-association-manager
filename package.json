@@ -10,7 +10,6 @@
     "electron-start": "electron .",
     "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
     "build": "vite build",
-    "dist": "npm run build && electron-builder --win",
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
@@ -64,46 +63,5 @@
     "prettier": "^3.3.2",
     "vite": "^5.4.0",
     "wait-on": "^7.2.0"
-  },
-  "build": {
-    "appId": "com.manus.quranbranchmanager",
-    "productName": "Quran Branch Manager",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "files": [
-      "dist/renderer/**/*",
-      "src/main/**/*",
-      "src/db/**/*",
-      "!**/.vscode/*",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
-      "!**/node_modules/.bin",
-      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
-      "!.editorconfig",
-      "!**/._*",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
-      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
-      "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
-    ],
-    "asarUnpack": [
-      "node_modules/@journeyapps/sqlcipher/**/*"
-    ],
-    "win": {
-      "target": "nsis",
-      "executableName": "QuranBranchManager",
-      "icon": "build/icon.png"
-    },
-    "nsis": {
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "shortcutName": "${productName}",
-      "uninstallDisplayName": "${productName}",
-      "createDesktopShortcut": true,
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
   }
 }
