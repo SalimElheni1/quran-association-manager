@@ -1,12 +1,11 @@
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
 const { log, error: logError } = require('./logger');
+const { getDbSalt } = require('./keyManager');
 
 const store = new Store();
-const saltStore = new Store({ name: 'db-config' });
 
 /**
  * Generates a SQL script of REPLACE statements for all data in the database.
@@ -56,32 +55,33 @@ async function generateSqlReplaceStatements() {
 const runBackup = async (settings, backupFilePath) => {
   log('SQL-based backup process started...');
 
-  const sourceSaltPath = saltStore.path;
-
   try {
-    // 1. Check if the salt config file exists
-    if (!fsSync.existsSync(sourceSaltPath)) {
-      throw new Error(`Source salt file not found at: ${sourceSaltPath}`);
-    }
-    log(`Source salt config found at: ${sourceSaltPath}`);
+    // 1. Get DB salt (this will create it if it doesn't exist)
+    const dbSalt = getDbSalt();
+    log(`Using database salt for backup.`);
 
-    // 2. Generate SQL data dump and read salt file
+    // 2. Generate SQL data dump
     log('Generating SQL dump...');
     const sqlDump = await generateSqlReplaceStatements();
-    const saltFileContent = await fs.readFile(sourceSaltPath);
     log('SQL dump generated successfully.');
 
-    // 3. Create a zip package
+    // 3. Create salt configuration content
+    const saltConfig = {
+      'db-salt': dbSalt,
+    };
+    const saltFileContent = Buffer.from(JSON.stringify(saltConfig, null, 2));
+
+    // 4. Create a zip package
     const zip = new PizZip();
     zip.file('backup.sql', sqlDump);
-    zip.file('config.json', saltFileContent);
+    zip.file('salt.json', saltFileContent); // Use a more descriptive name
 
     const zipContent = zip.generate({
       type: 'nodebuffer',
       compression: 'DEFLATE',
     });
 
-    // 4. Write the package to the destination
+    // 5. Write the package to the destination
     await fs.writeFile(backupFilePath, zipContent);
 
     const message = `Backup completed successfully.`;
