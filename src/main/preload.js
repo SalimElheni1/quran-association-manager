@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   logout: () => ipcRenderer.send('logout'),
   getProfile: (data) => ipcRenderer.invoke('auth:getProfile', data),
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
+  updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),
 
   // Secure, specific database APIs
   getStudents: (filters) => ipcRenderer.invoke('students:get', filters),

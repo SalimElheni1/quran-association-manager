@@ -9,6 +9,7 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
   const [error, setError] = useState('');
 
   // State for password change
@@ -25,20 +26,14 @@ const ProfilePage = () => {
           const response = await window.electronAPI.getProfile({ token });
           if (response.success) {
             // Format date fields for input[type="date"]
+            const formatInputDate = (date) =>
+              date ? new Date(date).toISOString().split('T')[0] : '';
+
             const formattedProfile = {
               ...response.profile,
-              date_of_birth:
-                typeof response.profile.date_of_birth === 'string'
-                  ? response.profile.date_of_birth.split('T')[0]
-                  : response.profile.date_of_birth,
-              start_date:
-                typeof response.profile.start_date === 'string'
-                  ? response.profile.start_date.split('T')[0]
-                  : response.profile.start_date,
-              end_date:
-                typeof response.profile.end_date === 'string'
-                  ? response.profile.end_date.split('T')[0]
-                  : response.profile.end_date,
+              date_of_birth: formatInputDate(response.profile.date_of_birth),
+              start_date: formatInputDate(response.profile.start_date),
+              end_date: formatInputDate(response.profile.end_date),
             };
             setProfile(formattedProfile);
           } else {
@@ -65,21 +60,32 @@ const ProfilePage = () => {
     setPasswordData({ ...passwordData, [name]: value });
   };
 
-  const handleSubmit = async (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Combine profile data with password data if a new password is being set
-    const profileData = { ...profile };
-    if (passwordData.new_password) {
-      Object.assign(profileData, passwordData);
-    }
-
     try {
-      const response = await window.electronAPI.updateProfile({ token, profileData });
+      const response = await window.electronAPI.updateProfile({ token, profileData: profile });
       if (response.success) {
         toast.success(response.message);
-        // Clear password fields after successful submission
+      } else {
+        toast.error(response.message);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmittingPassword(true);
+
+    try {
+      const response = await window.electronAPI.updatePassword({ token, passwordData });
+      if (response.success) {
+        toast.success(response.message);
         setPasswordData({
           current_password: '',
           new_password: '',
@@ -91,7 +97,7 @@ const ProfilePage = () => {
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingPassword(false);
     }
   };
 
@@ -122,7 +128,7 @@ const ProfilePage = () => {
               ملفي الشخصي
             </Card.Header>
             <Card.Body>
-              <Form onSubmit={handleSubmit}>
+              <Form onSubmit={handleProfileSubmit}>
                 {/* Personal Information */}
                 <Card className="mb-4">
                   <Card.Header>المعلومات الشخصية</Card.Header>
@@ -135,7 +141,7 @@ const ProfilePage = () => {
                             type="text"
                             name="username"
                             value={profile.username || ''}
-                            readOnly
+                            onChange={handleProfileChange}
                           />
                         </Form.Group>
                       </Col>
@@ -242,7 +248,9 @@ const ProfilePage = () => {
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>البريد الإلكتروني</Form.Label>
+                          <Form.Label>
+                            البريد الإلكتروني<span className="text-danger">*</span>
+                          </Form.Label>
                           <Form.Control
                             type="email"
                             name="email"
@@ -253,7 +261,9 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>رقم الهاتف</Form.Label>
+                          <Form.Label>
+                            رقم الهاتف<span className="text-danger">*</span>
+                          </Form.Label>
                           <Form.Control
                             type="text"
                             name="phone_number"
@@ -293,7 +303,12 @@ const ProfilePage = () => {
                           <Form.Control
                             type="text"
                             name="status"
-                            value={profile.status || ''}
+                            value={
+                              {
+                                active: 'نشط',
+                                inactive: 'غير نشط',
+                              }[profile.status] || profile.status
+                            }
                             readOnly
                           />
                         </Form.Group>
@@ -336,10 +351,31 @@ const ProfilePage = () => {
                   </Card.Body>
                 </Card>
 
-                {/* Password Change */}
-                <Card className="mb-4">
-                  <Card.Header>تغيير كلمة المرور</Card.Header>
-                  <Card.Body>
+                <div className="d-grid">
+                  <Button variant="primary" type="submit" size="lg" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Spinner
+                          as="span"
+                          animation="border"
+                          size="sm"
+                          role="status"
+                          aria-hidden="true"
+                        />
+                        {' جارٍ حفظ المعلومات...'}
+                      </>
+                    ) : (
+                      'حفظ معلوماتي'
+                    )}
+                  </Button>
+                </div>
+              </Form>
+
+              {/* Password Change */}
+              <Card className="mb-4 mt-4">
+                <Card.Header>تغيير كلمة المرور</Card.Header>
+                <Card.Body>
+                  <Form onSubmit={handlePasswordSubmit}>
                     <Row>
                       <Col md={4}>
                         <PasswordInput
@@ -384,28 +420,32 @@ const ProfilePage = () => {
                         />
                       </Col>
                     </Row>
-                  </Card.Body>
-                </Card>
-
-                <div className="d-grid">
-                  <Button variant="primary" type="submit" size="lg" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Spinner
-                          as="span"
-                          animation="border"
-                          size="sm"
-                          role="status"
-                          aria-hidden="true"
-                        />
-                        {' جارٍ الحفظ...'}
-                      </>
-                    ) : (
-                      'حفظ التغييرات'
-                    )}
-                  </Button>
-                </div>
-              </Form>
+                    <div className="d-grid mt-3">
+                      <Button
+                        variant="info"
+                        type="submit"
+                        size="lg"
+                        disabled={isSubmittingPassword}
+                      >
+                        {isSubmittingPassword ? (
+                          <>
+                            <Spinner
+                              as="span"
+                              animation="border"
+                              size="sm"
+                              role="status"
+                              aria-hidden="true"
+                            />
+                            {' جارٍ تغيير كلمة المرور...'}
+                          </>
+                        ) : (
+                          'تغيير كلمة المرور'
+                        )}
+                      </Button>
+                    </div>
+                  </Form>
+                </Card.Body>
+              </Card>
             </Card.Body>
           </Card>
         </Col>
