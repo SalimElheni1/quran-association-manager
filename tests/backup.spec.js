@@ -1,19 +1,18 @@
 const { runBackup, isBackupDue } = require('../src/main/backupManager');
 const db = require('../src/db/db');
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
+const keyManager = require('../src/main/keyManager');
 
-// Mock other dependencies
+// Mock dependencies
 jest.mock('../src/db/db');
 jest.mock('fs', () => ({
   promises: {
-    readFile: jest.fn(),
     writeFile: jest.fn(),
   },
-  existsSync: jest.fn(),
 }));
+jest.mock('../src/main/keyManager');
 
 const mockStore = new Store();
 
@@ -21,6 +20,8 @@ describe('Backup Manager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     PizZip.mockClear();
+    // Provide a default mock implementation for all tests
+    db.allQuery.mockResolvedValue([]);
   });
 
   describe('runBackup (New SQL-based Logic)', () => {
@@ -28,16 +29,17 @@ describe('Backup Manager', () => {
       backup_enabled: true,
     };
     const backupFilePath = '/mock/backup-path/backup-test.qdb';
+    const mockSalt = 'mock-salt-12345';
 
     it('should generate a SQL backup successfully', async () => {
-      fsSync.existsSync.mockReturnValue(true);
-      fs.readFile.mockResolvedValue('{"db-salt":"mock-salt"}');
+      keyManager.getDbSalt.mockReturnValue(mockSalt);
       db.allQuery
         .mockResolvedValueOnce([{ name: 'students' }])
         .mockResolvedValueOnce([{ id: 1, name: "Alice's" }]);
 
       const result = await runBackup(mockSettings, backupFilePath);
 
+      expect(keyManager.getDbSalt).toHaveBeenCalledTimes(1);
       expect(db.allQuery).toHaveBeenCalledWith(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'",
       );
@@ -46,13 +48,17 @@ describe('Backup Manager', () => {
       expect(generatedSql).toContain(
         'REPLACE INTO "students" ("id", "name") VALUES (1, \'Alice\'\'s\');',
       );
-      expect(fs.readFile).toHaveBeenCalledWith(mockStore.path);
       expect(PizZip).toHaveBeenCalledTimes(1);
       expect(PizZip.mockInstance.file).toHaveBeenCalledWith('backup.sql', expect.any(String));
-      expect(PizZip.mockInstance.file).toHaveBeenCalledWith(
-        'config.json',
-        '{"db-salt":"mock-salt"}',
+
+      // Verify the salt config is now created in memory and added to the zip
+      const saltConfigCall = PizZip.mockInstance.file.mock.calls.find(
+        (call) => call[0] === 'salt.json',
       );
+      expect(saltConfigCall).toBeDefined();
+      const saltConfigContent = JSON.parse(saltConfigCall[1].toString());
+      expect(saltConfigContent).toEqual({ 'db-salt': mockSalt });
+
       expect(PizZip.mockInstance.generate).toHaveBeenCalledWith({
         type: 'nodebuffer',
         compression: 'DEFLATE',
@@ -65,25 +71,19 @@ describe('Backup Manager', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should fail if salt file does not exist', async () => {
-      fsSync.existsSync.mockReturnValue(false);
-      const result = await runBackup(mockSettings, backupFilePath);
-      expect(db.allQuery).not.toHaveBeenCalled();
-      expect(fs.writeFile).not.toHaveBeenCalled();
-      expect(mockStore.set).toHaveBeenCalledWith(
-        'last_backup_status',
-        expect.objectContaining({ success: false }),
-      );
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Source salt file not found');
+    it('should call getDbSalt to ensure salt exists', async () => {
+      keyManager.getDbSalt.mockReturnValue(mockSalt);
+      await runBackup(mockSettings, backupFilePath);
+      expect(keyManager.getDbSalt).toHaveBeenCalledTimes(1);
     });
 
     it('should handle database query errors gracefully', async () => {
-      fsSync.existsSync.mockReturnValue(true);
-      fs.readFile.mockResolvedValue('{"db-salt":"mock-salt"}');
+      keyManager.getDbSalt.mockReturnValue(mockSalt);
       const dbError = new Error('Database connection failed');
       db.allQuery.mockRejectedValue(dbError);
+
       const result = await runBackup(mockSettings, backupFilePath);
+
       expect(fs.writeFile).not.toHaveBeenCalled();
       expect(mockStore.set).toHaveBeenCalledWith(
         'last_backup_status',
