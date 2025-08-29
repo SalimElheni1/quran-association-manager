@@ -2,7 +2,10 @@ const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../../db/db');
-const { userUpdateValidationSchema } = require('../validationSchemas');
+const {
+  userUpdateValidationSchema,
+  passwordUpdateValidationSchema,
+} = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { refreshSettings } = require('../settingsManager');
 const { log, error: logError } = require('../logger');
@@ -105,14 +108,10 @@ const updateProfileHandler = async (token, profileData) => {
 const updatePasswordHandler = async (token, passwordData) => {
   const userId = getUserIdFromToken(token);
 
-  const validatedData = await profileUpdateValidationSchema.validateAsync(passwordData, {
+  const validatedData = await passwordUpdateValidationSchema.validateAsync(passwordData, {
     abortEarly: false,
     stripUnknown: true,
   });
-
-  if (!validatedData.new_password) {
-    throw new Error('No new password provided.');
-  }
 
   const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
   if (!currentUser) {
