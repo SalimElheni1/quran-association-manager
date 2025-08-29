@@ -9,6 +9,7 @@ module.exports = {
     name: 'Quran-Branch-Manager-beta',
     executableName: 'Quran-Branch-Manager-beta',
     icon: path.join(process.cwd(), 'public', 'assets', 'logos', 'icon'),
+    extraResource: ['./src/db/migrations', './public/g247.png'],
   },
   rebuildConfig: {},
   makers: [

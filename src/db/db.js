@@ -132,7 +132,9 @@ async function migrateToEncrypted(dbPath, key) {
 
 async function runMigrations() {
   log('Checking for pending migrations...');
-  const migrationsDir = path.join(__dirname, 'migrations');
+  const migrationsDir = app.isPackaged
+    ? path.join(process.resourcesPath, 'migrations')
+    : path.join(__dirname, 'migrations');
 
   if (!fs.existsSync(migrationsDir)) {
     fs.mkdirSync(migrationsDir);
