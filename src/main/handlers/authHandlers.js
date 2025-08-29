@@ -56,6 +56,16 @@ const updateProfileHandler = async (token, profileData) => {
     stripUnknown: true,
   });
 
+  // Check for username uniqueness
+  if (validatedData.username) {
+    const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [
+      validatedData.username,
+    ]);
+    if (existingUser && existingUser.id !== userId) {
+      throw new Error('اسم المستخدم هذا موجود مسبقاً. الرجاء اختيار اسم آخر.');
+    }
+  }
+
   if (validatedData.new_password) {
     const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
     if (!currentUser) {
@@ -70,7 +80,6 @@ const updateProfileHandler = async (token, profileData) => {
 
   const fieldsToExclude = [
     'id',
-    'username',
     'role',
     'current_password',
     'new_password',
@@ -91,6 +100,34 @@ const updateProfileHandler = async (token, profileData) => {
   await db.runQuery(sql, params);
 
   return { success: true, message: 'تم تحديث الملف الشخصي بنجاح.' };
+};
+
+const updatePasswordHandler = async (token, passwordData) => {
+  const userId = getUserIdFromToken(token);
+
+  const validatedData = await profileUpdateValidationSchema.validateAsync(passwordData, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+
+  if (!validatedData.new_password) {
+    throw new Error('No new password provided.');
+  }
+
+  const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+  if (!currentUser) {
+    throw new Error('User not found.');
+  }
+  const isMatch = await bcrypt.compare(validatedData.current_password, currentUser.password);
+  if (!isMatch) {
+    throw new Error('كلمة المرور الحالية غير صحيحة.');
+  }
+  const hashedPassword = await bcrypt.hash(validatedData.new_password, 10);
+
+  const sql = 'UPDATE users SET password = ? WHERE id = ?';
+  await db.runQuery(sql, [hashedPassword, userId]);
+
+  return { success: true, message: 'تم تحديث كلمة المرور بنجاح.' };
 };
 
 function registerAuthHandlers() {
@@ -144,6 +181,19 @@ function registerAuthHandlers() {
       return await updateProfileHandler(token, profileData);
     } catch (error) {
       logError('Error in auth:updateProfile IPC wrapper:', error);
+      if (error.isJoi) {
+        const messages = error.details.map((d) => d.message).join('; ');
+        return { success: false, message: `بيانات غير صالحة: ${messages}` };
+      }
+      return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
+    }
+  });
+
+  ipcMain.handle('auth:updatePassword', async (_event, { token, passwordData }) => {
+    try {
+      return await updatePasswordHandler(token, passwordData);
+    } catch (error) {
+      logError('Error in auth:updatePassword IPC wrapper:', error);
       if (error.isJoi) {
         const messages = error.details.map((d) => d.message).join('; ');
         return { success: false, message: `بيانات غير صالحة: ${messages}` };
