@@ -4,6 +4,9 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: 'public/assets/logos/icon',
+    name: 'quran-branch-manager-beta',
+    productName: 'Quran Branch Manager Beta',
   },
   rebuildConfig: {},
   makers: [
