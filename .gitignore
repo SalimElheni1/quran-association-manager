@@ -20,3 +20,4 @@ yarn-error.log*
 # Database files
 *.sqlite
 *.sqlite-journal
+out/
