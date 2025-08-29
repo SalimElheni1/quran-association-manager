@@ -106,10 +106,27 @@ const userUpdateValidationSchema = userValidationSchema.keys({
   status: Joi.string().valid('active', 'inactive').required(),
 });
 
+const passwordUpdateValidationSchema = Joi.object({
+  current_password: Joi.string().required().messages({
+    'string.empty': 'كلمة المرور الحالية مطلوبة',
+    'any.required': 'كلمة المرور الحالية مطلوبة',
+  }),
+  new_password: Joi.string().min(6).required().messages({
+    'string.min': 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
+    'string.empty': 'كلمة المرور الجديدة مطلوبة',
+    'any.required': 'كلمة المرور الجديدة مطلوبة',
+  }),
+  confirm_new_password: Joi.any().valid(Joi.ref('new_password')).required().messages({
+    'any.only': 'كلمة المرور الجديدة غير متطابقة',
+    'any.required': 'يجب تأكيد كلمة المرور الجديدة',
+  }),
+});
+
 module.exports = {
   studentValidationSchema,
   classValidationSchema,
   teacherValidationSchema,
   userValidationSchema,
   userUpdateValidationSchema,
+  passwordUpdateValidationSchema,
 };
