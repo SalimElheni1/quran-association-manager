@@ -46,7 +46,7 @@ if (require('electron-squirrel-startup')) {
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
   require('dotenv').config();
-  require('electron-reloader')(module);
+  // require('electron-reloader')(module);
 }
 
 // =================================================================================
@@ -91,12 +91,18 @@ const createWindow = () => {
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
 
-  if (!app.isPackaged) {
-    mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
+  // and load the index.html of the app.
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  // Open the DevTools.
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
+
   return mainWindow;
 };
 
