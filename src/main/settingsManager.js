@@ -1,5 +1,5 @@
-const { internalGetSettingsHandler } = require('./handlers/settingsHandlers');
-const { log, error: logError } = require('./logger');
+const { internalGetSettingsHandler } = require('@main/handlers/settingsHandlers');
+const { log, error: logError } = require('@main/logger');
 
 let settingsCache = null;
 

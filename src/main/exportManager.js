@@ -5,15 +5,15 @@ const { BrowserWindow } = require('electron');
 const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
-const { allQuery } = require('../db/db');
-const { getSetting } = require('./settingsManager');
+const { allQuery } = require('@db/db');
+const { getSetting } = require('@main/settingsManager');
 const {
   handleGetFinancialSummary,
   handleGetPayments,
   handleGetSalaries,
   handleGetDonations,
   handleGetExpenses,
-} = require('./financialHandlers');
+} = require('@main/financialHandlers');
 
 // --- Data Fetching ---
 async function fetchFinancialData() {

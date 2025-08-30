@@ -4,10 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
-const schema = require('./schema');
+const schema = require('@db/schema');
 const bcrypt = require('bcryptjs');
-const { getDbKey, getDbSalt } = require('../main/keyManager');
-const { log, error: logError, warn: logWarn } = require('../main/logger');
+const { getDbKey, getDbSalt } = require('@main/keyManager');
+const { log, error: logError, warn: logWarn } = require('@main/logger');
 
 // --- Refactor Step 2: `db` is now managed by `getDb` ---
 let db; // This will hold our database connection object

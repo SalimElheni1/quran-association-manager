@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
-const db = require('../../db/db');
-const { log, error: logError } = require('../logger');
+const db = require('@db/db');
+const { log, error: logError } = require('@main/logger');
 
 function registerDashboardHandlers() {
   ipcMain.handle('get-dashboard-stats', async () => {

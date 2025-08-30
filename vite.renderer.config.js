@@ -6,9 +6,6 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './', // Important for Electron to load assets correctly
-  build: {
-    outDir: 'dist/renderer', // Output to a 'renderer' subdirectory in 'dist'
-  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

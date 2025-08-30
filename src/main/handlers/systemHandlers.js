@@ -1,10 +1,10 @@
 const { ipcMain, app, dialog } = require('electron');
-const db = require('../../db/db');
-const { log, error: logError } = require('../logger');
-const exportManager = require('../exportManager');
-const importManager = require('../importManager');
-const backupManager = require('../backupManager');
-const { internalGetSettingsHandler } = require('./settingsHandlers');
+const db = require('@db/db');
+const { log, error: logError } = require('@main/logger');
+const exportManager = require('@main/exportManager');
+const importManager = require('@main/importManager');
+const backupManager = require('@main/backupManager');
+const { internalGetSettingsHandler } = require('@main/handlers/settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
 

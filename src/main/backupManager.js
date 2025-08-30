@@ -1,9 +1,9 @@
 const fs = require('fs').promises;
 const Store = require('electron-store');
 const PizZip = require('pizzip');
-const { allQuery } = require('../db/db');
-const { log, error: logError } = require('./logger');
-const { getDbSalt } = require('./keyManager');
+const { allQuery } = require('@db/db');
+const { log, error: logError } = require('@main/logger');
+const { getDbSalt } = require('@main/keyManager');
 
 const store = new Store();
 

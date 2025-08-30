@@ -1,3 +1,4 @@
+/* global MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME */
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, clipboard } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -22,27 +23,26 @@ if (app.isPackaged) {
 }
 // =================================================================================
 const Store = require('electron-store');
-const { log, error: logError } = require('./logger');
-const db = require('../db/db');
-const { refreshSettings } = require('./settingsManager');
-const { registerFinancialHandlers } = require('./financialHandlers');
-const { registerStudentHandlers } = require('./handlers/studentHandlers');
-const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
-const { registerClassHandlers } = require('./handlers/classHandlers');
-const { registerUserHandlers } = require('./handlers/userHandlers');
-const { registerAttendanceHandlers } = require('./handlers/attendanceHandlers');
-const { registerAuthHandlers } = require('./handlers/authHandlers');
-const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
-const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
-const { registerSystemHandlers } = require('./handlers/systemHandlers');
-const { generateDevExcelTemplate } = require('./exportManager');
+const { log, error: logError } = require('@main/logger');
+const db = require('@db/db');
+const { refreshSettings } = require('@main/settingsManager');
+const { registerFinancialHandlers } = require('@main/financialHandlers');
+const { registerStudentHandlers } = require('@main/handlers/studentHandlers');
+const { registerTeacherHandlers } = require('@main/handlers/teacherHandlers');
+const { registerClassHandlers } = require('@main/handlers/classHandlers');
+const { registerUserHandlers } = require('@main/handlers/userHandlers');
+const { registerAttendanceHandlers } = require('@main/handlers/attendanceHandlers');
+const { registerAuthHandlers } = require('@main/handlers/authHandlers');
+const { registerSettingsHandlers } = require('@main/handlers/settingsHandlers');
+const { registerDashboardHandlers } = require('@main/handlers/dashboardHandlers');
+const { registerSystemHandlers } = require('@main/handlers/systemHandlers');
+const { generateDevExcelTemplate } = require('@main/exportManager');
 
 const store = new Store();
 
-// In development, load environment variables and enable auto-reloading
+// In development, load environment variables
 if (!app.isPackaged) {
   require('dotenv').config();
-  require('electron-reloader')(module);
 }
 
 // =================================================================================
@@ -87,11 +87,16 @@ const createWindow = () => {
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
 
-  if (!app.isPackaged) {
-    mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
+  // and load the index.html of the app.
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+  }
+
+  // Open the DevTools.
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
   }
   return mainWindow;
 };

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const Store = require('electron-store');
-const { log } = require('./logger');
+const { log } = require('@main/logger');
 
 // Store for the master encryption key for the database file itself
 const keyStore = new Store({

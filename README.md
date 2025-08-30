@@ -15,11 +15,17 @@ The primary goal is to provide a modern, offline-first, and secure system to rep
 
 ## Development
 
-To run the application in development mode:
+To run the application in development mode with hot-reloading, use:
 
 ```bash
-npm run dev
+npm start
 ```
+
+For more details on the development environment, see [DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+
+## Building and Packaging
+
+For instructions on how to build the application and create installers, please see [BUILD_AND_PACKAGING.md](./docs/BUILD_AND_PACKAGING.md).
 
 ## AI-Assisted Development
 

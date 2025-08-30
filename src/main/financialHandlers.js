@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
-const { allQuery, runQuery, getQuery } = require('../db/db');
-const { log, error: logError } = require('./logger');
+const { allQuery, runQuery, getQuery } = require('@db/db');
+const { log, error: logError } = require('@main/logger');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {

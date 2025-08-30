@@ -4,6 +4,7 @@ node_modules-old/
 # Build output
 dist/
 release/
+.vite/
 
 # Logs
 *.log

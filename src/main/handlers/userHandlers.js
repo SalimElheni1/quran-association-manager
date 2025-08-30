@@ -1,9 +1,9 @@
 const { ipcMain } = require('electron');
-const db = require('../../db/db');
+const db = require('@db/db');
 const bcrypt = require('bcryptjs');
-const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
-const { generateMatricule } = require('../matriculeService');
-const { log, error: logError } = require('../logger');
+const { userValidationSchema, userUpdateValidationSchema } = require('@main/validationSchemas');
+const { generateMatricule } = require('@main/matriculeService');
+const { log, error: logError } = require('@main/logger');
 
 const userFields = [
   'matricule',

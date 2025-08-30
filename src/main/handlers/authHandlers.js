@@ -1,14 +1,14 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../../db/db');
+const db = require('@db/db');
 const {
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
-} = require('../validationSchemas');
+} = require('@main/validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
-const { refreshSettings } = require('../settingsManager');
-const { log, error: logError } = require('../logger');
+const { refreshSettings } = require('@main/settingsManager');
+const { log, error: logError } = require('@main/logger');
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
