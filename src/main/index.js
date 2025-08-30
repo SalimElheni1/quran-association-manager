@@ -39,10 +39,6 @@ const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
 
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
-
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
   require('dotenv').config();
