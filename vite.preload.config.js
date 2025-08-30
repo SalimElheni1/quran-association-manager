@@ -1,4 +1,12 @@
-import { defineConfig } from 'vite';
+const { defineConfig } = require('vite');
 
 // https://vitejs.dev/config
-export default defineConfig({});
+module.exports = defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        format: 'cjs',
+      },
+    },
+  },
+});
