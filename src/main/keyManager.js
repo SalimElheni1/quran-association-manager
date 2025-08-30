@@ -1,6 +1,6 @@
-const crypto = require('crypto');
-const Store = require('electron-store');
-const { log } = require('@main/logger');
+import crypto from 'crypto';
+import Store from 'electron-store';
+import { log } from '@main/logger';
 
 // Store for the master encryption key for the database file itself
 const keyStore = new Store({
@@ -22,7 +22,7 @@ const DB_SALT_NAME = 'db-salt';
  * stores it, and returns it.
  * @returns {string} The database encryption key as a hex string.
  */
-function getDbKey() {
+export function getDbKey() {
   let key = keyStore.get(DB_KEY_NAME);
 
   if (!key) {
@@ -41,7 +41,7 @@ function getDbKey() {
  * stores it, and returns it.
  * @returns {string} The database salt as a hex string.
  */
-function getDbSalt() {
+export function getDbSalt() {
   let salt = saltStore.get(DB_SALT_NAME);
 
   if (!salt) {
@@ -59,7 +59,7 @@ function getDbSalt() {
  * This is primarily used when restoring a database from a backup.
  * @param {string} newSalt - The new salt to store (in hex format).
  */
-function setDbSalt(newSalt) {
+export function setDbSalt(newSalt) {
   if (!newSalt || typeof newSalt !== 'string' || newSalt.length < 32) {
     log.error('setDbSalt received an invalid or missing salt.');
     return;
@@ -72,13 +72,6 @@ function setDbSalt(newSalt) {
  * Returns the file path of the salt configuration file.
  * @returns {string} The absolute path to the salt config file.
  */
-function getSaltConfigPath() {
+export function getSaltConfigPath() {
   return saltStore.path;
 }
-
-module.exports = {
-  getDbKey,
-  getDbSalt,
-  setDbSalt,
-  getSaltConfigPath,
-};

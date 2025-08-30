@@ -1,10 +1,10 @@
-const { ipcMain, app, dialog } = require('electron');
-const Joi = require('joi');
-const db = require('@db/db');
-const fs = require('fs');
-const path = require('path');
-const backupManager = require('@main/backupManager');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain, app, dialog } from 'electron';
+import Joi from 'joi';
+import fs from 'fs';
+import path from 'path';
+import * as db from '@db/db';
+import * as backupManager from '@main/backupManager';
+import { log, error as logError } from '@main/logger';
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({
@@ -37,7 +37,7 @@ const defaultSettings = {
   backup_reminder_frequency_days: 7,
 };
 
-const internalGetSettingsHandler = async () => {
+export const internalGetSettingsHandler = async () => {
   const results = await db.allQuery('SELECT key, value FROM settings');
   const dbSettings = results.reduce((acc, { key, value }) => {
     // Convert string representations of booleans and numbers back to their types
@@ -91,7 +91,7 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   }
 };
 
-function registerSettingsHandlers(refreshSettings) {
+export function registerSettingsHandlers(refreshSettings) {
   ipcMain.handle('settings:get', async () => {
     try {
       if (!db.isDbOpen()) {
@@ -170,8 +170,3 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 }
-
-module.exports = {
-  registerSettingsHandlers,
-  internalGetSettingsHandler,
-};

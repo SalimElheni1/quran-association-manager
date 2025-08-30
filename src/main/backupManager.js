@@ -1,9 +1,9 @@
-const fs = require('fs').promises;
-const Store = require('electron-store');
-const PizZip = require('pizzip');
-const { allQuery } = require('@db/db');
-const { log, error: logError } = require('@main/logger');
-const { getDbSalt } = require('@main/keyManager');
+import { promises as fs } from 'fs';
+import Store from 'electron-store';
+import PizZip from 'pizzip';
+import { allQuery } from '@db/db';
+import { log, error as logError } from '@main/logger';
+import { getDbSalt } from '@main/keyManager';
 
 const store = new Store();
 
@@ -52,7 +52,7 @@ async function generateSqlReplaceStatements() {
  * @param {string} backupFilePath - The path to save the backup file.
  * @returns {Promise<{success: boolean, message: string}>}
  */
-const runBackup = async (settings, backupFilePath) => {
+export const runBackup = async (settings, backupFilePath) => {
   log('SQL-based backup process started...');
 
   try {
@@ -111,7 +111,7 @@ let schedulerIntervalId = null;
  * @param {Object} settings - The application settings object.
  * @returns {boolean} - True if a backup is due, false otherwise.
  */
-const isBackupDue = (settings) => {
+export const isBackupDue = (settings) => {
   const lastBackup = store.get('last_backup_status');
   if (!lastBackup?.timestamp) {
     return true; // No backup has ever run
@@ -137,7 +137,7 @@ const isBackupDue = (settings) => {
  * Starts the backup scheduler.
  * @param {Object} settings - The application settings object.
  */
-const startScheduler = (settings) => {
+export const startScheduler = (settings) => {
   stopScheduler(); // Stop any existing scheduler first
 
   if (!settings.backup_enabled) {
@@ -165,17 +165,10 @@ const startScheduler = (settings) => {
 /**
  * Stops the backup scheduler.
  */
-const stopScheduler = () => {
+export const stopScheduler = () => {
   if (schedulerIntervalId) {
     clearInterval(schedulerIntervalId);
     schedulerIntervalId = null;
     log('Backup scheduler stopped.');
   }
-};
-
-module.exports = {
-  runBackup,
-  startScheduler,
-  stopScheduler,
-  isBackupDue, // Exported for testing purposes
 };

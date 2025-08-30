@@ -1,6 +1,6 @@
-const { ipcMain } = require('electron');
-const { allQuery, runQuery, getQuery } = require('@db/db');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import { allQuery, runQuery, getQuery } from '@db/db';
+import { error as logError } from '@main/logger';
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -16,10 +16,10 @@ function createHandler(handler) {
 }
 
 // --- Expense Handlers ---
-async function handleGetExpenses() {
+export async function handleGetExpenses() {
   return allQuery('SELECT * FROM expenses ORDER BY expense_date DESC');
 }
-async function handleAddExpense(event, expense) {
+export async function handleAddExpense(event, expense) {
   const { category, amount, expense_date, responsible_person, description } = expense;
   const sql = `INSERT INTO expenses (category, amount, expense_date, responsible_person, description) VALUES (?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [
@@ -31,22 +31,22 @@ async function handleAddExpense(event, expense) {
   ]);
   return getQuery('SELECT * FROM expenses WHERE id = ?', [result.id]);
 }
-async function handleUpdateExpense(event, expense) {
+export async function handleUpdateExpense(event, expense) {
   const { id, category, amount, expense_date, responsible_person, description } = expense;
   const sql = `UPDATE expenses SET category = ?, amount = ?, expense_date = ?, responsible_person = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [category, amount, expense_date, responsible_person, description, id]);
   return getQuery('SELECT * FROM expenses WHERE id = ?', [id]);
 }
-async function handleDeleteExpense(event, expenseId) {
+export async function handleDeleteExpense(event, expenseId) {
   await runQuery('DELETE FROM expenses WHERE id = ?', [expenseId]);
   return { id: expenseId };
 }
 
 // --- Donation Handlers ---
-async function handleGetDonations() {
+export async function handleGetDonations() {
   return allQuery('SELECT * FROM donations ORDER BY donation_date DESC');
 }
-async function handleAddDonation(event, donation) {
+export async function handleAddDonation(event, donation) {
   const { donor_name, amount, donation_date, notes, donation_type, description } = donation;
   const sql = `INSERT INTO donations (donor_name, amount, donation_date, notes, donation_type, description) VALUES (?, ?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [
@@ -59,19 +59,19 @@ async function handleAddDonation(event, donation) {
   ]);
   return getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
 }
-async function handleUpdateDonation(event, donation) {
+export async function handleUpdateDonation(event, donation) {
   const { id, donor_name, amount, donation_date, notes, donation_type, description } = donation;
   const sql = `UPDATE donations SET donor_name = ?, amount = ?, donation_date = ?, notes = ?, donation_type = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [donor_name, amount, donation_date, notes, donation_type, description, id]);
   return getQuery('SELECT * FROM donations WHERE id = ?', [id]);
 }
-async function handleDeleteDonation(event, donationId) {
+export async function handleDeleteDonation(event, donationId) {
   await runQuery('DELETE FROM donations WHERE id = ?', [donationId]);
   return { id: donationId };
 }
 
 // --- Salary Handlers ---
-async function handleGetSalaries() {
+export async function handleGetSalaries() {
   const sql = `
     SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes
     FROM salaries s
@@ -80,7 +80,7 @@ async function handleGetSalaries() {
   `;
   return allQuery(sql);
 }
-async function handleAddSalary(event, salary) {
+export async function handleAddSalary(event, salary) {
   const { teacher_id, amount, payment_date, notes } = salary;
   const sql = `INSERT INTO salaries (teacher_id, amount, payment_date, notes) VALUES (?, ?, ?, ?)`;
   const result = await runQuery(sql, [teacher_id, amount, payment_date, notes]);
@@ -89,7 +89,7 @@ async function handleAddSalary(event, salary) {
     [result.id],
   );
 }
-async function handleUpdateSalary(event, salary) {
+export async function handleUpdateSalary(event, salary) {
   const { id, teacher_id, amount, payment_date, notes } = salary;
   const sql = `UPDATE salaries SET teacher_id = ?, amount = ?, payment_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [teacher_id, amount, payment_date, notes, id]);
@@ -98,13 +98,13 @@ async function handleUpdateSalary(event, salary) {
     [id],
   );
 }
-async function handleDeleteSalary(event, salaryId) {
+export async function handleDeleteSalary(event, salaryId) {
   await runQuery('DELETE FROM salaries WHERE id = ?', [salaryId]);
   return { id: salaryId };
 }
 
 // --- Payment Handlers ---
-async function handleGetPayments() {
+export async function handleGetPayments() {
   const sql = `
     SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes
     FROM payments p
@@ -113,7 +113,7 @@ async function handleGetPayments() {
   `;
   return allQuery(sql);
 }
-async function handleAddPayment(event, payment) {
+export async function handleAddPayment(event, payment) {
   const { student_id, amount, payment_date, payment_method, notes } = payment;
   const sql = `INSERT INTO payments (student_id, amount, payment_date, payment_method, notes) VALUES (?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [student_id, amount, payment_date, payment_method, notes]);
@@ -122,7 +122,7 @@ async function handleAddPayment(event, payment) {
     [result.id],
   );
 }
-async function handleUpdatePayment(event, payment) {
+export async function handleUpdatePayment(event, payment) {
   const { id, student_id, amount, payment_date, payment_method, notes } = payment;
   const sql = `UPDATE payments SET student_id = ?, amount = ?, payment_date = ?, payment_method = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [student_id, amount, payment_date, payment_method, notes, id]);
@@ -131,13 +131,13 @@ async function handleUpdatePayment(event, payment) {
     [id],
   );
 }
-async function handleDeletePayment(event, paymentId) {
+export async function handleDeletePayment(event, paymentId) {
   await runQuery('DELETE FROM payments WHERE id = ?', [paymentId]);
   return { id: paymentId };
 }
 
 // --- Reporting Handlers ---
-async function handleGetStatementOfActivities() {
+export async function handleGetStatementOfActivities() {
   const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
   const now = new Date().toISOString();
 
@@ -181,7 +181,7 @@ async function handleGetStatementOfActivities() {
   };
 }
 
-async function handleGetMonthlySnapshot() {
+export async function handleGetMonthlySnapshot() {
   const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
   const now = new Date().toISOString();
 
@@ -208,7 +208,7 @@ async function handleGetMonthlySnapshot() {
   };
 }
 
-async function handleGetFinancialSummary() {
+export async function handleGetFinancialSummary() {
   const incomeSql = `
         SELECT 'Payments' as source, SUM(amount) as total FROM payments
         UNION ALL
@@ -243,7 +243,7 @@ async function handleGetFinancialSummary() {
 // --- Excel Report Generation (Disabled) ---
 // async function handleGenerateExcelReport() { ... }
 
-function registerFinancialHandlers() {
+export function registerFinancialHandlers() {
   ipcMain.handle('get-expenses', createHandler(handleGetExpenses));
   ipcMain.handle('add-expense', createHandler(handleAddExpense));
   ipcMain.handle('update-expense', createHandler(handleUpdateExpense));
@@ -270,26 +270,3 @@ function registerFinancialHandlers() {
   // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
   // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
 }
-
-module.exports = {
-  registerFinancialHandlers,
-  handleGetExpenses,
-  handleAddExpense,
-  handleUpdateExpense,
-  handleDeleteExpense,
-  handleGetDonations,
-  handleAddDonation,
-  handleUpdateDonation,
-  handleDeleteDonation,
-  handleGetSalaries,
-  handleAddSalary,
-  handleUpdateSalary,
-  handleDeleteSalary,
-  handleGetPayments,
-  handleAddPayment,
-  handleUpdatePayment,
-  handleDeletePayment,
-  handleGetFinancialSummary,
-  handleGetMonthlySnapshot,
-  handleGetStatementOfActivities,
-};

@@ -1,11 +1,13 @@
-const fs = require('fs').promises;
-const fsSync = require('fs');
-const PizZip = require('pizzip');
-const { app } = require('electron');
-const Store = require('electron-store');
-const ExcelJS = require('exceljs');
-const { log, error: logError, warn: logWarn } = require('./logger');
-const {
+import { promises as fs } from 'fs';
+import fsSync from 'fs';
+import PizZip from 'pizzip';
+import { app } from 'electron';
+import Store from 'electron-store';
+import ExcelJS from 'exceljs';
+import bcrypt from 'bcryptjs';
+
+import { log, error as logError, warn as logWarn } from '@main/logger';
+import {
   getDatabasePath,
   isDbOpen,
   closeDatabase,
@@ -14,14 +16,13 @@ const {
   dbExec,
   runQuery,
   getQuery,
-} = require('../db/db');
-const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('./matriculeService');
-const { setDbSalt } = require('./keyManager');
+} from '@db/db';
+import { generateMatricule } from '@main/matriculeService';
+import { setDbSalt } from '@main/keyManager';
 
 const mainStore = new Store();
 
-async function validateDatabaseFile(filePath) {
+export async function validateDatabaseFile(filePath) {
   try {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
@@ -57,7 +58,7 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
   }
 }
 
-async function replaceDatabase(importedDbPath, password) {
+export async function replaceDatabase(importedDbPath, password) {
   const currentDbPath = getDatabasePath();
   try {
     if (isDbOpen()) {
@@ -136,7 +137,7 @@ const getColumnIndex = (headerRow, headerText) => {
   return index;
 };
 
-async function importExcelData(filePath) {
+export async function importExcelData(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
   const results = { successCount: 0, errorCount: 0, errors: [], newUsers: [] };
@@ -329,7 +330,7 @@ async function processUserRow(row, headerRow) {
     // Update existing record
     const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
     if (!existingUser) {
-      return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
+      return { success: false, message: `المستخدم بالالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
     if (fields.length === 0) {
@@ -512,9 +513,3 @@ async function processAttendanceRow(row, headerRow) {
   await runQuery(`INSERT INTO attendance (${fields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
 }
-
-module.exports = {
-  validateDatabaseFile,
-  replaceDatabase,
-  importExcelData,
-};

@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const { classValidationSchema } = require('@main/validationSchemas');
-const { getSetting } = require('@main/settingsManager');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import { classValidationSchema } from '@main/validationSchemas';
+import { getSetting } from '@main/settingsManager';
+import { log, error as logError } from '@main/logger';
 
 const classFields = [
   'name',
@@ -16,7 +16,7 @@ const classFields = [
   'gender',
 ];
 
-function registerClassHandlers() {
+export function registerClassHandlers() {
   ipcMain.handle('classes:add', async (_event, classData) => {
     try {
       const validatedData = await classValidationSchema.validateAsync(classData, {
@@ -159,5 +159,3 @@ function registerClassHandlers() {
     }
   });
 }
-
-module.exports = { registerClassHandlers };

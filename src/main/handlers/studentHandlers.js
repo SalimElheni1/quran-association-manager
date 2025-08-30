@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const { studentValidationSchema } = require('@main/validationSchemas');
-const { generateMatricule } = require('@main/matriculeService');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import { studentValidationSchema } from '@main/validationSchemas';
+import { generateMatricule } from '@main/matriculeService';
+import { error as logError } from '@main/logger';
 
 const studentFields = [
   'matricule',
@@ -32,7 +32,7 @@ const studentFields = [
   'financial_assistance_notes',
 ];
 
-function registerStudentHandlers() {
+export function registerStudentHandlers() {
   ipcMain.handle('students:get', async (_event, filters) => {
     try {
       let sql =
@@ -135,5 +135,3 @@ function registerStudentHandlers() {
     }
   });
 }
-
-module.exports = { registerStudentHandlers };

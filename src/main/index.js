@@ -1,8 +1,28 @@
 /* global MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME */
-const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, clipboard } = require('electron');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import { app, BrowserWindow, ipcMain, Menu, protocol, dialog } from 'electron';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import Store from 'electron-store';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+
+import { log, error as logError } from '@main/logger';
+import * as db from '@db/db';
+import { refreshSettings } from '@main/settingsManager';
+import { registerFinancialHandlers } from '@main/financialHandlers';
+import { registerStudentHandlers } from '@main/handlers/studentHandlers';
+import { registerTeacherHandlers } from '@main/handlers/teacherHandlers';
+import { registerClassHandlers } from '@main/handlers/classHandlers';
+import { registerUserHandlers } from '@main/handlers/userHandlers';
+import { registerAttendanceHandlers } from '@main/handlers/attendanceHandlers';
+import { registerAuthHandlers } from '@main/handlers/authHandlers';
+import { registerSettingsHandlers } from '@main/handlers/settingsHandlers';
+import { registerDashboardHandlers } from '@main/handlers/dashboardHandlers';
+import { registerSystemHandlers } from '@main/handlers/systemHandlers';
+import { generateDevExcelTemplate } from '@main/exportManager';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // =================================================================================
 // PRODUCTION CRASH LOGGER
@@ -22,27 +42,11 @@ if (app.isPackaged) {
   });
 }
 // =================================================================================
-const Store = require('electron-store');
-const { log, error: logError } = require('@main/logger');
-const db = require('@db/db');
-const { refreshSettings } = require('@main/settingsManager');
-const { registerFinancialHandlers } = require('@main/financialHandlers');
-const { registerStudentHandlers } = require('@main/handlers/studentHandlers');
-const { registerTeacherHandlers } = require('@main/handlers/teacherHandlers');
-const { registerClassHandlers } = require('@main/handlers/classHandlers');
-const { registerUserHandlers } = require('@main/handlers/userHandlers');
-const { registerAttendanceHandlers } = require('@main/handlers/attendanceHandlers');
-const { registerAuthHandlers } = require('@main/handlers/authHandlers');
-const { registerSettingsHandlers } = require('@main/handlers/settingsHandlers');
-const { registerDashboardHandlers } = require('@main/handlers/dashboardHandlers');
-const { registerSystemHandlers } = require('@main/handlers/systemHandlers');
-const { generateDevExcelTemplate } = require('@main/exportManager');
-
 const store = new Store();
 
 // In development, load environment variables
 if (!app.isPackaged) {
-  require('dotenv').config();
+  dotenv.config();
 }
 
 // =================================================================================

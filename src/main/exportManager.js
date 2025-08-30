@@ -1,22 +1,26 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { BrowserWindow } = require('electron');
-const ExcelJS = require('exceljs');
-const PizZip = require('pizzip');
-const Docxtemplater = require('docxtemplater');
-const { allQuery } = require('@db/db');
-const { getSetting } = require('@main/settingsManager');
-const {
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { BrowserWindow } from 'electron';
+import ExcelJS from 'exceljs';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { fileURLToPath } from 'url';
+
+import { allQuery } from '@db/db';
+import { getSetting } from '@main/settingsManager';
+import {
   handleGetFinancialSummary,
   handleGetPayments,
   handleGetSalaries,
   handleGetDonations,
   handleGetExpenses,
-} = require('@main/financialHandlers');
+} from '@main/financialHandlers';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // --- Data Fetching ---
-async function fetchFinancialData() {
+export async function fetchFinancialData() {
   const [summary, payments, salaries, donations, expenses] = await Promise.all([
     handleGetFinancialSummary(),
     handleGetPayments(),
@@ -27,7 +31,7 @@ async function fetchFinancialData() {
   return { summary, payments, salaries, donations, expenses };
 }
 
-async function fetchExportData({ type, fields, options = {} }) {
+export async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
   }
@@ -119,7 +123,7 @@ function localizeData(data) {
 }
 
 // --- PDF Generation ---
-async function generatePdf(title, columns, data, outputPath) {
+export async function generatePdf(title, columns, data, outputPath) {
   const localizedData = localizeData(data);
   // 1. Create the HTML content
   const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
@@ -167,7 +171,7 @@ async function generatePdf(title, columns, data, outputPath) {
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(columns, data, outputPath) {
+export async function generateXlsx(columns, data, outputPath) {
   const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
@@ -180,7 +184,7 @@ async function generateXlsx(columns, data, outputPath) {
   await workbook.xlsx.writeFile(outputPath);
 }
 
-async function generateFinancialXlsx(data, outputPath) {
+export async function generateFinancialXlsx(data, outputPath) {
   const workbook = new ExcelJS.Workbook();
 
   // Summary Sheet
@@ -247,7 +251,7 @@ async function generateFinancialXlsx(data, outputPath) {
 }
 
 // --- DOCX Generation ---
-function generateDocx(title, columns, data, outputPath) {
+export function generateDocx(title, columns, data, outputPath) {
   const localizedData = localizeData(data);
   const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
   if (!fs.existsSync(templatePath)) {
@@ -297,7 +301,7 @@ function generateDocx(title, columns, data, outputPath) {
 }
 
 // --- Excel (XLSX) Template Generation ---
-async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
+export async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
   const workbook = new ExcelJS.Workbook();
   const warningMessage =
     '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
@@ -587,7 +591,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
 }
 
 // --- Dev Data Generation ---
-async function generateDevExcelTemplate(outputPath) {
+export async function generateDevExcelTemplate(outputPath) {
   const workbook = new ExcelJS.Workbook();
   const warningMessage =
     '⚠️ This is a development template. Do not use in production. Do not modify headers.';
@@ -778,14 +782,3 @@ async function generateDevExcelTemplate(outputPath) {
 
   await workbook.xlsx.writeFile(outputPath);
 }
-
-module.exports = {
-  fetchExportData,
-  fetchFinancialData,
-  generatePdf,
-  generateXlsx,
-  generateFinancialXlsx,
-  generateDocx,
-  generateExcelTemplate,
-  generateDevExcelTemplate,
-};

@@ -1,14 +1,14 @@
-const { ipcMain } = require('electron');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const db = require('@db/db');
-const {
+import { ipcMain } from 'electron';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import * as db from '@db/db';
+import {
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
-} = require('@main/validationSchemas');
-const Joi = require('joi'); // Keep Joi for the complex password confirmation
-const { refreshSettings } = require('@main/settingsManager');
-const { log, error: logError } = require('@main/logger');
+} from '@main/validationSchemas';
+import Joi from 'joi'; // Keep Joi for the complex password confirmation
+import { refreshSettings } from '@main/settingsManager';
+import { log, error as logError } from '@main/logger';
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
@@ -129,7 +129,7 @@ const updatePasswordHandler = async (token, passwordData) => {
   return { success: true, message: 'تم تحديث كلمة المرور بنجاح.' };
 };
 
-function registerAuthHandlers() {
+export function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
     try {
       // The database is now initialized on app startup, not here.
@@ -201,7 +201,3 @@ function registerAuthHandlers() {
     }
   });
 }
-
-module.exports = {
-  registerAuthHandlers,
-};

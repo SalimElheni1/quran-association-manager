@@ -1,19 +1,24 @@
-// --- Refactor Step 1: Import new dependencies ---
-const sqlite3 = require('@journeyapps/sqlcipher').verbose();
-const path = require('path');
-const fs = require('fs');
-const { app } = require('electron'); // <-- Import `app` from Electron
-const crypto = require('crypto');
-const schema = require('@db/schema');
-const bcrypt = require('bcryptjs');
-const { getDbKey, getDbSalt } = require('@main/keyManager');
-const { log, error: logError, warn: logWarn } = require('@main/logger');
+import sqlcipher from '@journeyapps/sqlcipher';
+import path from 'path';
+import fs from 'fs';
+import { app } from 'electron';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { fileURLToPath } from 'url';
 
-// --- Refactor Step 2: `db` is now managed by `getDb` ---
+import schema from '@db/schema';
+import { getDbKey, getDbSalt } from '@main/keyManager';
+import { log, error as logError, warn as logWarn } from '@main/logger';
+
+const sqlite3 = sqlcipher.verbose();
+
+// Recreate __dirname for ES Modules
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 let db; // This will hold our database connection object
 
 // Helper function to get database file path
-function getDatabasePath() {
+export function getDatabasePath() {
   // Check if running in Electron or a plain Node.js script
   const isElectron = 'electron' in process.versions;
 
@@ -175,7 +180,7 @@ async function runMigrations() {
  * Initializes the database connection. This is the main entry point for the DB.
  * It handles key derivation, migration, and schema setup.
  */
-async function initializeDatabase() {
+export async function initializeDatabase() {
   log('[DB_LOG] InitializeDatabase called.');
   if (db && db.open) {
     log('[DB_LOG] Database already open. Skipping initialization.');
@@ -263,7 +268,7 @@ async function initializeDatabase() {
 // --- Refactor Step 3: Promisify the callback-based API ---
 // This gives us clean async/await syntax for the rest of the app.
 
-function getDb() {
+export function getDb() {
   if (!db || !db.open) {
     throw new Error('Database is not open. Call initializeDatabase(password) first.');
   }
@@ -279,11 +284,11 @@ function dbRun(database, sql, params = []) {
   });
 }
 
-function runQuery(sql, params = []) {
+export function runQuery(sql, params = []) {
   return dbRun(getDb(), sql, params);
 }
 
-function getQuery(sql, params = []) {
+export function getQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
     getDb().get(sql, params, (err, row) => {
       if (err) return reject(err);
@@ -292,7 +297,7 @@ function getQuery(sql, params = []) {
   });
 }
 
-function allQuery(sql, params = []) {
+export function allQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
     getDb().all(sql, params, (err, rows) => {
       if (err) return reject(err);
@@ -301,7 +306,7 @@ function allQuery(sql, params = []) {
   });
 }
 
-function dbExec(database, sql) {
+export function dbExec(database, sql) {
   return new Promise((resolve, reject) => {
     database.exec(sql, (err) => {
       if (err) return reject(err);
@@ -320,7 +325,7 @@ function dbClose(database) {
 }
 
 // Close database connection
-async function closeDatabase() {
+export async function closeDatabase() {
   if (db && db.open) {
     await dbClose(db);
     db = null;
@@ -328,18 +333,6 @@ async function closeDatabase() {
   }
 }
 
-function isDbOpen() {
+export function isDbOpen() {
   return db && db.open;
 }
-
-module.exports = {
-  initializeDatabase,
-  closeDatabase,
-  runQuery,
-  getQuery,
-  allQuery,
-  getDb,
-  getDatabasePath,
-  isDbOpen,
-  dbExec,
-};

@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const { teacherValidationSchema } = require('@main/validationSchemas');
-const { generateMatricule } = require('@main/matriculeService');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import { teacherValidationSchema } from '@main/validationSchemas';
+import { generateMatricule } from '@main/matriculeService';
+import { error as logError } from '@main/logger';
 
 const teacherFields = [
   'matricule',
@@ -20,7 +20,7 @@ const teacherFields = [
   'notes',
 ];
 
-function registerTeacherHandlers() {
+export function registerTeacherHandlers() {
   ipcMain.handle('teachers:add', async (_event, teacherData) => {
     try {
       const matricule = await generateMatricule('teacher');
@@ -111,5 +111,3 @@ function registerTeacherHandlers() {
     }
   });
 }
-
-module.exports = { registerTeacherHandlers };

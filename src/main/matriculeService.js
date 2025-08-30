@@ -1,12 +1,12 @@
-const { getQuery } = require('@db/db');
-const { log, error: logError } = require('@main/logger');
+import * as db from '@db/db';
+import { error as logError } from '@main/logger';
 
 /**
  * Generates a new, unique matricule for a given entity type.
  * @param {('student'|'teacher'|'user')} entityType The type of entity.
  * @returns {Promise<string>} A promise that resolves to the new matricule (e.g., 'S-000001').
  */
-async function generateMatricule(entityType) {
+export async function generateMatricule(entityType) {
   let prefix = '';
   let tableName = '';
 
@@ -33,7 +33,7 @@ async function generateMatricule(entityType) {
   const params = [`${prefix}%`];
 
   try {
-    const result = await getQuery(sql, params);
+    const result = await db.getQuery(sql, params);
     const nextId = (result.max_id || 0) + 1;
 
     // Pad with leading zeros to 6 digits to ensure consistent length (e.g., 000001, 000010, 000100)
@@ -45,7 +45,3 @@ async function generateMatricule(entityType) {
     throw new Error('فشل في إنشاء الرقم التعريفي.');
   }
 }
-
-module.exports = {
-  generateMatricule,
-};

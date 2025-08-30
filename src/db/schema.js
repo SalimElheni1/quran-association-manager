@@ -145,4 +145,4 @@ const schema = `
     ('backup_reminder_frequency_days', '7');
 `;
 
-module.exports = schema;
+export default schema;

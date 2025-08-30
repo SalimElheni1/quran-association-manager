@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import { log, error as logError } from '@main/logger';
 
-function registerAttendanceHandlers() {
+export function registerAttendanceHandlers() {
   ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
     try {
       // Using date parameter to filter classes that are active on the specified date
@@ -101,5 +101,3 @@ function registerAttendanceHandlers() {
     }
   });
 }
-
-module.exports = { registerAttendanceHandlers };

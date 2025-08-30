@@ -1,9 +1,9 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const bcrypt = require('bcryptjs');
-const { userValidationSchema, userUpdateValidationSchema } = require('@main/validationSchemas');
-const { generateMatricule } = require('@main/matriculeService');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import bcrypt from 'bcryptjs';
+import { userValidationSchema, userUpdateValidationSchema } from '@main/validationSchemas';
+import { generateMatricule } from '@main/matriculeService';
+import { error as logError } from '@main/logger';
 
 const userFields = [
   'matricule',
@@ -25,7 +25,7 @@ const userFields = [
   'notes',
 ];
 
-function registerUserHandlers() {
+export function registerUserHandlers() {
   ipcMain.handle('users:get', async (_event, filters) => {
     let sql =
       'SELECT id, matricule, username, first_name, last_name, email, role, status FROM users WHERE 1=1';
@@ -107,5 +107,3 @@ function registerUserHandlers() {
     return db.runQuery(sql, [id]);
   });
 }
-
-module.exports = { registerUserHandlers };

@@ -1,9 +1,9 @@
-const { internalGetSettingsHandler } = require('@main/handlers/settingsHandlers');
-const { log, error: logError } = require('@main/logger');
+import { internalGetSettingsHandler } from '@main/handlers/settingsHandlers';
+import { log, error as logError } from '@main/logger';
 
 let settingsCache = null;
 
-async function refreshSettings() {
+export async function refreshSettings() {
   try {
     const { settings } = await internalGetSettingsHandler();
     settingsCache = settings;
@@ -15,7 +15,7 @@ async function refreshSettings() {
   }
 }
 
-function getSetting(key) {
+export function getSetting(key) {
   if (!settingsCache) {
     logError('CRITICAL: getSetting called before settings cache was initialized.');
     // This is a synchronous fallback for critical early calls.
@@ -24,8 +24,3 @@ function getSetting(key) {
   }
   return settingsCache[key];
 }
-
-module.exports = {
-  refreshSettings,
-  getSetting,
-};

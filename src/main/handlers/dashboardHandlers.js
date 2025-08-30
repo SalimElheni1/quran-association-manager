@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
-const db = require('@db/db');
-const { log, error: logError } = require('@main/logger');
+import { ipcMain } from 'electron';
+import * as db from '@db/db';
+import { error as logError } from '@main/logger';
 
-function registerDashboardHandlers() {
+export function registerDashboardHandlers() {
   ipcMain.handle('get-dashboard-stats', async () => {
     try {
       const studentCountQuery = "SELECT COUNT(*) as count FROM students WHERE status = 'active'";
@@ -39,7 +39,7 @@ function registerDashboardHandlers() {
         'Friday',
         'Saturday',
       ];
-      const today = daysOfWeek[new Date().getDay()];
+      const today = new Date().getDay();
 
       const sql = `
         SELECT c.id, c.name, c.schedule, t.name as teacher_name
@@ -50,7 +50,7 @@ function registerDashboardHandlers() {
       // This is a simple but effective optimization. It filters in the DB, reducing data
       // transfer and JS processing. It's not as robust as a full JSON query but avoids
       // potential issues with JSON function support in older SQLite versions.
-      const todaysClasses = await db.allQuery(sql, [`%"day":"${today}"%`]);
+      const todaysClasses = await db.allQuery(sql, [`%"day":"${daysOfWeek[today]}"%`]);
       return todaysClasses;
     } catch (error) {
       logError("Failed to get today's classes:", error);
@@ -58,5 +58,3 @@ function registerDashboardHandlers() {
     }
   });
 }
-
-module.exports = { registerDashboardHandlers };

@@ -1,6 +1,6 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
-const studentValidationSchema = Joi.object({
+export const studentValidationSchema = Joi.object({
   matricule: Joi.string()
     .pattern(/^S-\d{6}$/)
     .messages({
@@ -26,7 +26,7 @@ const studentValidationSchema = Joi.object({
     .allow(null, ''),
 }).unknown(true);
 
-const classValidationSchema = Joi.object({
+export const classValidationSchema = Joi.object({
   name: Joi.string().min(3).max(100).required().messages({
     'string.base': 'اسم الفصل يجب أن يكون نصاً',
     'string.empty': 'اسم الفصل مطلوب',
@@ -43,7 +43,7 @@ const classValidationSchema = Joi.object({
   end_date: Joi.date().iso().allow(null, ''),
 }).unknown(true);
 
-const teacherValidationSchema = Joi.object({
+export const teacherValidationSchema = Joi.object({
   matricule: Joi.string()
     .pattern(/^T-\d{6}$/)
     .messages({
@@ -68,7 +68,7 @@ const teacherValidationSchema = Joi.object({
     .allow(null, ''),
 }).unknown(true);
 
-const userValidationSchema = Joi.object({
+export const userValidationSchema = Joi.object({
   matricule: Joi.string()
     .pattern(/^U-\d{6}$/)
     .messages({
@@ -101,12 +101,12 @@ const userValidationSchema = Joi.object({
   }),
 }).unknown(true);
 
-const userUpdateValidationSchema = userValidationSchema.keys({
+export const userUpdateValidationSchema = userValidationSchema.keys({
   password: Joi.string().min(6).allow(null, ''),
   status: Joi.string().valid('active', 'inactive').required(),
 });
 
-const passwordUpdateValidationSchema = Joi.object({
+export const passwordUpdateValidationSchema = Joi.object({
   current_password: Joi.string().required().messages({
     'string.empty': 'كلمة المرور الحالية مطلوبة',
     'any.required': 'كلمة المرور الحالية مطلوبة',
@@ -121,12 +121,3 @@ const passwordUpdateValidationSchema = Joi.object({
     'any.required': 'يجب تأكيد كلمة المرور الجديدة',
   }),
 });
-
-module.exports = {
-  studentValidationSchema,
-  classValidationSchema,
-  teacherValidationSchema,
-  userValidationSchema,
-  userUpdateValidationSchema,
-  passwordUpdateValidationSchema,
-};

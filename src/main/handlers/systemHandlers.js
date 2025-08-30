@@ -1,12 +1,12 @@
-const { ipcMain, app, dialog } = require('electron');
-const db = require('@db/db');
-const { log, error: logError } = require('@main/logger');
-const exportManager = require('@main/exportManager');
-const importManager = require('@main/importManager');
-const backupManager = require('@main/backupManager');
-const { internalGetSettingsHandler } = require('@main/handlers/settingsHandlers');
-const Store = require('electron-store');
-const bcrypt = require('bcryptjs');
+import { ipcMain, app, dialog } from 'electron';
+import bcrypt from 'bcryptjs';
+import Store from 'electron-store';
+import * as db from '@db/db';
+import { error as logError } from '@main/logger';
+import * as exportManager from '@main/exportManager';
+import * as importManager from '@main/importManager';
+import * as backupManager from '@main/backupManager';
+import { internalGetSettingsHandler } from '@main/handlers/settingsHandlers';
 
 async function handleGetBackupReminderStatus() {
   try {
@@ -37,7 +37,7 @@ async function handleGetBackupReminderStatus() {
   }
 }
 
-function registerSystemHandlers() {
+export function registerSystemHandlers() {
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
@@ -215,5 +215,3 @@ function registerSystemHandlers() {
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
 }
-
-module.exports = { registerSystemHandlers, handleGetBackupReminderStatus };
