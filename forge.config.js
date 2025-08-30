@@ -36,18 +36,18 @@ module.exports = {
       config: {
         // `build` can specify multiple entry builds, which can be
         // Main process, Preload scripts, Worker process, etc.
-        build: [
-          {
-            // `entry` is an alias for `build.lib.entry`
-            // in the corresponding file of `config`.
-            entry: 'src/main/index.js',
-            config: 'vite.main.config.js',
-          },
-          {
-            entry: 'src/main/preload.js',
-            config: 'vite.preload.config.js',
-          },
-        ],
+        // build: [
+        //   {
+        //     // `entry` is an alias for `build.lib.entry`
+        //     // in the corresponding file of `config`.
+        //     entry: 'src/main/index.js',
+        //     config: 'vite.main.config.js',
+        //   },
+        //   {
+        //     entry: 'src/main/preload.js',
+        //     config: 'vite.preload.config.js',
+        //   },
+        // ],
         renderer: [
           {
             name: 'main_window',
