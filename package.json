@@ -2,7 +2,7 @@
   "name": "quran-branch-manager",
   "version": "1.0.0",
   "description": "Desktop application for managing Quran association branches.",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "author": "Salim Elheni",
   "license": "MIT",
   "scripts": {
