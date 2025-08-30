@@ -1,8 +1,8 @@
-import { defineConfig } from 'vite';
-import pkg from './package.json';
+const { defineConfig } = require('vite');
+const pkg = require('./package.json');
 
 // https://vitejs.dev/config
-export default defineConfig({
+module.exports = defineConfig({
   build: {
     rollupOptions: {
       external: [
