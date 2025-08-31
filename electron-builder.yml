@@ -1,10 +1,11 @@
 appId: com.salim-elheni.quran-branch-manager
-productName: Quran Branch Manager
+productName: QuranBranchManager
 copyright: Copyright © 2024 ${author}
 files:
-  - "dist/renderer/**/*"
+  - "dist/**/*"
   - "src/main/**/*"
   - "package.json"
+  - "node_modules/**/*"
 directories:
   output: release
   buildResources: build
