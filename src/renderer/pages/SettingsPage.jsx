@@ -217,7 +217,7 @@ const SettingsPage = () => {
                           />
                         </Form.Group>
                         <Form.Group className="mb-3">
-                          <Form.Label>اسم الجمعية الجهوية</Form.Label>
+                          <Form.Label>اسم الفرع الجهوي</Form.Label>
                           <Form.Control
                             type="text"
                             name="regional_association_name"
