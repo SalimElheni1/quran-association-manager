@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, clipboard } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -109,6 +110,50 @@ app.whenReady().then(async () => {
     // =============================================================================
 
     Menu.setApplicationMenu(null);
+
+    // =============================================================================
+    // AUTO-UPDATE SETUP
+    // =============================================================================
+    if (app.isPackaged) {
+      log('Setting up auto-updater...');
+      autoUpdater.checkForUpdatesAndNotify();
+
+      autoUpdater.on('update-available', () => {
+        log('Update available.');
+      });
+
+      autoUpdater.on('update-not-available', () => {
+        log('Update not available.');
+      });
+
+      autoUpdater.on('error', (err) => {
+        logError('Error in auto-updater. ' + err);
+      });
+
+      autoUpdater.on('download-progress', (progressObj) => {
+        let log_message = 'Download speed: ' + progressObj.bytesPerSecond;
+        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+        log_message = log_message + ' (' + progressObj.transferred + '/' + progressObj.total + ')';
+        log(log_message);
+      });
+
+      autoUpdater.on('update-downloaded', (info) => {
+        log('Update downloaded. Prompting user to restart.');
+        const dialogOpts = {
+          type: 'info',
+          buttons: ['Restart', 'Later'],
+          title: 'Application Update',
+          message: process.platform === 'win32' ? info.releaseName : info.releaseNotes,
+          detail: 'A new version has been downloaded. Restart the application to apply the updates.'
+        };
+
+        dialog.showMessageBox(dialogOpts).then((returnValue) => {
+          if (returnValue.response === 0) autoUpdater.quitAndInstall();
+        });
+      });
+    }
+    // =============================================================================
+
     const mainWindow = createWindow();
 
     // If a new superadmin was created, send the credentials to the renderer process

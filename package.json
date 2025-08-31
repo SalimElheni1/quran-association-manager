@@ -1,6 +1,6 @@
 {
   "name": "quran-branch-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop application for managing Quran association branches.",
   "main": "src/main/index.js",
   "author": "Salim Elheni",
@@ -25,6 +25,7 @@
     "docxtemplater": "^3.65.3",
     "dotenv": "^17.2.1",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
