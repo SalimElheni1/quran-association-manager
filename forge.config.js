@@ -3,9 +3,7 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
-    asar: {
-      unpack: '**/node_modules/@journeyapps/sqlcipher/**/*',
-    },
+    asar: true,
   },
   rebuildConfig: {},
   makers: [
