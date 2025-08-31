@@ -1,11 +1,15 @@
 /* global MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME */
+console.log('Main process starting...');
 import { app, BrowserWindow, ipcMain, Menu, protocol, dialog } from 'electron';
+console.log('Electron imported');
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import Store from 'electron-store';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
+
+console.log('Dependencies imported');
 
 import { log, error as logError } from '@main/logger';
 import * as db from '@db/db';
@@ -21,6 +25,8 @@ import { registerSettingsHandlers } from '@main/handlers/settingsHandlers';
 import { registerDashboardHandlers } from '@main/handlers/dashboardHandlers';
 import { registerSystemHandlers } from '@main/handlers/systemHandlers';
 import { generateDevExcelTemplate } from '@main/exportManager';
+
+console.log('App modules imported');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +84,7 @@ process.env.JWT_SECRET = jwtSecret;
 // =================================================================================
 
 const createWindow = () => {
+  console.log('Creating browser window...');
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -102,10 +109,12 @@ const createWindow = () => {
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
   }
+  console.log('Browser window created.');
   return mainWindow;
 };
 
 app.whenReady().then(async () => {
+  console.log('App is ready.');
   try {
     // =============================================================================
     // INITIALIZE DATABASE
@@ -210,7 +219,7 @@ app.whenReady().then(async () => {
       }
     });
   } catch (error) {
-    logError('Fatal error during application startup:', error);
+    console.error('Fatal error during application startup:', error);
     app.quit();
   }
 });
