@@ -210,7 +210,9 @@ describe('Authentication Handlers', () => {
         confirm_new_password: 'newPassword',
       };
 
-      db.getQuery.mockResolvedValue({ password: 'hashedOldPassword' });
+      db.getQuery
+        .mockResolvedValueOnce(null) // For username check
+        .mockResolvedValueOnce({ password: 'hashedOldPassword' }); // For getting current password
       bcrypt.compare.mockResolvedValue(true);
       bcrypt.hash.mockResolvedValue('hashedNewPassword');
       db.runQuery.mockResolvedValue({ changes: 1 });
@@ -220,6 +222,9 @@ describe('Authentication Handlers', () => {
         profileData: profileWithPassword,
       });
 
+      expect(db.getQuery).toHaveBeenCalledWith('SELECT id FROM users WHERE username = ?', [
+        profileWithPassword.username,
+      ]);
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [
         mockUserId,
       ]);
@@ -240,7 +245,9 @@ describe('Authentication Handlers', () => {
         confirm_new_password: 'newPassword',
       };
 
-      db.getQuery.mockResolvedValue({ password: 'hashedOldPassword' });
+      db.getQuery
+        .mockResolvedValueOnce(null) // For username check
+        .mockResolvedValueOnce({ password: 'hashedOldPassword' }); // For getting current password
       bcrypt.compare.mockResolvedValue(false); // Password doesn't match
 
       const result = await ipcMain.invoke('auth:updateProfile', {
