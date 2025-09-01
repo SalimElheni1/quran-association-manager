@@ -1,24 +1,14 @@
-# User-Facing Documentation: Quran Branch Manager
+# User Guide: Quran Branch Manager
 
-This document provides essential information for users, stakeholders, and contributors of the Quran Branch Manager application. It covers the application's requirements, a user guide, and guidelines for contributing to the project.
+This document provides a comprehensive user guide for the Quran Branch Manager application. It covers the application's core features, requirements, and step-by-step instructions for users.
 
-## 1. Project Overview
-
-The Quran Branch Manager application is designed to modernize and streamline the administrative operations of Quranic associations, specifically the National Quran Association in Tunisia. Its primary goal is to transition from manual, paper-based, and Excel-driven workflows to a fully digital, centralized, and efficient system.
-
-### Core Problems Addressed
-- Outdated manual, paper-based, and Excel-driven administrative workflows.
-- Lack of a centralized system for managing student records, classes, and teachers.
-- Inefficient processes for attendance monitoring and report generation.
-- Difficulty in sharing information between branches and with the main organization.
-
-## 2. Requirements
+## 1. Requirements
 
 This section outlines the functional and non-functional requirements for the Quran Branch Manager application. It details what the system is expected to do and the quality attributes it must possess.
 
 ### 1.1. Functional Requirements
 
-Functional requirements describe the specific actions or functions the system must perform. Features marked with (MVP) are part of the Minimum Viable Product.
+Functional requirements describe the specific actions or functions the system must perform.
 
 - **Student Management:** (MVP Priority)
   - Enroll new students. (MVP)
@@ -46,7 +36,7 @@ Functional requirements describe the specific actions or functions the system mu
   - Export reports to PDF (using PDFKit) and Excel (using ExcelJS). (MVP)
 - **User Authentication & Authorization:** (MVP Priority)
   - Secure user login with role-based access control (RBAC). (MVP)
-  - Support for Superadmin, Branch Admin, and Teacher roles. (MVP)
+  - Support for administrative roles: `Superadmin`, `Manager`, `FinanceManager`, `Admin`, and `SessionSupervisor`. (MVP)
 - **Data Import (Noted in MD as future consideration, but mentioned in JSON):**
   - Ability to import existing data from previous systems (e.g., Excel). (Phase 2)
 
@@ -109,9 +99,7 @@ Upon launching the application for the first time, you will be presented with a 
 
 1.  **Enter Credentials:** Input your `username` and `password` in the respective fields.
 2.  **Select Role (if applicable):** If your account has multiple roles, you might be prompted to select your desired role for the session.
-3.  **Click Login:** Press the
-
-Login\*\* button.
+3.  **Click Login:** Press the **Login** button.
 
 ### 2.2. Dashboard Overview
 
@@ -119,9 +107,7 @@ After successful login, you will be directed to the main dashboard. The dashboar
 
 - **Navigation Sidebar:** On the left (or right for RTL layout), you will find a navigation sidebar with links to different sections of the application (e.g., Students, Teachers, Classes, Reports, Settings).
 - **KPI Cards:** Key Performance Indicator (KPI) cards display important statistics such as the number of active students, teachers, and classes. These cards provide a snapshot of the association's operational health.
-- **Quick Actions:** A section for quick access buttons to common tasks like
-
-Add New Student**, **Add New Teacher\*\*, etc.
+- **Quick Actions:** A section for quick access buttons to common tasks like **Add New Student**, **Add New Teacher**, etc.
 
 - **Recent Activity Feed:** Displays a chronological list of recent actions and events within the application.
 
@@ -256,11 +242,17 @@ The workflow for managing records is similar across all tabs (Payments, Salaries
 
 ### 2.9. User Role Management (Superadmin Functionality)
 
-For Superadmin users, the application provides functionalities to manage user accounts and assign roles.
+For `Superadmin` users, the application provides functionalities to manage user accounts and assign roles. Note that "Teachers" are managed separately in the Teachers section and do not have login access by default. This section is for managing administrative and staff user accounts.
 
-1.  Navigate to the **User Management** section.
-2.  View existing users, add new users, or edit user roles (Superadmin, Branch Admin, Teacher).
-3.  Ensure that roles are assigned appropriately to maintain security and access control.
+1.  Navigate to the **User Management** section from the sidebar.
+2.  Here you can view, add, edit, or delete user accounts.
+3.  When adding or editing a user, you can assign them a specific role to control their permissions. The available roles are:
+    *   **Superadmin:** Full control over the entire application.
+    *   **Manager:** General management responsibilities.
+    *   **FinanceManager:** Access to all financial sections.
+    *   **Admin:** General administrative tasks.
+    *   **SessionSupervisor:** Permissions to manage class sessions and attendance.
+4.  Ensure that roles are assigned appropriately to maintain security and access control.
 
 ### 2.9. Managing Your Profile
 
@@ -277,68 +269,6 @@ All users can manage their own personal information and change their password th
     - **New Password:** Enter your new desired password. It must be at least 8 characters long.
     - **Confirm New Password:** Re-enter your new password to ensure it is correct.
     - When you click **Save Changes**, your password will be updated along with any other profile information you changed. If you do not wish to change your password, simply leave these fields blank.
-
-## 3. Contributing to the Project
-
-We welcome contributions to the Quran Branch Manager project! Whether you're a developer, designer, or tester, your input is valuable. This guide outlines the process for contributing to the codebase, reporting issues, and suggesting enhancements.
-
-### 3.1. Code of Conduct
-
-To ensure a welcoming and inclusive environment for all contributors, we adhere to a Code of Conduct. Please review it before contributing.
-
-### 3.2. How to Contribute
-
-#### 3.2.1. Reporting Bugs
-
-If you find a bug, please open an issue on our GitHub repository. Provide a clear and concise description of the bug, steps to reproduce it, and expected behavior.
-
-#### 3.2.2. Suggesting Enhancements
-
-Have an idea for a new feature or an improvement? Open an issue to discuss your suggestion. Clearly describe the enhancement and its potential benefits.
-
-#### 3.2.3. Contributing Code
-
-1.  **Fork the Repository:** Start by forking the main project repository on GitHub.
-2.  **Clone Your Fork:** Clone your forked repository to your local machine.
-    ```bash
-    git clone https://github.com/your-username/quran-branch-manager.git
-    ```
-3.  **Create a New Branch:** Create a new branch for your feature or bug fix. Use a descriptive name (e.g., `feature/add-student-search`, `bugfix/login-issue`).
-    ```bash
-    git checkout -b feature/your-feature-name
-    ```
-4.  **Set Up Development Environment:** Follow the instructions in the `Technical_Documentation.md` file to set up your local development environment.
-5.  **Make Your Changes:** Implement your feature or fix the bug. Ensure your code adheres to the project's coding standards and best practices.
-6.  **Test Your Changes:** Run all relevant tests (unit, integration, E2E) to ensure your changes work as expected and do not introduce regressions.
-7.  **Commit Your Changes:** Write clear and concise commit messages.
-    ```bash
-    git commit -m "feat: Add student search functionality"
-    ```
-8.  **Push to Your Fork:** Push your new branch to your forked repository.
-    ```bash
-    git push origin feature/your-feature-name
-    ```
-9.  **Create a Pull Request (PR):** Open a pull request from your branch to the `main` branch of the original repository. Provide a detailed description of your changes and reference any related issues.
-
-### 3.3. Coding Standards and Best Practices
-
-- **Code Style:** Adhere to the ESLint and Prettier configurations defined in the project. Run `npm run lint` and `npm run format` before committing.
-- **Modularity:** Write modular and reusable code. Break down complex functionalities into smaller, manageable functions or components.
-- **Documentation:** Document your code clearly, especially complex logic or public APIs.
-- **Testing:** Write tests for new features and bug fixes. Aim for good test coverage.
-- **Security:** Always consider security implications. Use parameterized queries for database interactions and validate all user inputs.
-
-### 3.4. Release Process
-
-New versions of the application are released periodically. The release process involves:
-
-1.  **Feature Freeze:** All new features are halted.
-2.  **Testing Phase:** Extensive testing is conducted to identify and fix any remaining bugs.
-3.  **Documentation Update:** User and technical documentation are updated to reflect new features and changes.
-4.  **Build and Package:** The application is built and packaged for all supported platforms using Electron Builder.
-5.  **Code Signing:** The builds are digitally signed for security and authenticity.
-6.  **Release Notes:** Comprehensive release notes are prepared, detailing new features, bug fixes, and known issues.
-7.  **Deployment:** The new version is deployed to the distribution channels.
 
 ---
 
