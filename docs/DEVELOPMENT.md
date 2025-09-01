@@ -1138,6 +1138,12 @@ The frontend is responsible for the user interface and user experience, providin
 - **Rationale:** Bootstrap 5 was chosen for its comprehensive set of pre-designed, responsive UI components, which accelerate development and ensure a consistent, professional look and feel across the application. Its native Right-to-Left (RTL) support is crucial for the Arabic UI of the Quran Branch Manager. React-Bootstrap provides a React-friendly API, avoiding direct DOM manipulation and adhering to React's declarative paradigm. Version 5.3.3 and 2.10.4 respectively ensure the latest features and bug fixes.
 - **Alternatives Considered:** Material-UI, Ant Design. Bootstrap's widespread familiarity and strong RTL support were key differentiators.
 
+**Developer Note on RTL Implementation:**
+Implementing and maintaining the Right-to-Left (RTL) layout for the Arabic interface is primarily handled by two things:
+1.  **HTML `dir` attribute:** The root `index.html` file has `dir="rtl"` set on the `<html>` tag. This is the most important step, as it signals to the browser and Bootstrap to flip the layout.
+2.  **Bootstrap's RTL Support:** Bootstrap 5 has native RTL support. When `dir="rtl"` is detected, Bootstrap automatically reverses its grid system, flex utilities, margins, paddings, and component alignments. For example, `ms-auto` (margin-start) will apply a margin to the right in an RTL layout, instead of the left.
+3.  **Custom CSS:** For any custom components or styles, developers must be mindful of RTL. Instead of using `margin-left` or `padding-right`, use logical properties like `margin-inline-start` and `padding-inline-end`. This ensures the styles work correctly in both LTR and RTL contexts without extra code.
+
 #### 3.1.4. Styling: Custom CSS and SCSS
 
 - **Purpose:** To provide global styles, override Bootstrap defaults, and implement application-specific visual designs.
@@ -1228,278 +1234,347 @@ In the context of a desktop application, the term "backend" primarily refers to 
 - **Purpose:** The default package manager for Node.js, used to install, manage, and publish Node.js packages.
 - **Rationale:** npm is integral to the Node.js ecosystem, handling project dependencies, running scripts, and managing the entire development workflow. It ensures that all necessary libraries and tools are correctly installed and versioned.
 
-## 4. Database Schema: A Comprehensive Guide
+## 4. Database Schema
 
-This section provides a detailed overview of the SQLite database schema used by the Quran Branch Manager application, including table definitions, relationships, and an example SQL creation script.
+This section provides a detailed and up-to-date overview of the SQLite database schema used by the Quran Branch Manager application. The schema is the single source of truth for all data structures.
 
-### 4.1. Introduction to the Database Design Philosophy
+### 4.1. Entity-Relationship Diagram (ERD)
 
-The choice of SQLite as the embedded database solution is central to the application's design. SQLite is a self-contained, serverless, zero-configuration, transactional SQL database engine. Its lightweight nature and file-based storage make it ideal for desktop applications where a separate database server is unnecessary and offline access is paramount. The schema design prioritizes clarity, normalization, and ease of maintenance, allowing for future scalability and feature expansion while minimizing data redundancy.
+A visual representation of the database schema helps in understanding the relationships between different tables.
+
+*(A text-based ERD can be added here for clarity if needed, or a link to a generated diagram.)*
+
+```mermaid
+erDiagram
+    users ||--o{ branches : "can be associated with"
+    students ||--o{ branches : "belongs to"
+    teachers ||--o{ branches : "belongs to"
+    classes ||--|{ teachers : "is taught by"
+    class_students }|--|| classes : "enrollment"
+    class_students }|--|| students : "enrollment"
+    attendance }|--|| students : "records for"
+    attendance }|--|| classes : "records for"
+    payments }|--|| students : "made by"
+    salaries }|--|| teachers : "paid to"
+
+    users {
+        INTEGER id PK
+        TEXT username UNIQUE
+        TEXT password
+        TEXT first_name
+        TEXT last_name
+        DATE date_of_birth
+        TEXT national_id UNIQUE
+        TEXT email UNIQUE
+        TEXT phone_number
+        TEXT occupation
+        TEXT civil_status
+        TEXT employment_type
+        DATE start_date
+        DATE end_date
+        TEXT role
+        TEXT status
+        TEXT notes
+        DATETIME created_at
+        INTEGER branch_id FK
+    }
+
+    branches {
+        INTEGER id PK
+        TEXT name UNIQUE
+        TEXT location
+        DATETIME created_at
+    }
+
+    students {
+        INTEGER id PK
+        TEXT name
+        DATE date_of_birth
+        TEXT gender
+        TEXT address
+        TEXT contact_info
+        TEXT email
+        DATETIME enrollment_date
+        TEXT status
+        INTEGER branch_id FK
+        TEXT memorization_level
+        TEXT notes
+        TEXT parent_name
+        TEXT guardian_relation
+        TEXT parent_contact
+        TEXT guardian_email
+        TEXT emergency_contact_name
+        TEXT emergency_contact_phone
+        TEXT health_conditions
+        TEXT national_id
+        TEXT school_name
+        TEXT grade_level
+        TEXT educational_level
+        TEXT occupation
+        TEXT civil_status
+        TEXT related_family_members
+        TEXT financial_assistance_notes
+    }
+
+    teachers {
+        INTEGER id PK
+        TEXT name
+        TEXT national_id
+        TEXT contact_info
+        TEXT email
+        TEXT address
+        DATE date_of_birth
+        TEXT gender
+        TEXT educational_level
+        TEXT specialization
+        INTEGER years_of_experience
+        TEXT availability
+        TEXT notes
+        DATETIME created_at
+        INTEGER branch_id FK
+    }
+
+    classes {
+        INTEGER id PK
+        TEXT name
+        TEXT class_type
+        INTEGER teacher_id FK
+        TEXT schedule
+        DATE start_date
+        DATE end_date
+        TEXT status
+        INTEGER capacity
+        DATETIME created_at
+        TEXT gender
+    }
+
+    class_students {
+        INTEGER class_id PK, FK
+        INTEGER student_id PK, FK
+        DATETIME enrollment_date
+    }
+
+    attendance {
+        INTEGER student_id PK, FK
+        INTEGER class_id PK, FK
+        TEXT date PK
+        TEXT status
+    }
+
+    payments {
+        INTEGER id PK
+        INTEGER student_id FK
+        REAL amount
+        DATETIME payment_date
+        TEXT payment_method
+        TEXT notes
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    salaries {
+        INTEGER id PK
+        INTEGER teacher_id FK
+        REAL amount
+        DATETIME payment_date
+        TEXT notes
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    donations {
+        INTEGER id PK
+        TEXT donor_name
+        REAL amount
+        DATETIME donation_date
+        TEXT donation_type
+        TEXT description
+        TEXT notes
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    expenses {
+        INTEGER id PK
+        TEXT category
+        REAL amount
+        DATETIME expense_date
+        TEXT responsible_person
+        TEXT description
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    settings {
+        TEXT key PK
+        TEXT value
+    }
+
+    migrations {
+        INTEGER id PK
+        TEXT name UNIQUE
+        DATETIME applied_at
+    }
+```
 
 ### 4.2. Detailed Table Definitions
 
-Each table in the database serves a specific purpose, storing distinct sets of information critical to the Quran Branch Manager's operations. The following sections detail each table, providing a comprehensive data dictionary that includes column names, their data types, and any applicable constraints.
+This section provides the `CREATE TABLE` statements as the definitive source for the database structure.
 
-#### 4.2.1. `users` Table
-
-**Purpose:** This table is designed to securely store user authentication details and manage role-based access within the application. It is fundamental for controlling who can access different features and data based on their assigned permissions.
-
-| Column Name  | Data Type | Constraints                                              | Description                                                                                                                                     |
-| :----------- | :-------- | :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                               | Unique identifier for each user. Automatically increments with each new user record.                                                            |
-| `username`   | TEXT      | UNIQUE, NOT NULL                                         | The user's unique login username. Must be unique across all users and cannot be empty.                                                          |
-| `password`   | TEXT      | NOT NULL (stores hashed passwords)                       | The user's password. **Crucially, this column stores cryptographically hashed passwords, not plain text, to ensure security.** Cannot be empty. |
-| `role`       | TEXT      | NOT NULL (e.g., 'Superadmin', 'Branch Admin', 'Teacher') | The role assigned to the user, determining their permissions and access levels within the application. Cannot be empty.                         |
-| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                                | The timestamp when the user account was created. Defaults to the current date and time upon insertion.                                          |
-
-**Sample Data:**
-
-| id  | username      | password (hashed)             | role         | created_at          |
-| --- | ------------- | ----------------------------- | ------------ | ------------------- |
-| 1   | superadmin    | `$2a$10$hashedpassword123...` | Superadmin   | 2025-01-15 10:00:00 |
-| 2   | branch_tunis  | `$2a$10$hashedpassword456...` | Branch Admin | 2025-01-15 10:05:00 |
-| 3   | teacher_ahmed | `$2a$10$hashedpassword789...` | Teacher      | 2025-01-16 09:30:00 |
-
-#### 4.2.2. `students` Table
-
-**Purpose:** This table is central to managing student records, including their personal details, enrollment information, and academic progress within the Quranic association.
-
-| Column Name          | Data Type | Constraints                           | Description                                                                                                |
-| :------------------- | :-------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------- |
-| `id`                 | INTEGER   | PRIMARY KEY, AUTOINCREMENT            | Unique identifier for each student. Automatically increments with each new student record.                 |
-| `name`               | TEXT      | NOT NULL                              | The full name of the student. Cannot be empty.                                                             |
-| `age`                | INTEGER   |                                       | The age of the student.                                                                                    |
-| `gender`             | TEXT      |                                       | The gender of the student (e.g., 'Male', 'Female').                                                        |
-| `enrollment_date`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP             | The date and time when the student was enrolled. Defaults to the current date and time upon insertion.     |
-| `status`             | TEXT      | DEFAULT 'active'                      | The current status of the student (e.g., 'active', 'inactive', 'graduated'). Defaults to 'active'.         |
-| `branch_id`          | INTEGER   | FOREIGN KEY REFERENCES `branches(id)` | The ID of the branch the student is associated with. Establishes a relationship with the `branches` table. |
-| `memorization_level` | TEXT      |                                       | The current memorization level of the student (e.g., 'Juz Amma', 'Half Quran', 'Full Quran').              |
-| `contact_info`       | TEXT      |                                       | Student's contact information (e.g., phone number, email).                                                 |
-| `parent_name`        | TEXT      |                                       | The name of the student's parent or guardian.                                                              |
-| `parent_contact`     | TEXT      |                                       | Parent's contact information.                                                                              |
-
-**Sample Data:**
-
-| id  | name            | age | gender | enrollment_date     | status | branch_id | memorization_level | contact_info     | parent_name  | parent_contact |
-| --- | --------------- | --- | ------ | ------------------- | ------ | --------- | ------------------ | ---------------- | ------------ | -------------- |
-| 1   | Fatima Al-Zahra | 8   | Female | 2024-09-01 09:00:00 | active | 1         | Juz Amma           | 012345678        | Aisha Khan   | 012345679      |
-| 2   | Omar Abdullah   | 10  | Male   | 2024-09-01 09:15:00 | active | 1         | Baqarah            | omar@example.com | Abdullah Ali | 012345680      |
-
-#### 4.2.3. `teachers` Table
-
-**Purpose:** This table stores comprehensive profiles of teachers, including their contact details and areas of specialization, facilitating efficient assignment to classes.
-
-| Column Name      | Data Type | Constraints                | Description                                                                                              |
-| :--------------- | :-------- | :------------------------- | :------------------------------------------------------------------------------------------------------- |
-| `id`             | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each teacher. Automatically increments with each new teacher record.               |
-| `name`           | TEXT      | NOT NULL                   | The full name of the teacher. Cannot be empty.                                                           |
-| `contact_info`   | TEXT      |                            | Teacher's contact information (e.g., phone number, email).                                               |
-| `specialization` | TEXT      |                            | The teacher's area of expertise (e.g., 'Tajweed', 'Hifz', 'Arabic Language').                            |
-| `created_at`     | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | The timestamp when the teacher record was created. Defaults to the current date and time upon insertion. |
-
-**Sample Data:**
-
-| id  | name          | contact_info       | specialization | created_at          |
-| --- | ------------- | ------------------ | -------------- | ------------------- |
-| 1   | Ustadh Khalid | khalid@example.com | Tajweed        | 2024-08-20 11:00:00 |
-| 2   | Ustadha Amina | 012345681          | Hifz           | 2024-08-20 11:10:00 |
-
-#### 4.2.4. `classes` Table
-
-**Purpose:** This table manages information about the various classes offered, including their names, assigned teachers, and scheduling details.
-
-| Column Name  | Data Type | Constraints                           | Description                                                                                            |
-| :----------- | :-------- | :------------------------------------ | :----------------------------------------------------------------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT            | Unique identifier for each class. Automatically increments with each new class record.                 |
-| `name`       | TEXT      | NOT NULL                              | The name or title of the class (e.g., 'Beginner Tajweed', 'Hifz Group A'). Cannot be empty.            |
-| `teacher_id` | INTEGER   | FOREIGN KEY REFERENCES `teachers(id)` | The ID of the teacher assigned to this class. Establishes a relationship with the `teachers` table.    |
-| `schedule`   | TEXT      |                                       | Details about the class schedule (e.g., 'Monday, Wednesday, Friday 4-5 PM', 'Daily after Asr').        |
-| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP             | The timestamp when the class record was created. Defaults to the current date and time upon insertion. |
-
-**Sample Data:**
-
-| id  | name             | teacher_id | schedule             | created_at          |
-| --- | ---------------- | ---------- | -------------------- | ------------------- |
-| 1   | Beginner Tajweed | 1          | Mon, Wed, Fri 4-5 PM | 2024-08-25 14:00:00 |
-| 2   | Hifz Group A     | 2          | Daily after Asr      | 2024-08-25 14:15:00 |
-
-#### 4.2.5. `attendance` Table
-
-**Purpose:** This table records student attendance for specific classes on particular dates, providing a historical log for monitoring and reporting.
-
-| Column Name  | Data Type | Constraints                                     | Description                                                                                                                       |
-| :----------- | :-------- | :---------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each attendance record. Automatically increments with each new record.                                      |
-| `student_id` | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `students(id)` | The ID of the student whose attendance is being recorded. Establishes a relationship with the `students` table. Cannot be empty.  |
-| `class_id`   | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `classes(id)`  | The ID of the class for which attendance is being recorded. Establishes a relationship with the `classes` table. Cannot be empty. |
-| `date`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | The date and time of the attendance record. Defaults to the current date and time upon insertion.                                 |
-| `status`     | TEXT      | NOT NULL (e.g., 'present', 'absent', 'late')    | The attendance status of the student for that class and date. Cannot be empty.                                                    |
-
-**Sample Data:**
-
-| id  | student_id | class_id | date                | status  |
-| --- | ---------- | -------- | ------------------- | ------- |
-| 1   | 1          | 1        | 2025-01-01 16:00:00 | present |
-| 2   | 2          | 1        | 2025-01-01 16:00:00 | present |
-| 3   | 1          | 1        | 2025-01-03 16:00:00 | absent  |
-
-#### 4.2.6. `branches` Table
-
-**Purpose:** This table manages information about different Quranic association branches. It is designed to support multi-branch functionality, allowing the application to scale and manage operations across various locations.
-
-| Column Name  | Data Type | Constraints                | Description                                                                                              |
-| :----------- | :-------- | :------------------------- | :------------------------------------------------------------------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each branch. Automatically increments with each new branch record.                 |
-| `name`       | TEXT      | UNIQUE, NOT NULL           | The unique name of the branch (e.g., 'Tunis Branch', 'Sfax Branch'). Must be unique and cannot be empty. |
-| `location`   | TEXT      |                            | The physical address or general location of the branch.                                                  |
-| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | The timestamp when the branch record was created. Defaults to the current date and time upon insertion.  |
-
-**Sample Data:**
-
-| id  | name                       | location        | created_at          |
-| --- | -------------------------- | --------------- | ------------------- |
-| 1   | Local Branch Masabih Quran | Bishri, Tunisia | 2024-07-01 08:00:00 |
-| 2   | Tunis Grand Branch         | Tunis, Tunisia  | 2024-07-01 08:30:00 |
-
-#### 4.2.7. Financial Tables
-
-To support the financial management module, the following tables are introduced.
-
-##### `payments` Table
-**Purpose:** Tracks student tuition fees and other payments.
-
-| Column Name      | Data Type | Constraints                                     | Description                                      |
-| :--------------- | :-------- | :---------------------------------------------- | :----------------------------------------------- |
-| `id`             | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each payment.              |
-| `student_id`     | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `students(id)` | The student making the payment.                  |
-| `amount`         | REAL      | NOT NULL                                        | The amount paid.                                 |
-| `payment_date`   | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | The date of the payment.                         |
-| `payment_method` | TEXT      |                                                 | Method of payment (e.g., 'Cash', 'Bank Transfer').|
-| `notes`          | TEXT      |                                                 | Additional notes about the payment.              |
-| `created_at`     | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of record creation.                    |
-| `updated_at`     | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of last update.                        |
-
-##### `salaries` Table
-**Purpose:** Tracks salary payments made to teachers and staff.
-
-| Column Name  | Data Type | Constraints                                     | Description                                      |
-| :----------- | :-------- | :---------------------------------------------- | :----------------------------------------------- |
-| `id`         | INTEGER   | PRIMARY KEY, AUTOINCREMENT                      | Unique identifier for each salary payment.       |
-| `teacher_id` | INTEGER   | NOT NULL, FOREIGN KEY REFERENCES `teachers(id)` | The teacher receiving the salary.                |
-| `amount`     | REAL      | NOT NULL                                        | The amount paid.                                 |
-| `payment_date` | DATETIME  | NOT NULL                                        | The date the salary was paid.                    |
-| `notes`      | TEXT      |                                                 | Additional notes about the salary payment.       |
-| `created_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of record creation.                    |
-| `updated_at` | DATETIME  | DEFAULT CURRENT_TIMESTAMP                       | Timestamp of last update.                        |
-
-##### `donations` Table
-**Purpose:** Records all donations received, both cash and in-kind.
-
-| Column Name     | Data Type | Constraints                | Description                                      |
-| :-------------- | :-------- | :------------------------- | :----------------------------------------------- |
-| `id`            | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each donation.             |
-| `donor_name`    | TEXT      | NOT NULL                   | The name of the person or entity donating.       |
-| `amount`        | REAL      |                            | The monetary amount, for cash donations. Null for in-kind. |
-| `donation_date` | DATETIME  | NOT NULL                   | The date the donation was received.              |
-| `donation_type` | TEXT      | NOT NULL, DEFAULT 'Cash'   | The type of donation ('Cash' or 'In-kind').      |
-| `description`   | TEXT      |                            | Description of the item(s) for in-kind donations. |
-| `notes`         | TEXT      |                            | Additional general notes about the donation.     |
-| `created_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of record creation.                    |
-| `updated_at`    | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of last update.                        |
-
-##### `expenses` Table
-**Purpose:** Tracks all organizational expenses.
-
-| Column Name        | Data Type | Constraints                | Description                                      |
-| :----------------- | :-------- | :------------------------- | :----------------------------------------------- |
-| `id`               | INTEGER   | PRIMARY KEY, AUTOINCREMENT | Unique identifier for each expense.              |
-| `category`         | TEXT      | NOT NULL                   | The category of the expense (e.g., 'Utilities', 'Supplies'). |
-| `amount`           | REAL      | NOT NULL                   | The amount of the expense.                       |
-| `expense_date`     | DATETIME  | NOT NULL                   | The date the expense was incurred.               |
-| `responsible_person`| TEXT      |                            | The person responsible for the expense.          |
-| `description`      | TEXT      |                            | A detailed description of the expense.           |
-| `created_at`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of record creation.                    |
-| `updated_at`       | DATETIME  | DEFAULT CURRENT_TIMESTAMP  | Timestamp of last update.                        |
-
-
-### 4.3. Database Relationships
-
-The relationships between tables are crucial for maintaining data integrity and enabling complex queries that span across different entities. The Quran Branch Manager database employs the following key relationships:
-
-- **`students` to `branches`:** This is a **One-to-Many** relationship. A single branch (`branches` table) can have multiple students associated with it (`students` table), but each student belongs to only one branch. This is enforced by the `branch_id` foreign key in the `students` table, referencing the `id` in the `branches` table.
-
-- **`classes` to `teachers`:** This is a **Many-to-One** relationship. A teacher (`teachers` table) can be assigned to teach multiple classes (`classes` table), but each class is assigned to only one teacher. This is enforced by the `teacher_id` foreign key in the `classes` table, referencing the `id` in the `teachers` table.
-
-- **`attendance` to `students`:** This is a **Many-to-One** relationship. A student (`students` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single student. This is enforced by the `student_id` foreign key in the `attendance` table, referencing the `id` in the `students` table.
-
-- **`attendance` to `classes`:** This is a **Many-to-One** relationship. A class (`classes` table) can have many attendance records (`attendance` table), but each attendance record pertains to a single class. This is enforced by the `class_id` foreign key in the `attendance` table, referencing the `id` in the `classes` table.
-
-- **`payments` to `students`:** This is a **Many-to-One** relationship. A student can have many payments, but each payment belongs to a single student. This is enforced by the `student_id` foreign key in the `payments` table.
-
-- **`salaries` to `teachers`:** This is a **Many-to-One** relationship. A teacher can have many salary payments, but each salary payment belongs to a single teacher. This is enforced by the `teacher_id` foreign key in the `salaries` table.
-
-### 4.4. Example SQL Creation Script
-
-For clarity and ease of understanding, here is a simplified SQL script demonstrating the creation of the `users` table. Similar `CREATE TABLE` statements would be used for all other tables defined in the schema.
-
+#### `users`
+Manages user accounts, credentials, personal information, and role-based access.
 ```sql
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  date_of_birth DATE,
+  national_id TEXT UNIQUE,
+  email TEXT UNIQUE,
+  phone_number TEXT,
+  occupation TEXT,
+  civil_status TEXT CHECK(civil_status IN ('Single', 'Married', 'Divorced', 'Widowed')),
+  employment_type TEXT CHECK(employment_type IN ('volunteer', 'contract')),
+  start_date DATE,
+  end_date DATE,
+  role TEXT NOT NULL CHECK(role IN (
+    'Superadmin',
+    'Manager',
+    'FinanceManager',
+    'Admin',
+    'SessionSupervisor'
+  )),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  branch_id INTEGER,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
 );
+```
 
-CREATE TABLE IF NOT EXISTS branches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    location TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
+#### `students`
+Stores comprehensive records for all students.
+```sql
 CREATE TABLE IF NOT EXISTS students (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    age INTEGER,
-    gender TEXT,
-    enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'active',
-    branch_id INTEGER,
-    memorization_level TEXT,
-    contact_info TEXT,
-    parent_name TEXT,
-    parent_contact TEXT,
-    FOREIGN KEY (branch_id) REFERENCES branches(id)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  date_of_birth DATE,
+  gender TEXT,
+  address TEXT,
+  contact_info TEXT,
+  email TEXT,
+  enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'active',
+  branch_id INTEGER,
+  memorization_level TEXT,
+  notes TEXT,
+  parent_name TEXT,
+  guardian_relation TEXT,
+  parent_contact TEXT,
+  guardian_email TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  health_conditions TEXT,
+  national_id TEXT,
+  school_name TEXT,
+  grade_level TEXT,
+  educational_level TEXT,
+  occupation TEXT,
+  civil_status TEXT,
+  related_family_members TEXT,
+  financial_assistance_notes TEXT,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
 );
+```
 
+#### `teachers`
+Stores comprehensive profiles for all teachers.
+```sql
 CREATE TABLE IF NOT EXISTS teachers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    contact_info TEXT,
-    specialization TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  national_id TEXT,
+  contact_info TEXT,
+  email TEXT,
+  address TEXT,
+  date_of_birth DATE,
+  gender TEXT,
+  educational_level TEXT,
+  specialization TEXT,
+  years_of_experience INTEGER,
+  availability TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  branch_id INTEGER,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
 );
+```
 
+#### `classes`
+Manages information about classes, schedules, and assignments.
+```sql
 CREATE TABLE IF NOT EXISTS classes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    teacher_id INTEGER,
-    schedule TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  class_type TEXT,
+  teacher_id INTEGER,
+  schedule TEXT, -- JSON array of objects, e.g., [{"day": "Monday", "time": "After Asr"}]
+  start_date DATE,
+  end_date DATE,
+  status TEXT DEFAULT 'pending', -- pending, active, completed
+  capacity INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  gender TEXT CHECK(gender IN ('women', 'men', 'kids', 'all')) DEFAULT 'all',
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
 );
+```
 
+#### `class_students` (Junction Table)
+Links students to the classes they are enrolled in, creating a many-to-many relationship.
+```sql
+CREATE TABLE IF NOT EXISTS class_students (
+  class_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (class_id, student_id),
+  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+```
+
+#### `attendance`
+Records student attendance for each class session.
+```sql
 CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id INTEGER NOT NULL,
-    class_id INTEGER NOT NULL,
-    date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status TEXT NOT NULL,
-    FOREIGN KEY (student_id) REFERENCES students(id),
-    FOREIGN KEY (class_id) REFERENCES classes(id)
+  student_id INTEGER NOT NULL,
+  class_id INTEGER NOT NULL,
+  date TEXT NOT NULL, -- Storing date as YYYY-MM-DD text
+  status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'late')),
+  PRIMARY KEY (class_id, student_id, date),
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
 );
+```
 
+#### `branches`
+Manages the different physical or logical branches of the association.
+```sql
+CREATE TABLE IF NOT EXISTS branches (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  location TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### Financial Tables
+These tables support the financial management module.
+
+##### `payments`
+Tracks student tuition fees and other payments.
+```sql
 CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
@@ -1507,485 +1582,173 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     payment_method TEXT,
     notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 );
+```
 
+##### `salaries`
+Tracks salary payments made to teachers and staff.
+```sql
 CREATE TABLE IF NOT EXISTS salaries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id INTEGER NOT NULL,
     amount REAL NOT NULL,
     payment_date DATETIME NOT NULL,
     notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
+```
 
+##### `donations`
+Records all donations received, both cash and in-kind.
+```sql
 CREATE TABLE IF NOT EXISTS donations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     donor_name TEXT NOT NULL,
-    amount REAL NOT NULL,
+    amount REAL, -- Null for in-kind donations
     donation_date DATETIME NOT NULL,
-    notes TEXT
+    donation_type TEXT NOT NULL DEFAULT 'Cash' CHECK(donation_type IN ('Cash', 'In-kind')),
+    description TEXT, -- For in-kind donations
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+##### `expenses`
+Tracks all organizational expenses.
+```sql
 CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category TEXT NOT NULL,
     amount REAL NOT NULL,
     expense_date DATETIME NOT NULL,
     responsible_person TEXT,
-    description TEXT
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-### 4.5. Indexing Strategy (Future Consideration)
+#### System Tables
+These tables are used for internal application management.
 
-To optimize database performance, especially as the volume of data grows, an indexing strategy will be crucial. While not explicitly defined in the initial schema, the following columns are candidates for indexing due to their frequent use in queries and relationships:
+##### `settings`
+Stores key-value pairs for application settings.
+```sql
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT
+);
+```
 
-- `users.username` (already unique, but explicit index can help search performance)
-- `students.name`
-- `students.branch_id`
-- `teachers.name`
-- `classes.teacher_id`
-- `attendance.student_id`
-- `attendance.class_id`
-- `attendance.date`
+##### `migrations`
+Tracks which database schema migrations have been applied.
+```sql
+CREATE TABLE IF NOT EXISTS migrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-Indexes will be added incrementally based on performance profiling and specific query patterns observed during development and testing.
+### 4.3. Schema Migration Strategy
 
-### 4.6. Schema Migration Strategy (Future Consideration)
+As the application evolves, the database schema will change. A robust migration strategy is essential to manage these changes without data loss. This project uses a simple, manual migration system located in `src/db/migrations/`.
 
-### 4.6. Schema Migration Strategy
+- **How it Works:** Each migration is a separate `.sql` file (e.g., `001-update-users-table.sql`) containing the `ALTER TABLE` or other SQL commands needed to update the schema.
+- **Applying Migrations:** The application checks the `migrations` table to see which migrations have already been applied and runs any new ones in order during startup.
+- **Creating a New Migration:** To make a schema change, create a new SQL file with an incrementing number, add your SQL commands, and place it in the `src/db/migrations/` directory.
 
-As the application evolves, changes to the database schema will inevitably be required. A robust schema migration strategy is essential to manage these changes without data loss and to ensure smooth updates for users. This will involve:
+## 5. API Reference (IPC)
 
-- **Version Control for Schema:** Treating schema definitions as code and managing them under version control (e.g., Git).
-- **Migration Scripts:** Developing incremental SQL scripts (or using a migration tool) to apply schema changes (e.g., adding new columns, modifying existing ones, creating new tables).
-- **Automated Migration:** Integrating migration execution into the application's startup process, ensuring that the database schema is always up-to-date when the application launches.
-- **Backup Before Migration:** Always performing a database backup before applying any schema migrations to allow for rollback in case of issues.
+This section details the secure communication channels between the Electron main process (backend) and the renderer process (frontend).
 
-### 4.7. Entity-Relationship (ER) Diagram Description
+### 5.1. IPC Philosophy
 
-For a visual representation of the database schema and its relationships, an Entity-Relationship (ER) diagram can be generated using various tools. This diagram would visually depict:
+The application uses Electron's Inter-Process Communication (IPC) to allow the frontend to securely request data and trigger actions on the backend. The API is designed around a feature-based, namespaced model rather than generic database access.
 
-- **Entities (Tables):** Represented as rectangles (e.g., `users`, `students`, `teachers`, `classes`, `attendance`, `branches`).
-- **Attributes (Columns):** Listed within each entity, with primary keys typically underlined.
-- **Relationships:** Lines connecting entities, indicating the type of relationship (e.g., one-to-many, many-to-one) and cardinality (e.g., crow's foot notation).
+- **Security:** All IPC channels are exposed securely via a `preload.js` script using `contextBridge`. The renderer process has no direct access to Node.js or the database.
+- **Namespacing:** Channels are namespaced by feature (e.g., `students:get`, `classes:add`) for clarity and organization.
+- **Asynchronous:** All calls return a Promise, allowing for modern `async/await` syntax on the frontend.
 
-Tools like `dbdiagram.io`, `draw.io`, or specialized database modeling tools can be used to create such diagrams from the SQL schema or by direct input. An ER diagram provides an invaluable visual aid for understanding the data model at a glance, especially for new developers joining the project.
+### 5.2. Core API Namespaces
 
-### 4.8. User Schemas and Field Definitions
+The following is a high-level overview of the available API namespaces. For the exact function signatures, parameters, and return values, developers should consult the handler files located in `src/main/handlers/` and `src/main/financialHandlers.js`.
 
-This document outlines the detailed schema and field definitions for various user types within the Quran Branch Manager application: Students (categorized by age and gender), Teachers, and Administrative roles (Admin/Super Admin). These definitions are derived from the provided PDF forms, augmented with best practices from general student and teacher information management systems, and tailored for consistent form generation within the application.
+| Namespace | File | Description |
+| :--- | :--- | :---------- |
+| `auth:` | `authHandlers.js` | Handles user login, profile updates, and password changes. |
+| `users:` | `userHandlers.js` | Full CRUD (Create, Read, Update, Delete) operations for user management. |
+| `students:` | `studentHandlers.js`| Full CRUD operations for student records. |
+| `teachers:` | `teacherHandlers.js`| Full CRUD operations for teacher records. |
+| `classes:` | `classHandlers.js` | Full CRUD operations for classes and student enrollment. |
+| `attendance:` | `attendanceHandlers.js`| Manages getting and saving attendance records. |
+| `financials:*` | `financialHandlers.js`| A suite of handlers for all financial entities: `payments`, `salaries`, `donations`, `expenses`, and summary reports. |
+| `settings:` | `settingsHandlers.js`| Manages getting and updating application settings, including logo uploads. |
+| `system:` | `systemHandlers.js` | Handles system-level operations like data export/import, backups, and dialogs. |
+| `(root)` | `index.js` | A few root-level handlers for general app info like `get-is-packaged`. |
 
-Each schema includes a `Field Name`, `Data Type`, `Description`, `Source` (indicating if it's from a PDF, research, or derived), and `Applicability` (specifying which user sub-category it applies to).
+### 5.3. Example Usage
 
-#### 4.8.1. Student Schemas
+Here is an example of how the frontend might fetch a list of students from a React component.
 
-Student data management is central to the Quran Branch Manager application. To accommodate the diverse needs of different age groups and genders, the student schema is designed with common core fields and specific fields tailored to children, teenagers, and adults. This approach ensures comprehensive data capture while maintaining flexibility for form generation.
+```javascript
+// src/renderer/pages/StudentsPage.jsx
 
-##### 4.8.1.1. Core Student Fields (Applicable to All Students)
+import React, { useState, useEffect } from 'react';
 
-These fields are fundamental and apply to all students regardless of age or gender. They form the base of every student record.
+function StudentsPage() {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `fullName`           | TEXT      | Full name of the student.                                                                               | PDF (Both)         | All Students         |
-| `dateOfBirth`        | DATE      | Student's date of birth.                                                                                | PDF (Both)         | All Students         |
-| `gender`             | TEXT      | Student's gender (e.g., 'Male', 'Female').                                                              | Derived            | All Students         |
-| `address`            | TEXT      | Student's residential address.                                                                          | PDF (Both)         | All Students         |
-| `phoneNumber`        | TEXT      | Student's primary contact phone number.                                                                 | PDF (Both)         | All Students         |
-| `email`              | TEXT      | Student's email address.                                                                                | PDF (Both)         | All Students         |
-| `enrollmentDate`     | DATE      | Date when the student was officially enrolled in the association.                                       | Research           | All Students         |
-| `status`             | TEXT      | Current status of the student (e.g., 'Active', 'Inactive', 'Graduated', 'On Leave').                    | Research           | All Students         |
-| `branchId`           | INTEGER   | Foreign key linking to the `branches` table, indicating the student's associated branch.                | Derived (DB Schema)| All Students         |
-| `memorizationLevel`  | TEXT      | Current level of Quran memorization (e.g., 'Juz Amma', 'Half Quran', 'Full Quran', 'Specific Surahs'). | PDF (Adult)        | All Students         |
-| `notes`              | TEXT      | Any additional notes or remarks about the student.                                                      | Research           | All Students         |
-
-##### 4.8.1.2. Student Fields by Category
-
-###### 4.8.1.2.1. Kids (Ages ~4-12)
-
-This category focuses on younger students, where parental involvement is high. The fields reflect the need for guardian information.
-
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `guardianName`       | TEXT      | Full name of the primary guardian/parent.                                                               | PDF (Children)     | Kids                 |
-| `guardianRelation`   | TEXT      | Relationship of the guardian to the child (e.g., 'Father', 'Mother', 'Grandparent').                    | Research           | Kids                 |
-| `guardianPhoneNumber`| TEXT      | Guardian's contact phone number.                                                                        | PDF (Children)     | Kids                 |
-| `guardianEmail`      | TEXT      | Guardian's email address.                                                                               | Research           | Kids                 |
-| `emergencyContactName`| TEXT      | Name of an emergency contact person.                                                                    | Research           | Kids                 |
-| `emergencyContactPhone`| TEXT      | Phone number of the emergency contact.                                                                  | Research           | Kids                 |
-| `healthConditions`   | TEXT      | Any relevant health conditions or allergies.                                                            | Research           | Kids                 |
-
-###### 4.8.1.2.2. Teens (Ages ~13-18)
-
-Teenagers might have more independence but still require guardian oversight. The `nationalId` field becomes relevant here, though it might be optional.
-
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `nationalId`         | TEXT      | National Identity Card (CIN) number. **Optional for some teens.**                                       | PDF (Adult)        | Teens, Adults        |
-| `guardianName`       | TEXT      | Full name of the primary guardian/parent (still relevant for legal purposes).                           | Derived            | Teens                |
-| `guardianPhoneNumber`| TEXT      | Guardian's contact phone number.                                                                        | Derived            | Teens                |
-| `schoolName`         | TEXT      | Name of the school the teen attends.                                                                    | Research           | Teens                |
-| `gradeLevel`         | TEXT      | Current grade or academic level.                                                                        | Research           | Teens                |
-
-###### 4.8.1.2.3. Adults (Ages 18+)
-
-Adult students are typically self-reliant. Fields focus on their personal and professional details.
-
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | PDF (Adult)        | Teens, Adults        |
-| `educationalLevel`   | TEXT      | Highest educational qualification (e.g., 'High School', 'Bachelor', 'Master', 'PhD').                   | PDF (Adult)        | Adults               |
-| `occupation`         | TEXT      | Current profession or occupation.                                                                       | PDF (Adult)        | Adults               |
-
-##### 4.8.1.3. Student Category Logic for Form Generation
-
-When generating forms for students, the application should dynamically adjust fields based on the student's age and potentially gender. A common approach is to use the `dateOfBirth` field to determine the age category.
-
-*   **Kids:** If `age <= 12` (or a similar threshold).
-*   **Teens:** If `13 <= age <= 18`.
-*   **Adults:** If `age > 18`.
-
-Gender (`Male`/`Female`) will primarily influence UI presentation (e.g., honorifics, specific visual elements) rather than field availability, except for specific gender-segregated programs if applicable (which would be handled by `class` or `program` fields).
-
-#### 4.8.2. Teacher Schema
-
-The teacher schema focuses on professional qualifications, contact information, and specialization areas relevant to Quranic education. This allows for efficient assignment of teachers to classes based on their expertise.
-
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `fullName`           | TEXT      | Full name of the teacher.                                                                               | Research           | All Teachers         |
-| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | Research           | All Teachers         |
-| `phoneNumber`        | TEXT      | Teacher's primary contact phone number.                                                                 | Research           | All Teachers         |
-| `email`              | TEXT      | Teacher's email address.                                                                                | Research           | All Teachers         |
-| `address`            | TEXT      | Teacher's residential address.                                                                          | Research           | All Teachers         |
-| `dateOfBirth`        | DATE      | Teacher's date of birth.                                                                                | Research           | All Teachers         |
-| `gender`             | TEXT      | Teacher's gender (e.g., 'Male', 'Female').                                                              | Research           | All Teachers         |
-| `educationalLevel`   | TEXT      | Highest educational qualification (e.g., 'Bachelor in Islamic Studies', 'Master in Quranic Sciences').  | PDF (Adult)        | All Teachers         |
-| `specialization`     | TEXT      | Area of expertise in Quranic studies (e.g., 'Tajweed', 'Hifz', 'Tafsir', 'Arabic Language').            | PDF (Adult)        | All Teachers         |
-| `yearsOfExperience`  | INTEGER   | Number of years teaching experience.                                                                    | Research           | All Teachers         |
-| `availability`       | TEXT      | Teacher's general availability (e.g., 'Weekdays Mornings', 'Evenings', 'Full-time').                    | Research           | All Teachers         |
-| `assignedBranchId`   | INTEGER   | Foreign key linking to the `branches` table, indicating the teacher's primary assigned branch.          | Derived (DB Schema)| All Teachers         |
-| `notes`              | TEXT      | Any additional notes or remarks about the teacher.                                                      | Research           | All Teachers         |
-
-#### 4.8.3. Admin and Super Admin Schemas
-
-Administrative roles require fields primarily focused on identification, contact, and role assignment within the system. Security and access control are paramount for these roles.
-
-##### 4.8.3.1. Core Admin/Super Admin Fields
-
-| Field Name           | Data Type | Description                                                                                             | Source             | Applicability        |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------------------------ | :----------------- | :------------------- |
-| `userId`             | INTEGER   | Unique identifier for the user account (primary key).                                                   | Derived (DB Schema)| All Admins           |
-| `username`           | TEXT      | Unique username for login.                                                                              | Derived (DB Schema)| All Admins           |
-| `passwordHash`       | TEXT      | Hashed password for secure authentication.                                                              | Derived (DB Schema)| All Admins           |
-| `role`               | TEXT      | User's role (e.g., 'Admin', 'Superadmin').                                                              | Derived (DB Schema)| All Admins           |
-| `fullName`           | TEXT      | Full name of the administrator.                                                                         | Research           | All Admins           |
-| `phoneNumber`        | TEXT      | Administrator's contact phone number.                                                                   | Research           | All Admins           |
-| `email`              | TEXT      | Administrator's email address.                                                                          | Research           | All Admins           |
-| `nationalId`         | TEXT      | National Identity Card (CIN) number.                                                                    | Research           | All Admins           |
-| `assignedBranchId`   | INTEGER   | Foreign key linking to the `branches` table, indicating the admin's primary assigned branch (if applicable).| Derived (DB Schema)| Admin (Branch Admin) |
-| `lastLogin`          | DATETIME  | Timestamp of the last successful login.                                                                 | Research           | All Admins           |
-| `createdAt`          | DATETIME  | Timestamp when the user account was created.                                                            | Derived (DB Schema)| All Admins           |
-| `updatedAt`          | DATETIME  | Timestamp of the last update to the user record.                                                        | Research           | All Admins           |
-
-##### 4.8.3.2. Role-Specific Considerations
-
-*   **Superadmin:** This role typically has full system access and is not usually tied to a specific `branchId`. The `assignedBranchId` field would be null or irrelevant for a Superadmin.
-*   **Branch Admin:** This role is specifically tied to a `branchId`, limiting their scope of management to a particular branch.
-
-#### 4.8.4. Consistent Form Generation and Categorization
-
-To ensure consistent form generation in the application, the following principles should be applied:
-
-*   **Dynamic Field Rendering:** Forms should be dynamically rendered based on the user type and, for students, their age category. This means that when adding a new student, the application would first ask for `dateOfBirth` (and perhaps `gender`), then dynamically present the relevant fields (`guardianName` for kids, `nationalId` for teens/adults, `occupation` for adults, etc.).
-*   **Reusability:** Common fields (like `fullName`, `phoneNumber`, `email`) should be defined once and reused across different user types to ensure consistency in data capture and validation logic.
-*   **Validation Rules:** Each field should have associated validation rules (e.g., `phoneNumber` must be numeric, `email` must be a valid email format, `nationalId` must adhere to a specific format and length). These rules should be enforced at the form level (frontend) and the API/database level (backend).
-*   **Categorization Fields:** Fields like `gender`, `age`, `educationalLevel`, and `specialization` serve as important categorization fields that can be used for filtering, reporting, and assigning users to specific programs or classes. These should often be implemented as dropdowns or selection lists in the UI to ensure data consistency.
-*   **Data Integrity:** Ensure that foreign key relationships (e.g., `branchId`, `assignedBranchId`) are properly enforced to maintain data integrity across related tables.
-
-By adhering to these structured schemas and form generation principles, the Quran Branch Manager application can efficiently manage diverse user data, provide a tailored user experience during data entry, and support robust reporting and analysis capabilities.
-
-## 5. API Reference: Inter-Process Communication (IPC) and Database Interactions
-
-This section details the secure communication channels between the Electron main process and the renderer (React) process, specifically focusing on Inter-Process Communication (IPC) and direct database interactions. Understanding these APIs is crucial for building new features, debugging existing ones, and ensuring the security and integrity of the application.
-
-### 5.1. Introduction to Electron IPC
-
-In an Electron application, the main process (which runs Node.js) and the renderer processes (which run web pages) operate in separate environments. They cannot directly access each other's global variables or APIs. Inter-Process Communication (IPC) is the mechanism that allows these processes to communicate securely. Electron provides `ipcMain` (in the main process) and `ipcRenderer` (in the renderer process) modules for this purpose.
-
-**Security Best Practice: `contextBridge`**
-
-For enhanced security, the `contextBridge` API is used to expose specific, controlled functions from the main process to the renderer process. This prevents the renderer process from having direct access to Node.js APIs, minimizing the attack surface and protecting sensitive operations. All interactions with the database or system-level functionalities from the renderer process **must** go through these exposed `contextBridge` APIs.
-
-### 5.2. Exposed APIs via `contextBridge` (`electronAPI`)
-
-The `preload.js` script (located at `src/main/preload.js`) is responsible for exposing a global `electronAPI` object to the renderer process. This object contains functions that allow the renderer to securely invoke methods in the main process.
-
-#### 5.2.1. `electronAPI.dbQuery(query, params)`
-
-- **Description:** Executes a database query in the main process. This is a generic function designed to handle various SQL operations (INSERT, UPDATE, DELETE).
-- **Main Process Handler:** `ipcMain.handle('db-query', async (event, { query, params }) => { ... })`
-- **Parameters:**
-  - `query` (String): The SQL query string to execute. **MUST use placeholders (`?`) for parameters to prevent SQL injection.**
-  - `params` (Array): An array of values to be bound to the placeholders in the `query` string. If no parameters, pass an empty array.
-- **Returns:** (Promise<Object>): A promise that resolves to an object containing `id` (the last inserted row ID, if applicable) and `changes` (the number of rows affected). Rejects on database error.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your React component or service
-  async function addStudent(name, age, branchId) {
-    try {
-      const sql = 'INSERT INTO students (name, age, branch_id) VALUES (?, ?, ?)';
-      const params = [name, age, branchId];
-      const result = await window.electronAPI.dbQuery(sql, params);
-      console.log('Student added with ID:', result.id);
-      return result.id;
-    } catch (error) {
-      console.error('Error adding student:', error);
-      throw error;
-    }
-  }
-  ```
-
-#### 5.2.2. `electronAPI.dbGet(query, params)`
-
-- **Description:** Executes a database query in the main process and returns a single row result. Ideal for fetching a single record (e.g., user by ID, specific configuration).
-- **Main Process Handler:** `ipcMain.handle('db-get', async (event, { query, params }) => { ... })`
-- **Parameters:**
-  - `query` (String): The SQL query string to execute. **MUST use placeholders (`?`) for parameters.**
-  - `params` (Array): An array of values to be bound to the placeholders in the `query` string.
-- **Returns:** (Promise<Object | undefined>): A promise that resolves to a single row object if found, or `undefined` if no row matches. Rejects on database error.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your React component or service
-  async function getUserById(userId) {
-    try {
-      const sql = 'SELECT id, username, role FROM users WHERE id = ?';
-      const params = [userId];
-      const user = await window.electronAPI.dbGet(sql, params);
-      if (user) {
-        console.log('Fetched user:', user);
-      } else {
-        console.log('User not found.');
+  useEffect(() => {
+    async function fetchStudents() {
+      try {
+        // The 'window.electronAPI' object is exposed by the preload script.
+        // We call the 'students:get' channel, which is handled in src/main/handlers/studentHandlers.js
+        const fetchedStudents = await window.electronAPI.invoke('students:get');
+        setStudents(fetchedStudents);
+      } catch (err) {
+        setError(err.message);
+        console.error('Failed to fetch students:', err);
+      } finally {
+        setLoading(false);
       }
-      return user;
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      throw error;
     }
-  }
-  ```
 
-#### 5.2.3. `electronAPI.dbAll(query, params)`
+    fetchStudents();
+  }, []);
 
-- **Description:** Executes a database query in the main process and returns all matching rows. Ideal for fetching lists of records (e.g., all students, all classes).
-- **Main Process Handler:** `ipcMain.handle('db-all', async (event, { query, params }) => { ... })`
-- **Parameters:**
-  - `query` (String): The SQL query string to execute. **MUST use placeholders (`?`) for parameters.**
-  - `params` (Array): An array of values to be bound to the placeholders in the `query` string.
-- **Returns:** (Promise<Array<Object>>): A promise that resolves to an array of row objects. Returns an empty array if no rows match. Rejects on database error.
-- **Example Usage (Renderer Process):**
+  if (loading) return <div>Loading students...</div>;
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
-  ```javascript
-  // In your React component or service
-  async function getAllStudents() {
-    try {
-      const sql = 'SELECT id, name, branch_id FROM students ORDER BY name ASC';
-      const students = await window.electronAPI.dbAll(sql);
-      console.log('Fetched students:', students);
-      return students;
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      throw error;
-    }
-  }
-  ```
+  return (
+    <div>
+      <h1>Students</h1>
+      <ul>
+        {students.map(student => (
+          <li key={student.id}>{student.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-#### 5.2.4. `electronAPI.getAppVersion()`
+export default StudentsPage;
+```
 
-- **Description:** Retrieves the application version from the main process.
-- **Main Process Handler:** `ipcMain.handle('get-app-version', () => { return app.getVersion(); })`
-- **Parameters:** None.
-- **Returns:** (Promise<String>): A promise that resolves to the application version string.
-- **Example Usage (Renderer Process):**
+This example demonstrates:
+1.  Calling the IPC channel via `window.electronAPI.invoke()`.
+2.  Using a specific, namespaced channel: `'students:get'`.
+3.  Handling the asynchronous response with `async/await` inside a `try...catch` block.
 
-  ```javascript
-  // In your React component or service
-  async function displayAppVersion() {
-    try {
-      const version = await window.electronAPI.getAppVersion();
-      console.log('Application Version:', version);
-      // Update UI with version
-    } catch (error) {
-      console.error('Error getting app version:', error);
-    }
-  }
-  ```
-
-#### 5.2.5. `electronAPI.login(username, password)`
-
-- **Description:** Handles user authentication by sending credentials to the main process for validation against the database.
-- **Main Process Handler:** `ipcMain.handle('login', async (event, { username, password }) => { ... })`
-- **Parameters:**
-  - `username` (String): The user's login username.
-  - `password` (String): The user's plain-text password.
-- **Returns:** (Promise<Object>): A promise that resolves to an object `{ success: boolean, token?: string, user?: Object, message?: string }`. If successful, `token` (JWT) and `user` object are returned. Otherwise, `success` is `false` and `message` provides error details.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your login component
-  async function handleLogin(username, password) {
-    try {
-      const response = await window.electronAPI.login(username, password);
-      if (response.success) {
-        console.log('Login successful! Token:', response.token);
-        // Store token securely (e.g., in electron-store via another IPC call)
-        // Redirect to dashboard
-      } else {
-        console.error('Login failed:', response.message);
-        // Display error message to user
-      }
-    } catch (error) {
-      console.error('Login IPC error:', error);
-    }
-  }
-  ```
-
-#### 5.2.6. `electronAPI.generatePdfReport(data)`
-
-- **Description:** Triggers the generation of a PDF report in the main process.
-- **Main Process Handler:** `ipcMain.handle('generate-pdf-report', async (event, data) => { ... })`
-- **Parameters:**
-  - `data` (Object): An object containing all necessary data for the report generation (e.g., student list, class details, date ranges).
-- **Returns:** (Promise<String>): A promise that resolves to the file path of the generated PDF report. Rejects on error.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your reports component
-  async function createStudentReport(studentData) {
-    try {
-      const filePath = await window.electronAPI.generatePdfReport(studentData);
-      console.log('PDF report generated at:', filePath);
-      // Provide link to user or open file
-    } catch (error) {
-      console.error('Error generating PDF report:', error);
-    }
-  }
-  ```
-
-#### 5.2.7. `electronAPI.generateExcelReport(data)`
-
-- **Description:** Triggers the generation of an Excel report in the main process.
-- **Main Process Handler:** `ipcMain.handle('generate-excel-report', async (event, data) => { ... })`
-- **Parameters:**
-  - `data` (Object): An object containing all necessary data for the report generation (e.g., attendance records, financial summaries).
-- **Returns:** (Promise<String>): A promise that resolves to the file path of the generated Excel report. Rejects on error.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your reports component
-  async function createAttendanceExcel(attendanceRecords) {
-    try {
-      const filePath = await window.electronAPI.generateExcelReport(attendanceRecords);
-      console.log('Excel report generated at:', filePath);
-      // Provide link to user or open file
-    } catch (error) {
-      console.error('Error generating Excel report:', error);
-    }
-  }
-  ```
-
-#### 5.2.8. `electronAPI.setSetting(key, value)`
-
-- **Description:** Stores a key-value pair in the application's persistent settings using `electron-store`.
-- **Main Process Handler:** `ipcMain.handle('set-setting', (event, key, value) => { store.set(key, value); })`
-- **Parameters:**
-  - `key` (String): The setting key.
-  - `value` (Any): The value to store.
-- **Returns:** (Promise<void>): A promise that resolves when the setting is saved.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your settings component
-  async function saveThemePreference(theme) {
-    try {
-      await window.electronAPI.setSetting('theme', theme);
-      console.log('Theme preference saved:', theme);
-    } catch (error) {
-      console.error('Error saving theme preference:', error);
-    }
-  }
-  ```
-
-#### 5.2.9. `electronAPI.getSetting(key)`
-
-- **Description:** Retrieves a value from the application's persistent settings using `electron-store`.
-- **Main Process Handler:** `ipcMain.handle('get-setting', (event, key) => { return store.get(key); })`
-- **Parameters:**
-  - `key` (String): The setting key.
-- **Returns:** (Promise<Any>): A promise that resolves to the stored value, or `undefined` if the key does not exist.
-- **Example Usage (Renderer Process):**
-
-  ```javascript
-  // In your settings component or App initialization
-  async function loadThemePreference() {
-    try {
-      const theme = await window.electronAPI.getSetting('theme');
-      if (theme) {
-        console.log('Loaded theme preference:', theme);
-        // Apply theme to UI
-      }
-      return theme;
-    } catch (error) {
-      console.error('Error loading theme preference:', error);
-    }
-  }
-  ```
-
-### 5.3. Database Query Examples (Main Process)
-
-These are examples of how the main process (`src/db/db.js`) provides generic functions to interact with the SQLite database. These functions are then exposed to the renderer process via the `contextBridge` as shown above.
-
-#### 5.3.1. `runQuery(sql, params)`
-
-- **Description:** Executes an SQL query that does not return data (e.g., INSERT, UPDATE, DELETE, CREATE TABLE).
-- **Parameters:**
-  - `sql` (String): The SQL query string.
-  - `params` (Array): An array of parameters for the query.
-- **Returns:** (Promise<Object>): Resolves with `{ id: lastInsertedRowId, changes: numberOfAffectedRows }`.
-
-#### 5.3.2. `getQuery(sql, params)`
-
-- **Description:** Executes an SQL query that returns a single row of data (e.g., SELECT with LIMIT 1).
-- **Parameters:**
-  - `sql` (String): The SQL query string.
-  - `params` (Array): An array of parameters for the query.
-- **Returns:** (Promise<Object | undefined>): Resolves with the first row found, or `undefined`.
-
-#### 5.3.3. `allQuery(sql, params)`
-
-- **Description:** Executes an SQL query that returns multiple rows of data (e.g., SELECT all).
-- **Parameters:**
-  - `sql` (String): The SQL query string.
-  - `params` (Array): An array of parameters for the query.
-- **Returns:** (Promise<Array<Object>>): Resolves with an array of all rows found.
-
-### 5.4. Error Handling
-
-All exposed `electronAPI` functions are designed to return Promises, allowing for standard JavaScript `try...catch` blocks and `.then().catch()` chains for error handling. It is crucial to implement robust error handling in both the renderer and main processes to provide meaningful feedback to the user and log issues for debugging.
-
-- **Main Process:** Log detailed error messages to the console or a dedicated log file. Avoid sending sensitive error details directly to the renderer process.
-- **Renderer Process:** Display user-friendly error messages. For critical errors, consider providing options to report the issue or restart the application.
-
-### 5.5. Security Considerations
-
-- **No Direct Node.js Access:** As emphasized, the renderer process should never have direct access to Node.js APIs. All interactions must be mediated through `contextBridge`.
-- **Input Validation:** All data received from the renderer process (e.g., user input for database queries) must be rigorously validated in the main process before being used in SQL queries or other sensitive operations. This prevents common vulnerabilities like SQL injection.
-- **Least Privilege:** Expose only the absolute minimum necessary functions and data through `contextBridge`. Do not expose generic database access functions if more specific, controlled functions can be provided.
-- **Sensitive Data Handling:** Be extremely cautious with sensitive data (e.g., user credentials, personal information). Ensure it is handled securely, encrypted where necessary, and never exposed unnecessarily.
+Developers should follow this pattern for all interactions with the main process.
 
 ## 6. References
 
