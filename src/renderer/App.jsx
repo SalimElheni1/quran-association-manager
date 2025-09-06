@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
-import InitialCredentialsModal from '@renderer/components/InitialCredentialsModal';
 import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
 import StudentsPage from '@renderer/pages/StudentsPage';
@@ -30,19 +29,22 @@ function App() {
     };
   }, []);
 
-  const handleCloseInitialCredentialsModal = () => {
+  const handleCloseInitialCredentialsBanner = () => {
     setInitialCredentials(null);
   };
 
   return (
     <>
-      <InitialCredentialsModal
-        show={!!initialCredentials}
-        credentials={initialCredentials}
-        handleClose={handleCloseInitialCredentialsModal}
-      />
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              initialCredentials={initialCredentials}
+              onCloseBanner={handleCloseInitialCredentialsBanner}
+            />
+          }
+        />
         <Route
           path="/"
           element={

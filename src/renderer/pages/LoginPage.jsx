@@ -4,13 +4,14 @@ import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
 import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
+import InitialCredentialsBanner from '@renderer/components/InitialCredentialsBanner';
 import '@renderer/styles/LoginPage.css';
 
 // The default logo is served from the public folder.
 // Vite handles this automatically.
 const defaultLogo = 'assets/logos/icon.png';
 
-function LoginPage() {
+function LoginPage({ initialCredentials, onCloseBanner }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,6 +49,7 @@ function LoginPage() {
 
   return (
     <div className="signin-container">
+      <InitialCredentialsBanner credentials={initialCredentials} onClose={onCloseBanner} />
       <Card className="signin-card">
         <Card.Body>
           <div className="signin-header">
