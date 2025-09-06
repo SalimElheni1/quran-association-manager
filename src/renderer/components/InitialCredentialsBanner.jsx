@@ -15,14 +15,12 @@ function InitialCredentialsBanner({ credentials, onClose }) {
   };
 
   return (
-    <Alert variant="warning" onClose={onClose} dismissible className="initial-credentials-banner">
+    <Alert variant="warning" onClose={onClose} className="initial-credentials-banner">
       <Alert.Heading>تنبيه مهم: بيانات دخول رئيس الفرع</Alert.Heading>
       <p>
         هذه كلمة مرور مؤقتة خُصّصت لرئيس الفرع، وستُستخدم لتسجيل الدخول لأول مرة.
         <br />
-        <strong>
-          ننصحك بتغيير كلمة المرور مباشرة بعد تسجيل الدخول حفاظًا على أمان الحساب.
-        </strong>
+        <strong>ننصحك بتغيير كلمة المرور مباشرة بعد تسجيل الدخول حفاظًا على أمان الحساب.</strong>
       </p>
       <div className="p-3 bg-light rounded mb-3">
         <p className="mb-1">
