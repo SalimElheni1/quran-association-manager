@@ -71,6 +71,10 @@ function Sidebar() {
               <span>الشؤون المالية</span>
             </NavLink>
           )}
+          <NavLink to="/about" className="nav-link">
+            <i className="fas fa-info-circle"></i>
+            <span>حول التطبيق</span>
+          </NavLink>
           <NavLink to="/profile" className="nav-link">
             <i className="fas fa-user-cog"></i>
             <span>ملفي الشخصي</span>
