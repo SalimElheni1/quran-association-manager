@@ -70,6 +70,22 @@ Contributions are welcome! We value our community and appreciate any help, from 
 
 To ensure a welcoming and inclusive environment, all contributors are expected to adhere to our [**Code of Conduct**](CODE_OF_CONDUCT.md).
 
+## 🐞 Reporting Bugs
+
+If you encounter a bug or an issue with the application, we encourage you to report it so we can improve the software for everyone.
+
+The easiest way to report a bug is through the application itself:
+1.  Navigate to the **"حول التطبيق"** (About) page from the main menu.
+2.  In the **"الإبلاغ عن خطأ"** (Report a Bug) section, you will find instructions and buttons to contact us.
+3.  Choose your preferred method (Email or WhatsApp) to send a pre-filled bug report template.
+4.  Please provide as much detail as possible, including:
+    -   Steps to reproduce the error.
+    -   What you expected to happen.
+    -   What actually happened.
+    -   A screenshot of the error, if possible.
+
+Your feedback is crucial for the stability and improvement of the application.
+
 ## 📄 License
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License**. See the [**LICENSE**](LICENSE) file for the full license text.
