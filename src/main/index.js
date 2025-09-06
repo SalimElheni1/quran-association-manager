@@ -80,6 +80,7 @@ const createWindow = () => {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -88,6 +89,10 @@ const createWindow = () => {
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
 
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show(); // Show the window after maximizing
+  });
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
@@ -96,7 +101,6 @@ const createWindow = () => {
   }
   return mainWindow;
 };
-
 app.whenReady().then(async () => {
   try {
     // =============================================================================
@@ -144,7 +148,8 @@ app.whenReady().then(async () => {
           buttons: ['Restart', 'Later'],
           title: 'Application Update',
           message: process.platform === 'win32' ? info.releaseName : info.releaseNotes,
-          detail: 'A new version has been downloaded. Restart the application to apply the updates.'
+          detail:
+            'A new version has been downloaded. Restart the application to apply the updates.',
         };
 
         dialog.showMessageBox(dialogOpts).then((returnValue) => {
