@@ -31,3 +31,26 @@
   background-color: #0d9488;
   border-color: #0d9488;
 }
+
+/* Styles for the InitialCredentialsBanner */
+.initial-credentials-banner {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 800px;
+  z-index: 1050; /* Ensure it's above other elements */
+  animation: fadeInDown 0.5s ease-in-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
