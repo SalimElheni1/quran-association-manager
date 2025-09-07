@@ -67,7 +67,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>إدارة الطلاب في فصل: {classData?.name || 'غير محدد'}</Modal.Title>
       </Modal.Header>

@@ -12,18 +12,27 @@ const studentValidationSchema = Joi.object({
     'string.min': 'يجب أن يكون الاسم 3 أحرف على الأقل',
     'any.required': 'الاسم مطلوب',
   }),
-  status: Joi.string().valid('active', 'inactive', 'graduated', 'on_leave').required(),
+  status: Joi.string().valid('active', 'inactive', 'graduated', 'on_leave'),
   date_of_birth: Joi.date().iso().allow(null, ''),
   gender: Joi.string().valid('Male', 'Female').allow(null, ''),
   email: Joi.string()
     .email({ tlds: { allow: false } })
     .allow(null, ''),
   contact_info: Joi.string()
-    .pattern(/^[0-9\s+()-]+$/)
-    .allow(null, ''),
+    .pattern(/^\d{8}$/)
+    .allow(null, '')
+    .messages({
+      'string.pattern.base': 'رقم الهاتف يجب أن يتكون من 8 أرقام.',
+    }),
   parent_contact: Joi.string()
     .pattern(/^[0-9\s+()-]+$/)
     .allow(null, ''),
+  national_id: Joi.string()
+    .pattern(/^\d{8}$/)
+    .allow(null, '')
+    .messages({
+      'string.pattern.base': 'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
+    }),
 }).unknown(true);
 
 const classValidationSchema = Joi.object({
@@ -34,7 +43,7 @@ const classValidationSchema = Joi.object({
     'any.required': 'اسم الفصل مطلوب',
   }),
   teacher_id: Joi.number().integer().positive().allow(null, ''),
-  status: Joi.string().valid('pending', 'active', 'completed').required(),
+  status: Joi.string().valid('pending', 'active', 'completed'),
   capacity: Joi.number().integer().min(1).allow(null, ''),
   schedule: Joi.string().allow(null, ''),
   gender: Joi.string().valid('women', 'men', 'kids', 'all').default('all'),
@@ -57,15 +66,15 @@ const teacherValidationSchema = Joi.object({
   }),
   email: Joi.string()
     .email({ tlds: { allow: false } })
+    .allow(null, ''),
+  contact_info: Joi.string()
+    .pattern(/^\d{8}$/)
     .required()
     .messages({
-      'string.email': 'البريد الإلكتروني غير صالح',
-      'string.empty': 'البريد الإلكتروني مطلوب',
-      'any.required': 'البريد الإلكتروني مطلوب',
+      'string.pattern.base': 'رقم الهاتف يجب أن يتكون من 8 أرقام.',
+      'string.empty': 'رقم الهاتف مطلوب',
+      'any.required': 'رقم الهاتف مطلوب',
     }),
-  contact_info: Joi.string()
-    .pattern(/^[0-9\s+()-]+$/)
-    .allow(null, ''),
 }).unknown(true);
 
 const userValidationSchema = Joi.object({
@@ -78,27 +87,35 @@ const userValidationSchema = Joi.object({
   password: Joi.string().min(6).required(),
   first_name: Joi.string().min(2).max(50).required(),
   last_name: Joi.string().min(2).max(50).required(),
-  employment_type: Joi.string().valid('volunteer', 'contract').required(),
-  role: Joi.string()
-    .valid('Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor')
-    .required(),
+  employment_type: Joi.string().valid('volunteer', 'contract'),
+  role: Joi.string().valid(
+    'Superadmin',
+    'Manager',
+    'FinanceManager',
+    'Admin',
+    'SessionSupervisor',
+  ),
   date_of_birth: Joi.date().iso().allow(null, ''),
-  national_id: Joi.string().allow(null, ''),
+  national_id: Joi.string()
+    .pattern(/^\d{8}$/)
+    .allow(null, '')
+    .messages({
+      'string.pattern.base': 'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
+    }),
   email: Joi.string()
     .email({ tlds: { allow: false } })
     .allow(null, ''),
   phone_number: Joi.string()
-    .pattern(/^[0-9\s+()-]+$/)
-    .allow(null, ''),
+    .pattern(/^\d{8}$/)
+    .allow(null, '')
+    .messages({
+      'string.pattern.base': 'رقم الهاتف يجب أن يتكون من 8 أرقام.',
+    }),
   occupation: Joi.string().allow(null, ''),
   civil_status: Joi.string().valid('Single', 'Married', 'Divorced', 'Widowed').allow(null, ''),
   end_date: Joi.date().iso().allow(null, ''),
   notes: Joi.string().allow(null, ''),
-  start_date: Joi.when('employment_type', {
-    is: 'contract',
-    then: Joi.date().iso().required(),
-    otherwise: Joi.date().iso().allow(null, ''),
-  }),
+  start_date: Joi.date().iso().allow(null, ''),
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({

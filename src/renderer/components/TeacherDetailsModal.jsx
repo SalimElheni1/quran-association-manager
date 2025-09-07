@@ -30,7 +30,7 @@ function TeacherDetailsModal({ show, handleClose, teacher }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="fas fa-chalkboard-teacher me-2"></i>
