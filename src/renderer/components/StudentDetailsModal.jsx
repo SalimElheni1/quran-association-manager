@@ -41,7 +41,7 @@ function StudentDetailsModal({ show, handleClose, student }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="fas fa-user-circle me-2"></i>

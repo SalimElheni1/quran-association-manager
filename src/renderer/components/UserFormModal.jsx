@@ -79,7 +79,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'}</Modal.Title>
@@ -170,6 +170,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                 name="national_id"
                 value={formData.national_id || ''}
                 onChange={handleChange}
+                maxLength={8}
               />
             </Form.Group>
           </Row>
@@ -190,6 +191,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                 name="phone_number"
                 value={formData.phone_number || ''}
                 onChange={handleChange}
+                maxLength={8}
               />
             </Form.Group>
           </Row>
@@ -221,9 +223,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           <h5 className="form-section-title">معلومات العمل</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>
-                نوع التوظيف<span className="text-danger">*</span>
-              </Form.Label>
+              <Form.Label>نوع التوظيف</Form.Label>
               <Form.Select
                 name="employment_type"
                 value={formData.employment_type || 'volunteer'}
@@ -234,9 +234,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>
-                الدور في النظام<span className="text-danger">*</span>
-              </Form.Label>
+              <Form.Label>الدور في النظام</Form.Label>
               <Form.Select name="role" value={formData.role || 'Admin'} onChange={handleChange}>
                 {Object.entries(roleOptions).map(([key, label]) => (
                   <option key={key} value={key}>
@@ -262,15 +260,12 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
           {formData.employment_type === 'contract' && (
             <Row>
               <Form.Group as={Col} md="6" className="mb-3">
-                <Form.Label>
-                  تاريخ بداية العقد<span className="text-danger">*</span>
-                </Form.Label>
+                <Form.Label>تاريخ بداية العقد</Form.Label>
                 <Form.Control
                   type="date"
                   name="start_date"
                   value={formData.start_date}
                   onChange={handleChange}
-                  required
                 />
               </Form.Group>
               <Form.Group as={Col} md="6" className="mb-3">
