@@ -169,8 +169,8 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   name="contact_info"
                   value={formData.contact_info || ''}
                   onChange={handleChange}
+                  maxLength={8}
                 />
-                <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
               </Form.Group>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentEmail">
                 <Form.Label>البريد الإلكتروني (الطالب)</Form.Label>

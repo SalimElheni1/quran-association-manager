@@ -269,6 +269,7 @@ const ProfilePage = () => {
                             name="phone_number"
                             value={profile.phone_number || ''}
                             onChange={handleProfileChange}
+                            maxLength={8}
                           />
                         </Form.Group>
                       </Col>
