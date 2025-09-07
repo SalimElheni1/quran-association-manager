@@ -71,14 +71,6 @@ function Sidebar() {
               <span>الشؤون المالية</span>
             </NavLink>
           )}
-          <NavLink to="/about" className="nav-link">
-            <i className="fas fa-info-circle"></i>
-            <span>حول التطبيق</span>
-          </NavLink>
-          <NavLink to="/profile" className="nav-link">
-            <i className="fas fa-user-cog"></i>
-            <span>ملفي الشخصي</span>
-          </NavLink>
           <NavLink to="/exports" className="nav-link">
             <i className="fas fa-file-export"></i>
             <span>تصدير البيانات</span>
@@ -95,6 +87,14 @@ function Sidebar() {
               <span>الإعدادات</span>
             </NavLink>
           )}
+          <NavLink to="/profile" className="nav-link">
+            <i className="fas fa-user-cog"></i>
+            <span>ملفي الشخصي</span>
+          </NavLink>
+          <NavLink to="/about" className="nav-link">
+            <i className="fas fa-info-circle"></i>
+            <span>حول التطبيق</span>
+          </NavLink>
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">
