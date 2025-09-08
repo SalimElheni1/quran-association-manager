@@ -68,7 +68,7 @@ function ClassDetailsModal({ show, handleClose, classData }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="fas fa-school me-2"></i>

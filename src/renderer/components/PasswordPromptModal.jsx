@@ -17,7 +17,7 @@ const PasswordPromptModal = ({ show, onHide, onConfirm, title, body }) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered onKeyPress={handleKeyPress}>
+    <Modal show={show} onHide={onHide} centered onKeyPress={handleKeyPress} backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
