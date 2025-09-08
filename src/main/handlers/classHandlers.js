@@ -114,15 +114,15 @@ function registerClassHandlers() {
       `;
       const notEnrolledParams = [classId];
       if (classGender === 'kids') {
-        const adultAge = getSetting('adultAgeThreshold');
+        const adultAge = getSetting('adultAgeThreshold') ?? 18;
         notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?)`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'men') {
-        const adultAge = getSetting('adultAgeThreshold');
+        const adultAge = getSetting('adultAgeThreshold') ?? 18;
         notEnrolledSql += ` AND s.gender = 'Male' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'women') {
-        const adultAge = getSetting('adultAgeThreshold');
+        const adultAge = getSetting('adultAgeThreshold') ?? 18;
         notEnrolledSql += ` AND s.gender = 'Female' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
         notEnrolledParams.push(adultAge);
       }
