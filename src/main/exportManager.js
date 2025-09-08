@@ -83,20 +83,24 @@ async function fetchExportData({ type, fields, options = {} }) {
         date: 'a.date',
         status: 'a.status',
       };
-      const selectedFields = fields
+      const requiredFields = ['student_name', 'class_name', 'date', 'status'];
+      const selectedFields = requiredFields
         .map((f) => attendanceFieldMap[f])
-        .filter(Boolean)
         .join(', ');
-      if (!selectedFields) {
-        throw new Error('No valid attendance fields selected.');
+      let whereConditions = ['a.date BETWEEN ? AND ?'];
+      params = [options.startDate, options.endDate];
+
+      if (options.classId && options.classId !== 'all') {
+        whereConditions.push('a.class_id = ?');
+        params.push(options.classId);
       }
+
       query = `SELECT ${selectedFields}
                FROM attendance a
                JOIN students s ON s.id = a.student_id
                JOIN classes c ON c.id = a.class_id
-               WHERE a.date BETWEEN ? AND ?
+               WHERE ${whereConditions.join(' AND ')}
                ORDER BY a.date`;
-      params = [options.startDate, options.endDate];
       break;
     }
     default:
