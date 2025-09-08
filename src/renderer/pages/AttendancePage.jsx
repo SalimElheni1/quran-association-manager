@@ -32,6 +32,7 @@ function AttendancePage() {
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [savedRecordsSummary, setSavedRecordsSummary] = useState([]);
   const [isSaved, setIsSaved] = useState(false); // To track if the current record is already saved
+  const [isEditMode, setIsEditMode] = useState(false); // To control the edit state of the attendance sheet
 
   // Fetch active classes on component mount
   useEffect(() => {
@@ -104,7 +105,10 @@ function AttendancePage() {
         return acc;
       }, {});
       setAttendanceRecords(initialRecords);
-      setIsSaved(Object.keys(existingRecords).length > 0); // Set save status
+
+      const isExistingRecord = Object.keys(existingRecords).length > 0;
+      setIsSaved(isExistingRecord);
+      setIsEditMode(!isExistingRecord); // Start in edit mode for new records
     } catch (err) {
       logError('Error fetching students or attendance:', err);
       toast.error('فشل تحميل بيانات الطلاب أو الحضور.');
@@ -131,6 +135,13 @@ function AttendancePage() {
     setAttendanceRecords((prev) => ({ ...prev, [studentId]: status }));
   };
 
+  const handleCancelEdit = () => {
+    // Refetch data to discard any changes made
+    fetchStudentAndAttendanceData();
+    setIsEditMode(false);
+    toast.info('تم إلغاء التعديلات.');
+  };
+
   const handleSaveAttendance = async () => {
     if (!selectedClass || !selectedDate || Object.keys(attendanceRecords).length === 0) {
       toast.warn('الرجاء اختيار فصل وتحديد حالة الحضور للطلاب أولاً.');
@@ -150,6 +161,7 @@ function AttendancePage() {
         setSavedRecordsSummary(summary);
       }
       toast.success('تم حفظ سجل الحضور بنجاح!');
+      setIsEditMode(false); // Exit edit mode after saving
     } catch (err) {
       logError('Error saving attendance:', err);
       toast.error('فشل حفظ سجل الحضور.');
@@ -195,6 +207,26 @@ function AttendancePage() {
             </div>
           ) : students.length > 0 ? (
             <div className="attendance-roster">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h4 className="mb-0">
+                  {isEditMode ? 'تعديل سجل الحضور' : 'عرض سجل الحضور'}
+                </h4>
+                <div>
+                  {isSaved && !isEditMode && (
+                    <Button variant="secondary" onClick={() => setIsEditMode(true)}>
+                      <i className="fas fa-edit me-2"></i>
+                      تعديل
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {!isEditMode && isSaved && (
+                <Alert variant="info">
+                  هذا السجل محفوظ ومغلق للتعديل. اضغط على زر "تعديل" لتغيير حالة الحضور.
+                </Alert>
+              )}
+
               <Table striped bordered hover responsive>
                 <thead>
                   <tr>
@@ -217,6 +249,7 @@ function AttendancePage() {
                                 : 'outline-success'
                             }
                             onClick={() => handleStatusChange(student.id, 'present')}
+                            disabled={!isEditMode}
                           >
                             حضور
                           </Button>
@@ -227,6 +260,7 @@ function AttendancePage() {
                                 : 'outline-danger'
                             }
                             onClick={() => handleStatusChange(student.id, 'absent')}
+                            disabled={!isEditMode}
                           >
                             غياب
                           </Button>
@@ -237,6 +271,7 @@ function AttendancePage() {
                                 : 'outline-warning'
                             }
                             onClick={() => handleStatusChange(student.id, 'late')}
+                            disabled={!isEditMode}
                           >
                             تأخر
                           </Button>
@@ -246,17 +281,30 @@ function AttendancePage() {
                   ))}
                 </tbody>
               </Table>
-              <div className="text-center mt-3">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleSaveAttendance}
-                  disabled={loadingStudents}
-                >
-                  <i className="fas fa-save me-2"></i>
-                  حفظ التغييرات
-                </Button>
-              </div>
+
+              {isEditMode && (
+                <div className="text-center mt-3">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleSaveAttendance}
+                    disabled={loadingStudents}
+                    className="me-3"
+                  >
+                    <i className="fas fa-save me-2"></i>
+                    حفظ التغييرات
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="lg"
+                    onClick={handleCancelEdit}
+                    disabled={loadingStudents}
+                  >
+                    <i className="fas fa-times me-2"></i>
+                    إلغاء
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <Alert variant="info" className="mt-4 text-center">
