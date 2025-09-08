@@ -113,17 +113,18 @@ function registerClassHandlers() {
         )
       `;
       const notEnrolledParams = [classId];
+      const ageCalculationSql = `((strftime('%Y', 'now') - strftime('%Y', s.date_of_birth)) - (strftime('%m-%d', 'now') < strftime('%m-%d', s.date_of_birth)))`;
       if (classGender === 'kids') {
         const adultAge = getSetting('adultAgeThreshold') ?? 18;
-        notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?)`;
+        notEnrolledSql += ` AND ${ageCalculationSql} < ?`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'men') {
         const adultAge = getSetting('adultAgeThreshold') ?? 18;
-        notEnrolledSql += ` AND s.gender = 'Male' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
+        notEnrolledSql += ` AND s.gender = 'Male' AND ${ageCalculationSql} >= ?`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'women') {
         const adultAge = getSetting('adultAgeThreshold') ?? 18;
-        notEnrolledSql += ` AND s.gender = 'Female' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
+        notEnrolledSql += ` AND s.gender = 'Female' AND ${ageCalculationSql} >= ?`;
         notEnrolledParams.push(adultAge);
       }
       notEnrolledSql += ' ORDER BY s.name ASC';
