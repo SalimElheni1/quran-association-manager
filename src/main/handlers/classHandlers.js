@@ -118,9 +118,13 @@ function registerClassHandlers() {
         notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?)`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'men') {
-        notEnrolledSql += ` AND s.gender = 'Male'`;
+        const adultAge = getSetting('adultAgeThreshold');
+        notEnrolledSql += ` AND s.gender = 'Male' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
+        notEnrolledParams.push(adultAge);
       } else if (classGender === 'women') {
-        notEnrolledSql += ` AND s.gender = 'Female'`;
+        const adultAge = getSetting('adultAgeThreshold');
+        notEnrolledSql += ` AND s.gender = 'Female' AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?)`;
+        notEnrolledParams.push(adultAge);
       }
       notEnrolledSql += ' ORDER BY s.name ASC';
 
