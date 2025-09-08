@@ -43,7 +43,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? 'تعديل بيانات المعلم' : 'إضافة معلم جديد'}</Modal.Title>
@@ -78,31 +78,34 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
                 name="national_id"
                 value={formData.national_id || ''}
                 onChange={handleChange}
+                maxLength={8}
               />
             </Form.Group>
           </Row>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>رقم الهاتف</Form.Label>
+              <Form.Label>
+                رقم الهاتف<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="contact_info"
                 value={formData.contact_info || ''}
                 onChange={handleChange}
+                required
+                maxLength={8}
               />
-              <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
+              <Form.Text className="text-muted">(مطلوب ويجب أن يتكون من 8 أرقام)</Form.Text>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>
-                البريد الإلكتروني<span className="text-danger">*</span>
-              </Form.Label>
+              <Form.Label>البريد الإلكتروني</Form.Label>
               <Form.Control
                 type="email"
                 name="email"
                 value={formData.email || ''}
                 onChange={handleChange}
               />
-              <Form.Text className="text-muted">(مثال: user@example.com)</Form.Text>
+              <Form.Text className="text-muted">(اختياري)</Form.Text>
             </Form.Group>
           </Row>
           <Row>

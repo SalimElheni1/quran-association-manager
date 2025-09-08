@@ -169,7 +169,7 @@ describe('Authentication Handlers', () => {
       first_name: 'Test',
       last_name: 'User',
       email: 'test@test.com',
-      phone_number: '123456789',
+      phone_number: '12345678',
       employment_type: 'volunteer',
       status: 'active',
     };

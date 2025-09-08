@@ -104,7 +104,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered>
+    <Modal show={show} onHide={handleClose} centered backdrop="static">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? 'تعديل الفصل الدراسي' : 'إضافة فصل جديد'}</Modal.Title>
@@ -151,9 +151,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>
-                الحالة<span className="text-danger">*</span>
-              </Form.Label>
+              <Form.Label>الحالة</Form.Label>
               <Form.Select
                 name="status"
                 value={formData.status || 'pending'}

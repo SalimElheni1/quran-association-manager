@@ -88,7 +88,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered size="lg">
+    <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد'}</Modal.Title>
@@ -143,6 +143,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   name="national_id"
                   value={formData.national_id || ''}
                   onChange={handleChange}
+                  maxLength={8}
                 />
               </Form.Group>
             )}
@@ -168,8 +169,8 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   name="contact_info"
                   value={formData.contact_info || ''}
                   onChange={handleChange}
+                  maxLength={8}
                 />
-                <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
               </Form.Group>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentEmail">
                 <Form.Label>البريد الإلكتروني (الطالب)</Form.Label>
@@ -369,9 +370,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           <h5 className="form-section-title">معلومات الجمعية</h5>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentStatus">
-              <Form.Label>
-                الحالة<span className="text-danger">*</span>
-              </Form.Label>
+              <Form.Label>الحالة</Form.Label>
               <Form.Select
                 name="status"
                 value={formData.status || 'active'}
