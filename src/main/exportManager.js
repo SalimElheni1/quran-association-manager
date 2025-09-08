@@ -96,7 +96,8 @@ async function fetchExportData({ type, fields, options = {} }) {
                JOIN classes c ON c.id = a.class_id
                WHERE a.date BETWEEN ? AND ?
                ORDER BY a.date`;
-      return allQuery(query, [options.startDate, options.endDate]);
+      params = [options.startDate, options.endDate];
+      break;
     }
     default:
       throw new Error(`Invalid export type: ${type}`);
