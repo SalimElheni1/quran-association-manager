@@ -107,20 +107,26 @@ function registerClassHandlers() {
       let notEnrolledSql = `
         SELECT s.id, s.name
         FROM students s
-        WHERE s.status = 'active'
-        AND s.id NOT IN (
-          SELECT student_id FROM class_students WHERE class_id = ?
-        )
+        LEFT JOIN class_students cs ON s.id = cs.student_id AND cs.class_id = ?
+        WHERE s.status = 'active' AND cs.student_id IS NULL
       `;
       const notEnrolledParams = [classId];
+      const adultAge = getSetting('adultAgeThreshold');
+
+      // This complex CASE statement handles two different formats for date_of_birth:
+      // 1. Standard 'YYYY-MM-DD' strings.
+      // 2. Millisecond Unix timestamps stored as a string.
+      const ageCalculationSql = `CAST((julianday('now') - julianday(CASE WHEN LENGTH(s.date_of_birth) > 10 AND s.date_of_birth NOT LIKE '%-%' THEN date(s.date_of_birth / 1000, 'unixepoch') ELSE s.date_of_birth END)) / 365.25 AS INTEGER)`;
+
       if (classGender === 'kids') {
-        const adultAge = getSetting('adultAgeThreshold');
-        notEnrolledSql += ` AND (strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?)`;
+        notEnrolledSql += ` AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} < ?`;
         notEnrolledParams.push(adultAge);
       } else if (classGender === 'men') {
-        notEnrolledSql += ` AND s.gender = 'Male'`;
+        notEnrolledSql += ` AND s.gender = 'Male' AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} >= ?`;
+        notEnrolledParams.push(adultAge);
       } else if (classGender === 'women') {
-        notEnrolledSql += ` AND s.gender = 'Female'`;
+        notEnrolledSql += ` AND s.gender = 'Female' AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} >= ?`;
+        notEnrolledParams.push(adultAge);
       }
       notEnrolledSql += ' ORDER BY s.name ASC';
 
