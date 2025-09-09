@@ -36,7 +36,7 @@ function registerStudentHandlers() {
   ipcMain.handle('students:get', async (_event, filters) => {
     try {
       let sql =
-        'SELECT id, matricule, name, date_of_birth, enrollment_date, status FROM students WHERE 1=1';
+        'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
       const params = [];
       if (filters?.searchTerm) {
         sql += ' AND (name LIKE ? OR matricule LIKE ?)';
