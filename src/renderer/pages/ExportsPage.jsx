@@ -20,6 +20,8 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState('all');
 
   const currentFields = useMemo(() => {
     if (exportType === 'students' && genderFilter === 'kids') {
@@ -32,6 +34,18 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     // When the available fields change (e.g., from adult to kid), reset the selected fields to all be checked by default.
     setSelectedFields(currentFields.map((f) => f.key));
   }, [currentFields]);
+
+  useEffect(() => {
+    if (isAttendance) {
+      window.electronAPI
+        .getClasses()
+        .then(setClasses)
+        .catch((err) => {
+          logError('Failed to fetch classes for export:', err);
+          setMessage({ type: 'danger', text: 'فشل تحميل قائمة الفصول.' });
+        });
+    }
+  }, [isAttendance]);
 
   const handleCheckboxChange = (event) => {
     const { value, checked } = event.target;
@@ -69,6 +83,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       }
       exportOptions.options.startDate = startDate;
       exportOptions.options.endDate = endDate;
+      exportOptions.options.classId = selectedClassId;
     } else {
       exportOptions.options.gender = genderFilter;
     }
@@ -191,7 +206,23 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
           )}
           {isAttendance && (
             <Row className="mb-3">
-              <Col md={6}>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>اختر الفصل</Form.Label>
+                  <Form.Select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                  >
+                    <option value="all">كل الفصول</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
                 <Form.Group>
                   <Form.Label>من تاريخ</Form.Label>
                   <Form.Control
@@ -201,7 +232,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
                   />
                 </Form.Group>
               </Col>
-              <Col md={6}>
+              <Col md={4}>
                 <Form.Group>
                   <Form.Label>إلى تاريخ</Form.Label>
                   <Form.Control
