@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import Select from 'react-select';
 import { error as logError } from '@renderer/utils/logger';
+
+const categoryOptions = [
+  { value: 'all', label: 'الكل' },
+  { value: 'men', label: 'رجال' },
+  { value: 'women', label: 'نساء' },
+  { value: 'kids', label: 'أطفال' },
+];
 
 function PaymentFormModal({ show, onHide, onSave, payment }) {
   const [formData, setFormData] = useState({
@@ -11,20 +19,25 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
     notes: '',
   });
   const [students, setStudents] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(categoryOptions[0]);
+  const [adultAgeThreshold, setAdultAgeThreshold] = useState(18);
 
   const isEditMode = payment != null;
 
   useEffect(() => {
-    // Fetch students for the dropdown
-    const fetchStudents = async () => {
+    const fetchInitialData = async () => {
       try {
-        const result = await window.electronAPI.getStudents(); // Assuming getStudents API exists
-        setStudents(result);
+        const settingsResponse = await window.electronAPI.getSettings();
+        if (settingsResponse.success) {
+          setAdultAgeThreshold(settingsResponse.settings.adultAgeThreshold || 18);
+        }
+        const studentsResult = await window.electronAPI.getStudents();
+        setStudents(studentsResult);
       } catch (err) {
-        logError('Failed to fetch students:', err);
+        logError('Failed to fetch initial data:', err);
       }
     };
-    fetchStudents();
+    fetchInitialData();
   }, []);
 
   useEffect(() => {
@@ -44,9 +57,43 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
     }
   }, [payment, show]);
 
+  const filteredStudents = useMemo(() => {
+    if (selectedCategory.value === 'all') {
+      return students;
+    }
+    return students.filter((student) => {
+      const age = student.date_of_birth
+        ? new Date().getFullYear() - new Date(student.date_of_birth).getFullYear()
+        : null;
+      switch (selectedCategory.value) {
+        case 'men':
+          return student.gender === 'Male' && (age ? age >= adultAgeThreshold : true);
+        case 'women':
+          return student.gender === 'Female' && (age ? age >= adultAgeThreshold : true);
+        case 'kids':
+          return age ? age < adultAgeThreshold : false;
+        default:
+          return true;
+      }
+    });
+  }, [students, selectedCategory, adultAgeThreshold]);
+
+  const studentOptions = useMemo(
+    () =>
+      filteredStudents.map((student) => ({
+        value: student.id,
+        label: student.name,
+      })),
+    [filteredStudents],
+  );
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleStudentChange = (selectedOption) => {
+    setFormData((prev) => ({ ...prev, student_id: selectedOption ? selectedOption.value : '' }));
   };
 
   const handleSubmit = (e) => {
@@ -61,24 +108,32 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
+          <Form.Group className="mb-3" controlId="formPaymentCategory">
+            <Form.Label>الفئة</Form.Label>
+            <Select
+              options={categoryOptions}
+              value={selectedCategory}
+              onChange={setSelectedCategory}
+              placeholder="اختر فئة..."
+              isSearchable={false}
+            />
+          </Form.Group>
+
           <Form.Group className="mb-3" controlId="formPaymentStudent">
             <Form.Label>
               الطالب<span className="text-danger">*</span>
             </Form.Label>
-            <Form.Control
-              as="select"
-              name="student_id"
-              value={formData.student_id}
-              onChange={handleChange}
+            <Select
+              options={studentOptions}
+              value={studentOptions.find((opt) => opt.value === formData.student_id)}
+              onChange={handleStudentChange}
+              placeholder="ابحث عن طالب..."
+              isClearable
+              isRtl
+              isSearchable
               required
-            >
-              <option value="">اختر طالباً...</option>
-              {students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
-              ))}
-            </Form.Control>
+              noOptionsMessage={() => 'لا يوجد طلاب مطابقون'}
+            />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentAmount">
             <Form.Label>
