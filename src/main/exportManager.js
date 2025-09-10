@@ -93,10 +93,17 @@ async function fetchExportData({ type, fields, options = {} }) {
       query = `SELECT ${selectedFields}
                FROM attendance a
                JOIN students s ON s.id = a.student_id
-               JOIN classes c ON c.id = a.class_id
-               WHERE a.date BETWEEN ? AND ?
-               ORDER BY a.date`;
-      return allQuery(query, [options.startDate, options.endDate]);
+               JOIN classes c ON c.id = a.class_id`;
+      const whereClauses = ['a.date BETWEEN ? AND ?'];
+      const params = [options.startDate, options.endDate];
+
+      if (options.classId && options.classId !== 'all') {
+        whereClauses.push('c.id = ?');
+        params.push(options.classId);
+      }
+
+      query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY a.date`;
+      return allQuery(query, params);
     }
     default:
       throw new Error(`Invalid export type: ${type}`);

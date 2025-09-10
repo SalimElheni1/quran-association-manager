@@ -55,6 +55,30 @@ describe('exportManager', () => {
         [],
       );
     });
+
+    it('should correctly filter attendance by classId', async () => {
+      db.allQuery.mockResolvedValueOnce([]);
+      const options = {
+        type: 'attendance',
+        fields: ['student_name', 'status'],
+        options: {
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+          classId: 5,
+        },
+      };
+      await fetchExportData(options);
+      const expectedQuery = `SELECT s.name as student_name, a.status
+               FROM attendance a
+               JOIN students s ON s.id = a.student_id
+               JOIN classes c ON c.id = a.class_id WHERE a.date BETWEEN ? AND ? AND c.id = ? ORDER BY a.date`;
+      const expectedParams = ['2024-01-01', '2024-01-31', 5];
+      // We are doing a string comparison without worrying about whitespace
+      expect(db.allQuery.mock.calls[0][0].replace(/\s+/g, ' ')).toBe(
+        expectedQuery.replace(/\s+/g, ' '),
+      );
+      expect(db.allQuery).toHaveBeenCalledWith(expect.any(String), expectedParams);
+    });
   });
 
   describe('generatePdf', () => {
