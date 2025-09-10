@@ -73,30 +73,66 @@ async function handleDeleteDonation(event, donationId) {
 // --- Salary Handlers ---
 async function handleGetSalaries() {
   const sql = `
-    SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes
+    SELECT
+      s.id,
+      s.user_id,
+      s.user_type,
+      s.amount,
+      s.payment_date,
+      s.notes,
+      CASE
+        WHEN s.user_type = 'teacher' THEN t.name
+        WHEN s.user_type = 'admin' THEN u.first_name || ' ' || u.last_name
+        ELSE 'غير معروف'
+      END as employee_name
     FROM salaries s
-    JOIN teachers t ON s.teacher_id = t.id
+    LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
+    LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
     ORDER BY s.payment_date DESC
   `;
   return allQuery(sql);
 }
 async function handleAddSalary(event, salary) {
-  const { teacher_id, amount, payment_date, notes } = salary;
-  const sql = `INSERT INTO salaries (teacher_id, amount, payment_date, notes) VALUES (?, ?, ?, ?)`;
-  const result = await runQuery(sql, [teacher_id, amount, payment_date, notes]);
-  return getQuery(
-    'SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?',
+  const { user_id, user_type, amount, payment_date, notes } = salary;
+  const sql = `INSERT INTO salaries (user_id, user_type, amount, payment_date, notes) VALUES (?, ?, ?, ?, ?)`;
+  const result = await runQuery(sql, [user_id, user_type, amount, payment_date, notes]);
+  const newSalary = await getQuery(
+    `
+    SELECT
+      s.id, s.user_id, s.user_type, s.amount, s.payment_date, s.notes,
+      CASE
+        WHEN s.user_type = 'teacher' THEN t.name
+        WHEN s.user_type = 'admin' THEN u.first_name || ' ' || u.last_name
+      END as employee_name
+    FROM salaries s
+    LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
+    LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
+    WHERE s.id = ?
+  `,
     [result.id],
   );
+  return newSalary;
 }
 async function handleUpdateSalary(event, salary) {
-  const { id, teacher_id, amount, payment_date, notes } = salary;
-  const sql = `UPDATE salaries SET teacher_id = ?, amount = ?, payment_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-  await runQuery(sql, [teacher_id, amount, payment_date, notes, id]);
-  return getQuery(
-    'SELECT s.id, s.teacher_id, t.name as teacher_name, s.amount, s.payment_date, s.notes FROM salaries s JOIN teachers t ON s.teacher_id = t.id WHERE s.id = ?',
+  const { id, user_id, user_type, amount, payment_date, notes } = salary;
+  const sql = `UPDATE salaries SET user_id = ?, user_type = ?, amount = ?, payment_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+  await runQuery(sql, [user_id, user_type, amount, payment_date, notes, id]);
+  const updatedSalary = await getQuery(
+    `
+    SELECT
+      s.id, s.user_id, s.user_type, s.amount, s.payment_date, s.notes,
+      CASE
+        WHEN s.user_type = 'teacher' THEN t.name
+        WHEN s.user_type = 'admin' THEN u.first_name || ' ' || u.last_name
+      END as employee_name
+    FROM salaries s
+    LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
+    LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
+    WHERE s.id = ?
+  `,
     [id],
   );
+  return updatedSalary;
 }
 async function handleDeleteSalary(event, salaryId) {
   await runQuery('DELETE FROM salaries WHERE id = ?', [salaryId]);
@@ -156,7 +192,17 @@ async function handleGetStatementOfActivities() {
             UNION ALL
             SELECT donation_date as date, 'تبرع عيني' as type, description as details, NULL as amount FROM donations WHERE donation_type = 'In-kind'
             UNION ALL
-            SELECT payment_date as date, 'راتب' as type, 'راتب للمعلم ' || t.name as details, amount FROM salaries s JOIN teachers t ON s.teacher_id = t.id
+            SELECT
+              s.payment_date as date,
+              'راتب' as type,
+              'راتب لـ ' || CASE
+                WHEN s.user_type = 'teacher' THEN t.name
+                WHEN s.user_type = 'admin' THEN u.first_name || ' ' || u.last_name
+              END as details,
+              s.amount
+            FROM salaries s
+            LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
+            LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
             UNION ALL
             SELECT expense_date as date, 'مصروف' as type, category as details, amount FROM expenses
         )

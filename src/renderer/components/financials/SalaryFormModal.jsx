@@ -4,43 +4,60 @@ import { error as logError } from '@renderer/utils/logger';
 
 function SalaryFormModal({ show, onHide, onSave, salary }) {
   const [formData, setFormData] = useState({
-    teacher_id: '',
+    employee: '', // Combined field for user_id and user_type
     amount: '',
     payment_date: new Date().toISOString().split('T')[0],
     notes: '',
   });
-  const [teachers, setTeachers] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   const isEditMode = salary != null;
 
   useEffect(() => {
-    // Fetch teachers for the dropdown
-    const fetchTeachers = async () => {
+    const fetchEmployees = async () => {
       try {
-        const result = await window.electronAPI.getTeachers(); // Assuming getTeachers API exists
-        setTeachers(result);
+        const [teachers, users] = await Promise.all([
+          window.electronAPI.getTeachers(),
+          window.electronAPI.getUsers({ roleFilter: 'all', statusFilter: 'active' }),
+        ]);
+
+        const teacherOptions = teachers.map((t) => ({
+          value: `teacher-${t.id}`,
+          label: `${t.name} (معلم)`,
+        }));
+
+        const adminOptions = users.map((u) => ({
+          value: `admin-${u.id}`,
+          label: `${u.first_name} ${u.last_name} (إداري)`,
+        }));
+
+        setEmployees([...teacherOptions, ...adminOptions]);
       } catch (err) {
-        logError('Failed to fetch teachers:', err);
+        logError('Failed to fetch employees:', err);
       }
     };
-    fetchTeachers();
+    fetchEmployees();
   }, []);
 
   useEffect(() => {
-    if (isEditMode) {
-      setFormData({
-        ...salary,
-        payment_date: new Date(salary.payment_date).toISOString().split('T')[0],
-      });
-    } else {
-      setFormData({
-        teacher_id: '',
-        amount: '',
-        payment_date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
+    if (show) {
+      if (isEditMode && salary) {
+        setFormData({
+          employee: `${salary.user_type}-${salary.user_id}`,
+          amount: salary.amount,
+          payment_date: new Date(salary.payment_date).toISOString().split('T')[0],
+          notes: salary.notes || '',
+        });
+      } else {
+        setFormData({
+          employee: '',
+          amount: '',
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: '',
+        });
+      }
     }
-  }, [salary, show]);
+  }, [salary, isEditMode, show]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,7 +66,14 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    const [user_type, user_id] = formData.employee.split('-');
+    const submissionData = {
+      ...formData,
+      user_id: parseInt(user_id, 10),
+      user_type,
+    };
+    delete submissionData.employee; // Clean up the combined field
+    onSave(submissionData);
   };
 
   return (
@@ -59,21 +83,22 @@ function SalaryFormModal({ show, onHide, onSave, salary }) {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          <Form.Group className="mb-3" controlId="formSalaryTeacher">
+          <Form.Group className="mb-3" controlId="formSalaryEmployee">
             <Form.Label>
-              المعلم<span className="text-danger">*</span>
+              الموظف<span className="text-danger">*</span>
             </Form.Label>
             <Form.Control
               as="select"
-              name="teacher_id"
-              value={formData.teacher_id}
+              name="employee"
+              value={formData.employee}
               onChange={handleChange}
               required
+              disabled={isEditMode} // Prevent changing the employee when editing
             >
-              <option value="">اختر معلماً...</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name}
+              <option value="">اختر موظفاً...</option>
+              {employees.map((emp) => (
+                <option key={emp.value} value={emp.value}>
+                  {emp.label}
                 </option>
               ))}
             </Form.Control>
