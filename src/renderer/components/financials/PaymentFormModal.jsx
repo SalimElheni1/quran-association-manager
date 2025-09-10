@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { error as logError } from '@renderer/utils/logger';
+import { paymentMethods } from '@renderer/utils/paymentMethods';
 
 const categoryOptions = [
   { value: 'all', label: 'الكل' },
@@ -158,10 +159,11 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
               onChange={handleChange}
               required
             >
-              <option value="Cash">نقداً</option>
-              <option value="Bank Transfer">تحويل بنكي</option>
-              <option value="Online">عبر الإنترنت</option>
-              <option value="Other">أخرى</option>
+              {paymentMethods.map((method) => (
+                <option key={method.value} value={method.value}>
+                  {method.label}
+                </option>
+              ))}
             </Form.Control>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentDate">

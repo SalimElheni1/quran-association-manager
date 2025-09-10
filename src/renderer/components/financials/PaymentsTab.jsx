@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import PaymentFormModal from '@renderer/components/financials/PaymentFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
+import { getPaymentMethodLabel } from '@renderer/utils/paymentMethods';
 
 function PaymentsTab() {
   const [payments, setPayments] = useState([]);
@@ -118,7 +119,7 @@ function PaymentsTab() {
                 <td>{payment.id}</td>
                 <td>{payment.student_name}</td>
                 <td className="text-start">{payment.amount.toFixed(2)}</td>
-                <td>{payment.payment_method}</td>
+                <td>{getPaymentMethodLabel(payment.payment_method)}</td>
                 <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td>{payment.notes}</td>
                 <td>

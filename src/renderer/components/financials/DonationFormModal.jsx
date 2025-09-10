@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { categories } from '@renderer/utils/donationCategories';
 
 function DonationFormModal({ show, onHide, onSave, donation }) {
   const [formData, setFormData] = useState({
@@ -9,6 +10,8 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
     donation_type: 'Cash',
     description: '',
     notes: '',
+    quantity: '',
+    category: 'Other',
   });
 
   const isEditMode = donation != null;
@@ -23,6 +26,8 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
         description: donation.description || '',
         notes: donation.notes || '',
         id: donation.id,
+        quantity: donation.quantity || '',
+        category: donation.category || 'Other',
       });
     } else {
       setFormData({
@@ -32,6 +37,8 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
         donation_type: 'Cash',
         description: '',
         notes: '',
+        quantity: '',
+        category: 'Other',
       });
     }
   }, [donation, show]);
@@ -46,6 +53,8 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
     const dataToSave = { ...formData };
     if (dataToSave.donation_type === 'Cash') {
       dataToSave.description = null;
+      dataToSave.quantity = null;
+      dataToSave.category = null;
     } else {
       dataToSave.amount = null;
     }
@@ -101,19 +110,45 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
               />
             </Form.Group>
           ) : (
-            <Form.Group className="mb-3" controlId="formDonationDescription">
-              <Form.Label>
-                وصف التبرع العيني<span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
+            <>
+              <Form.Group className="mb-3" controlId="formDonationDescription">
+                <Form.Label>
+                  وصف التبرع العيني<span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  required
+                />
+              </Form.Group>
+              <Form.Group className="mb-3" controlId="formDonationQuantity">
+                <Form.Label>الكمية</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                />
+              </Form.Group>
+              <Form.Group className="mb-3" controlId="formDonationCategory">
+                <Form.Label>الصنف</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            </>
           )}
 
           <Form.Group className="mb-3" controlId="formDonationDate">
