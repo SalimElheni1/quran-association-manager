@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
 import ExpensesTab from '@renderer/components/financials/ExpensesTab';
 import DonationsTab from '@renderer/components/financials/DonationsTab';
@@ -7,6 +7,17 @@ import PaymentsTab from '@renderer/components/financials/PaymentsTab';
 import ReportsTab from '@renderer/components/financials/ReportsTab';
 
 function FinancialsPage() {
+  const [activeTab, setActiveTab] = useState('reports');
+  const [reportsTabKey, setReportsTabKey] = useState(Date.now());
+
+  const handleTabSelect = (key) => {
+    setActiveTab(key);
+    // If the reports tab is selected, give it a new key to force a remount
+    if (key === 'reports') {
+      setReportsTabKey(Date.now());
+    }
+  };
+
   return (
     <Container fluid className="p-4">
       <Card>
@@ -14,9 +25,9 @@ function FinancialsPage() {
           الشؤون المالية
         </Card.Header>
         <Card.Body>
-          <Tabs defaultActiveKey="reports" id="financials-tabs" className="mb-3" fill>
+          <Tabs activeKey={activeTab} onSelect={handleTabSelect} id="financials-tabs" className="mb-3" fill>
             <Tab eventKey="reports" title="تقارير وإحصائيات">
-              <ReportsTab />
+              <ReportsTab key={reportsTabKey} />
             </Tab>
             <Tab eventKey="payments" title="الرسوم الدراسية">
               <PaymentsTab />
