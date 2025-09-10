@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { categories } from '@renderer/utils/donationCategories';
 
 function DonationFormModal({ show, onHide, onSave, donation }) {
   const [formData, setFormData] = useState({
@@ -14,14 +15,6 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
   });
 
   const isEditMode = donation != null;
-
-  const categories = [
-    { value: 'Electronics', label: 'إلكترونيات' },
-    { value: 'Furniture', label: 'أثاث' },
-    { value: 'Books', label: 'كتب' },
-    { value: 'School Supplies', label: 'أدوات مدرسية' },
-    { value: 'Other', label: 'أخرى' },
-  ];
 
   useEffect(() => {
     if (isEditMode) {
