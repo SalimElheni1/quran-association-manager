@@ -49,8 +49,20 @@ describe('Financial Handlers', () => {
     it('should retrieve all expenses', async () => {
       const mockData = [{ id: 1, category: 'Supplies', amount: 100 }];
       db.allQuery.mockResolvedValue(mockData);
-      const result = await handleGetExpenses();
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM expenses ORDER BY expense_date DESC');
+      const result = await handleGetExpenses(null, null); // Pass null for period
+      expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM expenses ORDER BY expense_date DESC', []);
+      expect(result).toEqual(mockData);
+    });
+
+    it('should retrieve expenses for a given period', async () => {
+      const mockData = [{ id: 1, category: 'Supplies', amount: 100 }];
+      const period = { startDate: '2025-01-01', endDate: '2025-01-31' };
+      db.allQuery.mockResolvedValue(mockData);
+      const result = await handleGetExpenses(null, period);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        'SELECT * FROM expenses WHERE expense_date BETWEEN ? AND ? ORDER BY expense_date DESC',
+        [period.startDate, period.endDate],
+      );
       expect(result).toEqual(mockData);
     });
   });
@@ -110,11 +122,11 @@ describe('Financial Handlers', () => {
 
   // --- Salaries ---
   describe('handleGetSalaries', () => {
-    it('should retrieve all salaries with teacher names', async () => {
-      const mockData = [{ id: 1, teacher_name: 'Test Teacher', amount: 5000 }];
+    it('should retrieve all salaries with employee names', async () => {
+      const mockData = [{ id: 1, employee_name: 'Test Teacher', amount: 5000 }];
       db.allQuery.mockResolvedValue(mockData);
-      await handleGetSalaries();
-      expect(db.allQuery).toHaveBeenCalled();
+      await handleGetSalaries(null, null);
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY s.payment_date DESC'), []);
     });
   });
 
@@ -123,17 +135,20 @@ describe('Financial Handlers', () => {
     it('should retrieve all payments with student names', async () => {
       const mockData = [{ id: 1, student_name: 'Test Student', amount: 200 }];
       db.allQuery.mockResolvedValue(mockData);
-      await handleGetPayments();
-      expect(db.allQuery).toHaveBeenCalled();
+      await handleGetPayments(null, null);
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY p.payment_date DESC'), []);
     });
   });
 
   // --- Summary & Charting ---
   describe('handleGetFinancialSummary', () => {
-    it('should calculate the financial summary correctly', async () => {
-      db.allQuery.mockImplementation((sql) => {
+    it('should calculate the financial summary correctly for a given year', async () => {
+      db.allQuery.mockImplementation((sql, params) => {
+        // Check params to ensure the year is being used
+        expect(params[0]).toContain('2024-01-01');
+        expect(params[1]).toContain('2024-12-31');
+
         if (sql.includes('UNION ALL')) {
-          // This is the income query
           return Promise.resolve([
             { source: 'Payments', total: 1000 },
             { source: 'Donations', total: 500 },
@@ -148,7 +163,7 @@ describe('Financial Handlers', () => {
         return Promise.resolve([]);
       });
 
-      const result = await handleGetFinancialSummary();
+      const result = await handleGetFinancialSummary(null, 2024);
       expect(result.totalIncome).toBe(1500);
       expect(result.totalExpenses).toBe(500);
       expect(result.balance).toBe(1000);

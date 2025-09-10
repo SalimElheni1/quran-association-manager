@@ -464,14 +464,27 @@ const ImportTabPanel = () => {
 const ExportsPage = () => {
   const [activeTab, setActiveTab] = useState('students');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
+
+    const exportOptions = {
+      exportType: 'financial-report',
+      format: 'xlsx',
+      options: {},
+    };
+
+    if (startDate && endDate) {
+      exportOptions.options.period = { startDate, endDate };
+    } else if (startDate || endDate) {
+      setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ البدء والانتهاء معًا، أو ترك كلاهما فارغًا لتصدير جميع البيانات.' });
+      return;
+    }
+
     try {
-      const result = await window.electronAPI.generateExport({
-        exportType: 'financial-report',
-        format: 'xlsx',
-      });
+      const result = await window.electronAPI.generateExport(exportOptions);
       if (result.success) {
         setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
       } else {
@@ -513,9 +526,32 @@ const ExportsPage = () => {
             <Card.Body>
               <Card.Title>تصدير تقرير مالي شامل</Card.Title>
               <p>
-                تصدير ملف Excel يحتوي على جميع البيانات المالية: ملخص شامل، رسوم الطلاب، الرواتب،
-                التبرعات، والمصاريف العامة.
+                تصدير ملف Excel يحتوي على جميع البيانات المالية. يمكنك تحديد فترة زمنية لتصدير البيانات خلالها، أو ترك الحقول فارغة لتصدير جميع البيانات.
               </p>
+              <Form>
+                 <Row className="mb-3">
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>من تاريخ</Form.Label>
+                        <Form.Control
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>إلى تاريخ</Form.Label>
+                        <Form.Control
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                        />
+                      </Form.Group>
+                    </Col>
+                 </Row>
+              </Form>
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
               <div className="d-flex justify-content-end">
                 <Button variant="primary" onClick={handleFinancialExport}>

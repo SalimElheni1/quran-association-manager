@@ -16,13 +16,17 @@ const {
 } = require('./financialHandlers');
 
 // --- Data Fetching ---
-async function fetchFinancialData() {
+async function fetchFinancialData(period) {
+  // handleGetFinancialSummary now takes a year. If a period is provided,
+  // we can extract the year from the startDate. If not, it will default to the current year.
+  const summaryYear = period ? new Date(period.startDate).getFullYear() : null;
+
   const [summary, payments, salaries, donations, expenses] = await Promise.all([
-    handleGetFinancialSummary(),
-    handleGetPayments(),
-    handleGetSalaries(),
-    handleGetDonations(),
-    handleGetExpenses(),
+    handleGetFinancialSummary(null, summaryYear),
+    handleGetPayments(null, period),
+    handleGetSalaries(null, period),
+    handleGetDonations(null, period),
+    handleGetExpenses(null, period),
   ]);
   return { summary, payments, salaries, donations, expenses };
 }
