@@ -282,18 +282,22 @@ async function handleGetMonthlySnapshot(event, period) {
 }
 
 async function handleGetFinancialSummary() {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0] + ' 00:00:00';
+  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString();
+
   const incomeSql = `
-        SELECT 'Payments' as source, SUM(amount) as total FROM payments
+        SELECT 'Payments' as source, SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?
         UNION ALL
-        SELECT 'Donations' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash'
+        SELECT 'Donations' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash' AND donation_date BETWEEN ? AND ?
     `;
-  const expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses`;
-  const salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries`;
+  const expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?`;
+  const salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
 
   const [income, expenses, salaries] = await Promise.all([
-    allQuery(incomeSql),
-    allQuery(expensesSql),
-    allQuery(salariesSql),
+    allQuery(incomeSql, [startOfYear, endOfYear, startOfYear, endOfYear]),
+    allQuery(expensesSql, [startOfYear, endOfYear]),
+    allQuery(salariesSql, [startOfYear, endOfYear]),
   ]);
 
   const totalIncome = income.reduce((acc, item) => acc + (item.total || 0), 0);
