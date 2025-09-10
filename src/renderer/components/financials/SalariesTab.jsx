@@ -103,7 +103,7 @@ function SalariesTab() {
         <thead>
           <tr>
             <th>#</th>
-            <th>اسم المعلم</th>
+            <th>اسم الموظف</th>
             <th>المبلغ</th>
             <th>تاريخ الدفع</th>
             <th>ملاحظات</th>
@@ -115,7 +115,7 @@ function SalariesTab() {
             salaries.map((salary) => (
               <tr key={salary.id}>
                 <td>{salary.id}</td>
-                <td>{salary.teacher_name}</td>
+                <td>{salary.employee_name}</td>
                 <td className="text-start">{salary.amount.toFixed(2)}</td>
                 <td>{new Date(salary.payment_date).toLocaleDateString()}</td>
                 <td>{salary.notes}</td>
