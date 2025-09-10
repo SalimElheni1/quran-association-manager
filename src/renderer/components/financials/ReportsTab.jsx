@@ -100,7 +100,7 @@ function ReportsTab() {
     <div>
       <Card className="mb-4">
         <Card.Header as="h4" className="bg-dark text-white">
-          الملخص المالي العام
+          الملخص المالي (السنة الحالية)
         </Card.Header>
         <Card.Body>
           <Row>
