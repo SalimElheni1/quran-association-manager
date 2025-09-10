@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import DonationFormModal from '@renderer/components/financials/DonationFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
+import { getCategoryLabel } from '@renderer/utils/donationCategories';
 
 function DonationsTab() {
   const [donations, setDonations] = useState([]);
@@ -125,7 +126,9 @@ function DonationsTab() {
                       : '0.00'
                     : `${donation.description} ${
                         donation.quantity ? `(الكمية: ${donation.quantity})` : ''
-                      } ${donation.category ? `(الصنف: ${donation.category})` : ''}`}
+                      } ${
+                        donation.category ? `(الصنف: ${getCategoryLabel(donation.category)})` : ''
+                      }`}
                 </td>
                 <td>{new Date(donation.donation_date).toLocaleDateString()}</td>
                 <td>{donation.notes}</td>
