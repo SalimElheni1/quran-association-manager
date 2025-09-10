@@ -10,10 +10,18 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
     description: '',
     notes: '',
     quantity: '',
-    category: '',
+    category: 'Other',
   });
 
   const isEditMode = donation != null;
+
+  const categories = [
+    { value: 'Electronics', label: 'إلكترونيات' },
+    { value: 'Furniture', label: 'أثاث' },
+    { value: 'Books', label: 'كتب' },
+    { value: 'School Supplies', label: 'أدوات مدرسية' },
+    { value: 'Other', label: 'أخرى' },
+  ];
 
   useEffect(() => {
     if (isEditMode) {
@@ -26,7 +34,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
         notes: donation.notes || '',
         id: donation.id,
         quantity: donation.quantity || '',
-        category: donation.category || '',
+        category: donation.category || 'Other',
       });
     } else {
       setFormData({
@@ -37,7 +45,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
         description: '',
         notes: '',
         quantity: '',
-        category: '',
+        category: 'Other',
       });
     }
   }, [donation, show]);
@@ -135,11 +143,17 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
               <Form.Group className="mb-3" controlId="formDonationCategory">
                 <Form.Label>الصنف</Form.Label>
                 <Form.Control
-                  type="text"
+                  as="select"
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                />
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </Form.Control>
               </Form.Group>
             </>
           )}
