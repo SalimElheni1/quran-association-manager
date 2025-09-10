@@ -27,21 +27,34 @@ function ReportsTab() {
   const [error, setError] = useState(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
+  const [summaryYear, setSummaryYear] = useState(new Date().getFullYear());
+  const [loadingSummary, setLoadingSummary] = useState(true);
 
+  // Effect for fetching the annual summary
+  useEffect(() => {
+    const fetchSummary = async () => {
+      setLoadingSummary(true);
+      try {
+        const summaryResult = await window.electronAPI.getFinancialSummary(summaryYear);
+        setSummary(summaryResult);
+      } catch (err) {
+        logError('Failed to fetch financial summary:', err);
+        setError(err.message || 'فشل جلب الملخص المالي.');
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+    fetchSummary();
+  }, [summaryYear]);
+
+  // Effect for fetching monthly snapshot and activities
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
         const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
         const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
         const period = { startDate, endDate };
-
-        // Fetch general summary only once, it's not period-dependent
-        if (!summary) {
-          const summaryResult = await window.electronAPI.getFinancialSummary();
-          setSummary(summaryResult);
-        }
 
         const [snapshotResult, activitiesResult] = await Promise.all([
           window.electronAPI.getMonthlySnapshot(period),
@@ -50,7 +63,7 @@ function ReportsTab() {
 
         setSnapshot(snapshotResult);
         setActivities(activitiesResult);
-        setError(null);
+        if (!error) setError(null); // Do not clear summary error
       } catch (err) {
         logError('Failed to fetch report data:', err);
         setError(err.message || 'فشل جلب بيانات التقارير.');
@@ -99,42 +112,55 @@ function ReportsTab() {
   return (
     <div>
       <Card className="mb-4">
-        <Card.Header as="h4" className="bg-dark text-white">
-          الملخص المالي (السنة الحالية)
+        <Card.Header as="h4" className="bg-dark text-white d-flex justify-content-between align-items-center">
+          <span>الملخص المالي لسنة {summaryYear}</span>
+          <div style={{ minWidth: '150px' }}>
+             <Form.Select
+                size="sm"
+                value={summaryYear}
+                onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
+              >
+                {renderYearOptions()}
+              </Form.Select>
+          </div>
         </Card.Header>
         <Card.Body>
-          <Row>
-            <Col md={4}>
-              <Card bg="light">
-                <Card.Body className="text-center">
-                  <Card.Title>إجمالي الإيرادات</Card.Title>
-                  <Card.Text className="h3 text-success">
-                    {summary?.totalIncome.toFixed(2) || '0.00'}
-                  </Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4}>
-              <Card bg="light">
-                <Card.Body className="text-center">
-                  <Card.Title>إجمالي المصروفات</Card.Title>
-                  <Card.Text className="h3 text-danger">
-                    {summary?.totalExpenses.toFixed(2) || '0.00'}
-                  </Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4}>
-              <Card bg="light">
-                <Card.Body className="text-center">
-                  <Card.Title>الرصيد الإجمالي</Card.Title>
-                  <Card.Text className="h3 text-primary">
-                    {summary?.balance.toFixed(2) || '0.00'}
-                  </Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
+           {loadingSummary ? (
+             <div className="text-center"><Spinner animation="border" /></div>
+           ) : (
+            <Row>
+              <Col md={4}>
+                <Card bg="light">
+                  <Card.Body className="text-center">
+                    <Card.Title>إجمالي الإيرادات</Card.Title>
+                    <Card.Text className="h3 text-success">
+                      {summary?.totalIncome.toFixed(2) || '0.00'}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={4}>
+                <Card bg="light">
+                  <Card.Body className="text-center">
+                    <Card.Title>إجمالي المصروفات</Card.Title>
+                    <Card.Text className="h3 text-danger">
+                      {summary?.totalExpenses.toFixed(2) || '0.00'}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={4}>
+                <Card bg="light">
+                  <Card.Body className="text-center">
+                    <Card.Title>الرصيد الإجمالي</Card.Title>
+                    <Card.Text className="h3 text-primary">
+                      {summary?.balance.toFixed(2) || '0.00'}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+           )}
         </Card.Body>
       </Card>
 
