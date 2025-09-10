@@ -41,7 +41,7 @@ function ExpenseFormModal({ show, onHide, onSave, expense }) {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>{isEditMode ? 'تعديل مصروف' : 'إضافة مصروف جديد'}</Modal.Title>
       </Modal.Header>

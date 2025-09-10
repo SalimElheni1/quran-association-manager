@@ -62,7 +62,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>{isEditMode ? 'تعديل تبرع' : 'إضافة تبرع جديد'}</Modal.Title>
       </Modal.Header>
