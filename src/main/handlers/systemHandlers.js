@@ -61,7 +61,8 @@ function registerSystemHandlers() {
       }
 
       if (exportType === 'financial-report') {
-        const data = await exportManager.fetchFinancialData();
+        const period = options.period || null;
+        const data = await exportManager.fetchFinancialData(period);
         await exportManager.generateFinancialXlsx(data, filePath);
       } else {
         const fields = columns.map((c) => c.key);

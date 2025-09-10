@@ -16,8 +16,15 @@ function createHandler(handler) {
 }
 
 // --- Expense Handlers ---
-async function handleGetExpenses() {
-  return allQuery('SELECT * FROM expenses ORDER BY expense_date DESC');
+async function handleGetExpenses(event, period) {
+  let query = 'SELECT * FROM expenses';
+  const params = [];
+  if (period && period.startDate && period.endDate) {
+    query += ' WHERE expense_date BETWEEN ? AND ?';
+    params.push(period.startDate, period.endDate);
+  }
+  query += ' ORDER BY expense_date DESC';
+  return allQuery(query, params);
 }
 async function handleAddExpense(event, expense) {
   const { category, amount, expense_date, responsible_person, description } = expense;
@@ -43,8 +50,15 @@ async function handleDeleteExpense(event, expenseId) {
 }
 
 // --- Donation Handlers ---
-async function handleGetDonations() {
-  return allQuery('SELECT * FROM donations ORDER BY donation_date DESC');
+async function handleGetDonations(event, period) {
+  let query = 'SELECT * FROM donations';
+  const params = [];
+  if (period && period.startDate && period.endDate) {
+    query += ' WHERE donation_date BETWEEN ? AND ?';
+    params.push(period.startDate, period.endDate);
+  }
+  query += ' ORDER BY donation_date DESC';
+  return allQuery(query, params);
 }
 async function handleAddDonation(event, donation) {
   const { donor_name, amount, donation_date, notes, donation_type, description } = donation;
@@ -71,8 +85,8 @@ async function handleDeleteDonation(event, donationId) {
 }
 
 // --- Salary Handlers ---
-async function handleGetSalaries() {
-  const sql = `
+async function handleGetSalaries(event, period) {
+  let sql = `
     SELECT
       s.id,
       s.user_id,
@@ -88,9 +102,14 @@ async function handleGetSalaries() {
     FROM salaries s
     LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
     LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
-    ORDER BY s.payment_date DESC
   `;
-  return allQuery(sql);
+  const params = [];
+  if (period && period.startDate && period.endDate) {
+    sql += ' WHERE s.payment_date BETWEEN ? AND ?';
+    params.push(period.startDate, period.endDate);
+  }
+  sql += ' ORDER BY s.payment_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddSalary(event, salary) {
   const { user_id, user_type, amount, payment_date, notes } = salary;
@@ -140,14 +159,19 @@ async function handleDeleteSalary(event, salaryId) {
 }
 
 // --- Payment Handlers ---
-async function handleGetPayments() {
-  const sql = `
+async function handleGetPayments(event, period) {
+  let sql = `
     SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes
     FROM payments p
     JOIN students s ON p.student_id = s.id
-    ORDER BY p.payment_date DESC
   `;
-  return allQuery(sql);
+  const params = [];
+  if (period && period.startDate && period.endDate) {
+    sql += ' WHERE p.payment_date BETWEEN ? AND ?';
+    params.push(period.startDate, period.endDate);
+  }
+  sql += ' ORDER BY p.payment_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddPayment(event, payment) {
   const { student_id, amount, payment_date, payment_method, notes } = payment;
