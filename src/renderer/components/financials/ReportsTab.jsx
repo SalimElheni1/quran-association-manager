@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Col, Row, Spinner, Alert, Table } from 'react-bootstrap';
+import { Card, Col, Row, Spinner, Alert, Table, Form } from 'react-bootstrap';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
+
+const ARABIC_MONTHS = [
+  'جانفي',
+  'فيفري',
+  'مارس',
+  'أفريل',
+  'ماي',
+  'جوان',
+  'جويلية',
+  'أوت',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
+];
 
 function ReportsTab() {
   const { user } = useAuth();
@@ -10,17 +25,29 @@ function ReportsTab() {
   const [activities, setActivities] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [summaryResult, snapshotResult, activitiesResult] = await Promise.all([
-          window.electronAPI.getFinancialSummary(),
-          window.electronAPI.getMonthlySnapshot(),
-          window.electronAPI.getStatementOfActivities(),
+
+        const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
+        const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
+        const period = { startDate, endDate };
+
+        // Fetch general summary only once, it's not period-dependent
+        if (!summary) {
+          const summaryResult = await window.electronAPI.getFinancialSummary();
+          setSummary(summaryResult);
+        }
+
+        const [snapshotResult, activitiesResult] = await Promise.all([
+          window.electronAPI.getMonthlySnapshot(period),
+          window.electronAPI.getStatementOfActivities(period),
         ]);
-        setSummary(summaryResult);
+
         setSnapshot(snapshotResult);
         setActivities(activitiesResult);
         setError(null);
@@ -32,7 +59,7 @@ function ReportsTab() {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   const totalMonthlyRevenue = (activities?.studentFees || 0) + (activities?.cashDonations || 0);
   const totalMonthlyExpenses =
@@ -41,6 +68,21 @@ function ReportsTab() {
   const netMonthlyResult = totalMonthlyRevenue - totalMonthlyExpenses;
 
   const canViewDetailedReport = user?.role === 'Superadmin' || user?.role === 'FinanceManager';
+
+  const renderYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear; i >= currentYear - 10; i--) {
+      years.push(
+        <option key={i} value={i}>
+          {i}
+        </option>,
+      );
+    }
+    return years;
+  };
+
+  const selectedPeriodText = `${ARABIC_MONTHS[selectedMonth]} ${selectedYear}`;
 
   if (loading) {
     return (
@@ -100,7 +142,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="success" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>الإيرادات (الشهر الحالي)</Card.Title>
+              <Card.Title>الإيرادات ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
                 {snapshot?.totalIncomeThisMonth.toFixed(2) || '0.00'}
               </Card.Text>
@@ -110,7 +152,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="danger" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>المصروفات (الشهر الحالي)</Card.Title>
+              <Card.Title>المصروفات ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
                 {snapshot?.totalExpensesThisMonth.toFixed(2) || '0.00'}
               </Card.Text>
@@ -120,7 +162,7 @@ function ReportsTab() {
         <Col md={4}>
           <Card bg="info" text="white" className="text-center">
             <Card.Body>
-              <Card.Title>الرصيد (الشهر الحالي)</Card.Title>
+              <Card.Title>الرصيد ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
                 {(snapshot?.totalIncomeThisMonth - snapshot?.totalExpensesThisMonth).toFixed(2) ||
                   '0.00'}
@@ -133,7 +175,35 @@ function ReportsTab() {
       {canViewDetailedReport ? (
         <>
           <Card className="mb-4">
-            <Card.Header as="h4">كشف الأنشطة (الشهر الحالي)</Card.Header>
+            <Card.Header as="h4" className="d-flex justify-content-between align-items-center">
+              <span>كشف الأنشطة ({selectedPeriodText})</span>
+              <div style={{ minWidth: '250px' }}>
+                <Row>
+                  <Col>
+                    <Form.Select
+                      size="sm"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                    >
+                      {ARABIC_MONTHS.map((month, index) => (
+                        <option key={index} value={index}>
+                          {month}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+                  <Col>
+                    <Form.Select
+                      size="sm"
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                    >
+                      {renderYearOptions()}
+                    </Form.Select>
+                  </Col>
+                </Row>
+              </div>
+            </Card.Header>
             <Card.Body>
               <h5>الإيرادات</h5>
               <Table striped bordered size="sm">

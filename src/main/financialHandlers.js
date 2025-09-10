@@ -173,9 +173,17 @@ async function handleDeletePayment(event, paymentId) {
 }
 
 // --- Reporting Handlers ---
-async function handleGetStatementOfActivities() {
-  const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
-  const now = new Date().toISOString();
+async function handleGetStatementOfActivities(event, period) {
+  let startDate, endDate;
+
+  if (period && period.startDate && period.endDate) {
+    startDate = period.startDate;
+    endDate = period.endDate;
+  } else {
+    const now = new Date();
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  }
 
   // Statement of Activities Data
   const feesSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
@@ -183,7 +191,7 @@ async function handleGetStatementOfActivities() {
   const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
   const expensesSql = `SELECT category, SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category`;
 
-  // Recent Transactions Data
+  // Recent Transactions Data - Fetches last 10 overall, not limited by period for context.
   const recentTransactionsSql = `
         SELECT date, type, details, amount FROM (
             SELECT payment_date as date, 'دفعة رسوم' as type, 'دفعة من الطالب ' || s.name as details, amount FROM payments p JOIN students s ON p.student_id = s.id
@@ -211,11 +219,11 @@ async function handleGetStatementOfActivities() {
     `;
 
   const [fees, donations, salaries, expenses, recentTransactions] = await Promise.all([
-    getQuery(feesSql, [startOfMonth, now]),
-    getQuery(donationsSql, [startOfMonth, now]),
-    getQuery(salariesSql, [startOfMonth, now]),
-    allQuery(expensesSql, [startOfMonth, now]),
-    allQuery(recentTransactionsSql),
+    getQuery(feesSql, [startDate, endDate]),
+    getQuery(donationsSql, [startDate, endDate]),
+    getQuery(salariesSql, [startDate, endDate]),
+    allQuery(expensesSql, [startDate, endDate]),
+    allQuery(recentTransactionsSql), // Continues to fetch latest 10 transactions regardless of period
   ]);
 
   return {
@@ -227,28 +235,47 @@ async function handleGetStatementOfActivities() {
   };
 }
 
-async function handleGetMonthlySnapshot() {
-  const startOfMonth = new Date(new Date().setDate(1)).toISOString().split('T')[0] + ' 00:00:00';
-  const now = new Date().toISOString();
+async function handleGetMonthlySnapshot(event, period) {
+  let startDate, endDate;
+
+  if (period && period.startDate && period.endDate) {
+    startDate = period.startDate;
+    endDate = period.endDate;
+  } else {
+    const now = new Date();
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  }
 
   const incomeSql = `SELECT SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?`;
+  const cashDonationsSql = `SELECT SUM(amount) as total FROM donations WHERE donation_type = 'Cash' AND donation_date BETWEEN ? AND ?`;
   const expensesSql = `SELECT SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?`;
   const salariesSql = `SELECT SUM(amount) as total FROM salaries WHERE payment_date BETWEEN ? AND ?`;
   const paymentCountSql = `SELECT COUNT(*) as count FROM payments WHERE payment_date BETWEEN ? AND ?`;
   const largestExpenseSql = `SELECT MAX(amount) as max FROM expenses WHERE expense_date BETWEEN ? AND ?`;
 
-  const [monthlyIncome, monthlyExpenses, monthlySalaries, paymentCount, largestExpense] =
-    await Promise.all([
-      getQuery(incomeSql, [startOfMonth, now]),
-      getQuery(expensesSql, [startOfMonth, now]),
-      getQuery(salariesSql, [startOfMonth, now]),
-      getQuery(paymentCountSql, [startOfMonth, now]),
-      getQuery(largestExpenseSql, [startOfMonth, now]),
-    ]);
+  const [
+    monthlyIncome,
+    monthlyCashDonations,
+    monthlyExpenses,
+    monthlySalaries,
+    paymentCount,
+    largestExpense,
+  ] = await Promise.all([
+    getQuery(incomeSql, [startDate, endDate]),
+    getQuery(cashDonationsSql, [startDate, endDate]),
+    getQuery(expensesSql, [startDate, endDate]),
+    getQuery(salariesSql, [startDate, endDate]),
+    getQuery(paymentCountSql, [startDate, endDate]),
+    getQuery(largestExpenseSql, [startDate, endDate]),
+  ]);
+
+  const totalIncome = (monthlyIncome?.total || 0) + (monthlyCashDonations?.total || 0);
+  const totalExpenses = (monthlyExpenses?.total || 0) + (monthlySalaries?.total || 0);
 
   return {
-    totalIncomeThisMonth: monthlyIncome?.total || 0,
-    totalExpensesThisMonth: (monthlyExpenses?.total || 0) + (monthlySalaries?.total || 0),
+    totalIncomeThisMonth: totalIncome,
+    totalExpensesThisMonth: totalExpenses,
     paymentsThisMonth: paymentCount?.count || 0,
     largestExpenseThisMonth: largestExpense?.max || 0,
   };
