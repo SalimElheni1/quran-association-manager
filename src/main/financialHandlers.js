@@ -47,8 +47,9 @@ async function handleGetDonations() {
   return allQuery('SELECT * FROM donations ORDER BY donation_date DESC');
 }
 async function handleAddDonation(event, donation) {
-  const { donor_name, amount, donation_date, notes, donation_type, description } = donation;
-  const sql = `INSERT INTO donations (donor_name, amount, donation_date, notes, donation_type, description) VALUES (?, ?, ?, ?, ?, ?)`;
+  const { donor_name, amount, donation_date, notes, donation_type, description, quantity, category } =
+    donation;
+  const sql = `INSERT INTO donations (donor_name, amount, donation_date, notes, donation_type, description, quantity, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [
     donor_name,
     amount,
@@ -56,13 +57,26 @@ async function handleAddDonation(event, donation) {
     notes,
     donation_type,
     description,
+    quantity,
+    category,
   ]);
   return getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
 }
 async function handleUpdateDonation(event, donation) {
-  const { id, donor_name, amount, donation_date, notes, donation_type, description } = donation;
-  const sql = `UPDATE donations SET donor_name = ?, amount = ?, donation_date = ?, notes = ?, donation_type = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-  await runQuery(sql, [donor_name, amount, donation_date, notes, donation_type, description, id]);
+  const { id, donor_name, amount, donation_date, notes, donation_type, description, quantity, category } =
+    donation;
+  const sql = `UPDATE donations SET donor_name = ?, amount = ?, donation_date = ?, notes = ?, donation_type = ?, description = ?, quantity = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+  await runQuery(sql, [
+    donor_name,
+    amount,
+    donation_date,
+    notes,
+    donation_type,
+    description,
+    quantity,
+    category,
+    id,
+  ]);
   return getQuery('SELECT * FROM donations WHERE id = ?', [id]);
 }
 async function handleDeleteDonation(event, donationId) {
