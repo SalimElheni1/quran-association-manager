@@ -465,12 +465,42 @@ const ExportsPage = () => {
   const [activeTab, setActiveTab] = useState('students');
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // State for financial export date range
+  const [financialPeriod, setFinancialPeriod] = useState('all'); // 'all', 'monthly', 'custom'
+  const [financialStartDate, setFinancialStartDate] = useState(
+    new Date().toISOString().split('T')[0],
+  );
+  const [financialEndDate, setFinancialEndDate] = useState(new Date().toISOString().split('T')[0]);
+
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
+
+    let options = {};
+    if (financialPeriod === 'monthly') {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      options = {
+        startDate: firstDay.toISOString().split('T')[0],
+        endDate: lastDay.toISOString().split('T')[0],
+      };
+    } else if (financialPeriod === 'custom') {
+      if (!financialStartDate || !financialEndDate) {
+        setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء ونهاية صالحين.' });
+        return;
+      }
+      options = {
+        startDate: financialStartDate,
+        endDate: financialEndDate,
+      };
+    }
+    // If 'all', options remains an empty object
+
     try {
       const result = await window.electronAPI.generateExport({
         exportType: 'financial-report',
         format: 'xlsx',
+        options,
       });
       if (result.success) {
         setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
@@ -516,6 +546,48 @@ const ExportsPage = () => {
                 تصدير ملف Excel يحتوي على جميع البيانات المالية: ملخص شامل، رسوم الطلاب، الرواتب،
                 التبرعات، والمصاريف العامة.
               </p>
+              <Form>
+                <Row className="mb-3">
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label>النطاق الزمني للتصدير</Form.Label>
+                      <Form.Select
+                        value={financialPeriod}
+                        onChange={(e) => setFinancialPeriod(e.target.value)}
+                      >
+                        <option value="all">كل الأوقات</option>
+                        <option value="monthly">هذا الشهر</option>
+                        <option value="custom">نطاق مخصص</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  {financialPeriod === 'custom' && (
+                    <>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label>من تاريخ</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={financialStartDate}
+                            onChange={(e) => setFinancialStartDate(e.target.value)}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label>إلى تاريخ</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={financialEndDate}
+                            onChange={(e) => setFinancialEndDate(e.target.value)}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </>
+                  )}
+                </Row>
+              </Form>
+              <hr />
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
               <div className="d-flex justify-content-end">
                 <Button variant="primary" onClick={handleFinancialExport}>

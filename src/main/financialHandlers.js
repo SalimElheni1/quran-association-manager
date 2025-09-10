@@ -16,8 +16,18 @@ function createHandler(handler) {
 }
 
 // --- Expense Handlers ---
-async function handleGetExpenses() {
-  return allQuery('SELECT * FROM expenses ORDER BY expense_date DESC');
+async function handleGetExpenses(event, options = {}) {
+  const { startDate, endDate } = options;
+  let sql = 'SELECT * FROM expenses';
+  const params = [];
+
+  if (startDate && endDate) {
+    sql += ' WHERE expense_date BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  }
+
+  sql += ' ORDER BY expense_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddExpense(event, expense) {
   const { category, amount, expense_date, responsible_person, description } = expense;
@@ -43,8 +53,18 @@ async function handleDeleteExpense(event, expenseId) {
 }
 
 // --- Donation Handlers ---
-async function handleGetDonations() {
-  return allQuery('SELECT * FROM donations ORDER BY donation_date DESC');
+async function handleGetDonations(event, options = {}) {
+  const { startDate, endDate } = options;
+  let sql = 'SELECT * FROM donations';
+  const params = [];
+
+  if (startDate && endDate) {
+    sql += ' WHERE donation_date BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  }
+
+  sql += ' ORDER BY donation_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddDonation(event, donation) {
   const { donor_name, amount, donation_date, notes, donation_type, description } = donation;
@@ -71,8 +91,9 @@ async function handleDeleteDonation(event, donationId) {
 }
 
 // --- Salary Handlers ---
-async function handleGetSalaries() {
-  const sql = `
+async function handleGetSalaries(event, options = {}) {
+  const { startDate, endDate } = options;
+  let sql = `
     SELECT
       s.id,
       s.user_id,
@@ -88,9 +109,16 @@ async function handleGetSalaries() {
     FROM salaries s
     LEFT JOIN teachers t ON s.user_id = t.id AND s.user_type = 'teacher'
     LEFT JOIN users u ON s.user_id = u.id AND s.user_type = 'admin'
-    ORDER BY s.payment_date DESC
   `;
-  return allQuery(sql);
+  const params = [];
+
+  if (startDate && endDate) {
+    sql += ' WHERE s.payment_date BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  }
+
+  sql += ' ORDER BY s.payment_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddSalary(event, salary) {
   const { user_id, user_type, amount, payment_date, notes } = salary;
@@ -140,14 +168,22 @@ async function handleDeleteSalary(event, salaryId) {
 }
 
 // --- Payment Handlers ---
-async function handleGetPayments() {
-  const sql = `
+async function handleGetPayments(event, options = {}) {
+  const { startDate, endDate } = options;
+  let sql = `
     SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes
     FROM payments p
     JOIN students s ON p.student_id = s.id
-    ORDER BY p.payment_date DESC
   `;
-  return allQuery(sql);
+  const params = [];
+
+  if (startDate && endDate) {
+    sql += ' WHERE p.payment_date BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  }
+
+  sql += ' ORDER BY p.payment_date DESC';
+  return allQuery(sql, params);
 }
 async function handleAddPayment(event, payment) {
   const { student_id, amount, payment_date, payment_method, notes } = payment;
@@ -254,19 +290,31 @@ async function handleGetMonthlySnapshot() {
   };
 }
 
-async function handleGetFinancialSummary() {
-  const incomeSql = `
-        SELECT 'Payments' as source, SUM(amount) as total FROM payments
-        UNION ALL
-        SELECT 'Donations' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash'
-    `;
-  const expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses`;
-  const salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries`;
+async function handleGetFinancialSummary(event, options = {}) {
+  const { startDate, endDate } = options;
+
+  let paymentsIncomeSql = `SELECT 'Payments' as source, SUM(amount) as total FROM payments`;
+  let donationsIncomeSql = `SELECT 'Donations' as source, SUM(amount) as total FROM donations WHERE donation_type = 'Cash'`;
+  let expensesSql = `SELECT 'Expenses' as source, SUM(amount) as total FROM expenses`;
+  let salariesSql = `SELECT 'Salaries' as source, SUM(amount) as total FROM salaries`;
+  const params = [];
+
+  if (startDate && endDate) {
+    paymentsIncomeSql += ' WHERE payment_date BETWEEN ? AND ?';
+    donationsIncomeSql += ' AND donation_date BETWEEN ? AND ?';
+    expensesSql += ' WHERE expense_date BETWEEN ? AND ?';
+    salariesSql += ' WHERE payment_date BETWEEN ? AND ?';
+    params.push(startDate, endDate, startDate, endDate, startDate, endDate, startDate, endDate);
+  }
+
+  const incomeSql = `${paymentsIncomeSql} UNION ALL ${donationsIncomeSql}`;
+  const incomeParams = params.slice(0, 4);
+  const expenseParams = params.slice(4);
 
   const [income, expenses, salaries] = await Promise.all([
-    allQuery(incomeSql),
-    allQuery(expensesSql),
-    allQuery(salariesSql),
+    allQuery(incomeSql, incomeParams),
+    allQuery(expensesSql, [expenseParams[0], expenseParams[1]]),
+    allQuery(salariesSql, [expenseParams[2], expenseParams[3]]),
   ]);
 
   const totalIncome = income.reduce((acc, item) => acc + (item.total || 0), 0);

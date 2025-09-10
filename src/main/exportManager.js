@@ -16,13 +16,13 @@ const {
 } = require('./financialHandlers');
 
 // --- Data Fetching ---
-async function fetchFinancialData() {
+async function fetchFinancialData(options = {}) {
   const [summary, payments, salaries, donations, expenses] = await Promise.all([
-    handleGetFinancialSummary(),
-    handleGetPayments(),
-    handleGetSalaries(),
-    handleGetDonations(),
-    handleGetExpenses(),
+    handleGetFinancialSummary(null, options),
+    handleGetPayments(null, options),
+    handleGetSalaries(null, options),
+    handleGetDonations(null, options),
+    handleGetExpenses(null, options),
   ]);
   return { summary, payments, salaries, donations, expenses };
 }
