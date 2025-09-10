@@ -103,7 +103,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>{isEditMode ? 'تعديل دفعة' : 'إضافة دفعة جديدة'}</Modal.Title>
       </Modal.Header>
