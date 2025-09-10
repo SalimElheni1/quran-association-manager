@@ -93,7 +93,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
   deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
 
-  getFinancialSummary: () => ipcRenderer.invoke('get-financial-summary'),
+  getFinancialSummary: (year) => ipcRenderer.invoke('get-financial-summary', year),
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
   getStatementOfActivities: (period) =>
     ipcRenderer.invoke('get-statement-of-activities', period),

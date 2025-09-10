@@ -281,10 +281,10 @@ async function handleGetMonthlySnapshot(event, period) {
   };
 }
 
-async function handleGetFinancialSummary() {
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0] + ' 00:00:00';
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString();
+async function handleGetFinancialSummary(event, year) {
+  const targetYear = year || new Date().getFullYear();
+  const startOfYear = new Date(targetYear, 0, 1).toISOString().split('T')[0] + ' 00:00:00';
+  const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59).toISOString();
 
   const incomeSql = `
         SELECT 'Payments' as source, SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?
