@@ -2,19 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
-import GroupFormModal from './GroupFormModal';
-import ConfirmationModal from './ConfirmationModal';
 import GroupStudentAssignmentModal from './GroupStudentAssignmentModal';
 
-function GroupsTabContent() {
+function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [showModal, setShowModal] = useState(false);
-  const [editingGroup, setEditingGroup] = useState(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState(null);
 
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [groupToAssign, setGroupToAssign] = useState(null);
@@ -39,87 +32,7 @@ function GroupsTabContent() {
 
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
-
-  const handleShowAddModal = () => {
-    setEditingGroup(null);
-    setShowModal(true);
-  };
-
-  const handleShowEditModal = (group) => {
-    setEditingGroup(group);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingGroup(null);
-  };
-
-  const handleSaveGroup = async (formData, groupId) => {
-    try {
-      let result;
-      if (groupId) {
-        result = await window.electronAPI.updateGroup(groupId, formData);
-        if (result.success) {
-          toast.success(`تم تحديث المجموعة "${formData.name}" بنجاح!`);
-        }
-      } else {
-        result = await window.electronAPI.addGroup(formData);
-        if (result.success) {
-          toast.success(`تمت إضافة المجموعة "${formData.name}" بنجاح!`);
-        }
-      }
-
-      if (result.success) {
-        fetchGroups();
-        handleCloseModal();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error saving group:', err);
-      toast.error(err.message || 'فشل حفظ المجموعة.');
-    }
-  };
-
-  const handleDeleteRequest = (group) => {
-    setGroupToDelete(group);
-    setShowDeleteModal(true);
-  };
-
-  const handleCloseDeleteModal = () => {
-    setGroupToDelete(null);
-    setShowDeleteModal(false);
-  };
-
-  const confirmDelete = async () => {
-    if (!groupToDelete) return;
-
-    try {
-      const result = await window.electronAPI.deleteGroup(groupToDelete.id);
-      if (result.success) {
-        toast.success(`تم حذف المجموعة "${groupToDelete.name}" بنجاح.`);
-        fetchGroups();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error deleting group:', err);
-      toast.error(`فشل حذف المجموعة "${groupToDelete.name}".`);
-    } finally {
-      handleCloseDeleteModal();
-    }
-  };
-
-  // This is passed up to the parent `StudentsPage` to trigger the modal
-  // A bit of a workaround for the button being in the parent component.
-  // A better solution might involve React Context or a different component structure.
-  useEffect(() => {
-    const handler = () => handleShowAddModal();
-    document.addEventListener('show-add-group-modal', handler);
-    return () => document.removeEventListener('show-add-group-modal', handler);
-  }, []);
+  }, [fetchGroups, refreshDependency]);
 
   const handleShowAssignmentModal = (group) => {
     setGroupToAssign(group);
@@ -170,10 +83,10 @@ function GroupsTabContent() {
                     <Button variant="outline-primary" size="sm" onClick={() => handleShowAssignmentModal(group)}>
                       <i className="fas fa-users"></i> إدارة الطلاب
                     </Button>
-                    <Button variant="outline-success" size="sm" onClick={() => handleShowEditModal(group)}>
+                    <Button variant="outline-success" size="sm" onClick={() => onEditGroup(group)}>
                       <i className="fas fa-edit"></i> تعديل
                     </Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(group)}>
+                    <Button variant="outline-danger" size="sm" onClick={() => onDeleteGroup(group)}>
                       <i className="fas fa-trash"></i> حذف
                     </Button>
                   </td>
@@ -189,23 +102,6 @@ function GroupsTabContent() {
           </tbody>
         </Table>
       )}
-
-      <GroupFormModal
-        show={showModal}
-        handleClose={handleCloseModal}
-        onSave={handleSaveGroup}
-        group={editingGroup}
-      />
-
-      <ConfirmationModal
-        show={showDeleteModal}
-        handleClose={handleCloseDeleteModal}
-        handleConfirm={confirmDelete}
-        title="تأكيد حذف المجموعة"
-        body={`هل أنت متأكد من رغبتك في حذف المجموعة "${groupToDelete?.name}"؟ سيتم أيضًا إزالة جميع الطلاب من هذه المجموعة.`}
-        confirmVariant="danger"
-        confirmText="نعم، حذف"
-      />
 
       <GroupStudentAssignmentModal
         show={showAssignmentModal}

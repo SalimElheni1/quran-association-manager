@@ -26,6 +26,13 @@ function StudentsPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [studentToView, setStudentToView] = useState(null);
 
+  // State for Group Modals
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState(null);
+  const [refreshGroups, setRefreshGroups] = useState(false);
+
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
@@ -124,6 +131,74 @@ function StudentsPage() {
       toast.error(`فشل حذف الطالب "${studentToDelete.name}".`);
     } finally {
       handleCloseDeleteModal();
+    }
+  };
+
+  // --- Group Handlers ---
+  const handleShowAddGroupModal = () => {
+    setEditingGroup(null);
+    setShowGroupModal(true);
+  };
+
+  const handleShowEditGroupModal = (group) => {
+    setEditingGroup(group);
+    setShowGroupModal(true);
+  };
+
+  const handleCloseGroupModal = () => {
+    setShowGroupModal(false);
+    setEditingGroup(null);
+  };
+
+  const handleSaveGroup = async (formData, groupId) => {
+    try {
+      let result;
+      if (groupId) {
+        result = await window.electronAPI.updateGroup(groupId, formData);
+        if (result.success) toast.success(`تم تحديث المجموعة "${formData.name}" بنجاح!`);
+      } else {
+        result = await window.electronAPI.addGroup(formData);
+        if (result.success) toast.success(`تمت إضافة المجموعة "${formData.name}" بنجاح!`);
+      }
+
+      if (result.success) {
+        setRefreshGroups(prev => !prev); // Toggle to trigger refetch in child
+        handleCloseGroupModal();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      logError('Error saving group:', err);
+      toast.error(err.message || 'فشل حفظ المجموعة.');
+    }
+  };
+
+  const handleDeleteGroupRequest = (group) => {
+    setGroupToDelete(group);
+    setShowGroupDeleteModal(true);
+  };
+
+  const handleCloseGroupDeleteModal = () => {
+    setGroupToDelete(null);
+    setShowGroupDeleteModal(false);
+  };
+
+  const confirmGroupDelete = async () => {
+    if (!groupToDelete) return;
+
+    try {
+      const result = await window.electronAPI.deleteGroup(groupToDelete.id);
+      if (result.success) {
+        toast.success(`تم حذف المجموعة "${groupToDelete.name}" بنجاح.`);
+        setRefreshGroups(prev => !prev); // Toggle to trigger refetch in child
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      logError('Error deleting group:', err);
+      toast.error(`فشل حذف المجموعة "${groupToDelete.name}".`);
+    } finally {
+      handleCloseGroupDeleteModal();
     }
   };
 
@@ -251,7 +326,7 @@ function StudentsPage() {
           </Button>
         )}
         {activeTab === 'groups' && (
-          <Button variant="primary" onClick={() => document.dispatchEvent(new CustomEvent('show-add-group-modal'))}>
+          <Button variant="primary" onClick={handleShowAddGroupModal}>
             <i className="fas fa-plus ms-2"></i> إضافة مجموعة
           </Button>
         )}
@@ -262,7 +337,11 @@ function StudentsPage() {
           {renderStudentsTab()}
         </Tab>
         <Tab eventKey="groups" title="المجموعات">
-          <GroupsTabContent />
+          <GroupsTabContent
+            onEditGroup={handleShowEditGroupModal}
+            onDeleteGroup={handleDeleteGroupRequest}
+            refreshDependency={refreshGroups}
+          />
         </Tab>
       </Tabs>
 
@@ -285,6 +364,23 @@ function StudentsPage() {
         handleConfirm={confirmDelete}
         title="تأكيد حذف الطالب"
         body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmVariant="danger"
+        confirmText="نعم، حذف"
+      />
+
+      <GroupFormModal
+        show={showGroupModal}
+        handleClose={handleCloseGroupModal}
+        onSave={handleSaveGroup}
+        group={editingGroup}
+      />
+
+      <ConfirmationModal
+        show={showGroupDeleteModal}
+        handleClose={handleCloseGroupDeleteModal}
+        handleConfirm={confirmGroupDelete}
+        title="تأكيد حذف المجموعة"
+        body={`هل أنت متأكد من رغبتك في حذف المجموعة "${groupToDelete?.name}"؟ سيتم أيضًا إزالة جميع الطلاب من هذه المجموعة.`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

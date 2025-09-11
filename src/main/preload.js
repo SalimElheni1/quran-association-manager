@@ -46,7 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addStudentToGroup: (studentId, groupId) => ipcRenderer.invoke('groups:addStudentToGroup', { studentId, groupId }),
   removeStudentFromGroup: (studentId, groupId) => ipcRenderer.invoke('groups:removeStudentFromGroup', { studentId, groupId }),
   getStudentGroups: (studentId) => ipcRenderer.invoke('groups:getStudentGroups', studentId),
-  getStudentsForGroupAssignment: (groupId) => ipcRenderer.invoke('groups:getStudentsForGroupAssignment', groupId),
+  getAssignmentData: (groupId) => ipcRenderer.invoke('groups:getAssignmentData', groupId),
   updateGroupStudents: (groupId, studentIds) => ipcRenderer.invoke('groups:updateGroupStudents', { groupId, studentIds }),
   getEligibleGroupsForClass: (classId) => ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
 

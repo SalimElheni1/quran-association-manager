@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, ListGroup, Row, Col, Spinner } from 'react-bootstrap';
+import { Modal, Button, ListGroup, Row, Col, Spinner, Form } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import '@renderer/styles/EnrollmentModal.css';
 import { error as logError } from '@renderer/utils/logger';

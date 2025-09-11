@@ -13,26 +13,27 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
   const [selectedMembers, setSelectedMembers] = useState(new Set());
 
   useEffect(() => {
-    const fetchStudentsForGroup = async () => {
+    const fetchAssignmentData = async () => {
       if (show && group) {
         setLoading(true);
         try {
-          const result = await window.electronAPI.getStudentsForGroupAssignment(group.id);
+          const result = await window.electronAPI.getAssignmentData(group.id);
           if (result.success) {
-            setMembers(result.data.members);
-            setNonMembers(result.data.nonMembers);
+            const allStudents = result.data;
+            setMembers(allStudents.filter(s => s.isMember));
+            setNonMembers(allStudents.filter(s => !s.isMember));
           } else {
             toast.error(result.message);
           }
         } catch (err) {
-          logError('Error fetching students for group assignment:', err);
+          logError('Error fetching assignment data:', err);
           toast.error('فشل تحميل بيانات الطلاب للمجموعة.');
         } finally {
           setLoading(false);
         }
       }
     };
-    fetchStudentsForGroup();
+    fetchAssignmentData();
   }, [show, group]);
 
   const filteredNonMembers = useMemo(() => {
