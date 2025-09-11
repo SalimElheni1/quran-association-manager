@@ -97,8 +97,8 @@ function InventoryTab() {
         <td>{item.item_name}</td>
         <td>{item.category}</td>
         <td>{item.quantity}</td>
-        <td>{item.unit_value ? `${item.unit_value.toFixed(2)}` : 'N/A'}</td>
-        <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'N/A'}</td>
+        <td>{item.unit_value ? `${item.unit_value.toFixed(2)}` : 'غير محدد'}</td>
+        <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.location || 'غير محدد'}</td>
         <td>
           <Button variant="outline-primary" size="sm" onClick={() => handleEditItem(item)} className="me-2">
