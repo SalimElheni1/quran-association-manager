@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addStudent: (studentData) => ipcRenderer.invoke('students:add', studentData),
   updateStudent: (id, studentData) => ipcRenderer.invoke('students:update', id, studentData),
   deleteStudent: (id) => ipcRenderer.invoke('students:delete', id),
+  getFullDetailsForDebug: (name) => ipcRenderer.invoke('students:getFullDetailsForDebug', name),
 
   // Teachers API
   getTeachers: (filters) => ipcRenderer.invoke('teachers:get', filters),
