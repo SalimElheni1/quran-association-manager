@@ -75,9 +75,12 @@ function registerStudentHandlers() {
   });
 
   ipcMain.handle('students:add', async (_event, studentData) => {
+    const { groupIds, ...restOfStudentData } = studentData;
     try {
+      await db.runQuery('BEGIN TRANSACTION;');
+
       const matricule = await generateMatricule('student');
-      const dataWithMatricule = { ...studentData, matricule };
+      const dataWithMatricule = { ...restOfStudentData, matricule };
 
       const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
@@ -90,8 +93,21 @@ function registerStudentHandlers() {
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
       const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
       const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-      return await db.runQuery(sql, params);
+
+      const result = await db.runQuery(sql, params);
+      const studentId = result.id;
+
+      if (studentId && groupIds && groupIds.length > 0) {
+        const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+        for (const groupId of groupIds) {
+          await db.runQuery(insertGroupSql, [studentId, groupId]);
+        }
+      }
+
+      await db.runQuery('COMMIT;');
+      return result;
     } catch (error) {
+      await db.runQuery('ROLLBACK;');
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
       logError('Error in students:add handler:', error);
@@ -100,8 +116,11 @@ function registerStudentHandlers() {
   });
 
   ipcMain.handle('students:update', async (_event, id, studentData) => {
+    const { groupIds, ...restOfStudentData } = studentData;
     try {
-      const validatedData = await studentValidationSchema.validateAsync(studentData, {
+      await db.runQuery('BEGIN TRANSACTION;');
+
+      const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
         abortEarly: false,
         stripUnknown: false,
       });
@@ -114,8 +133,25 @@ function registerStudentHandlers() {
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
-      return await db.runQuery(sql, params);
+
+      const result = await db.runQuery(sql, params);
+
+      // Update student groups
+      // 1. Delete existing group assignments
+      await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
+
+      // 2. Add new group assignments
+      if (groupIds && groupIds.length > 0) {
+        const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+        for (const groupId of groupIds) {
+          await db.runQuery(insertGroupSql, [id, groupId]);
+        }
+      }
+
+      await db.runQuery('COMMIT;');
+      return result;
     } catch (error) {
+      await db.runQuery('ROLLBACK;');
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
       logError('Error in students:update handler:', error);

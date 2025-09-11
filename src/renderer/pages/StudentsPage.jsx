@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Badge, Form, InputGroup } from 'react-bootstrap';
+import { Table, Button, Spinner, Badge, Form, InputGroup, Tabs, Tab } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StudentFormModal from '@renderer/components/StudentFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
+// Placeholder for the new component
+import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
 
 function StudentsPage() {
-  const [students, setStudents] = useState([]); // This will now hold only the filtered students
+  const [activeTab, setActiveTab] = useState('students');
+
+  // Student-related state
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -36,8 +41,11 @@ function StudentsPage() {
   }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter]);
 
   useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
+    if (activeTab === 'students') {
+      fetchStudents();
+    }
+    // Add logic for fetching groups when that tab is active
+  }, [activeTab, fetchStudents]);
 
   const handleShowAddModal = () => {
     setEditingStudent(null);
@@ -46,7 +54,6 @@ function StudentsPage() {
 
   const handleShowEditModal = async (student) => {
     try {
-      // Fetch the full student record before opening the modal
       const fullStudent = await window.electronAPI.getStudentById(student.id);
       setEditingStudent(fullStudent);
       setShowModal(true);
@@ -133,15 +140,8 @@ function StudentsPage() {
   };
 
   const renderStatusBadge = (status) => {
-    const translations = {
-      active: 'نشط',
-      inactive: 'غير نشط',
-    };
-    const variants = {
-      active: 'success',
-      inactive: 'secondary',
-    };
-
+    const translations = { active: 'نشط', inactive: 'غير نشط' };
+    const variants = { active: 'success', inactive: 'secondary' };
     return (
       <Badge bg={variants[status] || 'light'} text="dark" className="p-2">
         {translations[status] || status}
@@ -149,20 +149,11 @@ function StudentsPage() {
     );
   };
 
-  return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>شؤون الطلاب</h1>
-        <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة طالب
-        </Button>
-      </div>
-
+  const renderStudentsTab = () => (
+    <>
       <div className="filter-bar">
         <InputGroup className="search-input-group">
-          <InputGroup.Text>
-            <i className="fas fa-search"></i>
-          </InputGroup.Text>
+          <InputGroup.Text><i className="fas fa-search"></i></InputGroup.Text>
           <Form.Control
             type="search"
             placeholder="البحث بالاسم أو الرقم التعريفي..."
@@ -197,13 +188,8 @@ function StudentsPage() {
           />
         </div>
       </div>
-
       {loading ? (
-        <div className="text-center">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-        </div>
+        <div className="text-center"><Spinner animation="border" /></div>
       ) : (
         <Table striped bordered hover responsive className="students-table">
           <thead>
@@ -228,25 +214,13 @@ function StudentsPage() {
                   <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
                   <td>{renderStatusBadge(student.status)}</td>
                   <td className="table-actions d-flex gap-2">
-                    <Button
-                      variant="outline-info"
-                      size="sm"
-                      onClick={() => handleShowDetailsModal(student)}
-                    >
+                    <Button variant="outline-info" size="sm" onClick={() => handleShowDetailsModal(student)}>
                       <i className="fas fa-eye"></i> عرض التفاصيل
                     </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => handleShowEditModal(student)}
-                    >
+                    <Button variant="outline-success" size="sm" onClick={() => handleShowEditModal(student)}>
                       <i className="fas fa-edit"></i> تعديل
                     </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRequest(student)}
-                    >
+                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(student)}>
                       <i className="fas fa-trash"></i> حذف
                     </Button>
                   </td>
@@ -254,7 +228,7 @@ function StudentsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="text-center">
+                <td colSpan="7" className="text-center">
                   {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
                     ? 'لا توجد نتائج تطابق معايير البحث.'
                     : 'لا يوجد طلاب مسجلون حالياً.'}
@@ -264,6 +238,33 @@ function StudentsPage() {
           </tbody>
         </Table>
       )}
+    </>
+  );
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <h1>شؤون الطلاب</h1>
+        {activeTab === 'students' && (
+          <Button variant="primary" onClick={handleShowAddModal}>
+            <i className="fas fa-plus ms-2"></i> إضافة طالب
+          </Button>
+        )}
+        {activeTab === 'groups' && (
+          <Button variant="primary" onClick={() => document.dispatchEvent(new CustomEvent('show-add-group-modal'))}>
+            <i className="fas fa-plus ms-2"></i> إضافة مجموعة
+          </Button>
+        )}
+      </div>
+
+      <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} id="students-tabs" className="mb-3">
+        <Tab eventKey="students" title="الطلاب">
+          {renderStudentsTab()}
+        </Tab>
+        <Tab eventKey="groups" title="المجموعات">
+          <GroupsTabContent />
+        </Tab>
+      </Tabs>
 
       <StudentFormModal
         show={showModal}

@@ -37,6 +37,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateEnrollments: (classId, studentIds) =>
     ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
 
+  // Groups API
+  getGroups: (filters) => ipcRenderer.invoke('groups:get', filters),
+  addGroup: (groupData) => ipcRenderer.invoke('groups:add', groupData),
+  updateGroup: (id, groupData) => ipcRenderer.invoke('groups:update', id, groupData),
+  deleteGroup: (id) => ipcRenderer.invoke('groups:delete', id),
+  getGroupStudents: (groupId) => ipcRenderer.invoke('groups:getGroupStudents', groupId),
+  addStudentToGroup: (studentId, groupId) => ipcRenderer.invoke('groups:addStudentToGroup', { studentId, groupId }),
+  removeStudentFromGroup: (studentId, groupId) => ipcRenderer.invoke('groups:removeStudentFromGroup', { studentId, groupId }),
+  getStudentGroups: (studentId) => ipcRenderer.invoke('groups:getStudentGroups', studentId),
+  getStudentsForGroupAssignment: (groupId) => ipcRenderer.invoke('groups:getStudentsForGroupAssignment', groupId),
+  updateGroupStudents: (groupId, studentIds) => ipcRenderer.invoke('groups:updateGroupStudents', { groupId, studentIds }),
+  getEligibleGroupsForClass: (classId) => ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
+
   // Settings API
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),

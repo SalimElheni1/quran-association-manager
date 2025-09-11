@@ -30,6 +30,7 @@ const { registerFinancialHandlers } = require('./financialHandlers');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
 const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
 const { registerClassHandlers } = require('./handlers/classHandlers');
+const { registerGroupHandlers } = require('./handlers/groupHandlers');
 const { registerUserHandlers } = require('./handlers/userHandlers');
 const { registerAttendanceHandlers } = require('./handlers/attendanceHandlers');
 const { registerAuthHandlers } = require('./handlers/authHandlers');
@@ -238,6 +239,7 @@ app.whenReady().then(async () => {
     registerStudentHandlers();
     registerTeacherHandlers();
     registerClassHandlers();
+    registerGroupHandlers();
     registerUserHandlers();
     registerAttendanceHandlers();
     registerAuthHandlers();

@@ -8,6 +8,8 @@ function EnrollmentModal({ show, handleClose, classData }) {
   const [enrolled, setEnrolled] = useState([]);
   const [notEnrolled, setNotEnrolled] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [eligibleGroups, setEligibleGroups] = useState([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState(new Set());
 
   useEffect(() => {
     const fetchEnrollmentData = async () => {
@@ -27,11 +29,20 @@ function EnrollmentModal({ show, handleClose, classData }) {
         // Correctly set the state from the destructured response
         setEnrolled(enrolledStudents || []);
         setNotEnrolled(notEnrolledStudents || []);
+
+        // Fetch eligible groups
+        const groupsResult = await window.electronAPI.getEligibleGroupsForClass(classData.id);
+        if (groupsResult.success) {
+          setEligibleGroups(groupsResult.data);
+        } else {
+          toast.error('Failed to load eligible groups.');
+        }
       } catch (err) {
         logError('Error fetching enrollment data:', err);
         toast.error('فشل في تحميل بيانات تسجيل الطلاب.');
         setEnrolled([]);
         setNotEnrolled([]);
+        setEligibleGroups([]);
       } finally {
         setLoading(false);
       }
@@ -52,6 +63,50 @@ function EnrollmentModal({ show, handleClose, classData }) {
     setNotEnrolled(
       [...notEnrolled, studentToUnenroll].sort((a, b) => a.name.localeCompare(b.name)),
     );
+  };
+
+  const handleGroupSelectionChange = (groupId) => {
+    const newSelection = new Set(selectedGroupIds);
+    if (newSelection.has(groupId)) {
+      newSelection.delete(groupId);
+    } else {
+      newSelection.add(groupId);
+    }
+    setSelectedGroupIds(newSelection);
+  };
+
+  const handleEnrollGroups = async () => {
+    if (selectedGroupIds.size === 0) return;
+    setLoading(true);
+    try {
+      let studentsToEnroll = [];
+      for (const groupId of selectedGroupIds) {
+        const result = await window.electronAPI.getGroupStudents(groupId);
+        if (result.success) {
+          studentsToEnroll.push(...result.data);
+        } else {
+          toast.error(`Failed to get students for group ID ${groupId}.`);
+        }
+      }
+
+      // Remove duplicates
+      const uniqueStudents = Array.from(new Map(studentsToEnroll.map(s => [s.id, s])).values());
+
+      const enrolledIds = new Set(enrolled.map(s => s.id));
+      const newStudents = uniqueStudents.filter(s => !enrolledIds.has(s.id));
+
+      setEnrolled(prev => [...prev, ...newStudents].sort((a, b) => a.name.localeCompare(b.name)));
+      setNotEnrolled(prev => prev.filter(s => !newStudents.some(ns => ns.id === s.id)));
+
+      // Clear selection after enrollment
+      setSelectedGroupIds(new Set());
+
+    } catch (err) {
+      logError('Error enrolling groups:', err);
+      toast.error('An error occurred while enrolling groups.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -78,49 +133,55 @@ function EnrollmentModal({ show, handleClose, classData }) {
           </div>
         ) : (
           <Row>
-            <Col>
+            <Col md={4}>
               <h5>الطلاب المسجلون ({enrolled.length})</h5>
               <ListGroup className="enrollment-list">
-                {enrolled.length > 0 ? (
-                  enrolled.map((student) => (
-                    <ListGroup.Item key={student.id}>
-                      {student.name}
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        className="float-start"
-                        onClick={() => handleUnenroll(student)}
-                      >
-                        <i className="fas fa-arrow-left"></i>
-                      </Button>
-                    </ListGroup.Item>
-                  ))
-                ) : (
-                  <p className="text-muted">لا يوجد طلاب مسجلون.</p>
-                )}
+                {enrolled.map((student) => (
+                  <ListGroup.Item key={student.id} className="d-flex justify-content-between align-items-center">
+                    {student.name}
+                    <Button variant="link" size="sm" className="p-0 text-danger" onClick={() => handleUnenroll(student)}>
+                      <i className="fas fa-times-circle"></i>
+                    </Button>
+                  </ListGroup.Item>
+                ))}
               </ListGroup>
             </Col>
-            <Col>
-              <h5>الطلاب غير المسجلين ({notEnrolled.length})</h5>
+            <Col md={4}>
+              <h5>الطلاب المتاحون ({notEnrolled.length})</h5>
               <ListGroup className="enrollment-list">
-                {notEnrolled.length > 0 ? (
-                  notEnrolled.map((student) => (
-                    <ListGroup.Item key={student.id}>
-                      <Button
-                        variant="outline-success"
-                        size="sm"
-                        className="float-end"
-                        onClick={() => handleEnroll(student)}
-                      >
-                        <i className="fas fa-arrow-right"></i>
-                      </Button>
-                      {student.name}
-                    </ListGroup.Item>
-                  ))
-                ) : (
-                  <p className="text-muted">لا يوجد طلاب غير مسجلين.</p>
-                )}
+                {notEnrolled.map((student) => (
+                  <ListGroup.Item key={student.id} className="d-flex justify-content-between align-items-center">
+                    <Button variant="link" size="sm" className="p-0 text-success" onClick={() => handleEnroll(student)}>
+                      <i className="fas fa-plus-circle"></i>
+                    </Button>
+                    {student.name}
+                  </ListGroup.Item>
+                ))}
               </ListGroup>
+            </Col>
+            <Col md={4}>
+              <h5>المجموعات المتاحة</h5>
+              <ListGroup className="enrollment-list">
+                {eligibleGroups.map((group) => (
+                   <ListGroup.Item key={group.id}>
+                    <Form.Check
+                      type="checkbox"
+                      id={`group-${group.id}`}
+                      label={`${group.name} (${group.category})`}
+                      checked={selectedGroupIds.has(group.id)}
+                      onChange={() => handleGroupSelectionChange(group.id)}
+                    />
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+              <Button
+                variant="primary"
+                className="mt-2 w-100"
+                onClick={handleEnrollGroups}
+                disabled={selectedGroupIds.size === 0}
+              >
+                تسجيل المجموعات المختارة
+              </Button>
             </Col>
           </Row>
         )}
