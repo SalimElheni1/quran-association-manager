@@ -96,6 +96,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateDonation: (donation) => ipcRenderer.invoke('update-donation', donation),
   deleteDonation: (id) => ipcRenderer.invoke('delete-donation', id),
 
+  // Inventory API
+  getInventoryItems: () => ipcRenderer.invoke('inventory:get'),
+  checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
+  addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
+  updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
+  deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete',id),
+
   getSalaries: () => ipcRenderer.invoke('get-salaries'),
   addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
   updateSalary: (salary) => ipcRenderer.invoke('update-salary', salary),

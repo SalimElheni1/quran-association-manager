@@ -5,7 +5,7 @@ import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 import { getCategoryLabel } from '@renderer/utils/donationCategories';
 
-function DonationsTab() {
+function DonationsTab({ onInventoryUpdate }) {
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -166,6 +166,7 @@ function DonationsTab() {
         onHide={handleHideModal}
         onSave={handleSave}
         donation={editingDonation}
+        onInventoryUpdate={onInventoryUpdate}
       />
       <ConfirmationModal
         show={showDeleteModal}
