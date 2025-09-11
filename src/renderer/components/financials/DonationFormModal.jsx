@@ -19,7 +19,7 @@ const initialDonationData = {
 
 const ADD_NEW_ITEM_VALUE = 'add-new-item';
 
-function DonationFormModal({ show, onHide, onSave, donation }) {
+function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }) {
   const [formData, setFormData] = useState(initialDonationData);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
@@ -128,6 +128,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
 
         dataToSave.inventory_item_id = itemToUpdate.id;
         toast.success(`تم تحديث كمية "${itemToUpdate.item_name}" بنجاح.`);
+        if (onInventoryUpdate) onInventoryUpdate();
 
       } else if (selectedItemId === ADD_NEW_ITEM_VALUE) {
         // --- Add new inventory item ---
@@ -149,6 +150,7 @@ function DonationFormModal({ show, onHide, onSave, donation }) {
         const newInventoryItem = await window.electronAPI.addInventoryItem(newItemData);
         dataToSave.inventory_item_id = newInventoryItem.id;
         toast.success(`تمت إضافة "${newInventoryItem.item_name}" للمخزون بنجاح.`);
+        if (onInventoryUpdate) onInventoryUpdate();
       }
 
       onSave(dataToSave);

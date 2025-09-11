@@ -129,6 +129,7 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
                 <Form.Control
                   type="text"
                   name="category"
+                  placeholder="مثال: مواد تنظيف، أثاث مكتبي..."
                   value={formData.category}
                   onChange={handleChange}
                 />
@@ -166,7 +167,7 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>قيمة الوحدة</Form.Label>
+                <Form.Label>قيمة الوحدة (بالدينار حسب التقريب)</Form.Label>
                 <Form.Control
                   type="number"
                   step="0.01"
