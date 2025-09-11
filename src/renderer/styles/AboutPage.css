@@ -1,0 +1,18 @@
+.about-page-tabs .nav-link {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.about-page-tabs .nav-link.active {
+  background-color: var(--bs-primary);
+  color: white;
+}
+
+.about-page-tabs .tab-content {
+  padding-top: 1rem;
+}
+
+.about-page-card {
+  border: none;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+}
