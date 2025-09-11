@@ -111,22 +111,23 @@ function registerClassHandlers() {
         WHERE s.status = 'active' AND cs.student_id IS NULL
       `;
       const notEnrolledParams = [classId];
-      const adultAge = getSetting('adultAgeThreshold');
 
-      // This complex CASE statement handles two different formats for date_of_birth:
-      // 1. Standard 'YYYY-MM-DD' strings.
-      // 2. Millisecond Unix timestamps stored as a string.
-      const ageCalculationSql = `CAST((julianday('now') - julianday(CASE WHEN LENGTH(s.date_of_birth) > 10 AND s.date_of_birth NOT LIKE '%-%' THEN date(s.date_of_birth / 1000, 'unixepoch') ELSE s.date_of_birth END)) / 365.25 AS INTEGER)`;
+      const ageThresholdSetting = await db.getQuery("SELECT value FROM settings WHERE key = 'adult_age_threshold'");
+      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
+
+      const thresholdDate = new Date();
+      thresholdDate.setFullYear(thresholdDate.getFullYear() - adultAgeThreshold);
+      const adultOrKidBirthDate = thresholdDate.toISOString().split('T')[0];
 
       if (classGender === 'kids') {
-        notEnrolledSql += ` AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} < ?`;
-        notEnrolledParams.push(adultAge);
+        notEnrolledSql += ` AND s.date_of_birth > ?`;
+        notEnrolledParams.push(adultOrKidBirthDate);
       } else if (classGender === 'men') {
-        notEnrolledSql += ` AND s.gender = 'Male' AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} >= ?`;
-        notEnrolledParams.push(adultAge);
+        notEnrolledSql += ` AND s.gender = 'Male' AND s.date_of_birth <= ?`;
+        notEnrolledParams.push(adultOrKidBirthDate);
       } else if (classGender === 'women') {
-        notEnrolledSql += ` AND s.gender = 'Female' AND s.date_of_birth IS NOT NULL AND s.date_of_birth != '' AND ${ageCalculationSql} >= ?`;
-        notEnrolledParams.push(adultAge);
+        notEnrolledSql += ` AND s.gender = 'Female' AND s.date_of_birth <= ?`;
+        notEnrolledParams.push(adultOrKidBirthDate);
       }
       notEnrolledSql += ' ORDER BY s.name ASC';
 

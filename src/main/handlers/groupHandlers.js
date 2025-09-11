@@ -146,55 +146,47 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:getStudentsForGroupAssignment', async (event, groupId) => {
+  ipcMain.handle('groups:getAssignmentData', async (event, groupId) => {
     try {
       const group = await getQuery('SELECT * FROM groups WHERE id = ?', [groupId]);
       if (!group) {
         return { success: false, message: 'Group not found.' };
       }
 
-      const membersQuery = `
-        SELECT s.* FROM students s
-        JOIN student_groups sg ON s.id = sg.student_id
-        WHERE sg.group_id = ?
-        ORDER BY s.name ASC
-      `;
-      const members = await allQuery(membersQuery, [groupId]);
-
-      let nonMembersQuery = `
-        SELECT s.* FROM students s
-        WHERE s.id NOT IN (SELECT student_id FROM student_groups WHERE group_id = ?)
+      let sql = `
+        SELECT s.id, s.name, s.matricule,
+               CASE WHEN sg.student_id IS NOT NULL THEN 1 ELSE 0 END as isMember
+        FROM students s
+        LEFT JOIN student_groups sg ON s.id = sg.student_id AND sg.group_id = ?
+        WHERE s.status = 'active'
       `;
       const params = [groupId];
 
-      // Add category-based filtering
-      const eighteenYearsAgo = new Date();
-      eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
-      const kidBirthDate = eighteenYearsAgo.toISOString().split('T')[0];
+      const ageThresholdSetting = await getQuery("SELECT value FROM settings WHERE key = 'adult_age_threshold'");
+      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
+
+      const thresholdDate = new Date();
+      thresholdDate.setFullYear(thresholdDate.getFullYear() - adultAgeThreshold);
+      const adultOrKidBirthDate = thresholdDate.toISOString().split('T')[0];
 
       if (group.category === 'Men') {
-        nonMembersQuery += ' AND s.gender = ?';
-        params.push('Male');
-        nonMembersQuery += ' AND s.date_of_birth <= ?';
-        params.push(kidBirthDate);
+        sql += ' AND s.gender = ? AND s.date_of_birth <= ?';
+        params.push('Male', adultOrKidBirthDate);
       } else if (group.category === 'Women') {
-        nonMembersQuery += ' AND s.gender = ?';
-        params.push('Female');
-        nonMembersQuery += ' AND s.date_of_birth <= ?';
-        params.push(kidBirthDate);
+        sql += ' AND s.gender = ? AND s.date_of_birth <= ?';
+        params.push('Female', adultOrKidBirthDate);
       } else if (group.category === 'Kids') {
-        nonMembersQuery += ' AND s.date_of_birth > ?';
-        params.push(kidBirthDate);
+        sql += ' AND s.date_of_birth > ?';
+        params.push(adultOrKidBirthDate);
       }
 
-      nonMembersQuery += ' ORDER BY s.name ASC';
+      sql += ' ORDER BY s.name ASC';
 
-      const nonMembers = await allQuery(nonMembersQuery, params);
-
-      return { success: true, data: { members, nonMembers } };
+      const students = await allQuery(sql, params);
+      return { success: true, data: students };
     } catch (error) {
-      console.error(`Error fetching students for group assignment (group ${groupId}):`, error);
-      return { success: false, message: 'Failed to fetch students for assignment.' };
+      console.error(`Error fetching assignment data for group ${groupId}:`, error);
+      return { success: false, message: 'Failed to fetch assignment data.' };
     }
   });
 
