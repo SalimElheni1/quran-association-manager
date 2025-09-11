@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../db/db');
 const { log, error: logError } = require('./logger');
+const { generateMatricule } = require('./matriculeService');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -96,6 +97,109 @@ async function handleUpdateDonation(event, donation) {
 async function handleDeleteDonation(event, donationId) {
   await runQuery('DELETE FROM donations WHERE id = ?', [donationId]);
   return { id: donationId };
+}
+
+// --- Inventory Handlers ---
+async function handleGetInventoryItems() {
+  const query = 'SELECT * FROM inventory_items ORDER BY item_name ASC';
+  return allQuery(query);
+}
+
+async function handleCheckItemUniqueness(event, { itemName, currentId }) {
+  let sql = 'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE';
+  const params = [itemName];
+
+  if (currentId) {
+    sql += ' AND id != ?';
+    params.push(currentId);
+  }
+
+  const result = await getQuery(sql, params);
+  return { isUnique: result === null };
+}
+
+async function handleAddInventoryItem(event, item) {
+  const {
+    item_name,
+    category,
+    quantity,
+    unit_value,
+    acquisition_date,
+    acquisition_source,
+    condition_status,
+    location,
+    notes,
+  } = item;
+
+  const matricule = await generateMatricule('inventory');
+  const total_value = (quantity || 0) * (unit_value || 0);
+
+  const sql = `
+    INSERT INTO inventory_items (
+      matricule, item_name, category, quantity, unit_value, total_value,
+      acquisition_date, acquisition_source, condition_status, location, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const result = await runQuery(sql, [
+    matricule,
+    item_name,
+    category,
+    quantity,
+    unit_value,
+    total_value,
+    acquisition_date,
+    acquisition_source,
+    condition_status,
+    location,
+    notes,
+  ]);
+
+  return getQuery('SELECT * FROM inventory_items WHERE id = ?', [result.id]);
+}
+
+async function handleUpdateInventoryItem(event, item) {
+  const {
+    id,
+    item_name,
+    category,
+    quantity,
+    unit_value,
+    acquisition_date,
+    acquisition_source,
+    condition_status,
+    location,
+    notes,
+  } = item;
+
+  const total_value = (quantity || 0) * (unit_value || 0);
+
+  const sql = `
+    UPDATE inventory_items SET
+      item_name = ?, category = ?, quantity = ?, unit_value = ?, total_value = ?,
+      acquisition_date = ?, acquisition_source = ?, condition_status = ?, location = ?,
+      notes = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `;
+  await runQuery(sql, [
+    item_name,
+    category,
+    quantity,
+    unit_value,
+    total_value,
+    acquisition_date,
+    acquisition_source,
+    condition_status,
+    location,
+    notes,
+    id,
+  ]);
+
+  return getQuery('SELECT * FROM inventory_items WHERE id = ?', [id]);
+}
+
+async function handleDeleteInventoryItem(event, itemId) {
+  await runQuery('DELETE FROM inventory_items WHERE id = ?', [itemId]);
+  return { id: itemId };
 }
 
 // --- Salary Handlers ---
@@ -369,6 +473,12 @@ function registerFinancialHandlers() {
   ipcMain.handle('update-donation', createHandler(handleUpdateDonation));
   ipcMain.handle('delete-donation', createHandler(handleDeleteDonation));
 
+  ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
+  ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
+  ipcMain.handle('inventory:add', createHandler(handleAddInventoryItem));
+  ipcMain.handle('inventory:update', createHandler(handleUpdateInventoryItem));
+  ipcMain.handle('inventory:delete', createHandler(handleDeleteInventoryItem));
+
   ipcMain.handle('get-salaries', createHandler(handleGetSalaries));
   ipcMain.handle('add-salary', createHandler(handleAddSalary));
   ipcMain.handle('update-salary', createHandler(handleUpdateSalary));
@@ -396,6 +506,11 @@ module.exports = {
   handleAddDonation,
   handleUpdateDonation,
   handleDeleteDonation,
+  handleGetInventoryItems,
+  handleCheckItemUniqueness,
+  handleAddInventoryItem,
+  handleUpdateInventoryItem,
+  handleDeleteInventoryItem,
   handleGetSalaries,
   handleAddSalary,
   handleUpdateSalary,
