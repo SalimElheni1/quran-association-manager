@@ -191,6 +191,8 @@ function registerGroupHandlers() {
   });
 
   ipcMain.handle('groups:updateGroupStudents', async (event, { groupId, studentIds }) => {
+    console.log(`--- Updating group students for groupId: ${groupId} ---`);
+    console.log('Received studentIds:', studentIds);
     try {
       // Using a transaction to ensure atomicity
       await runQuery('BEGIN TRANSACTION;');
