@@ -8,6 +8,7 @@ import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
+import GroupFormModal from '../components/GroupFormModal';
 
 function StudentsPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -162,7 +163,7 @@ function StudentsPage() {
       }
 
       if (result.success) {
-        setRefreshGroups(prev => !prev); // Toggle to trigger refetch in child
+        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
         handleCloseGroupModal();
       } else {
         toast.error(result.message);
@@ -190,7 +191,7 @@ function StudentsPage() {
       const result = await window.electronAPI.deleteGroup(groupToDelete.id);
       if (result.success) {
         toast.success(`تم حذف المجموعة "${groupToDelete.name}" بنجاح.`);
-        setRefreshGroups(prev => !prev); // Toggle to trigger refetch in child
+        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
       } else {
         toast.error(result.message);
       }
@@ -228,7 +229,9 @@ function StudentsPage() {
     <>
       <div className="filter-bar">
         <InputGroup className="search-input-group">
-          <InputGroup.Text><i className="fas fa-search"></i></InputGroup.Text>
+          <InputGroup.Text>
+            <i className="fas fa-search"></i>
+          </InputGroup.Text>
           <Form.Control
             type="search"
             placeholder="البحث بالاسم أو الرقم التعريفي..."
@@ -264,7 +267,9 @@ function StudentsPage() {
         </div>
       </div>
       {loading ? (
-        <div className="text-center"><Spinner animation="border" /></div>
+        <div className="text-center">
+          <Spinner animation="border" />
+        </div>
       ) : (
         <Table striped bordered hover responsive className="students-table">
           <thead>
@@ -289,13 +294,25 @@ function StudentsPage() {
                   <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
                   <td>{renderStatusBadge(student.status)}</td>
                   <td className="table-actions d-flex gap-2">
-                    <Button variant="outline-info" size="sm" onClick={() => handleShowDetailsModal(student)}>
+                    <Button
+                      variant="outline-info"
+                      size="sm"
+                      onClick={() => handleShowDetailsModal(student)}
+                    >
                       <i className="fas fa-eye"></i> عرض التفاصيل
                     </Button>
-                    <Button variant="outline-success" size="sm" onClick={() => handleShowEditModal(student)}>
+                    <Button
+                      variant="outline-success"
+                      size="sm"
+                      onClick={() => handleShowEditModal(student)}
+                    >
                       <i className="fas fa-edit"></i> تعديل
                     </Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(student)}>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleDeleteRequest(student)}
+                    >
                       <i className="fas fa-trash"></i> حذف
                     </Button>
                   </td>
@@ -332,7 +349,12 @@ function StudentsPage() {
         )}
       </div>
 
-      <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} id="students-tabs" className="mb-3">
+      <Tabs
+        activeKey={activeTab}
+        onSelect={(k) => setActiveTab(k)}
+        id="students-tabs"
+        className="mb-3"
+      >
         <Tab eventKey="students" title="الطلاب">
           {renderStudentsTab()}
         </Tab>

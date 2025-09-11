@@ -90,17 +90,16 @@ function EnrollmentModal({ show, handleClose, classData }) {
       }
 
       // Remove duplicates
-      const uniqueStudents = Array.from(new Map(studentsToEnroll.map(s => [s.id, s])).values());
+      const uniqueStudents = Array.from(new Map(studentsToEnroll.map((s) => [s.id, s])).values());
 
-      const enrolledIds = new Set(enrolled.map(s => s.id));
-      const newStudents = uniqueStudents.filter(s => !enrolledIds.has(s.id));
+      const enrolledIds = new Set(enrolled.map((s) => s.id));
+      const newStudents = uniqueStudents.filter((s) => !enrolledIds.has(s.id));
 
-      setEnrolled(prev => [...prev, ...newStudents].sort((a, b) => a.name.localeCompare(b.name)));
-      setNotEnrolled(prev => prev.filter(s => !newStudents.some(ns => ns.id === s.id)));
+      setEnrolled((prev) => [...prev, ...newStudents].sort((a, b) => a.name.localeCompare(b.name)));
+      setNotEnrolled((prev) => prev.filter((s) => !newStudents.some((ns) => ns.id === s.id)));
 
       // Clear selection after enrollment
       setSelectedGroupIds(new Set());
-
     } catch (err) {
       logError('Error enrolling groups:', err);
       toast.error('An error occurred while enrolling groups.');
@@ -137,9 +136,17 @@ function EnrollmentModal({ show, handleClose, classData }) {
               <h5>الطلاب المسجلون ({enrolled.length})</h5>
               <ListGroup className="enrollment-list">
                 {enrolled.map((student) => (
-                  <ListGroup.Item key={student.id} className="d-flex justify-content-between align-items-center">
+                  <ListGroup.Item
+                    key={student.id}
+                    className="d-flex justify-content-between align-items-center"
+                  >
                     {student.name}
-                    <Button variant="link" size="sm" className="p-0 text-danger" onClick={() => handleUnenroll(student)}>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 text-danger"
+                      onClick={() => handleUnenroll(student)}
+                    >
                       <i className="fas fa-times-circle"></i>
                     </Button>
                   </ListGroup.Item>
@@ -150,8 +157,16 @@ function EnrollmentModal({ show, handleClose, classData }) {
               <h5>الطلاب المتاحون ({notEnrolled.length})</h5>
               <ListGroup className="enrollment-list">
                 {notEnrolled.map((student) => (
-                  <ListGroup.Item key={student.id} className="d-flex justify-content-between align-items-center">
-                    <Button variant="link" size="sm" className="p-0 text-success" onClick={() => handleEnroll(student)}>
+                  <ListGroup.Item
+                    key={student.id}
+                    className="d-flex justify-content-between align-items-center"
+                  >
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 text-success"
+                      onClick={() => handleEnroll(student)}
+                    >
                       <i className="fas fa-plus-circle"></i>
                     </Button>
                     {student.name}
@@ -163,11 +178,11 @@ function EnrollmentModal({ show, handleClose, classData }) {
               <h5>المجموعات المتاحة</h5>
               <ListGroup className="enrollment-list">
                 {eligibleGroups.map((group) => (
-                   <ListGroup.Item key={group.id}>
+                  <ListGroup.Item key={group.id}>
                     <Form.Check
                       type="checkbox"
                       id={`group-${group.id}`}
-                      label={`${group.name} (${group.category})`}
+                      label={`${group.name} (${group.category === 'Kids' ? 'أطفال' : group.category === 'Women' ? 'نساء' : group.category === 'Men' ? 'رجال' : ''})`} /**'Kids': 'أطفال', 'Women': 'نساء', 'Men': 'رجال' */
                       checked={selectedGroupIds.has(group.id)}
                       onChange={() => handleGroupSelectionChange(group.id)}
                     />
