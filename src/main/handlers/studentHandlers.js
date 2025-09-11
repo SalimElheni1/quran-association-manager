@@ -172,14 +172,4 @@ function registerStudentHandlers() {
   });
 }
 
-  ipcMain.handle('students:getFullDetailsForDebug', async (_event, studentName) => {
-    try {
-      const student = await db.getQuery('SELECT * FROM students WHERE name = ?', [studentName]);
-      return { success: true, data: student };
-    } catch (error) {
-      logError(`Error fetching full details for student ${studentName}:`, error);
-      return { success: false, message: 'Failed to fetch student details.' };
-    }
-  });
-
 module.exports = { registerStudentHandlers };

@@ -19,7 +19,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addStudent: (studentData) => ipcRenderer.invoke('students:add', studentData),
   updateStudent: (id, studentData) => ipcRenderer.invoke('students:update', id, studentData),
   deleteStudent: (id) => ipcRenderer.invoke('students:delete', id),
-  getFullDetailsForDebug: (name) => ipcRenderer.invoke('students:getFullDetailsForDebug', name),
 
   // Teachers API
   getTeachers: (filters) => ipcRenderer.invoke('teachers:get', filters),
@@ -48,7 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeStudentFromGroup: (studentId, groupId) => ipcRenderer.invoke('groups:removeStudentFromGroup', { studentId, groupId }),
   getStudentGroups: (studentId) => ipcRenderer.invoke('groups:getStudentGroups', studentId),
   getAssignmentData: (groupId) => ipcRenderer.invoke('groups:getAssignmentData', groupId),
-  updateGroupStudents: (groupId, studentIds) => ipcRenderer.invoke('groups:updateGroupStudents', { groupId, studentIds }),
+  updateGroupStudents: (data) => ipcRenderer.invoke('groups:updateGroupStudents', data),
   getEligibleGroupsForClass: (classId) => ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
 
   // Settings API
