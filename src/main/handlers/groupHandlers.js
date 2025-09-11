@@ -23,11 +23,6 @@ function registerGroupHandlers() {
         params.push(filters.category);
       }
 
-      if (filters.target_gender) {
-        conditions.push('target_gender = ?');
-        params.push(filters.target_gender);
-      }
-
       if (conditions.length > 0) {
         query += ' WHERE ' + conditions.join(' AND ');
       }
@@ -44,16 +39,15 @@ function registerGroupHandlers() {
 
   ipcMain.handle('groups:add', async (event, groupData) => {
     try {
-      const { name, description, category, target_gender, min_age, max_age } = groupData;
+      const { name, description, category } = groupData;
       const query = `
-        INSERT INTO groups (name, description, category, target_gender, min_age, max_age)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO groups (name, description, category)
+        VALUES (?, ?, ?)
       `;
-      const result = await runQuery(query, [name, description, category, target_gender, min_age, max_age]);
+      const result = await runQuery(query, [name, description, category]);
       return { success: true, data: { id: result.id, ...groupData } };
     } catch (error) {
       console.error('Error adding group:', error);
-      // Specific check for UNIQUE constraint violation
       if (error.message.includes('UNIQUE constraint failed: groups.name')) {
         return { success: false, message: 'A group with this name already exists.' };
       }
@@ -63,13 +57,13 @@ function registerGroupHandlers() {
 
   ipcMain.handle('groups:update', async (event, id, groupData) => {
     try {
-      const { name, description, category, target_gender, min_age, max_age } = groupData;
+      const { name, description, category } = groupData;
       const query = `
         UPDATE groups
-        SET name = ?, description = ?, category = ?, target_gender = ?, min_age = ?, max_age = ?, updated_at = CURRENT_TIMESTAMP
+        SET name = ?, description = ?, category = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `;
-      await runQuery(query, [name, description, category, target_gender, min_age, max_age, id]);
+      await runQuery(query, [name, description, category, id]);
       return { success: true };
     } catch (error) {
       console.error(`Error updating group ${id}:`, error);
@@ -154,7 +148,11 @@ function registerGroupHandlers() {
 
   ipcMain.handle('groups:getStudentsForGroupAssignment', async (event, groupId) => {
     try {
-      // Get students who are members of the group
+      const group = await getQuery('SELECT * FROM groups WHERE id = ?', [groupId]);
+      if (!group) {
+        return { success: false, message: 'Group not found.' };
+      }
+
       const membersQuery = `
         SELECT s.* FROM students s
         JOIN student_groups sg ON s.id = sg.student_id
@@ -163,15 +161,35 @@ function registerGroupHandlers() {
       `;
       const members = await allQuery(membersQuery, [groupId]);
 
-      // Get students who are not members of the group
-      const nonMembersQuery = `
+      let nonMembersQuery = `
         SELECT s.* FROM students s
-        WHERE s.id NOT IN (
-          SELECT student_id FROM student_groups WHERE group_id = ?
-        )
-        ORDER BY s.name ASC
+        WHERE s.id NOT IN (SELECT student_id FROM student_groups WHERE group_id = ?)
       `;
-      const nonMembers = await allQuery(nonMembersQuery, [groupId]);
+      const params = [groupId];
+
+      // Add category-based filtering
+      const eighteenYearsAgo = new Date();
+      eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
+      const kidBirthDate = eighteenYearsAgo.toISOString().split('T')[0];
+
+      if (group.category === 'Men') {
+        nonMembersQuery += ' AND s.gender = ?';
+        params.push('Male');
+        nonMembersQuery += ' AND s.date_of_birth <= ?';
+        params.push(kidBirthDate);
+      } else if (group.category === 'Women') {
+        nonMembersQuery += ' AND s.gender = ?';
+        params.push('Female');
+        nonMembersQuery += ' AND s.date_of_birth <= ?';
+        params.push(kidBirthDate);
+      } else if (group.category === 'Kids') {
+        nonMembersQuery += ' AND s.date_of_birth > ?';
+        params.push(kidBirthDate);
+      }
+
+      nonMembersQuery += ' ORDER BY s.name ASC';
+
+      const nonMembers = await allQuery(nonMembersQuery, params);
 
       return { success: true, data: { members, nonMembers } };
     } catch (error) {
@@ -213,32 +231,25 @@ function registerGroupHandlers() {
         return { success: false, message: 'Class not found.' };
       }
 
-      // The class gender can be 'men', 'women', 'kids', 'all'
-      // The group target_gender can be 'Male', 'Female', 'All'
-      let genderCondition = '';
-      switch (classData.gender) {
-        case 'men':
-          genderCondition = "WHERE target_gender = 'Male' OR target_gender = 'All'";
-          break;
-        case 'women':
-          genderCondition = "WHERE target_gender = 'Female' OR target_gender = 'All'";
-          break;
-        case 'kids':
-            // Assuming kids can be of any gender, so groups for 'All' are suitable.
-            // This could be refined if there were 'Kids (Male)' and 'Kids (Female)' groups.
-            genderCondition = "WHERE target_gender = 'All' OR category = 'Kids'";
-            break;
-        case 'all':
-          // No gender condition, all groups are potentially eligible
-          break;
-        default:
-          break;
+      let categoryCondition = '';
+      const params = [];
+
+      // class.gender can be 'men', 'women', 'kids', 'all'
+      // group.category can be 'Men', 'Women', 'Kids'
+      if (classData.gender === 'men') {
+        categoryCondition = 'WHERE category = ?';
+        params.push('Men');
+      } else if (classData.gender === 'women') {
+        categoryCondition = 'WHERE category = ?';
+        params.push('Women');
+      } else if (classData.gender === 'kids') {
+        categoryCondition = 'WHERE category = ?';
+        params.push('Kids');
       }
+      // If classData.gender is 'all', no condition is added, so all groups are fetched.
 
-      const query = `SELECT * FROM groups ${genderCondition} ORDER BY name ASC`;
-      const groups = await allQuery(query);
-
-      // Future enhancement: Add age range filtering here if class has age limits
+      const query = `SELECT * FROM groups ${categoryCondition} ORDER BY name ASC`;
+      const groups = await allQuery(query, params);
 
       return { success: true, data: groups };
     } catch (error) {
