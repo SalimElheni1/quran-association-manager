@@ -115,7 +115,9 @@ async function handleCheckItemUniqueness(event, { itemName, currentId }) {
   }
 
   const result = await getQuery(sql, params);
-  return { isUnique: result === null };
+  // If `result` is undefined (no item found), it's unique.
+  // If `result` is an object (item found), it's not unique.
+  return { isUnique: !result };
 }
 
 async function handleAddInventoryItem(event, item) {
