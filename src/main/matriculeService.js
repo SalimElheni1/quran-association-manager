@@ -3,7 +3,7 @@ const { log, error: logError } = require('./logger');
 
 /**
  * Generates a new, unique matricule for a given entity type.
- * @param {('student'|'teacher'|'user')} entityType The type of entity.
+ * @param {('student'|'teacher'|'user'|'inventory')} entityType The type of entity.
  * @returns {Promise<string>} A promise that resolves to the new matricule (e.g., 'S-000001').
  */
 async function generateMatricule(entityType) {
@@ -23,13 +23,18 @@ async function generateMatricule(entityType) {
       prefix = 'U-';
       tableName = 'users';
       break;
+    case 'inventory':
+      prefix = 'INV-';
+      tableName = 'inventory_items';
+      break;
     default:
       throw new Error(`Invalid entity type for matricule generation: ${entityType}`);
   }
 
   // This query extracts the numeric part of the matricule, casts it to an integer,
   // finds the maximum value, and handles the case where no matricules exist yet (returning 0).
-  const sql = `SELECT COALESCE(MAX(CAST(SUBSTR(matricule, 3) AS INTEGER)), 0) as max_id FROM ${tableName} WHERE matricule LIKE ?`;
+  const substrIndex = prefix.length + 1;
+  const sql = `SELECT COALESCE(MAX(CAST(SUBSTR(matricule, ${substrIndex}) AS INTEGER)), 0) as max_id FROM ${tableName} WHERE matricule LIKE ?`;
   const params = [`${prefix}%`];
 
   try {

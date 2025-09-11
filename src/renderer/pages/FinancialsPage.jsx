@@ -5,9 +5,10 @@ import DonationsTab from '@renderer/components/financials/DonationsTab';
 import SalariesTab from '@renderer/components/financials/SalariesTab';
 import PaymentsTab from '@renderer/components/financials/PaymentsTab';
 import ReportsTab from '@renderer/components/financials/ReportsTab';
+import InventoryTab from '@renderer/components/financials/InventoryTab';
 
 function FinancialsPage() {
-  const [activeTab, setActiveTab] = useState('reports');
+  const [activeTab, setActiveTab] = useState('inventory');
   const [reportsTabKey, setReportsTabKey] = useState(Date.now());
 
   const handleTabSelect = (key) => {
@@ -37,6 +38,9 @@ function FinancialsPage() {
             </Tab>
             <Tab eventKey="donations" title="التبرعات والهبات">
               <DonationsTab />
+            </Tab>
+            <Tab eventKey="inventory" title="المخزون">
+              <InventoryTab />
             </Tab>
             <Tab eventKey="expenses" title="المصاريف والنثريات">
               <ExpensesTab />
