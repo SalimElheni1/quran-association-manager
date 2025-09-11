@@ -149,10 +149,7 @@ const schema = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
-    category TEXT NOT NULL, -- 'Kids', 'Women', 'Men', 'Senior Women', etc.
-    target_gender TEXT, -- 'Male', 'Female', 'All'
-    min_age INTEGER,
-    max_age INTEGER,
+    category TEXT NOT NULL, -- 'Kids', 'Women', 'Men'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );

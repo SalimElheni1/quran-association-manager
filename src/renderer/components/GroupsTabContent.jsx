@@ -156,8 +156,6 @@ function GroupsTabContent() {
               <th>#</th>
               <th>اسم المجموعة</th>
               <th>الفئة</th>
-              <th>الجنس المستهدف</th>
-              <th>الفئة العمرية</th>
               <th>الإجراءات</th>
             </tr>
           </thead>
@@ -167,9 +165,7 @@ function GroupsTabContent() {
                 <tr key={group.id}>
                   <td>{index + 1}</td>
                   <td>{group.name}</td>
-                  <td>{group.category}</td>
-                  <td>{group.target_gender}</td>
-                  <td>{group.min_age && group.max_age ? `${group.min_age} - ${group.max_age}` : 'N/A'}</td>
+                  <td>{{'Kids': 'أطفال', 'Women': 'نساء', 'Men': 'رجال'}[group.category] || group.category}</td>
                   <td className="table-actions d-flex gap-2">
                     <Button variant="outline-primary" size="sm" onClick={() => handleShowAssignmentModal(group)}>
                       <i className="fas fa-users"></i> إدارة الطلاب
@@ -185,7 +181,7 @@ function GroupsTabContent() {
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="text-center">
+                <td colSpan="4" className="text-center">
                   {searchTerm ? 'لا توجد نتائج تطابق معايير البحث.' : 'لا يوجد مجموعات معرفة حالياً.'}
                 </td>
               </tr>

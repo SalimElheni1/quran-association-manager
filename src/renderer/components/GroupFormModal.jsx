@@ -6,10 +6,7 @@ function GroupFormModal({ show, handleClose, onSave, group }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'General', // Default value
-    target_gender: 'All',
-    min_age: '',
-    max_age: '',
+    category: 'Kids', // Default value
   });
 
   const isEditing = !!group;
@@ -20,20 +17,14 @@ function GroupFormModal({ show, handleClose, onSave, group }) {
         setFormData({
           name: group.name || '',
           description: group.description || '',
-          category: group.category || 'General',
-          target_gender: group.target_gender || 'All',
-          min_age: group.min_age || '',
-          max_age: group.max_age || '',
+          category: group.category || 'Kids',
         });
       } else {
         // Reset form for new group
         setFormData({
           name: '',
           description: '',
-          category: 'General',
-          target_gender: 'All',
-          min_age: '',
-          max_age: '',
+          category: 'Kids',
         });
       }
     }
@@ -53,7 +44,11 @@ function GroupFormModal({ show, handleClose, onSave, group }) {
     onSave(formData, group?.id);
   };
 
-  const groupCategories = ['Kids', 'Women', 'Men', 'Senior Women', 'General'];
+  const groupCategories = {
+    'Kids': 'أطفال',
+    'Women': 'نساء',
+    'Men': 'رجال',
+  };
 
   return (
     <Modal show={show} onHide={handleClose} centered>
@@ -92,41 +87,10 @@ function GroupFormModal({ show, handleClose, onSave, group }) {
               onChange={handleChange}
               required
             >
-              {groupCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              {Object.entries(groupCategories).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
             </Form.Select>
-          </Form.Group>
-
-          <Form.Group className="mb-3" controlId="groupTargetGender">
-            <Form.Label>الجنس المستهدف</Form.Label>
-            <Form.Select
-              name="target_gender"
-              value={formData.target_gender}
-              onChange={handleChange}
-            >
-              <option value="All">الكل</option>
-              <option value="Male">ذكور</option>
-              <option value="Female">إناث</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Label>الفئة العمرية (اختياري)</Form.Label>
-            <div className="d-flex gap-2">
-              <Form.Control
-                type="number"
-                name="min_age"
-                placeholder="العمر الأدنى"
-                value={formData.min_age}
-                onChange={handleChange}
-              />
-              <Form.Control
-                type="number"
-                name="max_age"
-                placeholder="العمر الأقصى"
-                value={formData.max_age}
-                onChange={handleChange}
-              />
-            </div>
           </Form.Group>
 
           <Modal.Footer>
