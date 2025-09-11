@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import Select from 'react-select';
+import { toast } from 'react-toastify';
 
 function StudentFormModal({ show, handleClose, onSave, student }) {
   const [formData, setFormData] = useState({});
   const isEditMode = !!student;
   const [age, setAge] = useState(null);
-  const [ageCategory, setAgeCategory] = useState(null); // Categories: 'kid', 'teen', 'adult'
+  const [ageCategory, setAgeCategory] = useState(null);
+
+  const [allGroups, setAllGroups] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState([]);
 
   useEffect(() => {
     const initialData = {
@@ -50,6 +55,36 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       setAge(null);
       setAgeCategory(null);
     }
+
+    const fetchGroupsData = async () => {
+      try {
+        const groupsResult = await window.electronAPI.getGroups();
+        if (groupsResult.success) {
+          const groupOptions = groupsResult.data.map(g => ({ value: g.id, label: g.name }));
+          setAllGroups(groupOptions);
+
+          if (isEditMode && student) {
+            const studentGroupsResult = await window.electronAPI.getStudentGroups(student.id);
+            if (studentGroupsResult.success) {
+              const studentGroupValues = studentGroupsResult.data.map(g => ({ value: g.id, label: g.name }));
+              setSelectedGroups(studentGroupValues);
+            } else {
+              toast.error('Failed to load student groups.');
+            }
+          } else {
+            setSelectedGroups([]);
+          }
+        } else {
+          toast.error('Failed to load groups list.');
+        }
+      } catch (error) {
+        toast.error('An error occurred while fetching group data.');
+      }
+    };
+
+    if (show) {
+      fetchGroupsData();
+    }
   }, [student, show, isEditMode]);
 
   // Effect to update age category when date of birth changes
@@ -84,7 +119,11 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, student ? student.id : null);
+    const finalFormData = {
+      ...formData,
+      groupIds: selectedGroups.map(g => g.value),
+    };
+    onSave(finalFormData, student ? student.id : null);
   };
 
   return (
@@ -124,6 +163,22 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                 name="date_of_birth"
                 value={formData.date_of_birth || ''}
                 onChange={handleChange}
+              />
+            </Form.Group>
+          </Row>
+          <Row>
+            <Form.Group as={Col} className="mb-3" controlId="formStudentGroups">
+              <Form.Label>المجموعات</Form.Label>
+              <Select
+                isMulti
+                name="groups"
+                options={allGroups}
+                className="basic-multi-select"
+                classNamePrefix="select"
+                placeholder="اختر المجموعات..."
+                value={selectedGroups}
+                onChange={(selectedOptions) => setSelectedGroups(selectedOptions || [])}
+                noOptionsMessage={() => 'لا توجد مجموعات متاحة'}
               />
             </Form.Group>
           </Row>
