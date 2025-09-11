@@ -47,7 +47,7 @@ async function seedSuperadmin() {
     if (!existingAdmin) {
       log('No superadmin found. Seeding default superadmin...');
 
-      const tempPassword = crypto.randomBytes(8).toString('hex');
+      const tempPassword = '123456'; //crypto.randomBytes(8).toString('hex');
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
       const username = 'superadmin';
 
@@ -156,9 +156,7 @@ async function runMigrations() {
         // If the error is "duplicate column name", it means the migration was likely
         // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
-          logWarn(
-            `Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`,
-          );
+          logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
           // Manually insert into migrations table so it doesn't run again
           await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);
         } else {
