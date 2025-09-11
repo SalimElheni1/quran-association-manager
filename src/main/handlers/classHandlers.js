@@ -131,6 +131,14 @@ function registerClassHandlers() {
       }
       notEnrolledSql += ' ORDER BY s.name ASC';
 
+      log('--- Enrollment Data Fetch ---');
+      log(`Class ID: ${classId}, Class Gender: ${classGender}`);
+      log('Query for NOT ENROLLED students:');
+      log(notEnrolledSql);
+      log('Params for NOT ENROLLED students:');
+      log(notEnrolledParams);
+      log('-----------------------------');
+
       const [enrolledStudents, notEnrolledStudents] = await Promise.all([
         db.allQuery(enrolledSql, [classId]),
         db.allQuery(notEnrolledSql, notEnrolledParams),
