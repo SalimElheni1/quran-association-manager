@@ -12,6 +12,7 @@ import {
   OverlayTrigger,
   Tooltip,
 } from 'react-bootstrap';
+import ImportWizard from '@renderer/components/ImportWizard';
 import '@renderer/styles/ExportsPage.css';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
@@ -336,131 +337,6 @@ const arabicFieldDefinitions = {
   ],
 };
 
-const ImportTabPanel = () => {
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [importResults, setImportResults] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleGenerateTemplate = async () => {
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
-    setImportResults(null);
-    try {
-      const result = await window.electronAPI.generateImportTemplate();
-      if (result.success) {
-        setMessage({ type: 'success', text: 'تم إنشاء القالب بنجاح!' });
-      } else {
-        setMessage({ type: 'danger', text: `فشل إنشاء القالب: ${result.message}` });
-      }
-    } catch (error) {
-      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGenerateDevTemplate = async () => {
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
-    setImportResults(null);
-    try {
-      const result = await window.electronAPI.generateDevTemplate();
-      if (result.success) {
-        setMessage({ type: 'success', text: 'تم إنشاء قالب التطوير بنجاح!' });
-      } else {
-        setMessage({ type: 'danger', text: `فشل إنشاء القالب: ${result.message}` });
-      }
-    } catch (error) {
-      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleImport = async () => {
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
-    setImportResults(null);
-    try {
-      const result = await window.electronAPI.executeImport();
-      if (result.success) {
-        setImportResults(result);
-        if (result.errorCount === 0) {
-          setMessage({ type: 'success', text: 'تم الاستيراد بنجاح!' });
-        } else {
-          setMessage({ type: 'warning', text: 'اكتمل الاستيراد مع وجود أخطاء.' });
-        }
-      } else {
-        setMessage({ type: 'danger', text: `فشل الاستيراد: ${result.message}` });
-      }
-    } catch (error) {
-      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <Card className="mt-3">
-      <Card.Body>
-        <Card.Title>استيراد بيانات من ملف Excel</Card.Title>
-        <p>
-          قم بإنشاء قالب Excel، واملأه بالبيانات، ثم قم باستيراده لإضافة سجلات متعددة دفعة واحدة.
-        </p>
-        <div className="d-flex justify-content-start gap-2 mb-3">
-          <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
-            {isLoading ? 'جاري الإنشاء...' : '1. إنشاء قالب Excel'}
-          </Button>
-          <Button variant="success" onClick={handleImport} disabled={isLoading}>
-            {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
-          </Button>
-          {/* {process.env.NODE_ENV === 'development' && (
-            <Button variant="warning" onClick={handleGenerateDevTemplate} disabled={isLoading}>
-              {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب تطوير'}
-            </Button>
-          )} */}
-        </div>
-
-        {message.text && <Alert variant={message.type}>{message.text}</Alert>}
-
-        {importResults && (
-          <div className="mt-4">
-            <h4>نتائج الاستيراد:</h4>
-            <p>
-              <strong>تم بنجاح:</strong> {importResults.successCount} سجلات
-            </p>
-            <p>
-              <strong>فشل:</strong> {importResults.errorCount} سجلات
-            </p>
-            {importResults.newUsers?.length > 0 && (
-              <div>
-                <h5>المستخدمون الجدد الذين تم إنشاؤهم (يرجى حفظ كلمات المرور هذه بأمان):</h5>
-                <ul>
-                  {importResults.newUsers.map((user, index) => (
-                    <li key={index}>
-                      <strong>{user.username}:</strong> {user.password}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {importResults.errors?.length > 0 && (
-              <div>
-                <h5>تفاصيل الخطأ:</h5>
-                <ul className="error-list">
-                  {importResults.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </Card.Body>
-    </Card>
-  );
-};
-
 const ARABIC_MONTHS = [
   'جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
   'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
@@ -532,7 +408,7 @@ const ExportsPage = () => {
   const renderActivePanel = () => {
     switch (activeTab) {
       case 'import':
-        return <ImportTabPanel />;
+        return <ImportWizard />;
       case 'students':
         return (
           <ExportTabPanel

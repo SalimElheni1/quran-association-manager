@@ -125,9 +125,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),
 
   // Imports API
-  generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
-  executeImport: () => ipcRenderer.invoke('import:execute'),
+  openImportFileDialog: () => ipcRenderer.invoke('import:open-file-dialog'),
+  analyzeImportFile: (filePath) => ipcRenderer.invoke('import:analyze', filePath),
+  getColumnMappings: () => ipcRenderer.invoke('import:get-column-mappings'),
+  processImport: (data) => ipcRenderer.invoke('import:process', data),
 
   // Listener for events from main process
   onForceLogout: (callback) => {

@@ -37,6 +37,7 @@ const { registerAuthHandlers } = require('./handlers/authHandlers');
 const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
 const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { registerImportHandlers } = require('./handlers/importHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
@@ -246,6 +247,7 @@ app.whenReady().then(async () => {
     registerSettingsHandlers(refreshSettings);
     registerDashboardHandlers();
     registerSystemHandlers();
+    registerImportHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
