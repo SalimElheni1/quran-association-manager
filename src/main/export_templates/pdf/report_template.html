@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>تقرير {title}</title>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="pdf_styles.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="association-details">
+        <h3>جمعية القرآن الكريم</h3>
+        <p>{title}</p>
+      </div>
+      <div class="logo-placeholder">
+        شعار<br />الجمعية
+      </div>
+    </header>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="report-date">{date}</div>
+      <div class="page-number"></div>
+    </footer>
+
+    <!-- Main Content -->
+    <main>
+      <h1 class="report-title">تقرير {title}</h1>
+
+      <table>
+        <thead>
+          <tr>
+            {table_headers}
+          </tr>
+        </thead>
+        <tbody>
+          {table_rows}
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

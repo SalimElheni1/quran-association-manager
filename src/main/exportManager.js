@@ -133,7 +133,7 @@ function localizeData(data) {
 async function generatePdf(title, columns, data, outputPath) {
   const localizedData = localizeData(data);
   // 1. Create the HTML content
-  const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
+  const templatePath = path.resolve(__dirname, 'export_templates/pdf/report_template.html');
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
 
   const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
@@ -258,9 +258,17 @@ async function generateFinancialXlsx(data, outputPath) {
 }
 
 // --- DOCX Generation ---
-function generateDocx(title, columns, data, outputPath) {
+function generateDocx(title, columns, data, outputPath, exportType) {
   const localizedData = localizeData(data);
-  const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
+
+  let templateName = 'general_template.docx';
+  if (exportType === 'students') {
+    templateName = 'students_template.docx';
+  } else if (exportType === 'teachers') {
+    templateName = 'teachers_template.docx';
+  }
+
+  const templatePath = path.resolve(__dirname, `export_templates/docx/${templateName}`);
   if (!fs.existsSync(templatePath)) {
     throw new Error(
       `TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`,

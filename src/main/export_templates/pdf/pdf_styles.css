@@ -1,0 +1,137 @@
+/*
+  Professional CSS for PDF Export
+  - RTL Support
+  - Association Branding
+  - Improved Table Styles
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+
+@page {
+  size: A4;
+  margin: 1.5cm;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  direction: rtl;
+  text-align: right;
+  color: #333;
+  line-height: 1.6;
+  font-size: 10pt;
+}
+
+/* Header and Footer Setup */
+.header,
+.footer {
+  position: fixed;
+  left: 1.5cm;
+  right: 1.5cm;
+  width: calc(100% - 3cm); /* 100% minus left and right margins */
+  font-size: 9pt;
+  color: #555;
+}
+
+.header {
+  top: 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #007bff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer {
+  bottom: 0;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Give space for header and footer */
+main {
+  padding-top: 80px;
+  padding-bottom: 50px;
+}
+
+/* Header Content */
+.association-details {
+  text-align: right;
+}
+.association-details h3 {
+  margin: 0;
+  font-size: 14pt;
+  color: #0056b3;
+}
+.association-details p {
+  margin: 0;
+  font-size: 9pt;
+}
+
+.logo-placeholder {
+  width: 80px;
+  height: 80px;
+  background-color: #f0f0f0;
+  border: 1px dashed #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 8pt;
+  color: #888;
+  /* In a real scenario, this would be an <img> tag */
+}
+
+/* Footer Content */
+.page-number::before {
+  counter-increment: page;
+  content: "صفحة " counter(page);
+}
+
+.report-date {
+  font-size: 8pt;
+}
+
+/* Main Content */
+h1.report-title {
+  text-align: center;
+  color: #003d80;
+  font-size: 18pt;
+  margin-bottom: 25px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+/* Table Styles */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+th,
+td {
+  border: 1px solid #dee2e6;
+  padding: 12px 10px;
+  text-align: right;
+  vertical-align: middle;
+}
+
+thead th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: bold;
+  border-bottom-width: 2px;
+  font-size: 11pt;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+tbody tr:hover {
+  background-color: #e9ecef;
+}

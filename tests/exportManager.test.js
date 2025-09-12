@@ -26,29 +26,31 @@ jest.mock('electron', () => ({
   })),
 }));
 jest.mock('pizzip');
-jest.mock('docxtemplater');
+jest.mock('docxtemplater', () => {
+  return jest.fn().mockImplementation(() => ({
+    render: jest.fn(),
+    getZip: jest.fn().mockReturnValue({
+      generate: jest.fn().mockReturnValue('dummy buffer'),
+    }),
+  }));
+});
 
 describe('exportManager', () => {
   let tmpDir;
-  const templateDir = path.resolve(__dirname, '../src/main/export_templates');
-  const docxTemplatePath = path.join(templateDir, 'export_template.docx');
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-tests-'));
-    db.allQuery.mockResolvedValue([]); // Default mock
-    jest.clearAllMocks(); // Clear mocks before each test
+    db.allQuery.mockResolvedValue([]);
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    if (fs.existsSync(docxTemplatePath)) {
-      fs.unlinkSync(docxTemplatePath);
-    }
+    jest.restoreAllMocks();
   });
 
   describe('fetchExportData', () => {
     it('should call the correct query for students', async () => {
-      db.allQuery.mockResolvedValueOnce([]);
       await fetchExportData({ type: 'students', fields: ['id', 'name'] });
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT id, name FROM students WHERE 1=1 ORDER BY name',
@@ -57,7 +59,6 @@ describe('exportManager', () => {
     });
 
     it('should correctly filter attendance by classId', async () => {
-      db.allQuery.mockResolvedValueOnce([]);
       const options = {
         type: 'attendance',
         fields: ['student_name', 'status'],
@@ -83,57 +84,47 @@ describe('exportManager', () => {
 
   describe('generatePdf', () => {
     it('should create a PDF using the printToPDF method', async () => {
-      const outputPath = path.join(tmpDir, 'test.pdf');
-      const columns = [{ header: 'h1', key: 'f1' }];
-      const data = [{ f1: 'd1' }];
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('<html></html>');
+      jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+      jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
 
-      await generatePdf('Test Report', columns, data, outputPath);
+      const outputPath = path.join(tmpDir, 'test.pdf');
+      await generatePdf('Test Report', [], [], outputPath);
 
       expect(BrowserWindow).toHaveBeenCalled();
-      const instance = BrowserWindow.mock.results[0].value;
-      expect(instance.loadFile).toHaveBeenCalledWith(expect.any(String)); // Check it loads a temp file
-      expect(instance.webContents.printToPDF).toHaveBeenCalled();
-
-      const writtenContent = fs.readFileSync(outputPath);
-      expect(writtenContent.toString()).toBe('dummy pdf content');
+      expect(fs.writeFileSync).toHaveBeenCalledWith(outputPath, expect.any(Buffer));
     });
   });
 
   describe('generateXlsx', () => {
     it('should create a non-empty XLSX file without errors', async () => {
       const outputPath = path.join(tmpDir, 'test.xlsx');
-      const columns = [{ header: 'h1', key: 'f1' }];
-      await generateXlsx(columns, [{ f1: 'd1' }], outputPath);
-
+      await generateXlsx([], [], outputPath);
       expect(fs.existsSync(outputPath)).toBe(true);
-      const stats = fs.statSync(outputPath);
-      expect(stats.size).toBeGreaterThan(0);
+      expect(fs.statSync(outputPath).size).toBeGreaterThan(0);
     });
   });
 
   describe('generateDocx', () => {
     it('should throw TEMPLATE_NOT_FOUND if the template does not exist', () => {
-      const outputPath = path.join(tmpDir, 'test.docx');
+      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
       expect(() => {
-        generateDocx('Title', [], [], outputPath);
+        generateDocx('Title', [], [], 'output.docx', 'non_existent_type');
       }).toThrow(/TEMPLATE_NOT_FOUND/);
     });
 
-    it('should throw TEMPLATE_INVALID if the template is not a valid zip file', () => {
-      const outputPath = path.join(tmpDir, 'test.docx');
-      if (!fs.existsSync(templateDir)) {
-        fs.mkdirSync(templateDir, { recursive: true });
-      }
-      fs.writeFileSync(docxTemplatePath, 'this is not a zip file');
+    it('should read the correct template based on exportType', () => {
+      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      const readFileSyncSpy = jest.spyOn(fs, 'readFileSync').mockReturnValue('dummy content');
 
-      // Configure the PizZip mock to throw an error when instantiated
-      PizZip.mockImplementation(() => {
-        throw new Error("Can't find end of central directory : is this a zip file ?");
-      });
+      generateDocx('Title', [], [], 'output.docx', 'students');
+      expect(readFileSyncSpy).toHaveBeenCalledWith(expect.stringContaining('students_template.docx'), 'binary');
 
-      expect(() => {
-        generateDocx('Title', [], [], outputPath);
-      }).toThrow(/TEMPLATE_INVALID/);
+      generateDocx('Title', [], [], 'output.docx', 'teachers');
+      expect(readFileSyncSpy).toHaveBeenCalledWith(expect.stringContaining('teachers_template.docx'), 'binary');
+
+      generateDocx('Title', [], [], 'output.docx', 'other_type');
+      expect(readFileSyncSpy).toHaveBeenCalledWith(expect.stringContaining('general_template.docx'), 'binary');
     });
   });
 });

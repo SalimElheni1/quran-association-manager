@@ -78,7 +78,7 @@ function registerSystemHandlers() {
         } else if (format === 'xlsx') {
           await exportManager.generateXlsx(columns, data, filePath);
         } else if (format === 'docx') {
-          await exportManager.generateDocx(reportTitle, columns, data, filePath);
+          await exportManager.generateDocx(reportTitle, columns, data, filePath, exportType);
         } else {
           throw new Error(`Unsupported export format: ${format}`);
         }
