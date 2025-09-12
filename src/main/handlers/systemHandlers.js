@@ -112,7 +112,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('import:execute', async () => {
+  ipcMain.handle('import:start-analysis', async () => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
         title: 'Select Excel File to Import',
@@ -121,11 +121,25 @@ function registerSystemHandlers() {
       });
 
       if (canceled || !filePaths || filePaths.length === 0) {
-        return { success: false, message: 'Import canceled by user.' };
+        return { success: false, canceled: true, message: 'Import canceled by user.' };
       }
 
-      const results = await importManager.importExcelData(filePaths[0]);
+      const filePath = filePaths[0];
+      const analysis = await importManager.analyzeImportFile(filePath);
 
+      return { success: true, analysis, filePath };
+    } catch (error) {
+      logError('Error during import analysis:', error);
+      return { success: false, message: `Import analysis failed: ${error.message}` };
+    }
+  });
+
+  ipcMain.handle('import:execute-with-mapping', async (_event, { filePath, confirmedMappings }) => {
+    try {
+      if (!filePath || !confirmedMappings) {
+        throw new Error('File path and mappings must be provided.');
+      }
+      const results = await importManager.processImport(filePath, confirmedMappings);
       return { success: true, ...results };
     } catch (error) {
       logError('Error during import execution:', error);
