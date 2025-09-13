@@ -70,4 +70,26 @@ describe('Import Manager: analyzeImportFile', () => {
       date_of_birth: 3, // 'تاريخ الميلاد' is at index 3
     });
   });
+
+  it('should recognize aliased sheet names', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('الحاضر'); // "Attendance" alias
+    sheet.addRow(['Title']);
+    sheet.getCell('A2').value = 'الرقم التعريفي للطالب';
+    sheet.getCell('B2').value = 'اسم الفصل';
+    sheet.getCell('C2').value = 'التاريخ (YYYY-MM-DD)';
+    sheet.getCell('D2').value = 'الحالة (present/absent/late/excused)';
+    await workbook.xlsx.writeFile(tempExcelPath);
+
+    const analysis = await analyzeImportFile(tempExcelPath);
+
+    expect(analysis.sheets['الحاضر']).toBeDefined();
+    expect(analysis.sheets['الحاضر'].warnings).toHaveLength(0);
+    expect(analysis.sheets['الحاضر'].suggestedMapping).toEqual({
+      student_matricule: 1,
+      class_name: 2,
+      date: 3,
+      status: 4,
+    });
+  });
 });

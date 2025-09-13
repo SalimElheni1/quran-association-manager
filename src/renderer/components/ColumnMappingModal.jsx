@@ -39,6 +39,11 @@ const ColumnMappingModal = ({ show, analysis, onConfirm, onCancel }) => {
       return true;
     }
     const currentSheetMappingConfig = systemMappings[activeSheet];
+    if (!currentSheetMappingConfig) {
+      // This can happen briefly during state updates, or if a sheet
+      // from analysis somehow doesn't have a system mapping.
+      return true;
+    }
     const currentSheetUserMapping = mappings[activeSheet];
 
     for (const [dbField, config] of Object.entries(currentSheetMappingConfig)) {

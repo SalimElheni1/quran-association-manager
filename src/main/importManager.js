@@ -175,6 +175,16 @@ const COLUMN_MAPPINGS = {
     responsible_person: { aliases: ['المسؤول', 'Responsible Person'], required: false },
     description: { aliases: ['الوصف', 'Description'], required: false },
   },
+  // Note: Both 'الحاضر' and 'الحضور' map to the same attendance configuration.
+  الحاضر: {
+    student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
+    class_name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
+    date: { aliases: ['التاريخ (YYYY-MM-DD)', 'Date'], required: true },
+    status: {
+      aliases: ['الحالة (present/absent/late/excused)', 'Status'],
+      required: true,
+    },
+  },
   الحضور: {
     student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
     class_name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
@@ -251,6 +261,7 @@ async function processImport(filePath, confirmedMappings) {
     الرواتب: processSalaryRow,
     التبرعات: processDonationRow,
     المصاريف: processExpenseRow,
+    الحاضر: processAttendanceRow,
     الحضور: processAttendanceRow,
   };
 
