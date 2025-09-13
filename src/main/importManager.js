@@ -389,7 +389,14 @@ async function processImport(filePath, confirmedMappings) {
 
     for (let i = dataStartRowIndex || 2; i <= worksheet.rowCount; i++) {
       const row = worksheet.getRow(i);
-      if (!row.hasValues) continue;
+
+      // If the first cell is empty, we assume the data has ended and stop processing.
+      const firstCell = row.getCell(1);
+      if (!firstCell.value || firstCell.value.toString().trim() === '') {
+        log(`Stopping import for sheet '${sheetName}' at empty row ${i}.`);
+        break;
+      }
+
       try {
         const result = await processor(row, mapping);
         if (result.success) {
@@ -404,8 +411,6 @@ async function processImport(filePath, confirmedMappings) {
         results.errors.push(`[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`);
       }
     }
-
-    // This loop is now handled by the one above it.
   }
 
   return results;

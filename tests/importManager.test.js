@@ -16,6 +16,10 @@ jest.mock('../src/db/db', () => ({
   runQuery: jest.fn(),
 }));
 
+jest.mock('../src/main/matriculeService', () => ({
+  generateMatricule: jest.fn(),
+}));
+
 
 describe('Import Manager: analyzeImportFile with flexible detection', () => {
   const tempExcelPath = path.join(__dirname, 'temp-import-test.xlsx');
@@ -155,5 +159,61 @@ describe('Import Manager: Header Detection', () => {
     const analysis = await analyzeImportFile(tempExcelPath);
     expect(analysis.sheets['Teachers'].status).toBe('unrecognized');
     expect(analysis.sheets['Teachers'].errorMessage).toContain('تعذر العثور على صف الرأس');
+  });
+});
+
+const { processImport } = require('../src/main/importManager');
+const db = require('../src/db/db');
+const { generateMatricule } = require('../src/main/matriculeService');
+
+describe('Import Manager: processImport', () => {
+  const tempExcelPath = path.join(__dirname, 'temp-process-import-test.xlsx');
+
+  beforeEach(() => {
+    db.getQuery.mockReset();
+    db.runQuery.mockReset();
+    generateMatricule.mockReset();
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tempExcelPath)) {
+      fs.unlinkSync(tempExcelPath);
+    }
+  });
+
+  it('should not throw an error when processing a file with trailing empty rows', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('الطلاب');
+    sheet.addRow(['الاسم واللقب', 'الجنس']);
+    sheet.addRow(['Student 1', 'Male']);
+    sheet.addRow(['Student 2', 'Female']);
+    // Add some empty rows that might cause issues
+    sheet.addRow([]);
+    sheet.addRow([]);
+    sheet.addRow(['', '', '']); // A row with empty cells
+
+    await workbook.xlsx.writeFile(tempExcelPath);
+
+    db.getQuery.mockResolvedValue(null); // No existing students
+    db.runQuery.mockResolvedValue({ changes: 1 }); // Successful insert/update
+    generateMatricule.mockResolvedValue('MOCK-MATRICULE');
+
+    const confirmedMappings = {
+      'الطلاب': {
+        type: 'students',
+        mapping: {
+          name: 1,
+          gender: 2,
+        },
+        dataStartRowIndex: 2,
+      },
+    };
+
+    const results = await processImport(tempExcelPath, confirmedMappings);
+
+    // Expect that only the valid rows were processed and no errors were thrown
+    expect(results.successCount).toBe(2);
+    expect(results.errorCount).toBe(0);
+    expect(results.errors).toHaveLength(0);
   });
 });
