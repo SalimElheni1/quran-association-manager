@@ -115,7 +115,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
   };
 
-  const isExportDisabled = selectedFields.length === 0 || selectedFields.length > 4;
+  const isExportDisabled = selectedFields.length === 0;
 
   const renderPdfButton = () => {
     const button = (
@@ -132,9 +132,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     if (isExportDisabled) {
       return (
         <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-pdf-disabled">لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.</Tooltip>
-          }
+          overlay={<Tooltip id="tooltip-pdf-disabled">الرجاء تحديد حقل واحد على الأقل.</Tooltip>}
         >
           <span className="d-inline-block">{button}</span>
         </OverlayTrigger>
@@ -158,11 +156,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     if (isExportDisabled) {
       return (
         <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-docx-disabled">
-              لتصدير DOCX، الرجاء تحديد ما بين 1 و 4 حقول.
-            </Tooltip>
-          }
+          overlay={<Tooltip id="tooltip-docx-disabled">الرجاء تحديد حقل واحد على الأقل.</Tooltip>}
         >
           <span className="d-inline-block">{button}</span>
         </OverlayTrigger>

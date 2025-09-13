@@ -366,8 +366,13 @@ async function processUserRow(row, headerRow) {
 }
 
 async function processClassRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
-  if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
+
+  // Teacher is required for both insert and update operations.
+  if (!teacherMatricule) {
+    return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
+  }
   const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
   if (!teacher) {
     return {
@@ -375,6 +380,7 @@ async function processClassRow(row, headerRow) {
       message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".`,
     };
   }
+
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value,
     teacher_id: teacher.id,
@@ -386,11 +392,45 @@ async function processClassRow(row, headerRow) {
     capacity: row.getCell(getColumnIndex(headerRow, 'السعة'))?.value,
     gender: row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value,
   };
-  if (!data.name) return { success: false, message: 'اسم الفصل مطلوب.' };
+
+  if (!data.name) {
+    return { success: false, message: 'اسم الفصل مطلوب.' };
+  }
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO classes (${fields.join(', ')}) VALUES (${placeholders})`, values);
+
+  if (matricule) {
+    // Update existing record
+    const existingClass = await getQuery('SELECT id FROM classes WHERE matricule = ?', [matricule]);
+    if (!existingClass) {
+      return { success: false, message: `الفصل بالرقم التعريفي "${matricule}" غير موجود.` };
+    }
+
+    if (fields.length === 0) {
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    }
+
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => data[k]), matricule];
+    await runQuery(`UPDATE classes SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+  // Insert new record
+  const existingClass = await getQuery('SELECT id FROM classes WHERE name = ?', [data.name]);
+  if (existingClass) {
+    return { success: false, message: `الفصل باسم "${data.name}" موجود بالفعل.` };
+  }
+
+  const newMatricule = await generateMatricule('class');
+  const allData = { ...data, matricule: newMatricule };
+
+  const allFields = Object.keys(allData).filter(
+    (k) => allData[k] !== null && allData[k] !== undefined,
+  );
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+
+  await runQuery(`INSERT INTO classes (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
 }
 
@@ -413,6 +453,16 @@ async function processPaymentRow(row, headerRow) {
   };
   if (!data.amount || !data.payment_date)
     return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
+
+  // Prevent duplicate payments
+  const existingPayment = await getQuery(
+    'SELECT id FROM payments WHERE student_id = ? AND amount = ? AND payment_date = ?',
+    [data.student_id, data.amount, data.payment_date],
+  );
+  if (existingPayment) {
+    return { success: false, message: `دفعة مشابهة لهذا الطالب موجودة بالفعل في نفس التاريخ.` };
+  }
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -438,6 +488,16 @@ async function processSalaryRow(row, headerRow) {
   };
   if (!data.amount || !data.payment_date)
     return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
+
+  // Prevent duplicate salaries
+  const existingSalary = await getQuery(
+    'SELECT id FROM salaries WHERE teacher_id = ? AND amount = ? AND payment_date = ?',
+    [data.teacher_id, data.amount, data.payment_date],
+  );
+  if (existingSalary) {
+    return { success: false, message: `راتب مشابه لهذا المعلم موجود بالفعل في نفس التاريخ.` };
+  }
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -460,6 +520,24 @@ async function processDonationRow(row, headerRow) {
     return { success: false, message: 'المبلغ مطلوب للتبرعات النقدية.' };
   if (data.donation_type === 'In-kind' && !data.description)
     return { success: false, message: 'الوصف مطلوب للتبرعات العينية.' };
+
+  // Prevent duplicate donations
+  let existingDonation;
+  if (data.donation_type === 'Cash') {
+    existingDonation = await getQuery(
+      'SELECT id FROM donations WHERE donor_name = ? AND amount = ? AND donation_date = ? AND donation_type = ?',
+      [data.donor_name, data.amount, data.donation_date, 'Cash'],
+    );
+  } else {
+    existingDonation = await getQuery(
+      'SELECT id FROM donations WHERE donor_name = ? AND description = ? AND donation_date = ? AND donation_type = ?',
+      [data.donor_name, data.description, data.donation_date, 'In-kind'],
+    );
+  }
+  if (existingDonation) {
+    return { success: false, message: `تبرع مشابه من هذا المتبرع موجود بالفعل في نفس التاريخ.` };
+  }
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
@@ -477,6 +555,16 @@ async function processExpenseRow(row, headerRow) {
   };
   if (!data.category || !data.amount || !data.expense_date)
     return { success: false, message: 'الفئة، المبلغ، وتاريخ الصرف هي حقول مطلوبة.' };
+
+  // Prevent duplicate expenses
+  const existingExpense = await getQuery(
+    'SELECT id FROM expenses WHERE category = ? AND amount = ? AND expense_date = ?',
+    [data.category, data.amount, data.expense_date],
+  );
+  if (existingExpense) {
+    return { success: false, message: `مصروف مشابه في نفس الفئة والتاريخ موجود بالفعل.` };
+  }
+
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);

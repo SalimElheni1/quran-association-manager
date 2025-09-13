@@ -282,19 +282,18 @@ function generateDocx(title, columns, data, outputPath) {
     linebreaks: true,
   });
 
+  // This new structure is more flexible and works with a docxtemplater template
+  // that uses loops for both headers and rows.
+  // Example template structure:
+  // | {#headers}{header}{/headers} |
+  // | {#data}{#row}{cell}{/row}{/data} |
   const templateData = {
     title: title,
     date: new Date().toLocaleDateString('ar-SA'),
-    c1: columns[0]?.header || '',
-    c2: columns[1]?.header || '',
-    c3: columns[2]?.header || '',
-    c4: columns[3]?.header || '',
+    headers: columns.map((c) => ({ header: c.header })),
     data: localizedData.map((item) => {
       return {
-        d1: item[columns[0]?.key] || '',
-        d2: item[columns[1]?.key] || '',
-        d3: item[columns[2]?.key] || '',
-        d4: item[columns[3]?.key] || '',
+        row: columns.map((c) => ({ cell: item[c.key] || '' })),
       };
     }),
   };
@@ -444,6 +443,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'الفصول',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'اسم الفصل', key: 'name', width: 25 },
         { header: 'نوع الفصل', key: 'class_type', width: 20 },
         { header: 'الرقم التعريفي للمعلم', key: 'teacher_matricule', width: 25 },
