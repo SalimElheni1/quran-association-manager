@@ -343,7 +343,7 @@ async function processImport(filePath, confirmedMappings) {
 
     for (let i = 2; i <= worksheet.rowCount; i++) { // Data starts from row 2
       const row = worksheet.getRow(i);
-      if (row.values.every((v) => v === null || v === '')) continue;
+      if (!row.hasValues) continue;
       try {
         const result = await processor(row, mapping);
         if (result.success) {
