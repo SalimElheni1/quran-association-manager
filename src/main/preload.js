@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Imports API
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
   openImportFileDialog: () => ipcRenderer.invoke('import:open-file-dialog'),
+  downloadTemplate: (importType) => ipcRenderer.invoke('import:download-template', importType),
   analyzeImportFile: (filePath) => ipcRenderer.invoke('import:analyze', filePath),
   getColumnMappings: () => ipcRenderer.invoke('import:get-column-mappings'),
   processImport: (data) => ipcRenderer.invoke('import:process', data),

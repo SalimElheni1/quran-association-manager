@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Button, Alert, Spinner } from 'react-bootstrap';
 import ColumnMappingModal from './ColumnMappingModal';
 import ImportResults from './ImportResults';
+import SheetReviewStep from './SheetReviewStep';
+import TemplateDownloadModal from './TemplateDownloadModal';
 
 const ImportWizard = () => {
-  const [wizardState, setWizardState] = useState('idle'); // idle, analyzing, mapping, processing, results
+  const [wizardState, setWizardState] = useState('idle'); // idle, analyzing, reviewing, mapping, processing, results
   const [filePath, setFilePath] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
+  const [analysis, setAnalysis] = useState(null); // This will hold the original analysis
+  const [reviewedMappings, setReviewedMappings] = useState(null); // This will hold the user-confirmed types
   const [importResults, setImportResults] = useState(null);
   const [error, setError] = useState('');
+  const [columnMappings, setColumnMappings] = useState(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+
+  useEffect(() => {
+    window.electronAPI.getColumnMappings().then(setColumnMappings);
+  }, []);
 
   const resetWizard = () => {
     setWizardState('idle');
     setFilePath(null);
     setAnalysis(null);
+    setReviewedMappings(null);
     setImportResults(null);
     setError('');
   };
@@ -27,11 +37,11 @@ const ImportWizard = () => {
       const result = await window.electronAPI.analyzeImportFile(selectedPath);
       if (result.success) {
         if (Object.keys(result.analysis.sheets).length === 0) {
-          setError('No sheets with recognized names found in the Excel file. Please use the template or name your sheets according to the import type (e.g., "الطلاب", "المعلمون").');
+          setError('لم يتم العثور على أي أوراق في ملف Excel.');
           setWizardState('idle');
         } else {
           setAnalysis(result.analysis);
-          setWizardState('mapping');
+          setWizardState('reviewing');
         }
       } else {
         setError(result.message);
@@ -42,9 +52,43 @@ const ImportWizard = () => {
     }
   };
 
-  const handleMappingConfirm = async (confirmedMappings) => {
+  const handleReviewConfirm = (confirmedSheetTypes) => {
+    // confirmedSheetTypes is an object where keys are sheet names and values are { type, mapping, ... }
+    // We need to construct an object that the ColumnMappingModal can use.
+    const analysisForMapping = { sheets: {} };
+    for (const sheetName in confirmedSheetTypes) {
+      const { type, mapping, headers, warnings, rowCount } = confirmedSheetTypes[sheetName];
+      analysisForMapping.sheets[sheetName] = {
+        detectedType: type,
+        suggestedMapping: mapping,
+        headers,
+        warnings,
+        rowCount,
+      };
+    }
+    setReviewedMappings(confirmedSheetTypes);
+    setAnalysis(analysisForMapping); // Overwrite analysis with the reviewed data for the mapping modal
+    setWizardState('mapping');
+  };
+
+  const handleMappingConfirm = async (finalMappings) => {
+    // `finalMappings` is the object from ColumnMappingModal, e.g., { "Sheet1": { "name": 1, "email": 2 } }
+    // We need to combine this with the `type` from `reviewedMappings`.
+    const mappingsForBackend = {};
+    for (const sheetName in finalMappings) {
+      if (reviewedMappings[sheetName]) {
+        mappingsForBackend[sheetName] = {
+          type: reviewedMappings[sheetName].type,
+          mapping: finalMappings[sheetName],
+        };
+      }
+    }
+
     setWizardState('processing');
-    const result = await window.electronAPI.processImport({ filePath, confirmedMappings });
+    const result = await window.electronAPI.processImport({
+      filePath,
+      confirmedMappings: mappingsForBackend,
+    });
     if (result.success) {
       setImportResults(result.results);
       setWizardState('results');
@@ -54,10 +98,8 @@ const ImportWizard = () => {
     }
   };
 
-  const handleMappingCancel = () => {
-    setWizardState('idle');
-    setAnalysis(null);
-    setFilePath(null);
+  const handleCancel = () => {
+    resetWizard();
   };
 
   return (
@@ -77,8 +119,19 @@ const ImportWizard = () => {
 
         {wizardState === 'idle' && (
           <div className="text-center">
+            <p className="mb-3">
+              يمكنك تحميل قالب جاهز لضمان توافق ملفك مع النظام، أو يمكنك رفع ملفك مباشرة.
+            </p>
+            <Button
+              variant="outline-secondary"
+              size="lg"
+              onClick={() => setShowTemplateModal(true)}
+              className="me-3"
+            >
+              تحميل قالب
+            </Button>
             <Button variant="primary" size="lg" onClick={handleFileSelect}>
-              1. اختر ملف Excel
+              رفع ملف Excel
             </Button>
           </div>
         )}
@@ -90,6 +143,15 @@ const ImportWizard = () => {
           </div>
         )}
 
+        {wizardState === 'reviewing' && (
+          <SheetReviewStep
+            analysis={analysis}
+            columnMappings={columnMappings}
+            onConfirm={handleReviewConfirm}
+            onCancel={handleCancel}
+          />
+        )}
+
         {wizardState === 'processing' && (
           <div className="text-center">
             <Spinner animation="border" role="status" />
@@ -99,11 +161,19 @@ const ImportWizard = () => {
 
         {wizardState === 'results' && <ImportResults results={importResults} />}
 
-        <ColumnMappingModal
-          show={wizardState === 'mapping'}
-          analysis={analysis}
-          onConfirm={handleMappingConfirm}
-          onCancel={handleMappingCancel}
+        {wizardState === 'mapping' && (
+          <ColumnMappingModal
+            show={wizardState === 'mapping'}
+            analysis={analysis} // This is now the reviewed analysis
+            onConfirm={handleMappingConfirm}
+            onCancel={handleCancel}
+          />
+        )}
+
+        <TemplateDownloadModal
+          show={showTemplateModal}
+          onHide={() => setShowTemplateModal(false)}
+          columnMappings={columnMappings}
         />
       </Card.Body>
     </Card>

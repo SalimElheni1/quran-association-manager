@@ -35,19 +35,18 @@ const ColumnMappingModal = ({ show, analysis, onConfirm, onCancel }) => {
   };
 
   const isConfirmDisabled = () => {
-    if (!systemMappings || !activeSheet || !mappings[activeSheet]) {
+    if (!systemMappings || !activeSheet || !mappings[activeSheet] || !analysis.sheets[activeSheet]) {
       return true;
     }
-    const currentSheetMappingConfig = systemMappings[activeSheet];
-    if (!currentSheetMappingConfig) {
-      // This can happen briefly during state updates, or if a sheet
-      // from analysis somehow doesn't have a system mapping.
+    const detectedType = analysis.sheets[activeSheet].detectedType;
+    if (!detectedType || !systemMappings[detectedType]) {
       return true;
     }
+    const currentSheetMappingConfig = systemMappings[detectedType].columns;
     const currentSheetUserMapping = mappings[activeSheet];
 
     for (const [dbField, config] of Object.entries(currentSheetMappingConfig)) {
-      if (config.required && !currentSheetUserMapping[dbField]) {
+      if (config.required && (!currentSheetUserMapping || !currentSheetUserMapping[dbField])) {
         return true; // Disabled if a required field is not mapped
       }
     }
@@ -93,11 +92,12 @@ const ColumnMappingModal = ({ show, analysis, onConfirm, onCancel }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {systemMappings[sheetName] &&
-                      Object.entries(systemMappings[sheetName]).map(([dbField, config]) => (
-                        <tr key={dbField}>
-                          <td>
-                            {config.aliases[0]}{' '}
+                    {systemMappings[sheetData.detectedType] &&
+                      Object.entries(systemMappings[sheetData.detectedType].columns).map(
+                        ([dbField, config]) => (
+                          <tr key={dbField}>
+                            <td>
+                              {config.aliases[0]}{' '}
                             {config.required && <Badge bg="danger">مطلوب</Badge>}
                           </td>
                           <td>

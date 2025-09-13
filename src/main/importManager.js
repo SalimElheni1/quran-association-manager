@@ -110,106 +110,160 @@ async function replaceDatabase(importedDbPath, password) {
 }
 
 const COLUMN_MAPPINGS = {
-  الطلاب: {
-    name: { aliases: ['الاسم واللقب', 'Full Name', 'Name'], required: true },
-    matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false }, // For updates
-    date_of_birth: { aliases: ['تاريخ الميلاد', 'Date of Birth'], required: false },
-    gender: { aliases: ['الجنس', 'Gender'], required: false },
-    address: { aliases: ['العنوان', 'Address'], required: false },
-    contact_info: { aliases: ['رقم الهاتف', 'Contact Info', 'Phone'], required: false },
-    email: { aliases: ['البريد الإلكتروني', 'Email'], required: false },
-    status: { aliases: ['الحالة', 'Status'], required: false },
-    national_id: { aliases: ['رقم الهوية', 'National ID'], required: false },
-  },
-  المعلمون: {
-    name: { aliases: ['الاسم واللقب', 'Full Name', 'Name'], required: true },
-    matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false }, // For updates
-    national_id: { aliases: ['رقم الهوية', 'National ID'], required: false },
-    contact_info: { aliases: ['رقم الهاتف', 'Contact Info', 'Phone'], required: false },
-    email: { aliases: ['البريد الإلكتروني', 'Email'], required: false },
-  },
-  المستخدمون: {
-    username: { aliases: ['اسم المستخدم', 'Username'], required: true },
-    matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false }, // For updates
-    first_name: { aliases: ['الاسم الأول', 'First Name'], required: true },
-    last_name: { aliases: ['اللقب', 'Last Name'], required: true },
-    role: { aliases: ['الدور', 'Role'], required: true },
-    employment_type: { aliases: ['نوع التوظيف', 'Employment Type'], required: true },
-  },
-  الفصول: {
-    name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
-    teacher_matricule: { aliases: ['الرقم التعريفي للمعلم', "Teacher's ID"], required: true },
-    class_type: { aliases: ['نوع الفصل', 'Class Type'], required: false },
-    schedule: { aliases: ['الجدول الزمني (JSON)', 'Schedule (JSON)'], required: false },
-    start_date: { aliases: ['تاريخ البدء', 'Start Date'], required: false },
-    end_date: { aliases: ['تاريخ الانتهاء', 'End Date'], required: false },
-    status: { aliases: ['الحالة', 'Status'], required: false },
-    capacity: { aliases: ['السعة', 'Capacity'], required: false },
-    gender: { aliases: ['الجنس', 'Gender'], required: false },
-  },
-  'الرسوم الدراسية': {
-    student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
-    amount: { aliases: ['المبلغ', 'Amount'], required: true },
-    payment_date: { aliases: ['تاريخ الدفع (YYYY-MM-DD)', 'Payment Date'], required: true },
-    payment_method: { aliases: ['طريقة الدفع', 'Payment Method'], required: false },
-    notes: { aliases: ['ملاحظات', 'Notes'], required: false },
-  },
-  الرواتب: {
-    teacher_matricule: { aliases: ['الرقم التعريفي للمعلم', "Teacher's ID"], required: true },
-    amount: { aliases: ['المبلغ', 'Amount'], required: true },
-    payment_date: { aliases: ['تاريخ الدفع (YYYY-MM-DD)', 'Payment Date'], required: true },
-    notes: { aliases: ['ملاحظات', 'Notes'], required: false },
-  },
-  التبرعات: {
-    donor_name: { aliases: ['اسم المتبرع', 'Donor Name'], required: true },
-    donation_type: { aliases: ['نوع التبرع (Cash/In-kind)', 'Donation Type'], required: true },
-    amount: { aliases: ['المبلغ (للتبرع النقدي)', 'Amount (Cash)'], required: false },
-    description: { aliases: ['وصف (للتبرع العيني)', 'Description (In-kind)'], required: false },
-    donation_date: { aliases: ['تاريخ التبرع (YYYY-MM-DD)', 'Donation Date'], required: true },
-    notes: { aliases: ['ملاحظات', 'Notes'], required: false },
-  },
-  المصاريف: {
-    category: { aliases: ['الفئة', 'Category'], required: true },
-    amount: { aliases: ['المبلغ', 'Amount'], required: true },
-    expense_date: { aliases: ['تاريخ الصرف (YYYY-MM-DD)', 'Expense Date'], required: true },
-    responsible_person: { aliases: ['المسؤول', 'Responsible Person'], required: false },
-    description: { aliases: ['الوصف', 'Description'], required: false },
-  },
-  // Note: Both 'الحاضر' and 'الحضور' map to the same attendance configuration.
-  الحاضر: {
-    student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
-    class_name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
-    date: { aliases: ['التاريخ (YYYY-MM-DD)', 'Date'], required: true },
-    status: {
-      aliases: ['الحالة (present/absent/late/excused)', 'Status'],
-      required: true,
+  students: {
+    displayName: 'الطلاب',
+    sheetNamePatterns: ['الطلاب', 'students', 'student data', 'طلاب'],
+    columns: {
+      name: { aliases: ['الاسم واللقب', 'Full Name', 'Name'], required: true },
+      matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false },
+      date_of_birth: { aliases: ['تاريخ الميلاد', 'Date of Birth'], required: false },
+      gender: { aliases: ['الجنس', 'Gender'], required: false },
+      address: { aliases: ['العنوان', 'Address'], required: false },
+      contact_info: { aliases: ['رقم الهاتف', 'Contact Info', 'Phone'], required: false },
+      email: { aliases: ['البريد الإلكتروني', 'Email'], required: false },
+      status: { aliases: ['الحالة', 'Status'], required: false },
+      national_id: { aliases: ['رقم الهوية', 'National ID'], required: false },
     },
   },
-  الحضور: {
-    student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
-    class_name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
-    date: { aliases: ['التاريخ (YYYY-MM-DD)', 'Date'], required: true },
-    status: {
-      aliases: ['الحالة (present/absent/late/excused)', 'Status'],
-      required: true,
+  teachers: {
+    displayName: 'المعلمون',
+    sheetNamePatterns: ['المعلمون', 'teachers', 'teacher data'],
+    columns: {
+      name: { aliases: ['الاسم واللقب', 'Full Name', 'Name'], required: true },
+      matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false },
+      national_id: { aliases: ['رقم الهوية', 'National ID'], required: false },
+      contact_info: { aliases: ['رقم الهاتف', 'Contact Info', 'Phone'], required: false },
+      email: { aliases: ['البريد الإلكتروني', 'Email'], required: false },
+    },
+  },
+  users: {
+    displayName: 'المستخدمون',
+    sheetNamePatterns: ['المستخدمون', 'users', 'user data'],
+    columns: {
+      username: { aliases: ['اسم المستخدم', 'Username'], required: true },
+      matricule: { aliases: ['الرقم التعريفي', 'Matricule', 'ID'], required: false },
+      first_name: { aliases: ['الاسم الأول', 'First Name'], required: true },
+      last_name: { aliases: ['اللقب', 'Last Name'], required: true },
+      role: { aliases: ['الدور', 'Role'], required: true },
+      employment_type: { aliases: ['نوع التوظيف', 'Employment Type'], required: true },
+    },
+  },
+  classes: {
+    displayName: 'الفصول',
+    sheetNamePatterns: ['الفصول', 'classes', 'class data'],
+    columns: {
+      name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
+      teacher_matricule: { aliases: ['الرقم التعريفي للمعلم', "Teacher's ID"], required: true },
+      class_type: { aliases: ['نوع الفصل', 'Class Type'], required: false },
+      schedule: { aliases: ['الجدول الزمني (JSON)', 'Schedule (JSON)'], required: false },
+      start_date: { aliases: ['تاريخ البدء', 'Start Date'], required: false },
+      end_date: { aliases: ['تاريخ الانتهاء', 'End Date'], required: false },
+      status: { aliases: ['الحالة', 'Status'], required: false },
+      capacity: { aliases: ['السعة', 'Capacity'], required: false },
+      gender: { aliases: ['الجنس', 'Gender'], required: false },
+    },
+  },
+  payments: {
+    displayName: 'الرسوم الدراسية',
+    sheetNamePatterns: ['الرسوم الدراسية', 'payments', 'fees'],
+    columns: {
+      student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
+      amount: { aliases: ['المبلغ', 'Amount'], required: true },
+      payment_date: { aliases: ['تاريخ الدفع (YYYY-MM-DD)', 'Payment Date'], required: true },
+      payment_method: { aliases: ['طريقة الدفع', 'Payment Method'], required: false },
+      notes: { aliases: ['ملاحظات', 'Notes'], required: false },
+    },
+  },
+  salaries: {
+    displayName: 'الرواتب',
+    sheetNamePatterns: ['الرواتب', 'salaries'],
+    columns: {
+      teacher_matricule: { aliases: ['الرقم التعريفي للمعلم', "Teacher's ID"], required: true },
+      amount: { aliases: ['المبلغ', 'Amount'], required: true },
+      payment_date: { aliases: ['تاريخ الدفع (YYYY-MM-DD)', 'Payment Date'], required: true },
+      notes: { aliases: ['ملاحظات', 'Notes'], required: false },
+    },
+  },
+  donations: {
+    displayName: 'التبرعات',
+    sheetNamePatterns: ['التبرعات', 'donations'],
+    columns: {
+      donor_name: { aliases: ['اسم المتبرع', 'Donor Name'], required: true },
+      donation_type: { aliases: ['نوع التبرع (Cash/In-kind)', 'Donation Type'], required: true },
+      amount: { aliases: ['المبلغ (للتبرع النقدي)', 'Amount (Cash)'], required: false },
+      description: { aliases: ['وصف (للتبرع العيني)', 'Description (In-kind)'], required: false },
+      donation_date: { aliases: ['تاريخ التبرع (YYYY-MM-DD)', 'Donation Date'], required: true },
+      notes: { aliases: ['ملاحظات', 'Notes'], required: false },
+    },
+  },
+  expenses: {
+    displayName: 'المصاريف',
+    sheetNamePatterns: ['المصاريف', 'expenses'],
+    columns: {
+      category: { aliases: ['الفئة', 'Category'], required: true },
+      amount: { aliases: ['المبلغ', 'Amount'], required: true },
+      expense_date: { aliases: ['تاريخ الصرف (YYYY-MM-DD)', 'Expense Date'], required: true },
+      responsible_person: { aliases: ['المسؤول', 'Responsible Person'], required: false },
+      description: { aliases: ['الوصف', 'Description'], required: false },
+    },
+  },
+  attendance: {
+    displayName: 'الحضور',
+    sheetNamePatterns: ['الحضور', 'الحاضر', 'attendance', 'attendees'],
+    columns: {
+      student_matricule: { aliases: ['الرقم التعريفي للطالب', "Student's ID"], required: true },
+      class_name: { aliases: ['اسم الفصل', 'Class Name'], required: true },
+      date: { aliases: ['التاريخ (YYYY-MM-DD)', 'Date'], required: true },
+      status: {
+        aliases: ['الحالة (present/absent/late/excused)', 'Status'],
+        required: true,
+      },
     },
   },
 };
+
+function detectImportType(sheetName) {
+  const normalizedSheetName = sheetName.trim().toLowerCase();
+  for (const [typeKey, config] of Object.entries(COLUMN_MAPPINGS)) {
+    for (const pattern of config.sheetNamePatterns) {
+      if (normalizedSheetName.includes(pattern.toLowerCase())) {
+        return typeKey;
+      }
+    }
+  }
+  return null;
+}
 
 async function analyzeImportFile(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
   const analysis = { sheets: {} };
+  const allPossibleSheetNames = Object.values(COLUMN_MAPPINGS)
+    .map((c) => c.sheetNamePatterns.join(', '))
+    .join(' | ');
 
-  workbook.eachSheet((worksheet, sheetId) => {
+  workbook.eachSheet((worksheet) => {
     const sheetName = worksheet.name;
-    const mappingConfig = COLUMN_MAPPINGS[sheetName];
-    if (!mappingConfig) {
-      logWarn(`No column mapping configuration found for sheet: ${sheetName}`);
+    const detectedType = detectImportType(sheetName);
+
+    if (!detectedType) {
+      logWarn(`No import type detected for sheet: ${sheetName}`);
+      analysis.sheets[sheetName] = {
+        status: 'unrecognized',
+        errorMessage: `لم يتم التعرّف على نوع الورقة '${sheetName}'. يرجى التأكد من أن اسم الورقة يطابق أحد الأنواع المدعومة: ${allPossibleSheetNames}`,
+      };
       return;
     }
 
-    const headerRow = worksheet.getRow(2);
+    const mappingConfig = COLUMN_MAPPINGS[detectedType].columns;
+    const headerRow = worksheet.getRow(1); // Headers are now in the first row
+    if (headerRow.actualCellCount < 2) {
+      analysis.sheets[sheetName] = {
+        status: 'unrecognized',
+        errorMessage: `تحتوي ورقة '${sheetName}' على أقل من عمودين. يرجى التأكد من أن الملف يحتوي على البيانات الصحيحة.`,
+      };
+      return;
+    }
     const headers = [];
     headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       headers.push({ value: cell.value, index: colNumber });
@@ -217,30 +271,35 @@ async function analyzeImportFile(filePath) {
 
     const suggestedMapping = {};
     const warnings = [];
-    const foundDbFields = new Set();
-
     // Find mapping for each DB field
     for (const [dbField, config] of Object.entries(mappingConfig)) {
       let found = false;
       for (const alias of config.aliases) {
-        const header = headers.find((h) => h && h.value === alias);
+        const header = headers.find(
+          (h) => h && h.value && h.value.toString().trim() === alias,
+        );
         if (header) {
           suggestedMapping[dbField] = header.index;
-          foundDbFields.add(dbField);
           found = true;
           break; // Found an alias, move to the next dbField
         }
       }
       if (!found && config.required) {
-        warnings.push(`Required column for "${dbField}" not found. Expected one of: ${config.aliases.join(', ')}`);
+        warnings.push(
+          `لم يتم العثور على العمود المطلوب لـ "${
+            config.aliases[0]
+          }". الرجاء مطابقته يدويًا.`,
+        );
       }
     }
 
     analysis.sheets[sheetName] = {
+      status: 'recognized',
+      detectedType,
       headers: headers.filter((h) => h.value), // only non-empty headers
       suggestedMapping,
       warnings,
-      rowCount: worksheet.rowCount - 2, // Exclude header rows
+      rowCount: worksheet.rowCount - 1, // Exclude header row
     };
   });
 
@@ -253,33 +312,38 @@ async function processImport(filePath, confirmedMappings) {
   const results = { successCount: 0, errorCount: 0, errors: [], newUsers: [] };
 
   const processors = {
-    الطلاب: processStudentRow,
-    المعلمون: processTeacherRow,
-    المستخدمون: processUserRow,
-    الفصول: processClassRow,
-    'الرسوم الدراسية': processPaymentRow,
-    الرواتب: processSalaryRow,
-    التبرعات: processDonationRow,
-    المصاريف: processExpenseRow,
-    الحاضر: processAttendanceRow,
-    الحضور: processAttendanceRow,
+    students: processStudentRow,
+    teachers: processTeacherRow,
+    users: processUserRow,
+    classes: processClassRow,
+    payments: processPaymentRow,
+    salaries: processSalaryRow,
+    donations: processDonationRow,
+    expenses: processExpenseRow,
+    attendance: processAttendanceRow,
   };
 
   for (const sheetName in confirmedMappings) {
     if (!Object.prototype.hasOwnProperty.call(confirmedMappings, sheetName)) continue;
 
     const worksheet = workbook.getWorksheet(sheetName);
-    const mapping = confirmedMappings[sheetName];
-    const processor = processors[sheetName];
-
-    if (!worksheet || !processor || !mapping) {
-      logWarn(`Skipping sheet: ${sheetName} due to missing worksheet, processor, or mapping.`);
+    const mappingInfo = confirmedMappings[sheetName]; // This now contains { type, mapping }
+    if (!mappingInfo || !mappingInfo.type || !mappingInfo.mapping) {
+      logWarn(`Skipping sheet: ${sheetName} due to invalid mapping info.`);
       continue;
     }
 
-    for (let i = 3; i <= worksheet.rowCount; i++) {
+    const { type: importType, mapping } = mappingInfo;
+    const processor = processors[importType];
+
+    if (!worksheet || !processor) {
+      logWarn(`Skipping sheet: ${sheetName} due to missing worksheet or processor.`);
+      continue;
+    }
+
+    for (let i = 2; i <= worksheet.rowCount; i++) { // Data starts from row 2
       const row = worksheet.getRow(i);
-      if (!row.hasValues) continue;
+      if (row.values.every((v) => v === null || v === '')) continue;
       try {
         const result = await processor(row, mapping);
         if (result.success) {
@@ -294,6 +358,8 @@ async function processImport(filePath, confirmedMappings) {
         results.errors.push(`[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`);
       }
     }
+
+    // This loop is now handled by the one above it.
   }
 
   return results;
@@ -577,4 +643,5 @@ module.exports = {
   replaceDatabase,
   analyzeImportFile,
   processImport,
+  COLUMN_MAPPINGS,
 };
