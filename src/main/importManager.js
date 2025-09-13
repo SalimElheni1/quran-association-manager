@@ -234,15 +234,57 @@ function detectImportType(sheetName) {
   return null;
 }
 
+function findHeaderRow(worksheet, mappingConfig) {
+  let bestMatch = { score: 0, rowIndex: -1 };
+  const maxRowsToScan = 5;
+  const requiredColumnCount = Object.values(mappingConfig).filter((c) => c.required).length;
+
+  for (let i = 1; i <= maxRowsToScan && i <= worksheet.rowCount; i++) {
+    const row = worksheet.getRow(i);
+    let score = 0;
+    const uniqueRowValues = new Set();
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      if (cell.value) {
+        uniqueRowValues.add(cell.value.toString().trim());
+      }
+    });
+
+    if (uniqueRowValues.size < 2) continue; // Skip rows with less than 2 unique values
+
+    for (const config of Object.values(mappingConfig)) {
+      for (const alias of config.aliases) {
+        if (uniqueRowValues.has(alias)) {
+          score++;
+          break; // Count each column mapping only once
+        }
+      }
+    }
+
+    if (score > bestMatch.score) {
+      bestMatch = { score, rowIndex: i };
+    }
+  }
+
+  // A good match should have at least 2 matched columns, or match all required columns.
+  if (bestMatch.rowIndex !== -1 && (bestMatch.score >= requiredColumnCount || bestMatch.score >= 2)) {
+    return {
+      headerRowIndex: bestMatch.rowIndex,
+      dataStartRowIndex: bestMatch.rowIndex + 1,
+    };
+  }
+
+  return null;
+}
+
 async function analyzeImportFile(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
   const analysis = { sheets: {} };
   const allPossibleSheetNames = Object.values(COLUMN_MAPPINGS)
-    .map((c) => c.sheetNamePatterns.join(', '))
-    .join(' | ');
+    .map((c) => c.displayName)
+    .join(', ');
 
-  workbook.eachSheet((worksheet) => {
+  for (const worksheet of workbook.worksheets) {
     const sheetName = worksheet.name;
     const detectedType = detectImportType(sheetName);
 
@@ -252,18 +294,23 @@ async function analyzeImportFile(filePath) {
         status: 'unrecognized',
         errorMessage: `لم يتم التعرّف على نوع الورقة '${sheetName}'. يرجى التأكد من أن اسم الورقة يطابق أحد الأنواع المدعومة: ${allPossibleSheetNames}`,
       };
-      return;
+      continue;
     }
 
     const mappingConfig = COLUMN_MAPPINGS[detectedType].columns;
-    const headerRow = worksheet.getRow(1); // Headers are now in the first row
-    if (headerRow.actualCellCount < 2) {
+    const headerInfo = findHeaderRow(worksheet, mappingConfig);
+
+    if (!headerInfo) {
       analysis.sheets[sheetName] = {
         status: 'unrecognized',
-        errorMessage: `تحتوي ورقة '${sheetName}' على أقل من عمودين. يرجى التأكد من أن الملف يحتوي على البيانات الصحيحة.`,
+        errorMessage: `تعذر العثور على صف الرأس في ورقة '${sheetName}'. يرجى التأكد من أن أسماء الأعمدة (مثل 'الاسم', 'التاريخ') موجودة في أحد الصفوف الخمسة الأولى.`,
       };
-      return;
+      continue;
     }
+
+    const { headerRowIndex, dataStartRowIndex } = headerInfo;
+    const headerRow = worksheet.getRow(headerRowIndex);
+
     const headers = [];
     headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       headers.push({ value: cell.value, index: colNumber });
@@ -271,7 +318,6 @@ async function analyzeImportFile(filePath) {
 
     const suggestedMapping = {};
     const warnings = [];
-    // Find mapping for each DB field
     for (const [dbField, config] of Object.entries(mappingConfig)) {
       let found = false;
       for (const alias of config.aliases) {
@@ -281,14 +327,12 @@ async function analyzeImportFile(filePath) {
         if (header) {
           suggestedMapping[dbField] = header.index;
           found = true;
-          break; // Found an alias, move to the next dbField
+          break;
         }
       }
       if (!found && config.required) {
         warnings.push(
-          `لم يتم العثور على العمود المطلوب لـ "${
-            config.aliases[0]
-          }". الرجاء مطابقته يدويًا.`,
+          `لم يتم العثور على العمود المطلوب لـ "${config.aliases[0]}". الرجاء مطابقته يدويًا.`,
         );
       }
     }
@@ -296,12 +340,14 @@ async function analyzeImportFile(filePath) {
     analysis.sheets[sheetName] = {
       status: 'recognized',
       detectedType,
-      headers: headers.filter((h) => h.value), // only non-empty headers
+      headers: headers.filter((h) => h.value),
       suggestedMapping,
       warnings,
-      rowCount: worksheet.rowCount - 1, // Exclude header row
+      rowCount: worksheet.rowCount - headerRowIndex,
+      headerRowIndex,
+      dataStartRowIndex,
     };
-  });
+  }
 
   return analysis;
 }
@@ -333,7 +379,7 @@ async function processImport(filePath, confirmedMappings) {
       continue;
     }
 
-    const { type: importType, mapping } = mappingInfo;
+    const { type: importType, mapping, dataStartRowIndex } = mappingInfo;
     const processor = processors[importType];
 
     if (!worksheet || !processor) {
@@ -341,7 +387,7 @@ async function processImport(filePath, confirmedMappings) {
       continue;
     }
 
-    for (let i = 2; i <= worksheet.rowCount; i++) { // Data starts from row 2
+    for (let i = dataStartRowIndex || 2; i <= worksheet.rowCount; i++) {
       const row = worksheet.getRow(i);
       if (!row.hasValues) continue;
       try {

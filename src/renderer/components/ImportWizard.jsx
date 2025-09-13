@@ -57,13 +57,15 @@ const ImportWizard = () => {
     // We need to construct an object that the ColumnMappingModal can use.
     const analysisForMapping = { sheets: {} };
     for (const sheetName in confirmedSheetTypes) {
-      const { type, mapping, headers, warnings, rowCount } = confirmedSheetTypes[sheetName];
+      const { type, mapping, headers, warnings, rowCount, dataStartRowIndex } =
+        confirmedSheetTypes[sheetName];
       analysisForMapping.sheets[sheetName] = {
         detectedType: type,
         suggestedMapping: mapping,
         headers,
         warnings,
         rowCount,
+        dataStartRowIndex,
       };
     }
     setReviewedMappings(confirmedSheetTypes);
@@ -80,6 +82,7 @@ const ImportWizard = () => {
         mappingsForBackend[sheetName] = {
           type: reviewedMappings[sheetName].type,
           mapping: finalMappings[sheetName],
+          dataStartRowIndex: reviewedMappings[sheetName].dataStartRowIndex,
         };
       }
     }

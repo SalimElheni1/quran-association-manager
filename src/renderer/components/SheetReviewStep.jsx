@@ -61,6 +61,7 @@ const SheetReviewStep = ({ analysis, columnMappings, onConfirm, onCancel }) => {
         headers: sheetData.headers,
         warnings: sheetData.warnings || [],
         rowCount: sheetData.rowCount,
+        dataStartRowIndex: sheetData.dataStartRowIndex,
       };
     }
     onConfirm(confirmedMappings);

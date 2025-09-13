@@ -63,9 +63,9 @@ describe('Import Manager: analyzeImportFile with flexible detection', () => {
     expect(analysis.sheets['ورقة غير معروفة'].status).toBe('unrecognized');
     expect(analysis.sheets['ورقة غير معروفة'].errorMessage).toContain('لم يتم التعرّف على نوع الورقة');
 
-    // Check empty sheet
+    // Check sheet with not enough columns to be a header
     expect(analysis.sheets['طلاب جدد'].status).toBe('unrecognized');
-    expect(analysis.sheets['طلاب جدد'].errorMessage).toContain('أقل من عمودين');
+    expect(analysis.sheets['طلاب جدد'].errorMessage).toContain('تعذر العثور على صف الرأس');
   });
 
   it('should correctly map headers even with empty cells present in the header row', async () => {
@@ -101,5 +101,59 @@ describe('Import Manager: analyzeImportFile with flexible detection', () => {
     expect(analysis.sheets['Students'].status).toBe('recognized');
     expect(analysis.sheets['Students'].warnings).toHaveLength(1);
     expect(analysis.sheets['Students'].warnings[0]).toContain('لم يتم العثور على العمود المطلوب لـ "الاسم واللقب"');
+  });
+});
+
+describe('Import Manager: Header Detection', () => {
+  const tempExcelPath = path.join(__dirname, 'temp-header-test.xlsx');
+
+  afterEach(() => {
+    if (fs.existsSync(tempExcelPath)) {
+      fs.unlinkSync(tempExcelPath);
+    }
+  });
+
+  it('should find the header in row 1 if no title is present', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('الطلاب');
+    sheet.addRow(['الاسم واللقب', 'الجنس']); // Header on row 1
+    sheet.addRow(['Student A', 'Male']);
+    await workbook.xlsx.writeFile(tempExcelPath);
+
+    const analysis = await analyzeImportFile(tempExcelPath);
+    expect(analysis.sheets['الطلاب'].status).toBe('recognized');
+    expect(analysis.sheets['الطلاب'].headerRowIndex).toBe(1);
+    expect(analysis.sheets['الطلاب'].dataStartRowIndex).toBe(2);
+  });
+
+  it('should find the header in row 2 if a title is present', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Students');
+    sheet.addRow(['Student Records']); // Title on row 1
+    sheet.addRow(['Full Name', 'Gender']); // Header on row 2
+    sheet.addRow(['Student B', 'Female']);
+    await workbook.xlsx.writeFile(tempExcelPath);
+
+    const analysis = await analyzeImportFile(tempExcelPath);
+    expect(analysis.sheets['Students'].status).toBe('recognized');
+    expect(analysis.sheets['Students'].headerRowIndex).toBe(2);
+    expect(analysis.sheets['Students'].dataStartRowIndex).toBe(3);
+  });
+
+  it('should fail if no suitable header row is found in the first 5 rows', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Teachers');
+    sheet.addRow(['Row 1']);
+    sheet.addRow(['Row 2']);
+    sheet.addRow(['Row 3']);
+    sheet.addRow(['Row 4']);
+    sheet.addRow(['Row 5']);
+    sheet.addRow(['Row 6']);
+    sheet.addRow(['Name', 'Contact Info']); // Header is on row 7, too late
+    await workbook.xlsx.writeFile(tempExcelPath);
+
+    const analysis = await analyzeImportFile(tempExcelPath);
+    expect(analysis.sheets['Teachers'].status).toBe('unrecognized');
+    expect(analysis.sheets['Teachers'].errorMessage).toContain('تعذر العثور على صف الرأس');
   });
 });
