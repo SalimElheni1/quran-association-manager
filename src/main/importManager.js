@@ -353,8 +353,10 @@ async function analyzeImportFile(filePath) {
 }
 
 async function processImport(filePath, confirmedMappings) {
+  log('Starting Excel import process...');
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
+  log('Excel file read successfully.');
   const results = { successCount: 0, errorCount: 0, errors: [], newUsers: [] };
 
   const processors = {
@@ -371,9 +373,10 @@ async function processImport(filePath, confirmedMappings) {
 
   for (const sheetName in confirmedMappings) {
     if (!Object.prototype.hasOwnProperty.call(confirmedMappings, sheetName)) continue;
+    log(`Processing sheet: ${sheetName}`);
 
     const worksheet = workbook.getWorksheet(sheetName);
-    const mappingInfo = confirmedMappings[sheetName]; // This now contains { type, mapping }
+    const mappingInfo = confirmedMappings[sheetName];
     if (!mappingInfo || !mappingInfo.type || !mappingInfo.mapping) {
       logWarn(`Skipping sheet: ${sheetName} due to invalid mapping info.`);
       continue;
@@ -387,36 +390,47 @@ async function processImport(filePath, confirmedMappings) {
       continue;
     }
 
-    for (let i = dataStartRowIndex || 2; i <= worksheet.rowCount; i++) {
-      const row = worksheet.getRow(i);
-
-      // If the first cell is empty, we assume the data has ended and stop processing.
-      const firstCell = row.getCell(1);
-      if (!firstCell.value || firstCell.value.toString().trim() === '') {
-        log(`Stopping import for sheet '${sheetName}' at empty row ${i}.`);
-        break;
+    const rowsToProcess = [];
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      if (rowNumber >= dataStartRowIndex && row.values.length > 0) {
+        rowsToProcess.push(row);
       }
+    });
+    log(`Found ${rowsToProcess.length} potential data rows in sheet '${sheetName}'.`);
 
+    for (const row of rowsToProcess) {
+      log(`[Row ${row.number}] Starting processing. Raw values: ${JSON.stringify(row.values)}`);
       try {
+        const firstCell = row.getCell(1);
+        if (!firstCell.value || firstCell.value.toString().trim() === '') {
+          log(`[Row ${row.number}] Skipping because first cell is empty.`);
+          continue;
+        }
+
         const result = await processor(row, mapping);
+        log(`[Row ${row.number}] Processor result: ${JSON.stringify(result)}`);
+
         if (result.success) {
           results.successCount++;
           if (result.newUser) results.newUsers.push(result.newUser);
         } else {
           results.errorCount++;
-          results.errors.push(`[${sheetName}] Row ${i}: ${result.message}`);
+          results.errors.push(`[${sheetName}] Row ${row.number}: ${result.message}`);
         }
       } catch (e) {
+        logError(`[Row ${row.number}] CRITICAL ERROR: ${e.stack}`);
         results.errorCount++;
-        results.errors.push(`[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`);
+        results.errors.push(`[${sheetName}] Row ${row.number}: An unexpected error occurred - ${e.message}`);
       }
     }
   }
 
+  log(`Import process finished. Success: ${results.successCount}, Errors: ${results.errorCount}.`);
   return results;
 }
 
 async function processStudentRow(row, mapping) {
+  log(`[Row ${row.number}] processStudentRow: Starting.`);
   const matricule = row.getCell(mapping.matricule)?.value;
 
   const data = {
@@ -429,39 +443,53 @@ async function processStudentRow(row, mapping) {
     status: row.getCell(mapping.status)?.value,
     national_id: row.getCell(mapping.national_id)?.value,
   };
+  log(`[Row ${row.number}] processStudentRow: Extracted data: ${JSON.stringify(data)}`);
 
-  if (!data.name) return { success: false, message: 'اسم الطالب مطلوب.' };
+  if (!data.name) {
+    logWarn(`[Row ${row.number}] processStudentRow: Failed - Missing student name.`);
+    return { success: false, message: 'اسم الطالب مطلوب.' };
+  }
 
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
   if (matricule) {
+    log(`[Row ${row.number}] processStudentRow: Found matricule ${matricule}, attempting update.`);
     const existingStudent = await getQuery('SELECT id FROM students WHERE matricule = ?', [
       matricule,
     ]);
     if (!existingStudent) {
+      logWarn(`[Row ${row.number}] processStudentRow: Failed - Student with matricule ${matricule} not found.`);
       return { success: false, message: `الطالب بالرقم التعريفي "${matricule}" غير موجود.` };
     }
-    if (fields.length === 0) return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    if (fields.length === 0) {
+      log(`[Row ${row.number}] processStudentRow: Success - No fields to update.`);
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    }
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => data[k]), matricule];
     await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
+    log(`[Row ${row.number}] processStudentRow: Success - Updated student.`);
     return { success: true };
   }
 
+  log(`[Row ${row.number}] processStudentRow: No matricule, attempting insert.`);
   const existingStudent = await getQuery(
     'SELECT id FROM students WHERE name = ? OR national_id = ?',
     [data.name, data.national_id],
   );
   if (existingStudent) {
+    logWarn(`[Row ${row.number}] processStudentRow: Failed - Student already exists.`);
     return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
   }
 
   const newMatricule = await generateMatricule('student');
+  log(`[Row ${row.number}] processStudentRow: Generated new matricule ${newMatricule}.`);
   const allData = { ...data, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null && allData[k] !== undefined);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`[Row ${row.number}] processStudentRow: Success - Inserted new student.`);
   return { success: true };
 }
 
