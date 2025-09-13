@@ -199,9 +199,11 @@ async function analyzeImportFile(filePath) {
       return;
     }
 
-    const headerRow = worksheet.getRow(2).values;
-    // ExcelJS returns a sparse array, so we convert it to a dense one with indices
-    const headers = headerRow.map((value, index) => ({ value, index }));
+    const headerRow = worksheet.getRow(2);
+    const headers = [];
+    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      headers.push({ value: cell.value, index: colNumber });
+    });
 
     const suggestedMapping = {};
     const warnings = [];
@@ -211,7 +213,7 @@ async function analyzeImportFile(filePath) {
     for (const [dbField, config] of Object.entries(mappingConfig)) {
       let found = false;
       for (const alias of config.aliases) {
-        const header = headers.find((h) => h.value === alias);
+        const header = headers.find((h) => h && h.value === alias);
         if (header) {
           suggestedMapping[dbField] = header.index;
           foundDbFields.add(dbField);
