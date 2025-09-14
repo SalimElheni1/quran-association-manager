@@ -12,8 +12,6 @@ import ProfilePage from '@renderer/pages/ProfilePage';
 import SettingsPage from '@renderer/pages/SettingsPage';
 import FinancialsPage from '@renderer/pages/FinancialsPage';
 import ExportsPage from '@renderer/pages/ExportsPage';
-import TemplatesPage from '@renderer/pages/TemplatesPage';
-import HistoryPage from '@renderer/pages/HistoryPage';
 import AboutPage from '@renderer/pages/AboutPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
 
@@ -67,8 +65,6 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/exports" element={<ExportsPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
-          <Route path="/history" element={<HistoryPage />} />
           <Route path="/about" element={<AboutPage />} />
         </Route>
       </Routes>

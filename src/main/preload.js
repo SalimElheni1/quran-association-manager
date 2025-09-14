@@ -123,30 +123,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Exports API
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),
-  generateExportPreview: (options) => ipcRenderer.invoke('export:preview', options),
-  generateBatchExport: (options) => ipcRenderer.invoke('export:batch', options),
-  onExportProgress: (callback) => {
-    const handler = (event, ...args) => callback(...args);
-    ipcRenderer.on('export-progress', handler);
-    return () => ipcRenderer.removeListener('export-progress', handler);
-  },
 
   // Imports API
   generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
-  executeImport: (options) => ipcRenderer.invoke('import:execute', options),
-  analyzeImportFile: (options) => ipcRenderer.invoke('import:analyze', options),
-
-  // Template Management API
-  getAllTemplates: () => ipcRenderer.invoke('templates:get'),
-  uploadTemplate: (data) => ipcRenderer.invoke('templates:upload', data),
-  deleteTemplate: (id) => ipcRenderer.invoke('templates:delete', id),
-  downloadTemplate: (id) => ipcRenderer.invoke('templates:download', id),
-
-  // History Management API
-  getHistory: () => ipcRenderer.invoke('history:get'),
-  deleteHistory: (id) => ipcRenderer.invoke('history:delete', id),
-  regenerateHistory: (id) => ipcRenderer.invoke('history:regenerate', id),
+  executeImport: () => ipcRenderer.invoke('import:execute'),
 
   // Listener for events from main process
   onForceLogout: (callback) => {
