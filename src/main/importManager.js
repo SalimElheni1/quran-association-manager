@@ -300,14 +300,6 @@ async function processStudentRow(row, headerRow) {
     return { success: true };
   }
   // Insert new record
-  const existingStudent = await getQuery(
-    'SELECT id FROM students WHERE name = ? OR national_id = ?',
-    [data.name, data.national_id],
-  );
-  if (existingStudent) {
-    return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
-  }
-
   const newMatricule = await generateMatricule('student');
   const allData = { ...data, matricule: newMatricule };
 
@@ -354,13 +346,6 @@ async function processTeacherRow(row, headerRow) {
     return { success: true };
   }
   // Insert new record
-  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
-    data.national_id,
-  ]);
-  if (existingTeacher) {
-    return { success: false, message: `المعلم برقم الهوية "${data.national_id}" موجود بالفعل.` };
-  }
-
   const newMatricule = await generateMatricule('teacher');
   const allData = { ...data, matricule: newMatricule };
 
@@ -510,11 +495,6 @@ async function processClassRow(row, headerRow) {
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE classes SET ${setClauses} WHERE matricule = ?`, values);
     return { success: true };
-  }
-
-  const existingClass = await getQuery('SELECT id FROM classes WHERE name = ?', [data.name]);
-  if (existingClass) {
-    return { success: false, message: `الفصل بالاسم "${data.name}" موجود بالفعل.` };
   }
 
   const newMatricule = await generateMatricule('class');
