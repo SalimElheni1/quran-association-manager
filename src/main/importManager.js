@@ -148,6 +148,33 @@ const isValidDate = (dateString) => {
   return date.toISOString().startsWith(dateString);
 };
 
+const GENDER_MAP_AR_TO_EN = {
+  'نساء': 'women',
+  'رجال': 'men',
+  'أطفال': 'kids',
+  'الكل': 'all',
+  'ذكر': 'Male',
+  'أنثى': 'Female',
+};
+
+const DONATION_TYPE_MAP_AR_TO_EN = {
+  'نقدي': 'Cash',
+  'عيني': 'In-kind',
+};
+
+const ATTENDANCE_STATUS_MAP_AR_TO_EN = {
+  'حاضر': 'present',
+  'غائب': 'absent',
+  'متأخر': 'late',
+  'معذور': 'excused',
+};
+
+const GROUP_CATEGORY_MAP_AR_TO_EN = {
+  'أطفال': 'Kids',
+  'نساء': 'Women',
+  'رجال': 'Men',
+};
+
 async function importExcelData(filePath, options = {}) {
   const { sheets: sheetsToImport = [] } = options;
 
@@ -266,7 +293,7 @@ async function processStudentRow(row, headerRow) {
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
     date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس (ذكر/أنثى)')).value,
     address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
     contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
@@ -496,8 +523,16 @@ async function processClassRow(row, headerRow) {
     end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء'))?.value,
     status: row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value,
     capacity: row.getCell(getColumnIndex(headerRow, 'السعة'))?.value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس (ذكر/أنثى)')).value,
   };
+
+  if (data.gender) {
+    const mappedGender = GENDER_MAP_AR_TO_EN[data.gender];
+    if (!mappedGender) {
+      return { success: false, message: `قيمة الجنس "${data.gender}" غير صالحة.` };
+    }
+    data.gender = mappedGender;
+  }
 
   if (data.start_date && !isValidDate(data.start_date)) {
     return {
@@ -712,11 +747,15 @@ async function processDonationRow(row, headerRow) {
     };
   }
 
-  if (data.donation_type && !['Cash', 'In-kind'].includes(data.donation_type)) {
-    return {
-      success: false,
-      message: 'نوع التبرع غير صالح. يجب أن يكون "Cash" أو "In-kind".',
-    };
+  if (data.donation_type) {
+    const mappedType = DONATION_TYPE_MAP_AR_TO_EN[data.donation_type];
+    if (!mappedType) {
+      return {
+        success: false,
+        message: `نوع التبرع "${data.donation_type}" غير صالح. يجب أن يكون "نقدي" أو "عيني".`,
+      };
+    }
+    data.donation_type = mappedType;
   }
 
   const requiredFields = ['donor_name', 'donation_type', 'donation_date'];
@@ -811,8 +850,7 @@ async function processAttendanceRow(row, headerRow) {
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
   const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
   const date = row.getCell(getColumnIndex(headerRow, 'التاريخ (YYYY-MM-DD)')).value;
-  const status = row.getCell(getColumnIndex(headerRow, 'الحالة (present/absent/late/excused)'))
-    .value;
+  const status = row.getCell(getColumnIndex(headerRow, 'الحالة (حاضر/غائب/متأخر/معذور)'))?.value;
 
   if (!studentMatricule || !className || !date || !status) {
     return { success: false, message: 'الرقم التعريفي للطالب، اسم الفصل، التاريخ، والحالة مطلوبون.' };
@@ -822,10 +860,11 @@ async function processAttendanceRow(row, headerRow) {
     return { success: false, message: 'تنسيق التاريخ غير صالح. الرجاء استخدام YYYY-MM-DD.' };
   }
 
-  if (!['present', 'absent', 'late', 'excused'].includes(status)) {
+  const mappedStatus = ATTENDANCE_STATUS_MAP_AR_TO_EN[status];
+  if (!mappedStatus) {
     return {
       success: false,
-      message: 'حالة الحضور غير صالحة. يجب أن تكون واحدة من: present, absent, late, excused.',
+      message: `حالة الحضور "${status}" غير صالحة.`,
     };
   }
 
@@ -843,7 +882,7 @@ async function processAttendanceRow(row, headerRow) {
     student_id: student.id,
     class_id: classData.id,
     date,
-    status,
+    status: mappedStatus,
   };
 
   const existingAttendance = await getQuery(
@@ -877,16 +916,18 @@ async function processGroupRow(row, headerRow) {
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم المجموعة')).value,
     description: row.getCell(getColumnIndex(headerRow, 'الوصف'))?.value,
-    category: row.getCell(getColumnIndex(headerRow, 'الفئة'))?.value,
+    category: row.getCell(getColumnIndex(headerRow, 'الفئة (أطفال/نساء/رجال)')).value,
   };
 
   if (!data.name || !data.category) {
     return { success: false, message: 'اسم المجموعة والفئة حقول مطلوبة.' };
   }
 
-  if (!['Kids', 'Women', 'Men'].includes(data.category)) {
-    return { success: false, message: 'الفئة يجب أن تكون واحدة من: Kids, Women, Men.' };
+  const mappedCategory = GROUP_CATEGORY_MAP_AR_TO_EN[data.category];
+  if (!mappedCategory) {
+    return { success: false, message: `الفئة "${data.category}" غير صالحة.` };
   }
+  data.category = mappedCategory;
 
   const fields = Object.keys(data).filter((k) => data[k] !== undefined);
   const updateData = {};
