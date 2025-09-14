@@ -209,8 +209,12 @@ async function importExcelData(filePath, options = {}) {
   }
 
   for (const sheetName of sheetsToProcess) {
+    log(`Processing sheet: ${sheetName}`);
     const processor = sheetProcessors[sheetName];
-    if (!processor) continue;
+    if (!processor) {
+      logWarn(`No processor found for sheet: ${sheetName}. Skipping.`);
+      continue;
+    }
 
     const worksheet = workbook.getWorksheet(sheetName);
     const headerRow = worksheet.getRow(2);
@@ -238,6 +242,7 @@ async function importExcelData(filePath, options = {}) {
         const row = worksheet.getRow(i);
         if (!row.hasValues) continue;
         try {
+          log(`Processing row ${i} in sheet ${sheetName}`);
           const result = await processor(row, headerRow);
           if (result.success) {
             sheetResults.successCount++;
@@ -245,6 +250,7 @@ async function importExcelData(filePath, options = {}) {
           } else {
             sheetResults.errorCount++;
             sheetResults.errors.push(`[${sheetName}] Row ${i}: ${result.message}`);
+            logError(`Error processing row ${i} in sheet ${sheetName}: ${result.message}`);
             sheetHasErrors = true;
           }
         } catch (e) {
@@ -252,6 +258,7 @@ async function importExcelData(filePath, options = {}) {
           sheetResults.errors.push(
             `[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`,
           );
+          logError(`Fatal error processing row ${i} in sheet ${sheetName}:`, e);
           sheetHasErrors = true;
         }
       }
@@ -288,6 +295,7 @@ async function importExcelData(filePath, options = {}) {
 }
 
 async function processStudentRow(row, headerRow) {
+  log('--- Processing Student Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
@@ -302,6 +310,7 @@ async function processStudentRow(row, headerRow) {
     parent_name: row.getCell(getColumnIndex(headerRow, 'اسم ولي الأمر'))?.value,
     parent_contact: row.getCell(getColumnIndex(headerRow, 'هاتف ولي الأمر'))?.value,
   };
+  log('Raw student data from row:', data);
 
   if (!data.name && !matricule) return { success: false, message: 'اسم الطالب مطلوب.' };
 
@@ -315,30 +324,35 @@ async function processStudentRow(row, headerRow) {
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
   if (matricule) {
-    // Update existing record
+    log(`Attempting to update student with matricule: ${matricule}`);
     const existingStudent = await getQuery('SELECT id FROM students WHERE matricule = ?', [
       matricule,
     ]);
     if (!existingStudent) {
+      logError(`Student with matricule ${matricule} not found for update.`);
       return { success: false, message: `الطالب بالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
     if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' }; // Nothing to update
+      log(`No fields to update for student ${matricule}.`);
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
     }
 
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => data[k]), matricule];
     await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated student ${matricule}`);
     return { success: true };
   }
 
-  // Insert new record, but first check for duplicates based on other criteria
+  log(`No matricule provided. Checking for duplicates for student: ${data.name}`);
   if (data.national_id) {
+    log(`Checking for duplicate student by national_id: ${data.national_id}`);
     const existingStudent = await getQuery('SELECT id FROM students WHERE national_id = ?', [
       data.national_id,
     ]);
     if (existingStudent) {
+      logWarn(`Duplicate student found by national_id: ${data.national_id}`);
       return {
         success: false,
         message: `طالب بنفس رقم الهوية موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
@@ -347,11 +361,13 @@ async function processStudentRow(row, headerRow) {
   }
 
   if (data.name && data.parent_contact) {
+    log(`Checking for duplicate student by name+parent_contact: ${data.name}, ${data.parent_contact}`);
     const existingStudent = await getQuery(
       'SELECT id FROM students WHERE name = ? AND parent_contact = ?',
       [data.name, data.parent_contact],
     );
     if (existingStudent) {
+      logWarn(`Duplicate student found by name+parent_contact: ${data.name}`);
       return {
         success: false,
         message: `طالب بنفس الاسم وهاتف ولي الأمر موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
@@ -360,11 +376,13 @@ async function processStudentRow(row, headerRow) {
   }
 
   if (data.name && data.date_of_birth && data.parent_name) {
+    log(`Checking for duplicate student by name+dob+parent_name: ${data.name}, ${data.date_of_birth}, ${data.parent_name}`);
     const existingStudent = await getQuery(
       'SELECT id FROM students WHERE name = ? AND date_of_birth = ? AND parent_name = ?',
       [data.name, data.date_of_birth, data.parent_name],
     );
     if (existingStudent) {
+      logWarn(`Duplicate student found by name+dob+parent_name: ${data.name}`);
       return {
         success: false,
         message: `طالب بنفس الاسم وتاريخ الميلاد واسم ولي الأمر موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
@@ -372,6 +390,7 @@ async function processStudentRow(row, headerRow) {
     }
   }
 
+  log(`No duplicates found. Creating new student: ${data.name}`);
   const newMatricule = await generateMatricule('student');
   const allData = { ...data, matricule: newMatricule };
 
@@ -382,10 +401,12 @@ async function processStudentRow(row, headerRow) {
   const values = allFields.map((k) => allData[k]);
 
   await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new student with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processTeacherRow(row, headerRow) {
+  log('--- Processing Teacher Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
@@ -394,30 +415,34 @@ async function processTeacherRow(row, headerRow) {
     contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
   };
+  log('Raw teacher data from row:', data);
 
   if (!data.name) return { success: false, message: 'اسم المعلم مطلوب.' };
 
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
   if (matricule) {
-    // Update existing record
+    log(`Attempting to update teacher with matricule: ${matricule}`);
     const existingTeacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [
       matricule,
     ]);
     if (!existingTeacher) {
+      logError(`Teacher with matricule ${matricule} not found for update.`);
       return { success: false, message: `المعلم بالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
     if (fields.length === 0) {
+      log(`No fields to update for teacher ${matricule}.`);
       return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
     }
 
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => data[k]), matricule];
     await runQuery(`UPDATE teachers SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated teacher ${matricule}`);
     return { success: true };
   }
-  // Insert new record
+  log(`No matricule provided. Creating new teacher: ${data.name}`);
   const newMatricule = await generateMatricule('teacher');
   const allData = { ...data, matricule: newMatricule };
 
@@ -428,10 +453,12 @@ async function processTeacherRow(row, headerRow) {
   const values = allFields.map((k) => allData[k]);
 
   await runQuery(`INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new teacher with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processUserRow(row, headerRow) {
+  log('--- Processing User Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
@@ -441,6 +468,7 @@ async function processUserRow(row, headerRow) {
     role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
     employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
   };
+  log('Raw user data from row:', { ...data, password: '***' });
 
   if (
     !data.username ||
@@ -458,27 +486,32 @@ async function processUserRow(row, headerRow) {
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
   if (matricule) {
-    // Update existing record
+    log(`Attempting to update user with matricule: ${matricule}`);
     const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
     if (!existingUser) {
+      logError(`User with matricule ${matricule} not found for update.`);
       return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
     if (fields.length === 0) {
+      log(`No fields to update for user ${matricule}.`);
       return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
     }
 
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => data[k]), matricule];
     await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated user ${matricule}`);
     return { success: true };
   }
-  // Insert new record
+  log(`No matricule provided. Checking for duplicate username: ${data.username}`);
   const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
   if (existingUser) {
+    logWarn(`Duplicate user found by username: ${data.username}`);
     return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
   }
 
+  log(`No duplicate found. Creating new user: ${data.username}`);
   const password = Math.random().toString(36).slice(-8);
   const newMatricule = await generateMatricule('user');
   const allData = {
@@ -494,10 +527,12 @@ async function processUserRow(row, headerRow) {
   const values = allFields.map((k) => allData[k]);
 
   await runQuery(`INSERT INTO users (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new user with matricule ${newMatricule}`);
   return { success: true, newUser: { username: data.username, password } };
 }
 
 async function processClassRow(row, headerRow) {
+  log('--- Processing Class Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
 
@@ -562,21 +597,26 @@ async function processClassRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update class with matricule: ${matricule}`);
     const existingClass = await getQuery('SELECT id FROM classes WHERE matricule = ?', [matricule]);
     if (!existingClass) {
+      logError(`Class with matricule ${matricule} not found for update.`);
       return { success: false, message: `الفصل بالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
     if (fields.length === 0) {
+      log(`No fields to update for class ${matricule}.`);
       return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
     }
 
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE classes SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated class ${matricule}`);
     return { success: true };
   }
 
+  log(`No matricule provided. Creating new class with name: ${data.name}`);
   const newMatricule = await generateMatricule('class');
   const allData = { ...updateData, matricule: newMatricule };
 
@@ -585,12 +625,15 @@ async function processClassRow(row, headerRow) {
   const values = allFields.map((k) => allData[k]);
 
   await runQuery(`INSERT INTO classes (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new class with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processPaymentRow(row, headerRow) {
+  log('--- Processing Payment Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
+  log(`Raw payment data: matricule=${matricule}, student_matricule=${studentMatricule}`);
 
   if (!studentMatricule && !matricule)
     return { success: false, message: 'الرقم التعريفي للطالب مطلوب.' };
@@ -615,6 +658,7 @@ async function processPaymentRow(row, headerRow) {
     payment_method: row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
+  log('Parsed payment data:', data);
 
   if (data.payment_date && !isValidDate(data.payment_date)) {
     return {
@@ -637,6 +681,7 @@ async function processPaymentRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update payment with matricule: ${matricule}`);
     const existingPayment = await getQuery('SELECT id FROM payments WHERE matricule = ?', [
       matricule,
     ]);
@@ -647,21 +692,26 @@ async function processPaymentRow(row, headerRow) {
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE payments SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated payment ${matricule}`);
     return { success: true };
   }
 
+  log('Creating new payment.');
   const newMatricule = await generateMatricule('payment');
   const allData = { ...updateData, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO payments (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new payment with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processSalaryRow(row, headerRow) {
+  log('--- Processing Salary Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
+  log(`Raw salary data: matricule=${matricule}, teacher_matricule=${teacherMatricule}`);
 
   if (!teacherMatricule && !matricule)
     return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
@@ -685,6 +735,7 @@ async function processSalaryRow(row, headerRow) {
     payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع (YYYY-MM-DD)')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
+  log('Parsed salary data:', data);
 
   if (data.payment_date && !isValidDate(data.payment_date)) {
     return {
@@ -707,6 +758,7 @@ async function processSalaryRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update salary with matricule: ${matricule}`);
     const existingSalary = await getQuery('SELECT id FROM salaries WHERE matricule = ?', [
       matricule,
     ]);
@@ -717,19 +769,23 @@ async function processSalaryRow(row, headerRow) {
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE salaries SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated salary ${matricule}`);
     return { success: true };
   }
 
+  log('Creating new salary.');
   const newMatricule = await generateMatricule('salary');
   const allData = { ...updateData, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO salaries (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new salary with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processDonationRow(row, headerRow) {
+  log('--- Processing Donation Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const data = {
     donor_name: row.getCell(getColumnIndex(headerRow, 'اسم المتبرع')).value,
@@ -739,6 +795,7 @@ async function processDonationRow(row, headerRow) {
     donation_date: row.getCell(getColumnIndex(headerRow, 'تاريخ التبرع (YYYY-MM-DD)')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
+  log('Raw donation data:', data);
 
   if (data.donation_date && !isValidDate(data.donation_date)) {
     return {
@@ -775,6 +832,7 @@ async function processDonationRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update donation with matricule: ${matricule}`);
     const existingDonation = await getQuery('SELECT id FROM donations WHERE matricule = ?', [
       matricule,
     ]);
@@ -785,19 +843,23 @@ async function processDonationRow(row, headerRow) {
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE donations SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated donation ${matricule}`);
     return { success: true };
   }
 
+  log('Creating new donation.');
   const newMatricule = await generateMatricule('donation');
   const allData = { ...updateData, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO donations (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new donation with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processExpenseRow(row, headerRow) {
+  log('--- Processing Expense Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const data = {
     category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
@@ -806,6 +868,7 @@ async function processExpenseRow(row, headerRow) {
     responsible_person: row.getCell(getColumnIndex(headerRow, 'المسؤول')).value,
     description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
   };
+  log('Raw expense data:', data);
 
   if (data.expense_date && !isValidDate(data.expense_date)) {
     return {
@@ -824,6 +887,7 @@ async function processExpenseRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update expense with matricule: ${matricule}`);
     const existingExpense = await getQuery('SELECT id FROM expenses WHERE matricule = ?', [
       matricule,
     ]);
@@ -834,23 +898,28 @@ async function processExpenseRow(row, headerRow) {
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE expenses SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated expense ${matricule}`);
     return { success: true };
   }
 
+  log('Creating new expense.');
   const newMatricule = await generateMatricule('expense');
   const allData = { ...updateData, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO expenses (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new expense with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processAttendanceRow(row, headerRow) {
+  log('--- Processing Attendance Row ---');
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
   const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
   const date = row.getCell(getColumnIndex(headerRow, 'التاريخ (YYYY-MM-DD)')).value;
   const status = row.getCell(getColumnIndex(headerRow, 'الحالة (حاضر/غائب/متأخر/معذور)'))?.value;
+  log(`Raw attendance data: student=${studentMatricule}, class=${className}, date=${date}, status=${status}`);
 
   if (!studentMatricule || !className || !date || !status) {
     return { success: false, message: 'الرقم التعريفي للطالب، اسم الفصل، التاريخ، والحالة مطلوبون.' };
@@ -891,8 +960,9 @@ async function processAttendanceRow(row, headerRow) {
   );
 
   if (existingAttendance) {
-    // Update existing record
+    log(`Updating attendance for student ${data.student_id} in class ${data.class_id} on ${data.date}`);
     if (existingAttendance.status === data.status) {
+      log('Attendance status unchanged.');
       return { success: true, message: 'الحالة لم تتغير.' }; // No change needed
     }
     await runQuery('UPDATE attendance SET status = ? WHERE student_id = ? AND class_id = ? AND date = ?', [
@@ -901,23 +971,27 @@ async function processAttendanceRow(row, headerRow) {
       data.class_id,
       data.date,
     ]);
+    log('Successfully updated attendance.');
     return { success: true };
   }
-  // Insert new record
+  log(`Creating new attendance record for student ${data.student_id} in class ${data.class_id} on ${data.date}`);
   const fields = Object.keys(data);
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
   await runQuery(`INSERT INTO attendance (${fields.join(', ')}) VALUES (${placeholders})`, values);
+  log('Successfully created new attendance record.');
   return { success: true };
 }
 
 async function processGroupRow(row, headerRow) {
+  log('--- Processing Group Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم المجموعة')).value,
     description: row.getCell(getColumnIndex(headerRow, 'الوصف'))?.value,
     category: row.getCell(getColumnIndex(headerRow, 'الفئة (أطفال/نساء/رجال)')).value,
   };
+  log('Raw group data:', data);
 
   if (!data.name || !data.category) {
     return { success: false, message: 'اسم المجموعة والفئة حقول مطلوبة.' };
@@ -936,6 +1010,7 @@ async function processGroupRow(row, headerRow) {
   });
 
   if (matricule) {
+    log(`Attempting to update group with matricule: ${matricule}`);
     const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [matricule]);
     if (!existingGroup) {
       return { success: false, message: `المجموعة بالرقم التعريفي "${matricule}" غير موجودة.` };
@@ -944,27 +1019,33 @@ async function processGroupRow(row, headerRow) {
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE groups SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated group ${matricule}`);
     return { success: true };
   }
 
+  log(`Checking for duplicate group by name: ${data.name}`);
   const existingGroup = await getQuery('SELECT id FROM groups WHERE name = ?', [data.name]);
   if (existingGroup) {
+    logWarn(`Duplicate group found by name: ${data.name}`);
     return {
       success: false,
       message: `المجموعة بالاسم "${data.name}" موجودة بالفعل. لتحديثها، يرجى استخدام رقمها التعريفي.`,
     };
   }
 
+  log(`No duplicate found. Creating new group: ${data.name}`);
   const newMatricule = await generateMatricule('group');
   const allData = { ...updateData, matricule: newMatricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
   await runQuery(`INSERT INTO groups (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  log(`Successfully created new group with matricule ${newMatricule}`);
   return { success: true };
 }
 
 async function processInventoryItemRow(row, headerRow) {
+  log('--- Processing Inventory Item Row ---');
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   if (!matricule) {
     return { success: false, message: 'الرقم التعريفي حقل مطلوب لعناصر المخزون.' };
@@ -982,6 +1063,7 @@ async function processInventoryItemRow(row, headerRow) {
     location: row.getCell(getColumnIndex(headerRow, 'الموقع'))?.value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات'))?.value,
   };
+  log('Raw inventory data:', data);
 
   if (!data.item_name || !data.category || data.quantity === undefined) {
     return { success: false, message: 'اسم العنصر، الفئة، والكمية هي حقول مطلوبة.' };
@@ -1005,14 +1087,15 @@ async function processInventoryItemRow(row, headerRow) {
   ]);
 
   if (existingItem) {
-    // Update
+    log(`Attempting to update inventory item with matricule: ${matricule}`);
     if (fields.length === 0) return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
     const setClauses = fields.map((field) => `${field} = ?`).join(', ');
     const values = [...fields.map((k) => updateData[k]), matricule];
     await runQuery(`UPDATE inventory_items SET ${setClauses} WHERE matricule = ?`, values);
+    log(`Successfully updated inventory item ${matricule}`);
     return { success: true };
   }
-  // Insert
+  log(`Creating new inventory item with matricule: ${matricule}`);
   const allData = { ...updateData, matricule };
   const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
   const placeholders = allFields.map(() => '?').join(', ');
@@ -1021,6 +1104,7 @@ async function processInventoryItemRow(row, headerRow) {
     `INSERT INTO inventory_items (${allFields.join(', ')}) VALUES (${placeholders})`,
     values,
   );
+  log(`Successfully created new inventory item with matricule ${matricule}`);
   return { success: true };
 }
 
