@@ -5,10 +5,10 @@ const { log, error: logError } = require('../logger');
 async function handleGetAllTemplates() {
   try {
     const templates = await allQuery('SELECT id, name, type, is_default, created_at, updated_at FROM export_templates ORDER BY name');
-    return { success: true, data: templates };
+    return templates;
   } catch (error) {
     logError('Error getting all templates:', error);
-    return { success: false, message: error.message };
+    throw error;
   }
 }
 
@@ -25,17 +25,20 @@ async function handleGetTemplateById(event, id) {
     }
 }
 
-async function handleCreateTemplate(event, { name, type, content }) {
-  try {
-    const result = await runQuery(
-      'INSERT INTO export_templates (name, type, content) VALUES (?, ?, ?)',
-      [name, type, content]
-    );
-    return { success: true, id: result.id };
-  } catch (error) {
-    logError('Error creating template:', error);
-    return { success: false, message: error.message };
-  }
+async function handleUploadTemplate(event, { name, filePath }) {
+    try {
+        const content = fs.readFileSync(filePath);
+        // a default template of type docx
+        const type = 'docx';
+        const result = await runQuery(
+            'INSERT INTO export_templates (name, type, content) VALUES (?, ?, ?)',
+            [name, type, content]
+        );
+        return { success: true, id: result.lastID };
+    } catch (error) {
+        logError('Error uploading template:', error);
+        throw error;
+    }
 }
 
 async function handleUpdateTemplate(event, { id, name, content }) {
@@ -65,12 +68,33 @@ async function handleDeleteTemplate(event, id) {
     }
 }
 
+async function handleDownloadTemplate(event, id) {
+    try {
+        const template = await getQuery('SELECT name, content FROM export_templates WHERE id = ?', [id]);
+        if (!template) {
+            return { success: false, error: 'Template not found.' };
+        }
+        const { filePath } = await dialog.showSaveDialog({
+            title: 'Save Template',
+            defaultPath: template.name,
+        });
+
+        if (filePath) {
+            fs.writeFileSync(filePath, template.content);
+            return { success: true, filePath };
+        }
+        return { success: false, error: 'Save cancelled.' };
+    } catch (error) {
+        logError(`Error downloading template ${id}:`, error);
+        throw error;
+    }
+}
+
 function registerTemplateHandlers() {
-  ipcMain.handle('templates:get-all', handleGetAllTemplates);
-  ipcMain.handle('templates:get-by-id', handleGetTemplateById);
-  ipcMain.handle('templates:create', handleCreateTemplate);
-  ipcMain.handle('templates:update', handleUpdateTemplate);
+  ipcMain.handle('templates:get', handleGetAllTemplates);
+  ipcMain.handle('templates:upload', handleUploadTemplate);
   ipcMain.handle('templates:delete', handleDeleteTemplate);
+  ipcMain.handle('templates:download', handleDownloadTemplate);
   log('Template handlers registered.');
 }
 

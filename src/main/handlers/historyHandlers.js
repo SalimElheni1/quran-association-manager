@@ -77,9 +77,9 @@ async function handleRegenerateExport(event, id) {
 }
 
 function registerHistoryHandlers() {
-  ipcMain.handle('history:get-exports', handleGetExportHistory);
-  ipcMain.handle('history:delete-export', handleDeleteExportHistory);
-  ipcMain.handle('history:regenerate-export', handleRegenerateExport);
+  ipcMain.handle('history:get', handleGetExportHistory);
+  ipcMain.handle('history:delete', handleDeleteExportHistory);
+  ipcMain.handle('history:regenerate', handleRegenerateExport);
   log('History handlers registered.');
 }
 

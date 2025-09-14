@@ -160,11 +160,21 @@ function registerSystemHandlers() {
         }
     });
 
-    ipcMain.handle('import:execute', async () => {
+    ipcMain.handle('import:analyze', async (event, { filePath }) => {
         try {
-            const { canceled, filePaths } = await dialog.showOpenDialog({ title: 'Select Excel File to Import', properties: ['openFile'], filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }] });
-            if (canceled || !filePaths || !filePaths.length === 0) return { success: false, message: 'Import canceled by user.' };
-            const results = await importManager.importExcelData(filePaths[0]);
+            const headers = await importManager.parseHeadersFromFile(filePath);
+            const rows = await importManager.getPreviewRows(filePath);
+            return { success: true, headers, rows };
+        } catch (error) {
+            logError('Error analyzing import file:', error);
+            return { success: false, message: `Failed to analyze file: ${error.message}` };
+        }
+    });
+
+    ipcMain.handle('import:execute', async (event, { entity, filePath, mappings, dryRun }) => {
+        try {
+            const onProgress = (progress) => event.sender.send('import:progress', progress);
+            const results = await importManager.processImport(filePath, entity, mappings, { isDryRun: dryRun }, onProgress);
             return { success: true, ...results };
         } catch (error) {
             logError('Error during import execution:', error);
@@ -222,41 +232,6 @@ function registerSystemHandlers() {
     });
 
     ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
-
-    ipcMain.handle('import:parse-headers', async () => {
-        try {
-            const { canceled, filePaths } = await dialog.showOpenDialog({ title: 'Select File to Import', properties: ['openFile'], filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx', 'csv'] }] });
-            if (canceled || !filePaths || !filePaths.length === 0) return { success: false, message: 'File selection canceled.' };
-            const filePath = filePaths[0];
-            const headers = await importManager.parseHeadersFromFile(filePath);
-            return { success: true, headers, filePath };
-        } catch (error) {
-            logError('Error parsing import file headers:', error);
-            return { success: false, message: `Failed to parse file: ${error.message}` };
-        }
-    });
-
-    ipcMain.handle('import:run-dry-run', async (event, { filePath, entityType, columnMap }) => {
-        try {
-            const onProgress = (progress) => event.sender.send('import:progress', { ...progress, type: 'dry-run' });
-            const results = await importManager.processImport(filePath, entityType, columnMap, { isDryRun: true }, onProgress);
-            return { success: true, results };
-        } catch (error) {
-            logError('Error during import dry run:', error);
-            return { success: false, message: `Dry run failed: ${error.message}` };
-        }
-    });
-
-    ipcMain.handle('import:execute-import', async (event, { filePath, entityType, columnMap }) => {
-        try {
-            const onProgress = (progress) => event.sender.send('import:progress', { ...progress, type: 'final' });
-            const results = await importManager.processImport(filePath, entityType, columnMap, { isDryRun: false }, onProgress);
-            return { success: true, results };
-        } catch (error) {
-            logError('Error during final import execution:', error);
-            return { success: false, message: `Import failed: ${error.message}` };
-        }
-    });
 }
 
 module.exports = { registerSystemHandlers, handleGetBackupReminderStatus };
