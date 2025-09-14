@@ -1,15 +1,41 @@
-const { app } = require('electron');
+const isElectron = () => {
+    // Renderer process
+    if (typeof window !== 'undefined' && typeof window.process === 'object' && window.process.type === 'renderer') {
+        return true;
+    }
+
+    // Main process
+    if (typeof process !== 'undefined' && typeof process.versions === 'object' && !!process.versions.electron) {
+        return true;
+    }
+
+    // Detect the user agent when running in a web browser
+    if (typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.indexOf('Electron') >= 0) {
+        return true;
+    }
+
+    return false;
+};
+
+const isPackaged = () => {
+    if (isElectron()) {
+        const { app } = require('electron');
+        return app.isPackaged;
+    }
+    // Assume not packaged if not in Electron context
+    return false;
+}
 
 const log = (...args) => {
-  if (!app.isPackaged) {
+  if (!isPackaged()) {
     console.log(...args);
   }
 };
 
 const warn = (...args) => {
-  if (!app.isPackaged) {
-    console.warn(...args);
-  }
+    if (!isPackaged()) {
+        console.warn(...args);
+    }
 };
 
 const error = (...args) => {
