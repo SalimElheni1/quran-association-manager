@@ -118,6 +118,8 @@ const REQUIRED_COLUMNS = {
   الرواتب: ['الرقم التعريفي للمعلم', 'المبلغ', 'تاريخ الدفع (YYYY-MM-DD)'],
   التبرعات: ['اسم المتبرع', 'نوع التبرع (Cash/In-kind)', 'تاريخ التبرع (YYYY-MM-DD)'],
   المصاريف: ['الفئة', 'المبلغ', 'تاريخ الصرف (YYYY-MM-DD)'],
+  المجموعات: ['اسم المجموعة', 'الفئة'],
+  المخزون: ['الرقم التعريفي', 'اسم العنصر', 'الفئة', 'الكمية'],
   الحضور: [
     'الرقم التعريفي للطالب',
     'اسم الفصل',
@@ -158,6 +160,8 @@ async function importExcelData(filePath, options = {}) {
     المعلمون: processTeacherRow,
     المستخدمون: processUserRow,
     الفصول: processClassRow,
+    المجموعات: processGroupRow,
+    المخزون: processInventoryItemRow,
     'الرسوم الدراسية': processPaymentRow,
     الرواتب: processSalaryRow,
     التبرعات: processDonationRow,
@@ -268,6 +272,8 @@ async function processStudentRow(row, headerRow) {
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
     status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
     national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
+    parent_name: row.getCell(getColumnIndex(headerRow, 'اسم ولي الأمر'))?.value,
+    parent_contact: row.getCell(getColumnIndex(headerRow, 'هاتف ولي الأمر'))?.value,
   };
 
   if (!data.name && !matricule) return { success: false, message: 'اسم الطالب مطلوب.' };
@@ -299,7 +305,46 @@ async function processStudentRow(row, headerRow) {
     await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
     return { success: true };
   }
-  // Insert new record
+
+  // Insert new record, but first check for duplicates based on other criteria
+  if (data.national_id) {
+    const existingStudent = await getQuery('SELECT id FROM students WHERE national_id = ?', [
+      data.national_id,
+    ]);
+    if (existingStudent) {
+      return {
+        success: false,
+        message: `طالب بنفس رقم الهوية موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
+      };
+    }
+  }
+
+  if (data.name && data.parent_contact) {
+    const existingStudent = await getQuery(
+      'SELECT id FROM students WHERE name = ? AND parent_contact = ?',
+      [data.name, data.parent_contact],
+    );
+    if (existingStudent) {
+      return {
+        success: false,
+        message: `طالب بنفس الاسم وهاتف ولي الأمر موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
+      };
+    }
+  }
+
+  if (data.name && data.date_of_birth && data.parent_name) {
+    const existingStudent = await getQuery(
+      'SELECT id FROM students WHERE name = ? AND date_of_birth = ? AND parent_name = ?',
+      [data.name, data.date_of_birth, data.parent_name],
+    );
+    if (existingStudent) {
+      return {
+        success: false,
+        message: `طالب بنفس الاسم وتاريخ الميلاد واسم ولي الأمر موجود بالفعل. لتحديثه، يرجى استخدام رقمه التعريفي.`,
+      };
+    }
+  }
+
   const newMatricule = await generateMatricule('student');
   const allData = { ...data, matricule: newMatricule };
 
@@ -824,6 +869,117 @@ async function processAttendanceRow(row, headerRow) {
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map((k) => data[k]);
   await runQuery(`INSERT INTO attendance (${fields.join(', ')}) VALUES (${placeholders})`, values);
+  return { success: true };
+}
+
+async function processGroupRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+  const data = {
+    name: row.getCell(getColumnIndex(headerRow, 'اسم المجموعة')).value,
+    description: row.getCell(getColumnIndex(headerRow, 'الوصف'))?.value,
+    category: row.getCell(getColumnIndex(headerRow, 'الفئة'))?.value,
+  };
+
+  if (!data.name || !data.category) {
+    return { success: false, message: 'اسم المجموعة والفئة حقول مطلوبة.' };
+  }
+
+  if (!['Kids', 'Women', 'Men'].includes(data.category)) {
+    return { success: false, message: 'الفئة يجب أن تكون واحدة من: Kids, Women, Men.' };
+  }
+
+  const fields = Object.keys(data).filter((k) => data[k] !== undefined);
+  const updateData = {};
+  fields.forEach((k) => {
+    updateData[k] = data[k] === undefined ? null : data[k];
+  });
+
+  if (matricule) {
+    const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [matricule]);
+    if (!existingGroup) {
+      return { success: false, message: `المجموعة بالرقم التعريفي "${matricule}" غير موجودة.` };
+    }
+    if (fields.length === 0) return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => updateData[k]), matricule];
+    await runQuery(`UPDATE groups SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+
+  const existingGroup = await getQuery('SELECT id FROM groups WHERE name = ?', [data.name]);
+  if (existingGroup) {
+    return {
+      success: false,
+      message: `المجموعة بالاسم "${data.name}" موجودة بالفعل. لتحديثها، يرجى استخدام رقمها التعريفي.`,
+    };
+  }
+
+  const newMatricule = await generateMatricule('group');
+  const allData = { ...updateData, matricule: newMatricule };
+  const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+  await runQuery(`INSERT INTO groups (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+  return { success: true };
+}
+
+async function processInventoryItemRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+  if (!matricule) {
+    return { success: false, message: 'الرقم التعريفي حقل مطلوب لعناصر المخزون.' };
+  }
+
+  const data = {
+    item_name: row.getCell(getColumnIndex(headerRow, 'اسم العنصر')).value,
+    category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
+    quantity: row.getCell(getColumnIndex(headerRow, 'الكمية')).value,
+    unit_value: row.getCell(getColumnIndex(headerRow, 'قيمة الوحدة'))?.value,
+    total_value: row.getCell(getColumnIndex(headerRow, 'القيمة الإجمالية'))?.value,
+    acquisition_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الاقتناء'))?.value,
+    acquisition_source: row.getCell(getColumnIndex(headerRow, 'مصدر الاقتناء'))?.value,
+    condition_status: row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value,
+    location: row.getCell(getColumnIndex(headerRow, 'الموقع'))?.value,
+    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات'))?.value,
+  };
+
+  if (!data.item_name || !data.category || data.quantity === undefined) {
+    return { success: false, message: 'اسم العنصر، الفئة، والكمية هي حقول مطلوبة.' };
+  }
+
+  if (data.acquisition_date && !isValidDate(data.acquisition_date)) {
+    return {
+      success: false,
+      message: 'تنسيق تاريخ الاقتناء غير صالح. الرجاء استخدام YYYY-MM-DD.',
+    };
+  }
+
+  const fields = Object.keys(data).filter((k) => data[k] !== undefined);
+  const updateData = {};
+  fields.forEach((k) => {
+    updateData[k] = data[k] === undefined ? null : data[k];
+  });
+
+  const existingItem = await getQuery('SELECT id FROM inventory_items WHERE matricule = ?', [
+    matricule,
+  ]);
+
+  if (existingItem) {
+    // Update
+    if (fields.length === 0) return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => updateData[k]), matricule];
+    await runQuery(`UPDATE inventory_items SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+  // Insert
+  const allData = { ...updateData, matricule };
+  const allFields = Object.keys(allData).filter((k) => allData[k] !== null);
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+  await runQuery(
+    `INSERT INTO inventory_items (${allFields.join(', ')}) VALUES (${placeholders})`,
+    values,
+  );
   return { success: true };
 }
 
