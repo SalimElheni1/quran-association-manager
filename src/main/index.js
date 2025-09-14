@@ -247,6 +247,11 @@ app.whenReady().then(async () => {
     registerDashboardHandlers();
     registerSystemHandlers();
 
+    const { registerTemplateHandlers } = require('./handlers/templateHandlers');
+    registerTemplateHandlers();
+    const { registerHistoryHandlers } = require('./handlers/historyHandlers');
+    registerHistoryHandlers();
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();

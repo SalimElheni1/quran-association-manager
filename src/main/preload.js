@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
   updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),
 
-  // Secure, specific database APIs
+  // Students API
   getStudents: (filters) => ipcRenderer.invoke('students:get', filters),
   getStudentById: (id) => ipcRenderer.invoke('students:getById', id),
   addStudent: (studentData) => ipcRenderer.invoke('students:add', studentData),
@@ -34,8 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteClass: (id) => ipcRenderer.invoke('classes:delete', id),
   getClassById: (id) => ipcRenderer.invoke('classes:getById', id),
   getEnrollmentData: (data) => ipcRenderer.invoke('classes:getEnrollmentData', data),
-  updateEnrollments: (classId, studentIds) =>
-    ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
+  updateEnrollments: (classId, studentIds) => ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
 
   // Groups API
   getGroups: (filters) => ipcRenderer.invoke('groups:get', filters),
@@ -65,7 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
 
-  // User Management API (for Superadmin)
+  // User Management API
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),
   addUser: (userData) => ipcRenderer.invoke('users:add', userData),
   getUserById: (id) => ipcRenderer.invoke('users:getById', id),
@@ -79,69 +78,80 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Attendance API
   getClassesForDay: (date) => ipcRenderer.invoke('attendance:getClassesForDay', date),
   getStudentsForClass: (classId) => ipcRenderer.invoke('attendance:getStudentsForClass', classId),
-  getAttendanceForDate: (classId, date) =>
-    ipcRenderer.invoke('attendance:getForDate', { classId, date }),
+  getAttendanceForDate: (classId, date) => ipcRenderer.invoke('attendance:getForDate', { classId, date }),
   saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
-  getAttendanceSummaryForClass: (classId) =>
-    ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
+  getAttendanceSummaryForClass: (classId) => ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
 
   // Financials API
   getExpenses: () => ipcRenderer.invoke('get-expenses'),
   addExpense: (expense) => ipcRenderer.invoke('add-expense', expense),
   updateExpense: (expense) => ipcRenderer.invoke('update-expense', expense),
   deleteExpense: (id) => ipcRenderer.invoke('delete-expense', id),
-
   getDonations: () => ipcRenderer.invoke('get-donations'),
   addDonation: (donation) => ipcRenderer.invoke('add-donation', donation),
   updateDonation: (donation) => ipcRenderer.invoke('update-donation', donation),
   deleteDonation: (id) => ipcRenderer.invoke('delete-donation', id),
-
-  // Inventory API
   getInventoryItems: () => ipcRenderer.invoke('inventory:get'),
   checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
   deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete',id),
-
   getSalaries: () => ipcRenderer.invoke('get-salaries'),
   addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
   updateSalary: (salary) => ipcRenderer.invoke('update-salary', salary),
   deleteSalary: (id) => ipcRenderer.invoke('delete-salary', id),
-
   getPayments: () => ipcRenderer.invoke('get-payments'),
   addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
   updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
   deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
-
   getFinancialSummary: (year) => ipcRenderer.invoke('get-financial-summary', year),
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
-  getStatementOfActivities: (period) =>
-    ipcRenderer.invoke('get-statement-of-activities', period),
-  // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
-  // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
-  // getChartData: () => ipcRenderer.invoke('get-chart-data'),
+  getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),
 
   // Exports API
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),
+  generateExportPreview: (options) => ipcRenderer.invoke('export:generate-preview', options),
+  generateBatchExport: (options) => ipcRenderer.invoke('export:generate-batch', options),
+  onExportProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress);
+    ipcRenderer.on('export:progress', handler);
+    return () => ipcRenderer.removeListener('export:progress', handler);
+  },
 
   // Imports API
   generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
   executeImport: () => ipcRenderer.invoke('import:execute'),
+  parseImportHeaders: () => ipcRenderer.invoke('import:parse-headers'),
+  runImportDryRun: (data) => ipcRenderer.invoke('import:run-dry-run', data),
+  executeImportNew: (data) => ipcRenderer.invoke('import:execute-import', data),
+  onImportProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress);
+    ipcRenderer.on('import:progress', handler);
+    return () => ipcRenderer.removeListener('import:progress', handler);
+  },
+
+  // Template Management API
+  getAllTemplates: () => ipcRenderer.invoke('templates:get-all'),
+  getTemplateById: (id) => ipcRenderer.invoke('templates:get-by-id', id),
+  createTemplate: (data) => ipcRenderer.invoke('templates:create', data),
+  updateTemplate: (data) => ipcRenderer.invoke('templates:update', data),
+  deleteTemplate: (id) => ipcRenderer.invoke('templates:delete', id),
+
+  // History API
+  getExportHistory: (options) => ipcRenderer.invoke('history:get-exports', options),
+  deleteExportHistory: (id) => ipcRenderer.invoke('history:delete-export', id),
+  regenerateExport: (id) => ipcRenderer.invoke('history:regenerate-export', id),
 
   // Listener for events from main process
   onForceLogout: (callback) => {
     const handler = (event, ...args) => callback(event, ...args);
     ipcRenderer.on('force-logout', handler);
-    return () => {
-      ipcRenderer.removeListener('force-logout', handler);
-    };
+    return () => ipcRenderer.removeListener('force-logout', handler);
   },
   onShowInitialCredentials: (callback) => {
     const handler = (event, ...args) => callback(event, ...args);
     ipcRenderer.on('show-initial-credentials', handler);
-    return () => {
-      ipcRenderer.removeListener('show-initial-credentials', handler);
-    };
+    return () => ipcRenderer.removeListener('show-initial-credentials', handler);
   },
 });

@@ -10,6 +10,8 @@ import UsersPage from '@renderer/pages/UsersPage';
 import AttendancePage from '@renderer/pages/AttendancePage';
 import ProfilePage from '@renderer/pages/ProfilePage';
 import SettingsPage from '@renderer/pages/SettingsPage';
+import TemplatesPage from '@renderer/pages/TemplatesPage';
+import HistoryPage from '@renderer/pages/HistoryPage';
 import FinancialsPage from '@renderer/pages/FinancialsPage';
 import ExportsPage from '@renderer/pages/ExportsPage';
 import AboutPage from '@renderer/pages/AboutPage';

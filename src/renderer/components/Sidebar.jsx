@@ -87,6 +87,16 @@ function Sidebar() {
               <span>الإعدادات</span>
             </NavLink>
           )}
+          {user?.role === 'Superadmin' && (
+            <NavLink to="/templates" className="nav-link">
+              <i className="fas fa-file-alt"></i>
+              <span>إدارة القوالب</span>
+            </NavLink>
+          )}
+          <NavLink to="/history" className="nav-link">
+            <i className="fas fa-history"></i>
+            <span>سجل التصدير</span>
+          </NavLink>
           <NavLink to="/profile" className="nav-link">
             <i className="fas fa-user-cog"></i>
             <span>ملفي الشخصي</span>
