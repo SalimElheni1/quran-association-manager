@@ -456,6 +456,31 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
     },
     {
+      name: 'المجموعات',
+      columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم المجموعة', key: 'name', width: 25 },
+        { header: 'الوصف', key: 'description', width: 30 },
+        { header: 'الفئة (Kids/Women/Men)', key: 'category', width: 20 },
+      ],
+    },
+    {
+      name: 'المخزون',
+      columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم العنصر', key: 'item_name', width: 25 },
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'الكمية', key: 'quantity', width: 10 },
+        { header: 'قيمة الوحدة', key: 'unit_value', width: 15 },
+        { header: 'القيمة الإجمالية', key: 'total_value', width: 15 },
+        { header: 'تاريخ الاقتناء', key: 'acquisition_date', width: 15 },
+        { header: 'مصدر الاقتناء', key: 'acquisition_source', width: 20 },
+        { header: 'الحالة', key: 'condition_status', width: 20 },
+        { header: 'الموقع', key: 'location', width: 20 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+    },
+    {
       name: 'الرسوم الدراسية',
       columns: [
         { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
