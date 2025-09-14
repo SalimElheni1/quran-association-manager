@@ -14,7 +14,7 @@ function TemplatesPage() {
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedTemplates = await window.electron.ipcRenderer.invoke('templates:get');
+      const fetchedTemplates = await window.electronAPI.getAllTemplates();
       setTemplates(fetchedTemplates);
       setError(null);
     } catch (err) {
@@ -42,7 +42,7 @@ function TemplatesPage() {
       return;
     }
     try {
-      await window.electron.ipcRenderer.invoke('templates:upload', {
+      await window.electronAPI.uploadTemplate({
         name: file.name,
         filePath: file.path,
       });
@@ -61,7 +61,7 @@ function TemplatesPage() {
   const confirmDelete = async () => {
     if (!templateToDelete) return;
     try {
-      await window.electron.ipcRenderer.invoke('templates:delete', templateToDelete.id);
+      await window.electronAPI.deleteTemplate(templateToDelete.id);
       toast.success('تم حذف القالب بنجاح.');
       fetchTemplates(); // Refresh list
     } catch (err) {
@@ -74,7 +74,7 @@ function TemplatesPage() {
 
   const handleDownload = async (template) => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('templates:download', template.id);
+      const result = await window.electronAPI.downloadTemplate(template.id);
       if (result.success) {
         toast.success(`تم حفظ القالب في: ${result.filePath}`);
       } else {

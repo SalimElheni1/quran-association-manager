@@ -35,7 +35,7 @@ const ImportWizardModal = ({ show, onHide, entity }) => {
       setFile(selectedFile);
       setIsLoading(true);
       try {
-        const result = await window.electron.ipcRenderer.invoke('import:analyze', { filePath: selectedFile.path });
+        const result = await window.electronAPI.analyzeImportFile({ filePath: selectedFile.path });
         setHeaders(result.headers);
         setRows(result.rows);
         const initialMappings = {};
@@ -75,7 +75,7 @@ const ImportWizardModal = ({ show, onHide, entity }) => {
   const handleImport = async (dryRun) => {
     setIsLoading(true);
     try {
-      const result = await window.electron.ipcRenderer.invoke('import:execute', {
+      const result = await window.electronAPI.executeImport({
         entity,
         filePath: file.path,
         mappings,

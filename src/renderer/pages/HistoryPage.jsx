@@ -14,7 +14,7 @@ function HistoryPage() {
   const fetchHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedHistory = await window.electron.ipcRenderer.invoke('history:get');
+      const fetchedHistory = await window.electronAPI.getHistory();
       setHistory(fetchedHistory);
       setError(null);
     } catch (err) {
@@ -37,7 +37,7 @@ function HistoryPage() {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      await window.electron.ipcRenderer.invoke('history:delete', itemToDelete.id);
+      await window.electronAPI.deleteHistory(itemToDelete.id);
       toast.success('تم حذف سجل التصدير بنجاح.');
       fetchHistory(); // Refresh list
     } catch (err) {
@@ -50,7 +50,7 @@ function HistoryPage() {
 
   const handleRegenerate = async (item) => {
     try {
-      const result = await window.electron.ipcRenderer.invoke('history:regenerate', item.id);
+      const result = await window.electronAPI.regenerateHistory(item.id);
       if (result.success) {
         toast.success(`تم إعادة إنشاء الملف بنجاح في: ${result.filePath}`);
       } else {
