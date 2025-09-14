@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Button, Stepper, Step, StepLabel, Box, CircularProgress, Typography, Table, TableHead, TableRow, TableCell, TableBody, Select, MenuItem, FormControl, InputLabel } from '@mui/material'; // Assuming Material-UI for Stepper
+import { Modal, Button, ProgressBar, Form, Table, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 
-const steps = ['رفع الملف', 'مطابقة الأعمدة', 'مراجعة واستيراد'];
+const steps = ['رفع الملف', 'مطابقة الأعمدة', 'مراجعة واستيراد', 'اكتمل'];
 
 const ImportWizardModal = ({ show, onHide, entity }) => {
   const [activeStep, setActiveStep] = useState(0);
@@ -38,7 +38,6 @@ const ImportWizardModal = ({ show, onHide, entity }) => {
         const result = await window.electron.ipcRenderer.invoke('import:analyze', { filePath: selectedFile.path });
         setHeaders(result.headers);
         setRows(result.rows);
-        // Auto-map based on header name similarity
         const initialMappings = {};
         const availableFields = entityFields[entity];
         result.headers.forEach(header => {
@@ -100,120 +99,111 @@ const ImportWizardModal = ({ show, onHide, entity }) => {
     switch (step) {
       case 0:
         return (
-          <Box sx={{ textAlign: 'center', p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              اختر ملف Excel أو CSV للاستيراد
-            </Typography>
-            <Button variant="contained" component="label">
+          <div className="text-center p-3">
+            <h6 className="mb-3">اختر ملف Excel أو CSV للاستيراد</h6>
+            <Button variant="primary" as="label" htmlFor="fileUpload">
               اختر ملف
-              <input type="file" hidden accept=".csv, .xlsx" onChange={handleFileChange} />
             </Button>
-            {isLoading && <CircularProgress sx={{ mt: 2 }} />}
-          </Box>
+            <input id="fileUpload" type="file" style={{ display: 'none' }} accept=".csv, .xlsx" onChange={handleFileChange} />
+            {isLoading && <Spinner animation="border" className="mt-2" />}
+          </div>
         );
       case 1:
         return (
-          <Box sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>مطابقة أعمدة الملف مع حقول النظام</Typography>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>عمود من الملف</TableCell>
-                  <TableCell>حقل في النظام</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+          <div className="p-2">
+            <h6>مطابقة أعمدة الملف مع حقول النظام</h6>
+            <Table striped bordered hover responsive>
+              <thead>
+                <tr>
+                  <th>عمود من الملف</th>
+                  <th>حقل في النظام</th>
+                </tr>
+              </thead>
+              <tbody>
                 {headers.map((header) => (
-                  <TableRow key={header}>
-                    <TableCell>{header}</TableCell>
-                    <TableCell>
-                      <FormControl fullWidth>
-                        <InputLabel>اختر حقلاً</InputLabel>
-                        <Select
-                          value={mappings[header] || ''}
-                          onChange={(e) => handleMappingChange(header, e.target.value)}
-                        >
-                          <MenuItem value=""><em>تجاهل</em></MenuItem>
-                          {entityFields[entity].map(field => (
-                            <MenuItem key={field.key} value={field.key}>
-                              {field.label} {field.required && '*'}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </TableCell>
-                  </TableRow>
+                  <tr key={header}>
+                    <td>{header}</td>
+                    <td>
+                      <Form.Select
+                        value={mappings[header] || ''}
+                        onChange={(e) => handleMappingChange(header, e.target.value)}
+                      >
+                        <option value=""><em>تجاهل</em></option>
+                        {entityFields[entity].map(field => (
+                          <option key={field.key} value={field.key}>
+                            {field.label} {field.required && '*'}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
+              </tbody>
             </Table>
-          </Box>
+          </div>
         );
       case 2:
         return (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>مراجعة البيانات</Typography>
+          <div className="p-2 text-center">
+            <h6>مراجعة البيانات</h6>
             {!importResult ? (
-              <Button variant="contained" onClick={() => handleImport(true)} disabled={isLoading}>
-                {isLoading ? <CircularProgress size={24} /> : 'بدء المراجعة'}
+              <Button variant="primary" onClick={() => handleImport(true)} disabled={isLoading}>
+                {isLoading ? <Spinner as="span" animation="border" size="sm" /> : 'بدء المراجعة'}
               </Button>
             ) : (
-              <Box>
-                <Typography>سيتم إضافة: {importResult.added} سجل</Typography>
-                <Typography>سيتم تحديث: {importResult.updated} سجل</Typography>
-                <Typography>أخطاء: {importResult.errors.length}</Typography>
+              <div>
+                <p>سيتم إضافة: {importResult.added} سجل</p>
+                <p>سيتم تحديث: {importResult.updated} سجل</p>
+                <p>أخطاء: {importResult.errors.length}</p>
                 {importResult.errors.length > 0 && (
-                  <Box sx={{ maxHeight: 200, overflow: 'auto', mt: 2, border: '1px solid red', p: 1 }}>
-                    {importResult.errors.map((err, i) => <Typography key={i} color="error">{err}</Typography>)}
-                  </Box>
+                  <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid red', padding: '8px', marginTop: '8px' }}>
+                    {importResult.errors.map((err, i) => <p key={i} className="text-danger">{err}</p>)}
+                  </div>
                 )}
-                <Button sx={{ mt: 2 }} variant="contained" color="success" onClick={() => handleImport(false)} disabled={isLoading || importResult.errors.length > 0}>
-                  {isLoading ? <CircularProgress size={24} /> : 'تأكيد الاستيراد'}
+                <Button className="mt-2" variant="success" onClick={() => handleImport(false)} disabled={isLoading || importResult.errors.length > 0}>
+                  {isLoading ? <Spinner as="span" animation="border" size="sm" /> : 'تأكيد الاستيراد'}
                 </Button>
-              </Box>
+              </div>
             )}
-          </Box>
+          </div>
         );
       case 3:
         return (
-          <Box sx={{ textAlign: 'center', p: 3 }}>
-            <Typography variant="h5" color="success.main">اكتمل الاستيراد!</Typography>
-            <Typography>تم إضافة: {importResult.added} سجل</Typography>
-            <Typography>تم تحديث: {importResult.updated} سجل</Typography>
-            <Button sx={{ mt: 3 }} variant="contained" onClick={handleReset}>إغلاق</Button>
-          </Box>
+          <div className="text-center p-3">
+            <h5 className="text-success">اكتمل الاستيراد!</h5>
+            <p>تم إضافة: {importResult.added} سجل</p>
+            <p>تم تحديث: {importResult.updated} سجل</p>
+            <Button className="mt-3" variant="primary" onClick={handleReset}>إغلاق</Button>
+          </div>
         );
       default:
         return 'خطوة غير معروفة';
     }
   };
 
+  const progressPercent = Math.round((activeStep / (steps.length - 1)) * 100);
+
   return (
-    <Modal open={show} onClose={handleReset}>
-      <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 800, bgcolor: 'background.paper', boxShadow: 24, p: 4 }}>
-        <Stepper activeStep={activeStep}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        <Box sx={{ mt: 2, mb: 1, minHeight: 400 }}>
-          {renderStepContent(activeStep)}
-        </Box>
-        {activeStep < 3 && (
-          <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
-            <Button disabled={activeStep === 0 || isLoading} onClick={handleBack}>
-              رجوع
+    <Modal show={show} onHide={handleReset} size="lg" centered backdrop="static">
+      <Modal.Header closeButton>
+        <Modal.Title>معالج الاستيراد: {steps[activeStep]}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body style={{ minHeight: '400px' }}>
+        <ProgressBar now={progressPercent} label={`${steps[activeStep]}`} className="mb-4" />
+        {renderStepContent(activeStep)}
+      </Modal.Body>
+      {activeStep < 3 && (
+        <Modal.Footer>
+          <Button variant="secondary" disabled={activeStep === 0 || isLoading} onClick={handleBack}>
+            رجوع
+          </Button>
+          {activeStep === 1 && (
+            <Button variant="primary" onClick={handleNext}>
+              التالي
             </Button>
-            <Box sx={{ flex: '1 1 auto' }} />
-            {activeStep === 1 && (
-              <Button onClick={handleNext}>
-                التالي
-              </Button>
-            )}
-          </Box>
-        )}
-      </Box>
+          )}
+        </Modal.Footer>
+      )}
     </Modal>
   );
 };
