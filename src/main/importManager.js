@@ -301,7 +301,7 @@ async function processStudentRow(row, headerRow) {
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
     date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس (ذكر/أنثى)')).value,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
     address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
     contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
@@ -558,7 +558,7 @@ async function processClassRow(row, headerRow) {
     end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء'))?.value,
     status: row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value,
     capacity: row.getCell(getColumnIndex(headerRow, 'السعة'))?.value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس (ذكر/أنثى)')).value,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس (رجال/نساء/أطفال/الكل)')).value,
   };
 
   if (data.gender) {
@@ -789,7 +789,7 @@ async function processDonationRow(row, headerRow) {
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
   const data = {
     donor_name: row.getCell(getColumnIndex(headerRow, 'اسم المتبرع')).value,
-    donation_type: row.getCell(getColumnIndex(headerRow, 'نوع التبرع (Cash/In-kind)')).value,
+    donation_type: row.getCell(getColumnIndex(headerRow, 'نوع التبرع (نقدي/عيني)')).value,
     amount: row.getCell(getColumnIndex(headerRow, 'المبلغ (للتبرع النقدي)')).value,
     description: row.getCell(getColumnIndex(headerRow, 'وصف (للتبرع العيني)')).value,
     donation_date: row.getCell(getColumnIndex(headerRow, 'تاريخ التبرع (YYYY-MM-DD)')).value,
@@ -918,7 +918,7 @@ async function processAttendanceRow(row, headerRow) {
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
   const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
   const date = row.getCell(getColumnIndex(headerRow, 'التاريخ (YYYY-MM-DD)')).value;
-  const status = row.getCell(getColumnIndex(headerRow, 'الحالة (حاضر/غائب/متأخر/معذور)'))?.value;
+  const status = row.getCell(getColumnIndex(headerRow, 'الحالة (حاضر/غائب/متأخر/معذور)')).value;
   log(`Raw attendance data: student=${studentMatricule}, class=${className}, date=${date}, status=${status}`);
 
   if (!studentMatricule || !className || !date || !status) {

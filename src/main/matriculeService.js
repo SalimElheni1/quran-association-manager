@@ -27,6 +27,30 @@ async function generateMatricule(entityType) {
       prefix = 'INV-';
       tableName = 'inventory_items';
       break;
+    case 'class':
+      prefix = 'C-';
+      tableName = 'classes';
+      break;
+    case 'group':
+      prefix = 'G-';
+      tableName = 'groups';
+      break;
+    case 'payment':
+      prefix = 'P-';
+      tableName = 'payments';
+      break;
+    case 'salary':
+      prefix = 'SL-';
+      tableName = 'salaries';
+      break;
+    case 'donation':
+      prefix = 'D-';
+      tableName = 'donations';
+      break;
+    case 'expense':
+      prefix = 'E-';
+      tableName = 'expenses';
+      break;
     default:
       throw new Error(`Invalid entity type for matricule generation: ${entityType}`);
   }
