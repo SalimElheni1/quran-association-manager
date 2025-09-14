@@ -75,6 +75,10 @@ function Sidebar() {
             <i className="fas fa-file-export"></i>
             <span>تصدير البيانات</span>
           </NavLink>
+          <NavLink to="/templates" className="nav-link">
+            <i className="fas fa-file-word"></i>
+            <span>إدارة القوالب</span>
+          </NavLink>
           {user?.role === 'Superadmin' && (
             <NavLink to="/users" className="nav-link">
               <i className="fas fa-user-shield"></i>
