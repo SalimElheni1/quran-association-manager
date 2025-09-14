@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "react-dev": "vite --port 3000",
-    "electron-start": "electron .",
+    "electron-start": "LD_LIBRARY_PATH=./lib electron .",
     "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
     "build": "vite build",
     "dist": "npm run build && electron-builder --win",
