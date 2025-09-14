@@ -21,15 +21,10 @@ function App() {
   const [initialCredentials, setInitialCredentials] = useState(null);
 
   useEffect(() => {
-    // Listen for the event from the main process
     const removeListener = window.electronAPI.onShowInitialCredentials((event, credentials) => {
       setInitialCredentials(credentials);
     });
-
-    // Cleanup the listener when the component unmounts
-    return () => {
-      removeListener();
-    };
+    return () => removeListener();
   }, []);
 
   const handleCloseInitialCredentialsBanner = () => {
@@ -56,7 +51,6 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Child routes will be rendered inside MainLayout's <Outlet> */}
           <Route index element={<DashboardPage />} />
           <Route path="/students" element={<StudentsPage />} />
           <Route path="/teachers" element={<TeachersPage />} />
@@ -66,6 +60,8 @@ function App() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="/exports" element={<ExportsPage />} />
           <Route path="/about" element={<AboutPage />} />
         </Route>
