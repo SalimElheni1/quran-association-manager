@@ -452,16 +452,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
         { header: 'الحالة', key: 'status', width: 15 },
         { header: 'السعة', key: 'capacity', width: 10 },
-        { header: 'الجنس', key: 'gender', width: 15 },
-      ],
-    },
-    {
-      name: 'المجموعات',
-      columns: [
-        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
-        { header: 'اسم المجموعة', key: 'name', width: 25 },
-        { header: 'الوصف', key: 'description', width: 30 },
-        { header: 'الفئة (Kids/Women/Men)', key: 'category', width: 20 },
+        { header: 'الجنس (ذكر/أنثى)', key: 'gender', width: 15 },
       ],
     },
     {
@@ -500,10 +491,19 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
     },
     {
+      name: 'المجموعات',
+      columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم المجموعة', key: 'name', width: 25 },
+        { header: 'الوصف', key: 'description', width: 30 },
+        { header: 'الفئة (أطفال/نساء/رجال)', key: 'category', width: 20 },
+      ],
+    },
+    {
       name: 'التبرعات',
       columns: [
         { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
-        { header: 'نوع التبرع (Cash/In-kind)', key: 'donation_type', width: 20 },
+        { header: 'نوع التبرع (نقدي/عيني)', key: 'donation_type', width: 20 },
         { header: 'المبلغ (للتبرع النقدي)', key: 'amount', width: 20 },
         { header: 'وصف (للتبرع العيني)', key: 'description', width: 30 },
         { header: 'تاريخ التبرع (YYYY-MM-DD)', key: 'donation_date', width: 20 },
@@ -549,7 +549,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
         { header: 'اسم الفصل', key: 'class_name', width: 25 },
         { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
-        { header: 'الحالة (present/absent/late/excused)', key: 'status', width: 25 },
+        { header: 'الحالة (حاضر/غائب/متأخر/معذور)', key: 'status', width: 25 },
       ],
     },
   ];
