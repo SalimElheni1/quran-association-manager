@@ -444,6 +444,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'الفصول',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'اسم الفصل', key: 'name', width: 25 },
         { header: 'نوع الفصل', key: 'class_type', width: 20 },
         { header: 'الرقم التعريفي للمعلم', key: 'teacher_matricule', width: 25 },
@@ -551,8 +552,9 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'التبرعات',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
-        { header: 'نوع التبرع (نقدي/عيني)', key: 'donation_type', width: 20 },
+        { header: 'نوع التبرع (Cash/In-kind)', key: 'donation_type', width: 20 },
         { header: 'المبلغ (للتبرع النقدي)', key: 'amount', width: 20 },
         { header: 'وصف (للتبرع العيني)', key: 'description', width: 30 },
         { header: 'تاريخ التبرع (YYYY-MM-DD)', key: 'donation_date', width: 20 },
@@ -576,6 +578,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     {
       name: 'المصاريف',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'الفئة', key: 'category', width: 20 },
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الصرف (YYYY-MM-DD)', key: 'expense_date', width: 20 },
@@ -598,7 +601,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
         { header: 'اسم الفصل', key: 'class_name', width: 25 },
         { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
-        { header: 'الحالة (حاضر/غائب/متأخر/معذور)', key: 'status', width: 25 },
+        { header: 'الحالة (present/absent/late/excused)', key: 'status', width: 25 },
       ],
       dummyData: [
         {
