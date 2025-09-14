@@ -347,7 +347,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         {
           name: 'علي محمد',
           date_of_birth: '2005-04-10',
-          gender: 'Male',
+          gender: 'ذكر',
           national_id: '111222333',
           status: 'active',
           memorization_level: '5 أجزاء',
@@ -355,7 +355,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         {
           name: 'سارة عبدالله',
           date_of_birth: '2006-08-22',
-          gender: 'Female',
+          gender: 'أنثى',
           national_id: '222333444',
           status: 'active',
           memorization_level: '3 أجزاء',
@@ -388,7 +388,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           email: 'fatima@example.com',
           specialization: 'تجويد',
           years_of_experience: 5,
-          gender: 'Female',
+          gender: 'أنثى',
         },
         {
           name: 'خالد حسين',
@@ -396,7 +396,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           email: 'khaled@example.com',
           specialization: 'قراءات',
           years_of_experience: 8,
-          gender: 'Male',
+          gender: 'ذكر',
         },
       ],
     },
@@ -452,7 +452,23 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
         { header: 'الحالة', key: 'status', width: 15 },
         { header: 'السعة', key: 'capacity', width: 10 },
-        { header: 'الجنس (ذكر/أنثى)', key: 'gender', width: 15 },
+        { header: 'الجنس (رجال/نساء/أطفال/الكل)', key: 'gender', width: 25 },
+      ],
+      dummyData: [
+        {
+          name: 'حلقة الرجال الصباحية',
+          class_type: 'حفظ',
+          teacher_matricule: 'T-000001',
+          gender: 'رجال',
+          status: 'active',
+        },
+        {
+          name: 'فصل الأطفال المسائي',
+          class_type: 'تلقين',
+          teacher_matricule: 'T-000002',
+          gender: 'أطفال',
+          status: 'pending',
+        },
       ],
     },
     {
@@ -470,24 +486,50 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الموقع', key: 'location', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
+      dummyData: [
+        {
+          matricule: 'INV-0001',
+          item_name: 'مصحف',
+          category: 'مواد تعليمية',
+          quantity: 50,
+          location: 'المكتبة',
+        },
+      ],
     },
     {
       name: 'الرسوم الدراسية',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
         { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
+      dummyData: [
+        {
+          student_matricule: 'S-000001',
+          amount: 100,
+          payment_date: '2024-01-15',
+          payment_method: 'نقدي',
+        },
+      ],
     },
     {
       name: 'الرواتب',
       columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
         { header: 'الرقم التعريفي للمعلم', key: 'teacher_matricule', width: 25 },
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع (YYYY-MM-DD)', key: 'payment_date', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+        {
+          teacher_matricule: 'T-000001',
+          amount: 2500,
+          payment_date: '2024-01-28',
+        },
       ],
     },
     {
@@ -497,6 +539,13 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'اسم المجموعة', key: 'name', width: 25 },
         { header: 'الوصف', key: 'description', width: 30 },
         { header: 'الفئة (أطفال/نساء/رجال)', key: 'category', width: 20 },
+      ],
+      dummyData: [
+        {
+          name: 'مجموعة الإتقان',
+          description: 'مجموعة متقدمة للحفظ والمراجعة',
+          category: 'رجال',
+        },
       ],
     },
     {
@@ -512,13 +561,13 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       dummyData: [
         {
           donor_name: 'فاعل خير',
-          donation_type: 'Cash',
+          donation_type: 'نقدي',
           amount: 500,
           donation_date: '2024-09-10',
         },
         {
           donor_name: 'مكتبة المدينة',
-          donation_type: 'In-kind',
+          donation_type: 'عيني',
           description: '50 مصحف',
           donation_date: '2024-09-11',
         },
@@ -550,6 +599,20 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'اسم الفصل', key: 'class_name', width: 25 },
         { header: 'التاريخ (YYYY-MM-DD)', key: 'date', width: 20 },
         { header: 'الحالة (حاضر/غائب/متأخر/معذور)', key: 'status', width: 25 },
+      ],
+      dummyData: [
+        {
+          student_matricule: 'S-000001',
+          class_name: 'حلقة الرجال الصباحية',
+          date: '2024-01-16',
+          status: 'حاضر',
+        },
+        {
+          student_matricule: 'S-000002',
+          class_name: 'فصل الأطفال المسائي',
+          date: '2024-01-16',
+          status: 'غائب',
+        },
       ],
     },
   ];
