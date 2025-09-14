@@ -336,10 +336,32 @@ const arabicFieldDefinitions = {
   ],
 };
 
+const IMPORTABLE_SHEETS = [
+  'الطلاب',
+  'المعلمون',
+  'المستخدمون',
+  'الفصول',
+  'الرسوم الدراسية',
+  'الرواتب',
+  'التبرعات',
+  'المصاريف',
+  'الحضور',
+];
+
 const ImportTabPanel = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [importResults, setImportResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedSheets, setSelectedSheets] = useState([]);
+
+  const handleSheetCheckboxChange = (event) => {
+    const { value, checked } = event.target;
+    if (checked) {
+      setSelectedSheets([...selectedSheets, value]);
+    } else {
+      setSelectedSheets(selectedSheets.filter((sheet) => sheet !== value));
+    }
+  };
 
   const handleGenerateTemplate = async () => {
     setIsLoading(true);
@@ -378,11 +400,15 @@ const ImportTabPanel = () => {
   };
 
   const handleImport = async () => {
+    if (selectedSheets.length === 0) {
+      setMessage({ type: 'warning', text: 'الرجاء تحديد ورقة واحدة على الأقل للاستيراد.' });
+      return;
+    }
     setIsLoading(true);
     setMessage({ type: '', text: '' });
     setImportResults(null);
     try {
-      const result = await window.electronAPI.executeImport();
+      const result = await window.electronAPI.executeImport({ sheets: selectedSheets });
       if (result.success) {
         setImportResults(result);
         if (result.errorCount === 0) {
@@ -405,20 +431,36 @@ const ImportTabPanel = () => {
       <Card.Body>
         <Card.Title>استيراد بيانات من ملف Excel</Card.Title>
         <p>
-          قم بإنشاء قالب Excel، واملأه بالبيانات، ثم قم باستيراده لإضافة سجلات متعددة دفعة واحدة.
+          حدد الأوراق التي ترغب في استيرادها، ثم انقر فوق استيراد. يمكنك إنشاء قالب جديد إذا لزم
+          الأمر.
         </p>
+        <div className="mb-3">
+          <h5>1. حدد الأوراق للاستيراد</h5>
+          <Row>
+            {IMPORTABLE_SHEETS.map((sheet) => (
+              <Col md={4} key={sheet} className="mb-2">
+                <Form.Check
+                  type="checkbox"
+                  id={`import-${sheet}`}
+                  label={sheet}
+                  value={sheet}
+                  checked={selectedSheets.includes(sheet)}
+                  onChange={handleSheetCheckboxChange}
+                />
+              </Col>
+            ))}
+          </Row>
+        </div>
+
+        <hr />
+
         <div className="d-flex justify-content-start gap-2 mb-3">
-          <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
-            {isLoading ? 'جاري الإنشاء...' : '1. إنشاء قالب Excel'}
-          </Button>
-          <Button variant="success" onClick={handleImport} disabled={isLoading}>
+          <Button variant="success" onClick={handleImport} disabled={isLoading || selectedSheets.length === 0}>
             {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
           </Button>
-          {/* {process.env.NODE_ENV === 'development' && (
-            <Button variant="warning" onClick={handleGenerateDevTemplate} disabled={isLoading}>
-              {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب تطوير'}
-            </Button>
-          )} */}
+          <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
+            {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب جديد'}
+          </Button>
         </div>
 
         {message.text && <Alert variant={message.type}>{message.text}</Alert>}
