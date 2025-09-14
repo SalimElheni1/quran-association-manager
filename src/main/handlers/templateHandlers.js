@@ -13,9 +13,8 @@ async function handleGetAllTemplates() {
   }
 }
 
-async function handleUploadTemplate(event, { name, filePath }) {
+async function handleUploadTemplate(event, { name, content }) {
     try {
-        const content = fs.readFileSync(filePath);
         const type = 'docx'; // Currently only support docx
         const result = await runQuery(
             'INSERT INTO export_templates (name, type, content) VALUES (?, ?, ?)',

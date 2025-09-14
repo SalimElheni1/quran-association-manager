@@ -41,12 +41,37 @@ function TemplatesPage() {
       toast.error('الرجاء اختيار ملف بصيغة DOCX.');
       return;
     }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const content = e.target.result;
+        try {
+            await window.electronAPI.uploadTemplate({
+                name: file.name,
+                content: Buffer.from(content),
+            });
+            toast.success('تم رفع القالب بنجاح!');
+            fetchTemplates(); // Refresh list
+        } catch (err) {
+            toast.error(`فشل في رفع القالب: ${err.message}`);
+        }
+    };
+    reader.onerror = (err) => {
+        toast.error('فشل في قراءة الملف.');
+        logError('FileReader error:', err);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDeleteClick = (template) => {
+    setTemplateToDelete(template);
+    setShowConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!templateToDelete) return;
     try {
-      await window.electronAPI.uploadTemplate({
-        name: file.name,
-        filePath: file.path,
-      });
-      toast.success('تم رفع القالب بنجاح!');
+      await window.electronAPI.deleteTemplate(templateToDelete.id);
+      toast.success('تم حذف القالب بنجاح!');
       fetchTemplates(); // Refresh list
     } catch (err) {
       toast.error(`فشل في رفع القالب: ${err.message}`);
