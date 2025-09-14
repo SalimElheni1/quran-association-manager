@@ -10,12 +10,14 @@ const crypto = require('crypto');
 if (app.isPackaged) {
   process.on('uncaughtException', (error) => {
     const logMessage = `[${new Date().toISOString()}] Uncaught Exception:\n${error.stack || error}\n`;
+    // Place the log in the directory next to the executable
     const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
     try {
       fs.writeFileSync(logPath, logMessage, { encoding: 'utf-8' });
     } catch (e) {
       console.error('Failed to write crash log:', e);
     }
+    // Ensure the app exits
     process.exit(1);
   });
 }
@@ -41,6 +43,7 @@ const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
 
+// In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
   require('dotenv').config();
   require('electron-reloader')(module);
@@ -49,8 +52,11 @@ if (!app.isPackaged) {
 // =================================================================================
 // JWT SECRET MANAGEMENT
 // =================================================================================
+// In production, we manage the JWT secret using electron-store for persistence.
+// In development, we use the .env file.
 let jwtSecret;
 if (app.isPackaged) {
+  // Production: get from store or generate a new one
   jwtSecret = store.get('jwt_secret');
   if (!jwtSecret) {
     log('JWT secret not found in store, generating a new one...');
@@ -59,6 +65,7 @@ if (app.isPackaged) {
     log('New JWT secret generated and stored.');
   }
 } else {
+  // Development: get from .env file
   jwtSecret = process.env.JWT_SECRET;
 }
 
@@ -66,6 +73,7 @@ if (!jwtSecret) {
   logError('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
   app.quit();
 }
+// Make the secret available to the rest of the app via process.env
 process.env.JWT_SECRET = jwtSecret;
 // =================================================================================
 
@@ -86,7 +94,7 @@ const createWindow = () => {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
-    mainWindow.show();
+    mainWindow.show(); // Show the window after maximizing
   });
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:3000');
@@ -98,59 +106,125 @@ const createWindow = () => {
 };
 app.whenReady().then(async () => {
   try {
+    // =============================================================================
+    // INITIALIZE DATABASE
+    // =============================================================================
+    // This is the new standard: initialize the DB as soon as the app is ready.
+    // The key is managed internally, so no password is needed here.
     log('App is ready, initializing database...');
     const tempCredentials = await db.initializeDatabase();
     log('Database initialized successfully.');
+    // =============================================================================
 
     Menu.setApplicationMenu(null);
 
+    // =============================================================================
+    // AUTO-UPDATE SETUP
+    // =============================================================================
     if (app.isPackaged) {
       log('Setting up auto-updater...');
       autoUpdater.checkForUpdatesAndNotify();
+
+      autoUpdater.on('update-available', () => {
+        log('Update available.');
+      });
+
+      autoUpdater.on('update-not-available', () => {
+        log('Update not available.');
+      });
+
+      autoUpdater.on('error', (err) => {
+        logError('Error in auto-updater. ' + err);
+      });
+
+      autoUpdater.on('download-progress', (progressObj) => {
+        let log_message = 'Download speed: ' + progressObj.bytesPerSecond;
+        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+        log_message = log_message + ' (' + progressObj.transferred + '/' + progressObj.total + ')';
+        log(log_message);
+      });
+
+      autoUpdater.on('update-downloaded', (info) => {
+        log('Update downloaded. Prompting user to restart.');
+        const dialogOpts = {
+          type: 'info',
+          buttons: ['Restart', 'Later'],
+          title: 'Application Update',
+          message: process.platform === 'win32' ? info.releaseName : info.releaseNotes,
+          detail:
+            'A new version has been downloaded. Restart the application to apply the updates.',
+        };
+
+        dialog.showMessageBox(dialogOpts).then((returnValue) => {
+          if (returnValue.response === 0) autoUpdater.quitAndInstall();
+        });
+      });
     }
+    // =============================================================================
 
     const mainWindow = createWindow();
 
+    // If a new superadmin was created, send the credentials to the renderer process
+    // to be displayed in a custom modal.
     if (tempCredentials) {
       mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.send('show-initial-credentials', tempCredentials);
       });
     }
 
+    // Register a custom protocol to safely serve images from the app's data directory.
+    // This prevents exposing the entire filesystem to the renderer process.
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
         const url = request.url.replace('safe-image://', '');
         const decodedUrl = decodeURI(url);
         let fullPath;
+
+        // Check for absolute paths first (for user-uploaded content)
         if (path.isAbsolute(decodedUrl) && fs.existsSync(decodedUrl)) {
           fullPath = decodedUrl;
         } else {
-          fullPath = path.join(app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', 'public'), decodedUrl);
+          // Otherwise, resolve relative to app assets
+          if (app.isPackaged) {
+            fullPath = path.join(process.resourcesPath, 'app.asar', 'public', decodedUrl);
+          } else {
+            fullPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+          }
         }
+
         if (fs.existsSync(fullPath)) {
           callback({ path: fullPath });
         } else {
           logError(`[safe-image] File not found: ${fullPath}`);
-          callback({ error: -6 });
+          callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
         }
       } catch (error) {
         logError('[safe-image] protocol handler error:', error);
-        callback({ error: -2 });
+        callback({ error: -2 }); // net::FAILED
       }
     });
 
+    // Check if a re-login is required after an import/restore operation
     const forceRelogin = store.get('force-relogin-after-restart');
     if (forceRelogin) {
+      log('Force re-login flag is set. Sending force-logout signal to renderer.');
+      // Wait for the window to be ready to receive events before sending
       mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.send('force-logout');
         store.delete('force-relogin-after-restart');
+        log('Force re-login flag cleared.');
       });
     }
 
     // Register all IPC handlers
     ipcMain.handle('get-is-packaged', () => app.isPackaged);
     ipcMain.handle('export:generate-dev-template', async () => {
-      const { filePath } = await dialog.showSaveDialog({ title: 'Save Dev Excel Template', defaultPath: `quran-assoc-dev-template-${Date.now()}.xlsx`, filters: [{ name: 'Excel Files', extensions: ['xlsx'] }] });
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Dev Excel Template',
+        defaultPath: `quran-assoc-dev-template-${Date.now()}.xlsx`,
+        filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
+      });
+
       if (filePath) {
         try {
           await generateDevExcelTemplate(filePath);
@@ -194,12 +268,18 @@ app.on('window-all-closed', () => {
   }
 });
 
+// Handle user logout to close the database connection
 ipcMain.on('logout', async () => {
   log('User logging out, closing database connection.');
   await db.closeDatabase();
 });
 
+// Gracefully close the database when the app is about to quit
 app.on('will-quit', async () => {
   log('App is quitting, ensuring database is closed.');
   await db.closeDatabase();
 });
+
+// --- Attendance IPC Handlers ---
+
+// --- Backup IPC Handlers ---

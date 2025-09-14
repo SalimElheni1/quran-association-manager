@@ -26,7 +26,7 @@ async function validateDatabaseFile(filePath) {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
     const sqlFile = zip.file('backup.sql');
-    const configFile = zip.file('salt.json'); // Legacy: 'config.json'
+    const configFile = zip.file('salt.json');
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
@@ -45,9 +45,7 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
       return;
     } catch (error) {
       if (error.code === 'EBUSY' && i < retries - 1) {
-        logWarn(
-          `EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`,
-        );
+        logWarn(`EBUSY error, retrying unlink on ${filePath} in ${delay}ms... (Attempt ${i + 1}/${retries})`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         logError(`Failed to unlink ${filePath} after ${i + 1} attempts.`);
@@ -67,10 +65,7 @@ async function replaceDatabase(importedDbPath, password) {
     const zip = new PizZip(zipFileContent);
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json');
-    // For backward compatibility, check for the old config file name
-    if (!configFile) {
-      configFile = zip.file('config.json');
-    }
+    if (!configFile) configFile = zip.file('config.json');
 
     if (!sqlFile || !configFile) {
       throw new Error('Could not find required files (backup.sql, salt.json) in backup package.');
@@ -99,41 +94,349 @@ async function replaceDatabase(importedDbPath, password) {
     log('Database import successful. The app will now restart.');
     app.relaunch();
     app.quit();
-    return {
-      success: true,
-      message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
-    };
+    return { success: true, message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.' };
   } catch (error) {
     logError('Failed to replace database from package:', error);
     return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
   }
 }
 
-const REQUIRED_COLUMNS = {
-  الطلاب: ['الاسم واللقب'],
-  المعلمون: ['الاسم واللقب'],
-  المستخدمون: ['اسم المستخدم', 'الاسم الأول', 'اللقب', 'الدور', 'نوع التوظيف'],
-  الفصول: ['اسم الفصل', 'الرقم التعريفي للمعلم'],
-  'الرسوم الدراسية': ['الرقم التعريفي للطالب', 'المبلغ', 'تاريخ الدفع (YYYY-MM-DD)'],
-  الرواتب: ['الرقم التعريفي للمعلم', 'المبلغ', 'تاريخ الدفع (YYYY-MM-DD)'],
-  التبرعات: ['اسم المتبرع', 'نوع التبرع (Cash/In-kind)', 'تاريخ التبرع (YYYY-MM-DD)'],
-  المصاريف: ['الفئة', 'المبلغ', 'تاريخ الصرف (YYYY-MM-DD)'],
-  الحضور: [
-    'الرقم التعريفي للطالب',
-    'اسم الفصل',
-    'التاريخ (YYYY-MM-DD)',
-    'الحالة (present/absent/late/excused)',
-  ],
+const ENTITY_CONFIG = {
+  students: {
+    tableName: 'students',
+    idField: 'matricule',
+    requiredFields: ['name'],
+    uniqueCheck: async (d) => getQuery('SELECT id FROM students WHERE name = ? OR national_id = ?', [d.name, d.national_id]),
+    generateId: () => generateMatricule('student'),
+  },
+  teachers: {
+    tableName: 'teachers',
+    idField: 'matricule',
+    requiredFields: ['name'],
+    uniqueCheck: async (d) => getQuery('SELECT id FROM teachers WHERE national_id = ?', [d.national_id]),
+    generateId: () => generateMatricule('teacher'),
+  },
+  users: {
+    tableName: 'users',
+    idField: 'matricule',
+    requiredFields: ['username', 'first_name', 'last_name', 'role', 'employment_type'],
+    uniqueCheck: async (d) => getQuery('SELECT id FROM users WHERE username = ?', [d.username]),
+    generateId: () => generateMatricule('user'),
+    preProcess: async (data) => {
+      if (!data.matricule) {
+        const password = Math.random().toString(36).slice(-8);
+        data.password = bcrypt.hashSync(password, 10);
+        data._transient = { newUserPassword: password };
+      }
+      return data;
+    },
+  },
+  classes: {
+    tableName: 'classes',
+    requiredFields: ['name', 'teacher_id'],
+    foreignKeyLookups: {
+      teacher_id: { fromField: 'teacher_matricule', tableName: 'teachers', idField: 'matricule' },
+    },
+  },
+  payments: {
+    tableName: 'payments',
+    requiredFields: ['student_id', 'amount', 'payment_date'],
+    foreignKeyLookups: {
+      student_id: { fromField: 'student_matricule', tableName: 'students', idField: 'matricule' },
+    },
+  },
+  salaries: {
+    tableName: 'salaries',
+    requiredFields: ['teacher_id', 'amount', 'payment_date'],
+    foreignKeyLookups: {
+      teacher_id: { fromField: 'teacher_matricule', tableName: 'teachers', idField: 'matricule' },
+    },
+  },
+  donations: {
+    tableName: 'donations',
+    requiredFields: ['donor_name', 'donation_type', 'donation_date'],
+    preProcess: async (data) => {
+      const errors = [];
+      if (data.donation_type === 'Cash' && !data.amount) errors.push('Amount is required for Cash donations.');
+      if (data.donation_type === 'In-kind' && !data.description) errors.push('Description is required for In-kind donations.');
+      return { ...data, _errors: errors };
+    },
+  },
+  expenses: {
+    tableName: 'expenses',
+    requiredFields: ['category', 'amount', 'expense_date'],
+  },
+  attendance: {
+    tableName: 'attendance',
+    requiredFields: ['student_id', 'class_id', 'date', 'status'],
+    foreignKeyLookups: {
+      student_id: { fromField: 'student_matricule', tableName: 'students', idField: 'matricule' },
+      class_id: { fromField: 'class_name', tableName: 'classes', idField: 'name' },
+    },
+  },
 };
 
-const getColumnIndex = (headerRow, headerText) => {
-  let index = -1;
-  headerRow.eachCell((cell, colNumber) => {
-    if (cell.value === headerText) {
-      index = colNumber;
+async function processAndValidateRow(rowData, entityType, columnMap, options = { isDryRun: false }) {
+  const config = ENTITY_CONFIG[entityType];
+  if (!config) return { success: false, errors: [`Invalid entity type: ${entityType}`] };
+
+  const data = {};
+  for (const key in columnMap) {
+    if (rowData[key] !== undefined && rowData[key] !== null) data[columnMap[key]] = rowData[key];
+  }
+
+  const errors = [];
+  let transientData = {};
+
+  if (config.foreignKeyLookups) {
+    for (const targetField in config.foreignKeyLookups) {
+      const lookupConfig = config.foreignKeyLookups[targetField];
+      const providedId = data[lookupConfig.fromField];
+      if (!providedId) {
+        errors.push(`Missing foreign key identifier: ${lookupConfig.fromField}`);
+        continue;
+      }
+      const record = await getQuery(`SELECT id FROM ${lookupConfig.tableName} WHERE ${lookupConfig.idField} = ?`, [providedId]);
+      if (!record) {
+        errors.push(`Referenced record not found in "${lookupConfig.tableName}" with identifier "${providedId}"`);
+      } else {
+        data[targetField] = record.id;
+        delete data[lookupConfig.fromField];
+      }
     }
+  }
+
+  for (const field of config.requiredFields) {
+    if (!data[field]) errors.push(`Missing required field: ${field}`);
+  }
+
+  if (config.preProcess) {
+    const processed = await config.preProcess(data);
+    if (processed._transient) {
+      transientData = processed._transient;
+      delete processed._transient;
+    }
+    if (processed._errors?.length > 0) errors.push(...processed._errors);
+  }
+
+  if (errors.length > 0) return { success: false, errors };
+
+  try {
+    if (!config.idField) {
+      if (!options.isDryRun) {
+        const fields = Object.keys(data);
+        const placeholders = fields.map(() => '?').join(', ');
+        await runQuery(`INSERT INTO ${config.tableName} (${fields.join(',')}) VALUES (${placeholders})`, Object.values(data));
+      }
+      return { success: true, action: 'INSERT', data };
+    }
+
+    const idValue = data[config.idField];
+    if (idValue) {
+      const record = await getQuery(`SELECT id FROM ${config.tableName} WHERE ${config.idField} = ?`, [idValue]);
+      if (!record) return { success: false, errors: [`Record with ID "${idValue}" not found.`] };
+      if (!options.isDryRun) {
+        const fieldsToUpdate = Object.keys(data).filter(k => k !== config.idField);
+        const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+        const values = [...fieldsToUpdate.map((k) => data[k]), idValue];
+        await runQuery(`UPDATE ${config.tableName} SET ${setClauses} WHERE ${config.idField} = ?`, values);
+      }
+      return { success: true, action: 'UPDATE', id: idValue, data };
+    } else {
+      const duplicate = await config.uniqueCheck(data);
+      if (duplicate) return { success: false, errors: ['Record already exists.'] };
+      const newId = await config.generateId();
+      data[config.idField] = newId;
+      if (!options.isDryRun) {
+        const fields = Object.keys(data);
+        const placeholders = fields.map(() => '?').join(', ');
+        await runQuery(`INSERT INTO ${config.tableName} (${fields.join(',')}) VALUES (${placeholders})`, Object.values(data));
+      }
+      return { success: true, action: 'INSERT', id: newId, data, transientData };
+    }
+  } catch (e) {
+    logError(`DB Error processing row for ${entityType}:`, e);
+    return { success: false, errors: [e.message] };
+  }
+}
+
+async function parseHeadersFromFile(filePath) {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) throw new Error('The Excel file contains no worksheets.');
+    const headerRow = worksheet.getRow(1);
+    if (!headerRow.hasValues) return [];
+    return headerRow.values.filter((v) => v);
+  } catch (error) {
+    logError('Error parsing headers from file:', error);
+    throw error;
+  }
+}
+
+async function processImport(filePath, entityType, columnMap, options = { isDryRun: false }, onProgress) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const worksheet = workbook.worksheets[0];
+  const results = { summary: { successCount: 0, errorCount: 0 }, errors: [], processedRows: [] };
+  const totalRows = worksheet.rowCount - 1;
+  const headerRow = worksheet.getRow(1);
+  if (!headerRow.hasValues) throw new Error('Header row not found or is empty.');
+
+  const headerIndexMap = {};
+  headerRow.eachCell((cell, colNumber) => {
+    headerIndexMap[cell.value] = colNumber;
   });
-  return index;
+
+  if (!options.isDryRun) {
+    log('Beginning import transaction.');
+    await runQuery('BEGIN TRANSACTION;');
+  }
+
+  try {
+    for (let i = 2; i <= worksheet.rowCount; i++) {
+      const row = worksheet.getRow(i);
+      if (onProgress) onProgress({ processed: i - 1, total: totalRows });
+      if (!row.hasValues) continue;
+
+      const mappedRowData = {};
+      const internalColumnMap = {};
+      for (const fileHeader in columnMap) {
+        const dbField = columnMap[fileHeader];
+        if (dbField) {
+            const colIndex = headerIndexMap[fileHeader];
+            if (colIndex) {
+                mappedRowData[dbField] = row.getCell(colIndex).value?.text || row.getCell(colIndex).value;
+                internalColumnMap[dbField] = dbField;
+            }
+        }
+      }
+
+      const result = await processAndValidateRow(mappedRowData, entityType, internalColumnMap, options);
+      if (result.success) {
+        results.summary.successCount++;
+      } else {
+        results.summary.errorCount++;
+        results.errors.push({ row: i, errors: result.errors });
+      }
+      results.processedRows.push({ row: i, ...result });
+    }
+
+    if (!options.isDryRun) {
+      log('Import successful. Committing transaction.');
+      await runQuery('COMMIT;');
+    }
+    if (onProgress) onProgress({ processed: totalRows, total: totalRows });
+    return results;
+  } catch (error) {
+    if (!options.isDryRun) {
+      logError('An error occurred during import. Rolling back transaction.', error);
+      await runQuery('ROLLBACK;');
+    }
+    throw error;
+  }
+}
+
+const LEGACY_TEMPLATE_MAP = {
+  students: {
+    sheetName: 'الطلاب',
+    columns: {
+      matricule: { header: 'الرقم التعريفي', field: 'matricule' },
+      name: { header: 'الاسم واللقب', field: 'name' },
+      date_of_birth: { header: 'تاريخ الميلاد', field: 'date_of_birth' },
+      gender: { header: 'الجنس', field: 'gender' },
+      address: { header: 'العنوان', field: 'address' },
+      contact_info: { header: 'رقم الهاتف', field: 'contact_info' },
+      email: { header: 'البريد الإلكتروني', field: 'email' },
+      status: { header: 'الحالة', field: 'status' },
+      national_id: { header: 'رقم الهوية', field: 'national_id' },
+    },
+  },
+  teachers: {
+    sheetName: 'المعلمون',
+    columns: {
+      matricule: { header: 'الرقم التعريفي', field: 'matricule' },
+      name: { header: 'الاسم واللقب', field: 'name' },
+      national_id: { header: 'رقم الهوية', field: 'national_id' },
+      contact_info: { header: 'رقم الهاتف', field: 'contact_info' },
+      email: { header: 'البريد الإلكتروني', field: 'email' },
+    },
+  },
+  users: {
+    sheetName: 'المستخدمون',
+    columns: {
+      matricule: { header: 'الرقم التعريفي', field: 'matricule' },
+      username: { header: 'اسم المستخدم', field: 'username' },
+      first_name: { header: 'الاسم الأول', field: 'first_name' },
+      last_name: { header: 'اللقب', field: 'last_name' },
+      role: { header: 'الدور', field: 'role' },
+      employment_type: { header: 'نوع التوظيف', field: 'employment_type' },
+    },
+  },
+  classes: {
+    sheetName: 'الفصول',
+    columns: {
+      name: { header: 'اسم الفصل', field: 'name' },
+      teacher_matricule: { header: 'الرقم التعريفي للمعلم', field: 'teacher_matricule' },
+      class_type: { header: 'نوع الفصل', field: 'class_type' },
+      schedule: { header: 'الجدول الزمني (JSON)', field: 'schedule' },
+      start_date: { header: 'تاريخ البدء', field: 'start_date' },
+      end_date: { header: 'تاريخ الانتهاء', field: 'end_date' },
+      status: { header: 'الحالة', field: 'status' },
+      capacity: { header: 'السعة', field: 'capacity' },
+      gender: { header: 'الجنس', field: 'gender' },
+    },
+  },
+  payments: {
+    sheetName: 'الرسوم الدراسية',
+    columns: {
+      student_matricule: { header: 'الرقم التعريفي للطالب', field: 'student_matricule' },
+      amount: { header: 'المبلغ', field: 'amount' },
+      payment_date: { header: 'تاريخ الدفع (YYYY-MM-DD)', field: 'payment_date' },
+      payment_method: { header: 'طريقة الدفع', field: 'payment_method' },
+      notes: { header: 'ملاحظات', field: 'notes' },
+    },
+  },
+  salaries: {
+    sheetName: 'الرواتب',
+    columns: {
+      teacher_matricule: { header: 'الرقم التعريفي للمعلم', field: 'teacher_matricule' },
+      amount: { header: 'المبلغ', field: 'amount' },
+      payment_date: { header: 'تاريخ الدفع (YYYY-MM-DD)', field: 'payment_date' },
+      notes: { header: 'ملاحظات', field: 'notes' },
+    },
+  },
+  donations: {
+    sheetName: 'التبرعات',
+    columns: {
+      donor_name: { header: 'اسم المتبرع', field: 'donor_name' },
+      donation_type: { header: 'نوع التبرع (Cash/In-kind)', field: 'donation_type' },
+      amount: { header: 'المبلغ (للتبرع النقدي)', field: 'amount' },
+      description: { header: 'وصف (للتبرع العيني)', field: 'description' },
+      donation_date: { header: 'تاريخ التبرع (YYYY-MM-DD)', field: 'donation_date' },
+      notes: { header: 'ملاحظات', field: 'notes' },
+    },
+  },
+  expenses: {
+    sheetName: 'المصاريف',
+    columns: {
+      category: { header: 'الفئة', field: 'category' },
+      amount: { header: 'المبلغ', field: 'amount' },
+      expense_date: { header: 'تاريخ الصرف (YYYY-MM-DD)', field: 'expense_date' },
+      responsible_person: { header: 'المسؤول', field: 'responsible_person' },
+      description: { header: 'الوصف', field: 'description' },
+    },
+  },
+  attendance: {
+    sheetName: 'الحضور',
+    columns: {
+      student_matricule: { header: 'الرقم التعريفي للطالب', field: 'student_matricule' },
+      class_name: { header: 'اسم الفصل', field: 'class_name' },
+      date: { header: 'التاريخ (YYYY-MM-DD)', field: 'date' },
+      status: { header: 'الحالة (present/absent/late/excused)', field: 'status' },
+    },
+  },
 };
 
 async function importExcelData(filePath) {
@@ -141,380 +444,76 @@ async function importExcelData(filePath) {
   await workbook.xlsx.readFile(filePath);
   const results = { successCount: 0, errorCount: 0, errors: [], newUsers: [] };
 
-  const processSheet = async (sheetName, processor) => {
-    const worksheet = workbook.getWorksheet(sheetName);
-    if (!worksheet) return;
-    const headerRow = worksheet.getRow(2);
-    if (!headerRow.hasValues) return;
-    const missingColumns = (REQUIRED_COLUMNS[sheetName] || []).filter(
-      (colName) => getColumnIndex(headerRow, colName) === -1,
-    );
-    if (missingColumns.length > 0) {
-      results.errors.push(
-        `ورقة "${sheetName}" ينقصها الأعمدة المطلوبة: ${missingColumns.join(', ')}`,
-      );
-      results.errorCount += worksheet.rowCount - 2;
-      return;
-    }
-    for (let i = 3; i <= worksheet.rowCount; i++) {
-      const row = worksheet.getRow(i);
-      if (!row.hasValues) continue;
-      try {
-        const result = await processor(row, headerRow);
+  log('Beginning import transaction.');
+  await runQuery('BEGIN TRANSACTION;');
+
+  try {
+    const processSheet = async (entityType, config) => {
+      const worksheet = workbook.getWorksheet(config.sheetName);
+      if (!worksheet) return;
+
+      const headerRow = worksheet.getRow(2);
+      if (!headerRow.hasValues) return;
+
+      const headerIndexMap = {};
+      headerRow.eachCell((cell, colNumber) => {
+        headerIndexMap[cell.value] = colNumber;
+      });
+
+      for (let i = 3; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i);
+        if (!row.hasValues) continue;
+
+        const rowData = {};
+        for (const key in config.columns) {
+          const header = config.columns[key].header;
+          const cellValue = row.getCell(headerIndexMap[header])?.value;
+          rowData[key] = cellValue?.text || cellValue;
+        }
+
+        const dbFieldMap = Object.fromEntries(Object.entries(config.columns).map(([k, v]) => [k, v.field]));
+        const result = await processAndValidateRow(rowData, entityType, dbFieldMap, { isDryRun: false });
+
         if (result.success) {
           results.successCount++;
-          if (result.newUser) results.newUsers.push(result.newUser);
+          if (result.transientData?.newUserPassword) {
+            results.newUsers.push({ username: result.data.username, password: result.transientData.newUserPassword });
+          }
         } else {
           results.errorCount++;
-          results.errors.push(`[${sheetName}] Row ${i}: ${result.message}`);
+          const errorMsg = `[${config.sheetName}] Row ${i}: ${result.errors.join(', ')}`;
+          results.errors.push(errorMsg);
+          throw new Error(errorMsg);
         }
-      } catch (e) {
-        results.errorCount++;
-        results.errors.push(`[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`);
       }
-    }
-  };
-
-  await processSheet('الطلاب', processStudentRow);
-  await processSheet('المعلمون', processTeacherRow);
-  await processSheet('المستخدمون', processUserRow);
-  await processSheet('الفصول', processClassRow);
-  await processSheet('الرسوم الدراسية', processPaymentRow);
-  await processSheet('الرواتب', processSalaryRow);
-  await processSheet('التبرعات', processDonationRow);
-  await processSheet('المصاريف', processExpenseRow);
-  await processSheet('الحضور', processAttendanceRow);
-
-  return results;
-}
-
-async function processStudentRow(row, headerRow) {
-  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
-
-  const data = {
-    name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
-    date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
-    address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
-    contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-    email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
-    status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
-    national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-  };
-
-  if (!data.name) return { success: false, message: 'اسم الطالب مطلوب.' };
-
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-
-  if (matricule) {
-    // Update existing record
-    const existingStudent = await getQuery('SELECT id FROM students WHERE matricule = ?', [
-      matricule,
-    ]);
-    if (!existingStudent) {
-      return { success: false, message: `الطالب بالرقم التعريفي "${matricule}" غير موجود.` };
-    }
-
-    if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' }; // Nothing to update
-    }
-
-    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-    const values = [...fields.map((k) => data[k]), matricule];
-    await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
-    return { success: true };
-  }
-  // Insert new record
-  const existingStudent = await getQuery(
-    'SELECT id FROM students WHERE name = ? OR national_id = ?',
-    [data.name, data.national_id],
-  );
-  if (existingStudent) {
-    return { success: false, message: `الطالب "${data.name}" موجود بالفعل.` };
-  }
-
-  const newMatricule = await generateMatricule('student');
-  const allData = { ...data, matricule: newMatricule };
-
-  const allFields = Object.keys(allData).filter(
-    (k) => allData[k] !== null && allData[k] !== undefined,
-  );
-  const placeholders = allFields.map(() => '?').join(', ');
-  const values = allFields.map((k) => allData[k]);
-
-  await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processTeacherRow(row, headerRow) {
-  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
-
-  const data = {
-    name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
-    national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-    contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-    email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
-  };
-
-  if (!data.name) return { success: false, message: 'اسم المعلم مطلوب.' };
-
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-
-  if (matricule) {
-    // Update existing record
-    const existingTeacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [
-      matricule,
-    ]);
-    if (!existingTeacher) {
-      return { success: false, message: `المعلم بالرقم التعريفي "${matricule}" غير موجود.` };
-    }
-
-    if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
-    }
-
-    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-    const values = [...fields.map((k) => data[k]), matricule];
-    await runQuery(`UPDATE teachers SET ${setClauses} WHERE matricule = ?`, values);
-    return { success: true };
-  }
-  // Insert new record
-  const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
-    data.national_id,
-  ]);
-  if (existingTeacher) {
-    return { success: false, message: `المعلم برقم الهوية "${data.national_id}" موجود بالفعل.` };
-  }
-
-  const newMatricule = await generateMatricule('teacher');
-  const allData = { ...data, matricule: newMatricule };
-
-  const allFields = Object.keys(allData).filter(
-    (k) => allData[k] !== null && allData[k] !== undefined,
-  );
-  const placeholders = allFields.map(() => '?').join(', ');
-  const values = allFields.map((k) => allData[k]);
-
-  await runQuery(`INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processUserRow(row, headerRow) {
-  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
-
-  const data = {
-    username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
-    first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
-    last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-    role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
-    employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
-  };
-
-  if (
-    !data.username ||
-    !data.first_name ||
-    !data.last_name ||
-    !data.role ||
-    !data.employment_type
-  ) {
-    return {
-      success: false,
-      message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.',
     };
-  }
 
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-
-  if (matricule) {
-    // Update existing record
-    const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
-    if (!existingUser) {
-      return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
+    for (const entityType in LEGACY_TEMPLATE_MAP) {
+      await processSheet(entityType, LEGACY_TEMPLATE_MAP[entityType]);
     }
 
-    if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    if (results.errorCount === 0) {
+      log('Import successful. Committing transaction.');
+      await runQuery('COMMIT;');
+    } else {
+      throw new Error('Import failed with errors, rolling back.');
     }
 
-    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-    const values = [...fields.map((k) => data[k]), matricule];
-    await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
-    return { success: true };
+    return results;
+  } catch (error) {
+    logError('An error occurred during import. Rolling back transaction.', error);
+    await runQuery('ROLLBACK;');
+    results.errors.push(`Fatal error: ${error.message}. All changes have been rolled back.`);
+    results.errorCount = results.successCount + results.errorCount;
+    results.successCount = 0;
+    return results;
   }
-  // Insert new record
-  const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
-  if (existingUser) {
-    return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
-  }
-
-  const password = Math.random().toString(36).slice(-8);
-  const newMatricule = await generateMatricule('user');
-  const allData = {
-    ...data,
-    matricule: newMatricule,
-    password: bcrypt.hashSync(password, 10),
-  };
-
-  const allFields = Object.keys(allData).filter(
-    (k) => allData[k] !== null && allData[k] !== undefined,
-  );
-  const placeholders = allFields.map(() => '?').join(', ');
-  const values = allFields.map((k) => allData[k]);
-
-  await runQuery(`INSERT INTO users (${allFields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true, newUser: { username: data.username, password } };
-}
-
-async function processClassRow(row, headerRow) {
-  const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
-  if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
-  const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
-  if (!teacher) {
-    return {
-      success: false,
-      message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".`,
-    };
-  }
-  const data = {
-    name: row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value,
-    teacher_id: teacher.id,
-    class_type: row.getCell(getColumnIndex(headerRow, 'نوع الفصل'))?.value,
-    schedule: row.getCell(getColumnIndex(headerRow, 'الجدول الزمني (JSON)'))?.value,
-    start_date: row.getCell(getColumnIndex(headerRow, 'تاريخ البدء'))?.value,
-    end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء'))?.value,
-    status: row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value,
-    capacity: row.getCell(getColumnIndex(headerRow, 'السعة'))?.value,
-    gender: row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value,
-  };
-  if (!data.name) return { success: false, message: 'اسم الفصل مطلوب.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO classes (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processPaymentRow(row, headerRow) {
-  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
-  if (!studentMatricule) return { success: false, message: 'الرقم التعريفي للطالب مطلوب.' };
-  const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
-  if (!student) {
-    return {
-      success: false,
-      message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
-    };
-  }
-  const data = {
-    student_id: student.id,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع (YYYY-MM-DD)')).value,
-    payment_method: row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
-  if (!data.amount || !data.payment_date)
-    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO payments (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processSalaryRow(row, headerRow) {
-  const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للمعلم'))?.value;
-  if (!teacherMatricule) return { success: false, message: 'الرقم التعريفي للمعلم مطلوب.' };
-  const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
-  if (!teacher) {
-    return {
-      success: false,
-      message: `لم يتم العثور على معلم بالرقم التعريفي "${teacherMatricule}".`,
-    };
-  }
-  const data = {
-    teacher_id: teacher.id,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع (YYYY-MM-DD)')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
-  if (!data.amount || !data.payment_date)
-    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO salaries (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processDonationRow(row, headerRow) {
-  const data = {
-    donor_name: row.getCell(getColumnIndex(headerRow, 'اسم المتبرع')).value,
-    donation_type: row.getCell(getColumnIndex(headerRow, 'نوع التبرع (Cash/In-kind)')).value,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ (للتبرع النقدي)')).value,
-    description: row.getCell(getColumnIndex(headerRow, 'وصف (للتبرع العيني)')).value,
-    donation_date: row.getCell(getColumnIndex(headerRow, 'تاريخ التبرع (YYYY-MM-DD)')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
-  if (!data.donor_name || !data.donation_type || !data.donation_date)
-    return { success: false, message: 'اسم المتبرع، نوع التبرع، وتاريخ التبرع هي حقول مطلوبة.' };
-  if (data.donation_type === 'Cash' && !data.amount)
-    return { success: false, message: 'المبلغ مطلوب للتبرعات النقدية.' };
-  if (data.donation_type === 'In-kind' && !data.description)
-    return { success: false, message: 'الوصف مطلوب للتبرعات العينية.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO donations (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processExpenseRow(row, headerRow) {
-  const data = {
-    category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    expense_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الصرف (YYYY-MM-DD)')).value,
-    responsible_person: row.getCell(getColumnIndex(headerRow, 'المسؤول')).value,
-    description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
-  };
-  if (!data.category || !data.amount || !data.expense_date)
-    return { success: false, message: 'الفئة، المبلغ، وتاريخ الصرف هي حقول مطلوبة.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO expenses (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
-
-async function processAttendanceRow(row, headerRow) {
-  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
-  const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
-  if (!studentMatricule || !className) {
-    return { success: false, message: 'الرقم التعريفي للطالب واسم الفصل مطلوبان.' };
-  }
-  const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
-  if (!student) {
-    return {
-      success: false,
-      message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
-    };
-  }
-  const classData = await getQuery('SELECT id FROM classes WHERE name = ?', [className]);
-  if (!classData) return { success: false, message: `لم يتم العثور على فصل باسم "${className}".` };
-  const data = {
-    student_id: student.id,
-    class_id: classData.id,
-    date: row.getCell(getColumnIndex(headerRow, 'التاريخ (YYYY-MM-DD)')).value,
-    status: row.getCell(getColumnIndex(headerRow, 'الحالة (present/absent/late/excused)')).value,
-  };
-  if (!data.date || !data.status) return { success: false, message: 'التاريخ والحالة مطلوبان.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO attendance (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
 }
 
 module.exports = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
+  processImport,
+  parseHeadersFromFile,
 };

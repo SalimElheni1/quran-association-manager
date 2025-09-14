@@ -54,7 +54,12 @@ function registerSystemHandlers() {
 
             const exportOptions = { type: exportType, fields: columns.map(c => c.key), options };
 
-            if (format === 'xlsx') {
+            if (exportType === 'financial-report') {
+                const period = options.period || null;
+                const data = await exportManager.fetchFinancialData(period);
+                await exportManager.generateFinancialXlsx(data, filePath);
+                historyLog.row_count = data.payments.length + data.salaries.length + data.donations.length + data.expenses.length;
+            } else if (format === 'xlsx') {
                 await exportManager.generateXlsx(exportOptions, filePath);
             } else if (format === 'csv') {
                 await exportManager.generateCsv(exportOptions, filePath);
@@ -158,7 +163,7 @@ function registerSystemHandlers() {
     ipcMain.handle('import:execute', async () => {
         try {
             const { canceled, filePaths } = await dialog.showOpenDialog({ title: 'Select Excel File to Import', properties: ['openFile'], filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }] });
-            if (canceled || !filePaths || filePaths.length === 0) return { success: false, message: 'Import canceled by user.' };
+            if (canceled || !filePaths || !filePaths.length === 0) return { success: false, message: 'Import canceled by user.' };
             const results = await importManager.importExcelData(filePaths[0]);
             return { success: true, ...results };
         } catch (error) {

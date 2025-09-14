@@ -10,10 +10,10 @@ import UsersPage from '@renderer/pages/UsersPage';
 import AttendancePage from '@renderer/pages/AttendancePage';
 import ProfilePage from '@renderer/pages/ProfilePage';
 import SettingsPage from '@renderer/pages/SettingsPage';
-import TemplatesPage from '@renderer/pages/TemplatesPage';
-import HistoryPage from '@renderer/pages/HistoryPage';
 import FinancialsPage from '@renderer/pages/FinancialsPage';
 import ExportsPage from '@renderer/pages/ExportsPage';
+import TemplatesPage from '@renderer/pages/TemplatesPage';
+import HistoryPage from '@renderer/pages/HistoryPage';
 import AboutPage from '@renderer/pages/AboutPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
 
@@ -21,10 +21,15 @@ function App() {
   const [initialCredentials, setInitialCredentials] = useState(null);
 
   useEffect(() => {
+    // Listen for the event from the main process
     const removeListener = window.electronAPI.onShowInitialCredentials((event, credentials) => {
       setInitialCredentials(credentials);
     });
-    return () => removeListener();
+
+    // Cleanup the listener when the component unmounts
+    return () => {
+      removeListener();
+    };
   }, []);
 
   const handleCloseInitialCredentialsBanner = () => {
@@ -51,6 +56,7 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Child routes will be rendered inside MainLayout's <Outlet> */}
           <Route index element={<DashboardPage />} />
           <Route path="/students" element={<StudentsPage />} />
           <Route path="/teachers" element={<TeachersPage />} />
@@ -60,9 +66,9 @@ function App() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/exports" element={<ExportsPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/history" element={<HistoryPage />} />
-          <Route path="/exports" element={<ExportsPage />} />
           <Route path="/about" element={<AboutPage />} />
         </Route>
       </Routes>
