@@ -330,8 +330,53 @@ function isDbOpen() {
   return db && db.open;
 }
 
+async function initializeTestDatabase(dbPath) {
+  // Always close any existing connection before starting a test
+  if (db && db.open) {
+    await dbClose(db);
+    db = null;
+  }
+
+  // Ensure a clean slate by deleting the old test DB if it exists
+  if (fs.existsSync(dbPath)) {
+    fs.unlinkSync(dbPath);
+  }
+
+  // Use a simple, non-secret key for tests
+  const key = 'test-encryption-key';
+
+  // Open the database
+  db = await new Promise((resolve, reject) => {
+    const connection = new sqlite3.Database(dbPath, (err) => {
+      if (err) return reject(err);
+      resolve(connection);
+    });
+  });
+
+  try {
+    // Set up encryption and pragmas
+    await dbRun(db, `PRAGMA key = '${key}'`);
+    await dbRun(db, 'PRAGMA journal_mode = WAL');
+    await dbRun(db, 'PRAGMA foreign_keys = ON');
+
+    // Build the schema and run migrations
+    await dbExec(db, schema);
+    await runMigrations(); // This function uses the global `db` object
+    await seedSuperadmin(); // This function also uses the global `db` object
+
+    log(`Test database initialized successfully at ${dbPath}`);
+    return db;
+  } catch (error) {
+    logError('Failed to initialize test database:', error);
+    await dbClose(db); // Clean up on failure
+    db = null;
+    throw error;
+  }
+}
+
 module.exports = {
   initializeDatabase,
+  initializeTestDatabase, // <-- Export the new function
   closeDatabase,
   runQuery,
   getQuery,
