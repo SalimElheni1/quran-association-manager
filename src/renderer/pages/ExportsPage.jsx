@@ -342,31 +342,24 @@ const ImportTabPanel = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const allSheets = [
-    'الطلاب',
-    'المعلمون',
-    'المستخدمون',
-    'الفصول',
-    'الرسوم الدراسية',
-    'الرواتب',
-    'التبرعات',
-    'المصاريف',
-    'الحضور',
-    'المجموعات',
-    'المخزون',
+    'الطلاب', 'المعلمون', 'المستخدمون', 'الفصول', 'الرسوم الدراسية',
+    'الرواتب', 'التبرعات', 'المصاريف', 'الحضور', 'المجموعات', 'المخزون'
   ];
   const [selectedSheets, setSelectedSheets] = useState(allSheets);
 
   const handleSheetCheckboxChange = (sheetName) => {
-    setSelectedSheets((prev) =>
-      prev.includes(sheetName) ? prev.filter((s) => s !== sheetName) : [...prev, sheetName],
+    setSelectedSheets(prev =>
+      prev.includes(sheetName)
+        ? prev.filter(s => s !== sheetName)
+        : [...prev, sheetName]
     );
   };
 
-  const handleToggleSelectAll = () => {
-    if (selectedSheets.length === allSheets.length) {
-      setSelectedSheets([]);
-    } else {
+  const handleSelectAllSheets = (select) => {
+    if (select) {
       setSelectedSheets(allSheets);
+    } else {
+      setSelectedSheets([]);
     }
   };
 
@@ -443,19 +436,14 @@ const ImportTabPanel = () => {
 
         <Form.Group className="mb-3">
           <div className="d-flex justify-content-between align-items-center">
-            <Form.Label>
-              <h5>الأوراق المراد استيرادها:</h5>
-            </Form.Label>
-            <Form.Check
-              type="switch"
-              id="toggle-all-sheets"
-              label={selectedSheets.length === allSheets.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
-              checked={selectedSheets.length === allSheets.length}
-              onChange={handleToggleSelectAll}
-            />
+            <Form.Label><h5>الأوراق المراد استيرادها:</h5></Form.Label>
+            <div>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(true)}>تحديد الكل</Button>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(false)}>إلغاء تحديد الكل</Button>
+            </div>
           </div>
           <div className="sheet-checkbox-container">
-            {allSheets.map((sheet) => (
+            {allSheets.map(sheet => (
               <Form.Check
                 key={sheet}
                 type="checkbox"
@@ -524,29 +512,15 @@ const ImportTabPanel = () => {
 };
 
 const ARABIC_MONTHS = [
-  'جانفي',
-  'فيفري',
-  'مارس',
-  'أفريل',
-  'ماي',
-  'جوان',
-  'جويلية',
-  'أوت',
-  'سبتمبر',
-  'أكتوبر',
-  'نوفمبر',
-  'ديسمبر',
+  'جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
+  'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
 ];
 
 const renderYearOptions = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let i = currentYear; i >= currentYear - 10; i--) {
-    years.push(
-      <option key={i} value={i}>
-        {i}
-      </option>,
-    );
+    years.push(<option key={i} value={i}>{i}</option>);
   }
   return years;
 };
@@ -562,14 +536,14 @@ const ExportsPage = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
+
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
 
     let period = null;
 
     if (filterType === 'month') {
-      const startDate =
-        new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
+      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
       const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
       period = { startDate, endDate };
     } else if (filterType === 'year') {
@@ -580,10 +554,7 @@ const ExportsPage = () => {
       if (customStartDate && customEndDate) {
         period = { startDate: customStartDate, endDate: customEndDate };
       } else {
-        setMessage({
-          type: 'danger',
-          text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين للفترة المخصصة.',
-        });
+        setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين للفترة المخصصة.' });
         return;
       }
     }
@@ -638,96 +609,79 @@ const ExportsPage = () => {
             <Card.Body>
               <Card.Title>تصدير تقرير مالي شامل</Card.Title>
               <p>
-                اختر فترة التصدير. يمكنك تصدير جميع البيانات، أو تحديد شهر معين، سنة معينة، أو فترة
-                مخصصة.
+                اختر فترة التصدير. يمكنك تصدير جميع البيانات، أو تحديد شهر معين، سنة معينة، أو فترة مخصصة.
               </p>
               <Form>
-                <Row className="mb-3 align-items-end">
-                  <Col md={3}>
-                    <Form.Group>
-                      <Form.Label>نوع الفترة</Form.Label>
-                      <Form.Select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                      >
-                        <option value="all">الكل</option>
-                        <option value="month">شهر معين</option>
-                        <option value="year">سنة معينة</option>
-                        <option value="custom">فترة مخصصة</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
+                 <Row className="mb-3 align-items-end">
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>نوع الفترة</Form.Label>
+                        <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+                          <option value="all">الكل</option>
+                          <option value="month">شهر معين</option>
+                          <option value="year">سنة معينة</option>
+                          <option value="custom">فترة مخصصة</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
 
-                  {filterType === 'month' && (
-                    <>
+                    {filterType === 'month' && (
+                      <>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label>اختر الشهر</Form.Label>
+                            <Form.Select value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}>
+                              {ARABIC_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                            </Form.Select>
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                           <Form.Group>
+                            <Form.Label>اختر السنة</Form.Label>
+                            <Form.Select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
+                              {renderYearOptions()}
+                            </Form.Select>
+                          </Form.Group>
+                        </Col>
+                      </>
+                    )}
+
+                    {filterType === 'year' && (
                       <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>اختر الشهر</Form.Label>
-                          <Form.Select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                          >
-                            {ARABIC_MONTHS.map((m, i) => (
-                              <option key={i} value={i}>
-                                {m}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
+                         <Form.Group>
                           <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                          >
+                          <Form.Select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
                             {renderYearOptions()}
                           </Form.Select>
                         </Form.Group>
                       </Col>
-                    </>
-                  )}
+                    )}
 
-                  {filterType === 'year' && (
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label>اختر السنة</Form.Label>
-                        <Form.Select
-                          value={selectedYear}
-                          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        >
-                          {renderYearOptions()}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  )}
-
-                  {filterType === 'custom' && (
-                    <>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>من تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={customStartDate}
-                            onChange={(e) => setCustomStartDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>إلى تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </>
-                  )}
-                </Row>
+                    {filterType === 'custom' && (
+                       <>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label>من تاريخ</Form.Label>
+                            <Form.Control
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => setCustomStartDate(e.target.value)}
+                            />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label>إلى تاريخ</Form.Label>
+                            <Form.Control
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                            />
+                          </Form.Group>
+                        </Col>
+                      </>
+                    )}
+                 </Row>
               </Form>
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
               <div className="d-flex justify-content-end">

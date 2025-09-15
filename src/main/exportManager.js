@@ -347,17 +347,17 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         {
           name: 'علي محمد',
           date_of_birth: '2005-04-10',
-          gender: 'Male',
+          gender: 'ذكر',
           national_id: '111222333',
-          status: 'active',
+          status: 'نشط',
           memorization_level: '5 أجزاء',
         },
         {
           name: 'سارة عبدالله',
           date_of_birth: '2006-08-22',
-          gender: 'Female',
+          gender: 'أنثى',
           national_id: '222333444',
-          status: 'active',
+          status: 'نشط',
           memorization_level: '3 أجزاء',
           parent_name: 'عبدالله أحمد',
           parent_contact: '555-123-456',
@@ -388,7 +388,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           email: 'fatima@example.com',
           specialization: 'تجويد',
           years_of_experience: 5,
-          gender: 'Female',
+          gender: 'أنثى',
         },
         {
           name: 'خالد حسين',
@@ -396,7 +396,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           email: 'khaled@example.com',
           specialization: 'قراءات',
           years_of_experience: 8,
-          gender: 'Male',
+          gender: 'ذكر',
         },
       ],
     },
@@ -454,6 +454,10 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'السعة', key: 'capacity', width: 10 },
         { header: 'الجنس', key: 'gender', width: 15 },
       ],
+      dummyData: [
+        { name: 'حلقة التجويد للمبتدئين', teacher_matricule: 'اتركه فارغاً للنظام', gender: 'الكل', capacity: 15, status: 'نشط' },
+        { name: 'دورة الحفظ المكثفة', teacher_matricule: 'اتركه فارغاً للنظام', gender: 'رجال', capacity: 10, status: 'معلق' },
+      ],
     },
     {
       name: 'الرسوم الدراسية',
@@ -464,6 +468,10 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
+      dummyData: [
+        { student_matricule: 'اتركه فارغاً للنظام', amount: 100, payment_date: '2024-09-01', payment_method: 'نقداً' },
+        { student_matricule: 'اتركه فارغاً للنظام', amount: 100, payment_date: '2024-09-02', payment_method: 'تحويل بنكي' },
+      ],
     },
     {
       name: 'الرواتب',
@@ -472,6 +480,9 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'المبلغ', key: 'amount', width: 15 },
         { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+          { user_matricule: 'اتركه فارغاً للنظام', amount: 1500, payment_date: '2024-09-05' },
       ],
     },
     {
@@ -526,6 +537,10 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'التاريخ', key: 'date', width: 20 },
         { header: 'الحالة', key: 'status', width: 25 },
       ],
+      dummyData: [
+        { student_matricule: 'اتركه فارغاً للنظام', class_name: 'حلقة التجويد للمبتدئين', date: '2024-09-06', status: 'حاضر' },
+        { student_matricule: 'اتركه فارغاً للنظام', class_name: 'دورة الحفظ المكثفة', date: '2024-09-06', status: 'غائب' },
+      ],
     },
     {
       name: 'المجموعات',
@@ -533,6 +548,10 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'اسم المجموعة', key: 'name', width: 25 },
         { header: 'الوصف', key: 'description', width: 40 },
         { header: 'الفئة', key: 'category', width: 20 },
+      ],
+      dummyData: [
+          { name: 'مجموعة الحفظ الصباحية', description: 'لمراجعة الحفظ اليومي', category: 'نساء' },
+          { name: 'مجموعة التجويد المسائية', description: 'لتحسين أحكام التلاوة', category: 'رجال' },
       ],
     },
     {
@@ -548,6 +567,10 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الحالة', key: 'condition_status', width: 15 },
         { header: 'الموقع', key: 'location', width: 25 },
         { header: 'ملاحظات', key: 'notes', width: 40 },
+      ],
+      dummyData: [
+          { item_name: 'مصحف (نسخة ورقية)', category: 'مواد تعليمية', quantity: 50, unit_value: 15.00, acquisition_date: '2024-01-10', condition_status: 'جديد' },
+          { item_name: 'سبورة بيضاء', category: 'أثاث مكتبي', quantity: 5, unit_value: 100.00, acquisition_date: '2024-02-01', condition_status: 'مستخدم' },
       ],
     },
   ];
