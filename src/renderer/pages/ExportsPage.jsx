@@ -343,7 +343,7 @@ const ImportTabPanel = () => {
 
   const allSheets = [
     'الطلاب', 'المعلمون', 'المستخدمون', 'الفصول', 'الرسوم الدراسية',
-    'الرواتب', 'التبرعات', 'المصاريف', 'الحضور'
+    'الرواتب', 'التبرعات', 'المصاريف', 'الحضور', 'المجموعات', 'المخزون'
   ];
   const [selectedSheets, setSelectedSheets] = useState(allSheets);
 
@@ -353,6 +353,14 @@ const ImportTabPanel = () => {
         ? prev.filter(s => s !== sheetName)
         : [...prev, sheetName]
     );
+  };
+
+  const handleSelectAllSheets = (select) => {
+    if (select) {
+      setSelectedSheets(allSheets);
+    } else {
+      setSelectedSheets([]);
+    }
   };
 
   const handleGenerateTemplate = async () => {
@@ -427,7 +435,13 @@ const ImportTabPanel = () => {
         </p>
 
         <Form.Group className="mb-3">
-          <Form.Label><h5>الأوراق المراد استيرادها:</h5></Form.Label>
+          <div className="d-flex justify-content-between align-items-center">
+            <Form.Label><h5>الأوراق المراد استيرادها:</h5></Form.Label>
+            <div>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(true)}>تحديد الكل</Button>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(false)}>إلغاء تحديد الكل</Button>
+            </div>
+          </div>
           <div className="sheet-checkbox-container">
             {allSheets.map(sheet => (
               <Form.Check
