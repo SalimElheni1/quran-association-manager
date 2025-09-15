@@ -112,7 +112,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('import:execute', async () => {
+  ipcMain.handle('import:execute', async (_event, { selectedSheets }) => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
         title: 'Select Excel File to Import',
@@ -124,7 +124,7 @@ function registerSystemHandlers() {
         return { success: false, message: 'Import canceled by user.' };
       }
 
-      const results = await importManager.importExcelData(filePaths[0]);
+      const results = await importManager.importExcelData(filePaths[0], selectedSheets);
 
       return { success: true, ...results };
     } catch (error) {

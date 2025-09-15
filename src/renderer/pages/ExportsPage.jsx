@@ -341,6 +341,20 @@ const ImportTabPanel = () => {
   const [importResults, setImportResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const allSheets = [
+    'الطلاب', 'المعلمون', 'المستخدمون', 'الفصول', 'الرسوم الدراسية',
+    'الرواتب', 'التبرعات', 'المصاريف', 'الحضور'
+  ];
+  const [selectedSheets, setSelectedSheets] = useState(allSheets);
+
+  const handleSheetCheckboxChange = (sheetName) => {
+    setSelectedSheets(prev =>
+      prev.includes(sheetName)
+        ? prev.filter(s => s !== sheetName)
+        : [...prev, sheetName]
+    );
+  };
+
   const handleGenerateTemplate = async () => {
     setIsLoading(true);
     setMessage({ type: '', text: '' });
@@ -378,11 +392,15 @@ const ImportTabPanel = () => {
   };
 
   const handleImport = async () => {
+    if (selectedSheets.length === 0) {
+      setMessage({ type: 'danger', text: 'الرجاء تحديد ورقة واحدة على الأقل للاستيراد.' });
+      return;
+    }
     setIsLoading(true);
     setMessage({ type: '', text: '' });
     setImportResults(null);
     try {
-      const result = await window.electronAPI.executeImport();
+      const result = await window.electronAPI.executeImport({ selectedSheets });
       if (result.success) {
         setImportResults(result);
         if (result.errorCount === 0) {
@@ -407,6 +425,24 @@ const ImportTabPanel = () => {
         <p>
           قم بإنشاء قالب Excel، واملأه بالبيانات، ثم قم باستيراده لإضافة سجلات متعددة دفعة واحدة.
         </p>
+
+        <Form.Group className="mb-3">
+          <Form.Label><h5>الأوراق المراد استيرادها:</h5></Form.Label>
+          <div className="sheet-checkbox-container">
+            {allSheets.map(sheet => (
+              <Form.Check
+                key={sheet}
+                type="checkbox"
+                id={`checkbox-${sheet}`}
+                label={sheet}
+                checked={selectedSheets.includes(sheet)}
+                onChange={() => handleSheetCheckboxChange(sheet)}
+                inline
+              />
+            ))}
+          </div>
+        </Form.Group>
+
         <div className="d-flex justify-content-start gap-2 mb-3">
           <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
             {isLoading ? 'جاري الإنشاء...' : '1. إنشاء قالب Excel'}
