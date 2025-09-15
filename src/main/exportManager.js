@@ -527,6 +527,29 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الحالة', key: 'status', width: 25 },
       ],
     },
+    {
+      name: 'المجموعات',
+      columns: [
+        { header: 'اسم المجموعة', key: 'name', width: 25 },
+        { header: 'الوصف', key: 'description', width: 40 },
+        { header: 'الفئة', key: 'category', width: 20 },
+      ],
+    },
+    {
+      name: 'المخزون',
+      columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم العنصر', key: 'item_name', width: 25 },
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'الكمية', key: 'quantity', width: 10 },
+        { header: 'قيمة الوحدة', key: 'unit_value', width: 15 },
+        { header: 'تاريخ الاقتناء', key: 'acquisition_date', width: 18 },
+        { header: 'مصدر الاقتناء', key: 'acquisition_source', width: 25 },
+        { header: 'الحالة', key: 'condition_status', width: 15 },
+        { header: 'الموقع', key: 'location', width: 25 },
+        { header: 'ملاحظات', key: 'notes', width: 40 },
+      ],
+    },
   ];
 
   if (returnDefsOnly) {
@@ -608,33 +631,33 @@ async function generateDevExcelTemplate(outputPath) {
     {
       name: 'أحمد بن علي (طفل)',
       national_id: '111000111',
-      gender: 'Male',
+      gender: 'ذكر',
       date_of_birth: '2015-01-15',
-      status: 'active',
+      status: 'نشط',
       parent_name: 'علي',
     },
     {
       name: 'فاطمة بنت محمد (مراهقة)',
       national_id: '222000222',
-      gender: 'Female',
+      gender: 'أنثى',
       date_of_birth: '2008-03-20',
-      status: 'active',
+      status: 'نشط',
       school_name: 'مدرسة الأمل',
     },
     {
       name: 'خالد عبد الله (بالغ)',
       national_id: '333000333',
-      gender: 'Male',
+      gender: 'ذكر',
       date_of_birth: '1995-07-10',
-      status: 'inactive',
+      status: 'غير نشط',
       occupation: 'مهندس',
     },
     {
       name: 'عائشة عمر (بالغة)',
       national_id: '444000444',
-      gender: 'Female',
+      gender: 'أنثى',
       date_of_birth: '1999-11-05',
-      status: 'active',
+      status: 'نشط',
       educational_level: 'جامعي',
     },
   ];
@@ -646,6 +669,7 @@ async function generateDevExcelTemplate(outputPath) {
       specialization: 'تجويد',
       email: 'mahmoud@dev.com',
       availability: 'دوام كامل',
+      gender: 'ذكر',
     },
     {
       name: 'الأستاذة سعاد',
@@ -653,6 +677,7 @@ async function generateDevExcelTemplate(outputPath) {
       specialization: 'حفظ',
       email: 'souad@dev.com',
       availability: 'صباحي فقط',
+      gender: 'أنثى',
     },
   ];
 
@@ -744,34 +769,50 @@ async function generateDevExcelTemplate(outputPath) {
       student_matricule: 'S-000001',
       class_name: 'فصل الصغار',
       date: '2024-09-06',
-      status: 'present',
+      status: 'حاضر',
     },
     {
       student_matricule: 'S-000002',
       class_name: 'حلقة التجويد للمبتدئين',
       date: '2024-09-06',
-      status: 'absent',
+      status: 'غائب',
     },
     {
       student_matricule: 'S-000001',
       class_name: 'حلقة التجويد للمبتدئين',
       date: '2024-09-07',
-      status: 'late',
+      status: 'متأخر',
     }, // Student in multiple classes
   ];
 
+  const groupData = [
+    { name: 'مجموعة الحفظ الصباحية', description: 'لمراجعة الحفظ اليومي', category: 'نساء' },
+    { name: 'مجموعة التجويد المسائية', description: 'لتحسين أحكام التلاوة', category: 'رجال' },
+  ];
+
+  const inventoryData = [
+    { item_name: 'مصحف (نسخة ورقية)', category: 'مواد تعليمية', quantity: 50, unit_value: 15.00, acquisition_date: '2024-01-10', condition_status: 'جديد' },
+    { item_name: 'سبورة بيضاء', category: 'أثاث مكتبي', quantity: 5, unit_value: 100.00, acquisition_date: '2024-02-01', condition_status: 'مستخدم' },
+  ];
+
   const allSheetDefs = await generateExcelTemplate(null, true);
-  const getCols = (name) => allSheetDefs.find((s) => s.name === name).columns;
+  const getCols = (name) => {
+    const def = allSheetDefs.find((s) => s.name === name);
+    if (!def) throw new Error(`Sheet definition not found for: ${name}`);
+    return def.columns;
+  };
 
   const sheets = [
     { name: 'الطلاب', columns: getCols('الطلاب'), dummyData: studentData },
     { name: 'المعلمون', columns: getCols('المعلمون'), dummyData: teacherData },
     { name: 'المستخدمون', columns: getCols('المستخدمون'), dummyData: userData },
     { name: 'الفصول', columns: getCols('الفصول'), dummyData: classData },
+    { name: 'المجموعات', columns: getCols('المجموعات'), dummyData: groupData },
     { name: 'الرسوم الدراسية', columns: getCols('الرسوم الدراسية'), dummyData: paymentData },
     { name: 'الرواتب', columns: getCols('الرواتب'), dummyData: salaryData },
     { name: 'التبرعات', columns: getCols('التبرعات'), dummyData: donationData },
     { name: 'المصاريف', columns: getCols('المصاريف'), dummyData: expenseData },
+    { name: 'المخزون', columns: getCols('المخزون'), dummyData: inventoryData },
     { name: 'الحضور', columns: getCols('الحضور'), dummyData: attendanceData },
   ];
 
