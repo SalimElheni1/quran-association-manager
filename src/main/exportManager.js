@@ -705,8 +705,8 @@ async function generateDevExcelTemplate(outputPath) {
   ];
 
   const salaryData = [
-    { teacher_matricule: 'T-000001', amount: 1200, payment_date: '2024-09-05' },
-    { teacher_matricule: 'T-000002', amount: 1350, payment_date: '2024-09-05' },
+    { user_matricule: 'T-000001', amount: 1200, payment_date: '2024-09-05' },
+    { user_matricule: 'T-000002', amount: 1350, payment_date: '2024-09-05' },
   ];
 
   const donationData = [
@@ -772,7 +772,7 @@ async function generateDevExcelTemplate(outputPath) {
     { name: 'الرواتب', columns: getCols('الرواتب'), dummyData: salaryData },
     { name: 'التبرعات', columns: getCols('التبرعات'), dummyData: donationData },
     { name: 'المصاريف', columns: getCols('المصاريف'), dummyData: expenseData },
-    { name: 'الحاضر', columns: getCols('الحاضر'), dummyData: attendanceData },
+    { name: 'الحضور', columns: getCols('الحضور'), dummyData: attendanceData },
   ];
 
   for (const sheetInfo of sheets) {

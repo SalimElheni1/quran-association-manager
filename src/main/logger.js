@@ -1,13 +1,16 @@
 const { app } = require('electron');
 
 const log = (...args) => {
-  if (!app.isPackaged) {
+  // In a plain Node.js script (like our verification script), `app` will be undefined.
+  // In Electron, we check if the app is packaged.
+  // This ensures console logs appear during development and in our script, but not in production.
+  if (!app || (app && !app.isPackaged)) {
     console.log(...args);
   }
 };
 
 const warn = (...args) => {
-  if (!app.isPackaged) {
+  if (!app || (app && !app.isPackaged)) {
     console.warn(...args);
   }
 };
