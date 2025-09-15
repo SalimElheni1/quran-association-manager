@@ -153,8 +153,8 @@ function InventoryTab() {
 
       <ConfirmationModal
         show={showDeleteModal}
-        onHide={() => setShowDeleteModal(false)}
-        onConfirm={handleDeleteConfirm}
+        handleClose={() => setShowDeleteModal(false)}
+        handleConfirm={handleDeleteConfirm}
         title="تأكيد الحذف"
         body={`هل أنت متأكد من رغبتك في حذف الصنف "${selectedItem?.item_name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
       />
