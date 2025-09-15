@@ -127,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Imports API
   generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
-  executeImport: (options) => ipcRenderer.invoke('import:execute', options),
+  executeImport: () => ipcRenderer.invoke('import:execute'),
 
   // Listener for events from main process
   onForceLogout: (callback) => {
