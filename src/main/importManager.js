@@ -131,26 +131,50 @@ const getColumnIndex = (headerRow, headerText) => {
   return index;
 };
 
-async function importExcelData(filePath) {
+async function importExcelData(filePath, selectedSheets) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
   const results = { successCount: 0, errorCount: 0, errors: [], newUsers: [] };
 
-  const processSheet = async (sheetName, processor) => {
+  const allSheetProcessors = {
+    'الطلاب': processStudentRow,
+    'المعلمون': processTeacherRow,
+    'المستخدمون': processUserRow,
+    'الفصول': processClassRow,
+    'الرسوم الدراسية': processPaymentRow,
+    'الرواتب': processSalaryRow,
+    'التبرعات': processDonationRow,
+    'المصاريف': processExpenseRow,
+    'الحضور': processAttendanceRow,
+  };
+
+  const sheetsToProcess = selectedSheets || Object.keys(allSheetProcessors);
+
+  for (const sheetName of sheetsToProcess) {
+    const processor = allSheetProcessors[sheetName];
+    if (!processor) continue;
+
     const worksheet = workbook.getWorksheet(sheetName);
-    if (!worksheet) return;
+    if (!worksheet) {
+      logWarn(`Sheet "${sheetName}" selected for import but not found in the Excel file.`);
+      continue;
+    }
+
     const headerRow = worksheet.getRow(2);
-    if (!headerRow.hasValues) return;
+    if (!headerRow.hasValues) continue;
+
     const missingColumns = (REQUIRED_COLUMNS[sheetName] || []).filter(
       (colName) => getColumnIndex(headerRow, colName) === -1,
     );
+
     if (missingColumns.length > 0) {
       results.errors.push(
         `ورقة "${sheetName}" ينقصها الأعمدة المطلوبة: ${missingColumns.join(', ')}`,
       );
-      results.errorCount += worksheet.rowCount - 2;
-      return;
+      results.errorCount += worksheet.rowCount - 2; // Approximate error count
+      continue; // Skip processing this sheet
     }
+
     for (let i = 3; i <= worksheet.rowCount; i++) {
       const row = worksheet.getRow(i);
       if (!row.hasValues) continue;
@@ -168,17 +192,7 @@ async function importExcelData(filePath) {
         results.errors.push(`[${sheetName}] Row ${i}: An unexpected error occurred - ${e.message}`);
       }
     }
-  };
-
-  await processSheet('الطلاب', processStudentRow);
-  await processSheet('المعلمون', processTeacherRow);
-  await processSheet('المستخدمون', processUserRow);
-  await processSheet('الفصول', processClassRow);
-  await processSheet('الرسوم الدراسية', processPaymentRow);
-  await processSheet('الرواتب', processSalaryRow);
-  await processSheet('التبرعات', processDonationRow);
-  await processSheet('المصاريف', processExpenseRow);
-  await processSheet('الحضور', processAttendanceRow);
+  }
 
   return results;
 }
