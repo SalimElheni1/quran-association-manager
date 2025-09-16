@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <title>{title}</title>
+    <title>{report_title}</title>
     <style>
       @page {
         size: A4;
@@ -21,29 +21,42 @@
         right: 0;
         color: #444;
         font-size: 0.9em;
+        width: calc(100% - 2in); /* Match page margin */
+        margin: 0 auto;
       }
       .header {
         top: 0;
-        height: 60px;
+        height: 80px; /* Increased height for logos */
+        padding-top: 10px;
         border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .header-section {
+        text-align: center;
+      }
+      .header-section img {
+        max-height: 50px;
+        max-width: 150px;
+      }
+      .header-section h4, .header-section h5 {
+        margin: 0;
+        font-weight: normal;
       }
       .footer {
         bottom: 0;
         height: 30px;
         border-top: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
       .footer .page-number::after {
         content: counter(page);
       }
-      .footer .page-number {
-        float: right;
-      }
-      .footer .date {
-        float: left;
-      }
-      /* Give space for header and footer */
       body {
-        padding-top: 70px;
+        padding-top: 90px; /* Increased padding for new header */
         padding-bottom: 40px;
       }
       table {
@@ -64,25 +77,28 @@
       h1 {
         text-align: center;
         color: #333;
+        margin-bottom: 20px;
       }
     </style>
   </head>
   <body>
-    <div class="header">
-      <div style="float: right; text-align: right">
-        <h3>مدير فرع القرآن</h3>
-        <h4>{title}</h4>
-      </div>
-      <div style="float: left; text-align: left">
-        <p>{date}</p>
-      </div>
-    </div>
+    <header class="header">
+        <div class="header-section">
+            <img src="{image_branch}" alt="Branch Logo">
+            <h5>{branch_name}</h5>
+        </div>
+        <div class="header-section">
+            <img src="{image_national}" alt="National Logo">
+            <h4>{national_association_name}</h4>
+        </div>
+    </header>
 
     <div class="footer">
+      <span class="date">{date}</span>
       <span class="page-number">صفحة </span>
     </div>
 
-    <h1 style="text-align: center; margin-top: 40px">{title}</h1>
+    <h1>{report_title}</h1>
 
     <table>
       <thead>

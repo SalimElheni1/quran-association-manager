@@ -60,9 +60,13 @@ function registerSystemHandlers() {
         return { success: false, message: 'Export canceled by user.' };
       }
 
+      // Fetch header data for all export types
+      const headerData = await exportManager.getExportHeaderData();
+
       if (exportType === 'financial-report') {
         const period = options.period || null;
         const data = await exportManager.fetchFinancialData(period);
+        // We will need to update generateFinancialXlsx to accept headerData later
         await exportManager.generateFinancialXlsx(data, filePath);
       } else {
         const fields = columns.map((c) => c.key);
@@ -74,11 +78,11 @@ function registerSystemHandlers() {
 
         const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
         if (format === 'pdf') {
-          await exportManager.generatePdf(reportTitle, columns, data, filePath);
+          await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
         } else if (format === 'xlsx') {
-          await exportManager.generateXlsx(columns, data, filePath);
+          await exportManager.generateXlsx(columns, data, filePath, headerData);
         } else if (format === 'docx') {
-          await exportManager.generateDocx(reportTitle, columns, data, filePath);
+          await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
         } else {
           throw new Error(`Unsupported export format: ${format}`);
         }

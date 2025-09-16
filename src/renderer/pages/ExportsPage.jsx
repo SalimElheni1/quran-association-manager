@@ -98,7 +98,7 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
           setMessage({
             type: 'warning',
-            text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.',
+            text: 'فشل تصدير DOCX: ملف القالب "export_template_v2.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.',
           });
         } else if (result.message.includes('TEMPLATE_INVALID')) {
           setMessage({
@@ -115,61 +115,8 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
   };
 
-  const isExportDisabled = selectedFields.length === 0 || selectedFields.length > 4;
-
-  const renderPdfButton = () => {
-    const button = (
-      <Button
-        variant="danger"
-        onClick={() => handleExport('pdf')}
-        disabled={isExportDisabled}
-        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
-      >
-        تصدير إلى PDF
-      </Button>
-    );
-
-    if (isExportDisabled) {
-      return (
-        <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-pdf-disabled">لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.</Tooltip>
-          }
-        >
-          <span className="d-inline-block">{button}</span>
-        </OverlayTrigger>
-      );
-    }
-    return button;
-  };
-
-  const renderDocxButton = () => {
-    const button = (
-      <Button
-        variant="secondary"
-        onClick={() => handleExport('docx')}
-        disabled={isExportDisabled}
-        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
-      >
-        تصدير إلى DOCX
-      </Button>
-    );
-
-    if (isExportDisabled) {
-      return (
-        <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-docx-disabled">
-              لتصدير DOCX، الرجاء تحديد ما بين 1 و 4 حقول.
-            </Tooltip>
-          }
-        >
-          <span className="d-inline-block">{button}</span>
-        </OverlayTrigger>
-      );
-    }
-    return button;
-  };
+  const isExportDisabled = selectedFields.length === 0;
+  const showLandscapeWarning = selectedFields.length > 4;
 
   return (
     <Card className="mt-3">
@@ -261,14 +208,24 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
 
           <hr />
 
+          {showLandscapeWarning && !isAttendance && (
+            <Alert variant="info">
+              ملاحظة: سيتم إنشاء التقرير بالوضع الأفقي لاستيعاب عدد الأعمدة المحدد.
+            </Alert>
+          )}
+
           {message.text && <Alert variant={message.type}>{message.text}</Alert>}
 
           <div className="d-flex justify-content-end gap-2">
-            {renderDocxButton()}
+            <Button variant="secondary" onClick={() => handleExport('docx')} disabled={isExportDisabled}>
+              تصدير إلى DOCX
+            </Button>
             <Button variant="primary" onClick={() => handleExport('xlsx')}>
               تصدير إلى Excel
             </Button>
-            {renderPdfButton()}
+            <Button variant="danger" onClick={() => handleExport('pdf')} disabled={isExportDisabled}>
+              تصدير إلى PDF
+            </Button>
           </div>
         </Form>
       </Card.Body>
