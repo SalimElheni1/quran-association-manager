@@ -1,0 +1,7 @@
+This is a placeholder file. Please replace it with a real .docx template formatted for docxtemplater.
+The template should include a {logo} placeholder for the image, a {title} and {date} placeholder.
+For the table, it should loop through 'headers' for the column titles and 'items' for the rows.
+Example table structure in the template:
+| {#headers}{name}{/headers} |
+|---|
+| {#items}{#cells}{value}{/cells}{/items} |

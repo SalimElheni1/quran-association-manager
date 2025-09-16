@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const { BrowserWindow } = require('electron');
+const { generate } = require('@pdfme/generator');
 const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
+const ImageModule = require('docxtemplater-image-module-free');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
 const {
@@ -17,8 +17,6 @@ const {
 
 // --- Data Fetching ---
 async function fetchFinancialData(period) {
-  // handleGetFinancialSummary now takes a year. If a period is provided,
-  // we can extract the year from the startDate. If not, it will default to the current year.
   const summaryYear = period ? new Date(period.startDate).getFullYear() : null;
 
   const [summary, payments, salaries, donations, expenses] = await Promise.all([
@@ -99,15 +97,15 @@ async function fetchExportData({ type, fields, options = {} }) {
                JOIN students s ON s.id = a.student_id
                JOIN classes c ON c.id = a.class_id`;
       const whereClauses = ['a.date BETWEEN ? AND ?'];
-      const params = [options.startDate, options.endDate];
+      const queryParams = [options.startDate, options.endDate];
 
       if (options.classId && options.classId !== 'all') {
         whereClauses.push('c.id = ?');
-        params.push(options.classId);
+        queryParams.push(options.classId);
       }
 
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY a.date`;
-      return allQuery(query, params);
+      return allQuery(query, queryParams);
     }
     default:
       throw new Error(`Invalid export type: ${type}`);
@@ -129,53 +127,36 @@ function localizeData(data) {
   });
 }
 
-// --- PDF Generation ---
-async function generatePdf(title, columns, data, outputPath) {
-  const localizedData = localizeData(data);
-  // 1. Create the HTML content
-  const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
-  const templateHtml = fs.readFileSync(templatePath, 'utf8');
+// --- PDF Generation (Refactored with pdfme) ---
+async function generatePdf({ template, inputs, outputPath }) {
+  // This path works for both development (from src/main) and production (from app.asar/dist/main)
+  const fontPath = path.resolve(
+    __dirname,
+    process.env.NODE_ENV === 'development'
+      ? '../../src/renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2'
+      : '../renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2',
+  );
 
-  const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
-  const rows = localizedData
-    .map((item) => {
-      const cells = columns.map((c) => `<td>${item[c.key] || ''}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    })
-    .join('');
-
-  let finalHtml = templateHtml.replace('{title}', title);
-  finalHtml = finalHtml.replace('{date}', new Date().toLocaleDateString('ar-SA'));
-  finalHtml = finalHtml.replace('{table_headers}', headers);
-  finalHtml = finalHtml.replace('{table_rows}', rows);
-
-  // 2. Write to a temporary HTML file
-  const tempHtmlPath = path.join(os.tmpdir(), `report-${Date.now()}.html`);
-  fs.writeFileSync(tempHtmlPath, finalHtml);
-
-  // 3. Create a hidden browser window
-  const win = new BrowserWindow({
-    show: false,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  });
-
+  let fontData;
   try {
-    await win.loadFile(tempHtmlPath);
-
-    // 4. Print the window's contents to PDF
-    const pdfData = await win.webContents.printToPDF({
-      printBackground: true,
-      pageSize: 'A4',
-    });
-
-    // 5. Save the PDF
-    fs.writeFileSync(outputPath, pdfData);
-  } finally {
-    // 6. Clean up
-    win.close();
-    fs.unlinkSync(tempHtmlPath);
+    fontData = fs.readFileSync(fontPath);
+  } catch (e) {
+    throw new Error(`Failed to load font file at ${fontPath}. Make sure the font exists.`);
   }
+
+  const options = {
+    fonts: {
+      Cairo: {
+        data: fontData,
+        fallback: true,
+      },
+    },
+  };
+
+  const pdfBuffer = await generate({ template, inputs, options });
+  fs.writeFileSync(outputPath, pdfBuffer);
 }
+
 
 // --- Excel (XLSX) Generation ---
 async function generateXlsx(columns, data, outputPath) {
@@ -194,7 +175,6 @@ async function generateXlsx(columns, data, outputPath) {
 async function generateFinancialXlsx(data, outputPath) {
   const workbook = new ExcelJS.Workbook();
 
-  // Summary Sheet
   const summarySheet = workbook.addWorksheet('الملخص');
   summarySheet.views = [{ rightToLeft: true }];
   summarySheet.addRow(['الملخص المالي العام']);
@@ -202,7 +182,6 @@ async function generateFinancialXlsx(data, outputPath) {
   summarySheet.addRow(['إجمالي المصروفات', data.summary.totalExpenses]);
   summarySheet.addRow(['الرصيد الإجمالي', data.summary.balance]);
 
-  // Payments Sheet
   const paymentsSheet = workbook.addWorksheet('الرسوم الدراسية');
   paymentsSheet.views = [{ rightToLeft: true }];
   paymentsSheet.columns = [
@@ -214,7 +193,6 @@ async function generateFinancialXlsx(data, outputPath) {
   ];
   paymentsSheet.addRows(data.payments);
 
-  // Salaries Sheet
   const salariesSheet = workbook.addWorksheet('الرواتب');
   salariesSheet.views = [{ rightToLeft: true }];
   salariesSheet.columns = [
@@ -225,7 +203,6 @@ async function generateFinancialXlsx(data, outputPath) {
   ];
   salariesSheet.addRows(data.salaries);
 
-  // Donations Sheet
   const donationsSheet = workbook.addWorksheet('التبرعات');
   donationsSheet.views = [{ rightToLeft: true }];
   donationsSheet.columns = [
@@ -242,7 +219,6 @@ async function generateFinancialXlsx(data, outputPath) {
     })),
   );
 
-  // Expenses Sheet
   const expensesSheet = workbook.addWorksheet('المصاريف');
   expensesSheet.views = [{ rightToLeft: true }];
   expensesSheet.columns = [
@@ -257,53 +233,52 @@ async function generateFinancialXlsx(data, outputPath) {
   await workbook.xlsx.writeFile(outputPath);
 }
 
-// --- DOCX Generation ---
-function generateDocx(title, columns, data, outputPath) {
+// --- DOCX Generation (Refactored) ---
+function generateDocx({ title, columns, data, outputPath, templateBuffer, logoBuffer }) {
   const localizedData = localizeData(data);
-  const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(
-      `TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`,
-    );
+
+  if (!templateBuffer) {
+    throw new Error('TEMPLATE_NOT_PROVIDED: A template buffer is required for DOCX generation.');
   }
-  const content = fs.readFileSync(templatePath, 'binary');
 
   let zip;
   try {
-    zip = new PizZip(content);
+    zip = new PizZip(templateBuffer);
   } catch (error) {
-    throw new Error(
-      'TEMPLATE_INVALID: Could not read the DOCX template. Is it a valid, non-empty Word document?',
-    );
+    throw new Error('TEMPLATE_INVALID: Could not read the DOCX template. It may be corrupt.');
   }
 
+  const imageModule = new ImageModule({
+    centered: false,
+    fileType: 'docx',
+  });
+
   const doc = new Docxtemplater(zip, {
+    modules: [imageModule],
     paragraphLoop: true,
     linebreaks: true,
   });
 
   const templateData = {
-    title: title,
+    title,
     date: new Date().toLocaleDateString('ar-SA'),
-    c1: columns[0]?.header || '',
-    c2: columns[1]?.header || '',
-    c3: columns[2]?.header || '',
-    c4: columns[3]?.header || '',
-    data: localizedData.map((item) => {
-      return {
-        d1: item[columns[0]?.key] || '',
-        d2: item[columns[1]?.key] || '',
-        d3: item[columns[2]?.key] || '',
-        d4: item[columns[3]?.key] || '',
-      };
-    }),
+    headers: columns.map((c) => ({ name: c.header })),
+    items: localizedData.map((item) => ({
+      cells: columns.map((c) => ({ value: item[c.key] || '' })),
+    })),
   };
 
+  if (logoBuffer) {
+    templateData.logo = logoBuffer;
+  }
+
   doc.render(templateData);
+
   const buf = doc.getZip().generate({
     type: 'nodebuffer',
     compression: 'DEFLATE',
   });
+
   fs.writeFileSync(outputPath, buf);
 }
 
@@ -627,40 +602,33 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     const worksheet = workbook.addWorksheet(sheetInfo.name);
     worksheet.views = [{ rightToLeft: true }];
 
-    // Set columns first, which creates the header row
     worksheet.columns = sheetInfo.columns;
 
-    // Add a comment to the matricule header to explain its use
     if (sheetInfo.columns.some((c) => c.key === 'matricule')) {
       worksheet.getCell('A2').note =
         'اتركه فارغًا للسجلات الجديدة. سيقوم النظام بإنشاء رقم تعريفي تلقائيًا.\n\nاستخدم هذا الحقل فقط للإشارة إلى السجلات الموجودة لتحديثها.';
     }
 
-    worksheet.getRow(2).font = { bold: true }; // Header row is now row 2
+    worksheet.getRow(2).font = { bold: true };
 
-    // Insert the warning message as the new first row
     worksheet.spliceRows(1, 0, [warningMessage]);
 
-    // Style the new warning row
     const warningRow = worksheet.getRow(1);
     warningRow.font = { color: { argb: 'FFFF0000' }, bold: true, size: 14 };
     warningRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     warningRow.height = 30;
     worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length);
 
-    // Add dummy data
     if (sheetInfo.dummyData) {
       worksheet.addRows(sheetInfo.dummyData);
     }
   }
 
-  // --- Add Data Validations for Dropdowns ---
   const classesSheet = workbook.getWorksheet('الفصول');
   const attendanceSheet = workbook.getWorksheet('الحاضر');
   const paymentsSheet = workbook.getWorksheet('الرسوم الدراسية');
   const salariesSheet = workbook.getWorksheet('الرواتب');
 
-  // Define ranges for the dropdown lists. Covers the dummy data + 1000 extra rows.
   const studentMatriculeRange = `'الطلاب'!$A$3:$A$1002`;
   const teacherMatriculeRange = `'المعلمون'!$A$3:$A$1002`;
 
@@ -687,13 +655,11 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
   }
 }
 
-// --- Dev Data Generation ---
 async function generateDevExcelTemplate(outputPath) {
   const workbook = new ExcelJS.Workbook();
   const warningMessage =
     '⚠️ This is a development template. Do not use in production. Do not modify headers.';
 
-  // Comprehensive dummy data
   const studentData = [
     {
       name: 'أحمد بن علي (طفل)',
@@ -849,7 +815,7 @@ async function generateDevExcelTemplate(outputPath) {
       class_name: 'حلقة التجويد للمبتدئين',
       date: '2024-09-07',
       status: 'متأخر',
-    }, // Student in multiple classes
+    },
   ];
 
   const groupData = [

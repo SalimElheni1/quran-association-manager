@@ -73,12 +73,44 @@ function registerSystemHandlers() {
         }
 
         const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
+
         if (format === 'pdf') {
-          await exportManager.generatePdf(reportTitle, columns, data, filePath);
+          const { template, logoBase64, associationName } = options;
+          if (!template) {
+            throw new Error('PDF export requires a template.');
+          }
+
+          const inputs = [{
+            reportTitle: reportTitle,
+            associationName: associationName || 'My Association',
+            reportDate: new Date().toLocaleDateString('ar-SA'),
+            logo: logoBase64 || '',
+            dataTable: [
+              columns.map(c => c.header),
+              ...data.map(row => columns.map(c => row[c.key] || '')),
+            ],
+          }];
+
+          await exportManager.generatePdf({
+            template,
+            inputs,
+            outputPath: filePath,
+          });
         } else if (format === 'xlsx') {
           await exportManager.generateXlsx(columns, data, filePath);
         } else if (format === 'docx') {
-          await exportManager.generateDocx(reportTitle, columns, data, filePath);
+          const { templateBuffer, logoBuffer } = options;
+          if (!templateBuffer) {
+            throw new Error('DOCX export requires a templateBuffer.');
+          }
+          await exportManager.generateDocx({
+            title: reportTitle,
+            columns,
+            data,
+            outputPath: filePath,
+            templateBuffer,
+            logoBuffer: logoBuffer || null,
+          });
         } else {
           throw new Error(`Unsupported export format: ${format}`);
         }

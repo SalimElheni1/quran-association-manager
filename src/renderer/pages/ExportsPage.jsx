@@ -56,9 +56,17 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
   };
 
+  const blobToBase64 = (blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const handleExport = async (format) => {
     setMessage({ type: '', text: '' });
-
     if (selectedFields.length === 0) {
       setMessage({ type: 'danger', text: 'الرجاء تحديد حقل واحد على الأقل للتصدير.' });
       return;
@@ -89,25 +97,33 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
 
     try {
+      // --- Fetch templates and assets ---
+      const logoResponse = await fetch('/assets/logos/icon.png');
+      const logoBlob = await logoResponse.blob();
+
+      if (format === 'pdf') {
+        const templateResponse = await fetch('/templates/default_pdf_template.json');
+        const template = await templateResponse.json();
+        const logoBase64 = await blobToBase64(logoBlob);
+
+        exportOptions.options.template = template;
+        exportOptions.options.logoBase64 = logoBase64;
+        exportOptions.options.associationName = 'جمعية الفرقان'; // Placeholder
+      } else if (format === 'docx') {
+        const templateResponse = await fetch('/templates/dynamic_export_template.docx');
+        const templateBuffer = await templateResponse.arrayBuffer();
+        const logoBuffer = await logoBlob.arrayBuffer();
+
+        exportOptions.options.templateBuffer = Buffer.from(templateBuffer);
+        exportOptions.options.logoBuffer = Buffer.from(logoBuffer);
+      }
+
       const result = await window.electronAPI.generateExport(exportOptions);
 
       if (result.success) {
-        setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
+        setMessage({ type: 'success', text: 'تم تصدير الملف بنجاح!' });
       } else {
-        // Check for specific, user-fixable errors
-        if (result.message.includes('TEMPLATE_NOT_FOUND')) {
-          setMessage({
-            type: 'warning',
-            text: 'فشل تصدير DOCX: ملف القالب "export_template.docx" غير موجود. يرجى إنشائه في المجلد الصحيح.',
-          });
-        } else if (result.message.includes('TEMPLATE_INVALID')) {
-          setMessage({
-            type: 'warning',
-            text: 'فشل تصدير DOCX: ملف القالب تالف أو فارغ. يرجى التأكد من أنه ملف Word صالح.',
-          });
-        } else {
-          setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
-        }
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
       setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
@@ -115,60 +131,22 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
     }
   };
 
-  const isExportDisabled = selectedFields.length === 0 || selectedFields.length > 4;
+  const isExportDisabled = selectedFields.length === 0;
 
   const renderPdfButton = () => {
-    const button = (
-      <Button
-        variant="danger"
-        onClick={() => handleExport('pdf')}
-        disabled={isExportDisabled}
-        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
-      >
+    return (
+      <Button variant="danger" onClick={() => handleExport('pdf')} disabled={isExportDisabled}>
         تصدير إلى PDF
       </Button>
     );
-
-    if (isExportDisabled) {
-      return (
-        <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-pdf-disabled">لتصدير PDF، الرجاء تحديد ما بين 1 و 4 حقول.</Tooltip>
-          }
-        >
-          <span className="d-inline-block">{button}</span>
-        </OverlayTrigger>
-      );
-    }
-    return button;
   };
 
   const renderDocxButton = () => {
-    const button = (
-      <Button
-        variant="secondary"
-        onClick={() => handleExport('docx')}
-        disabled={isExportDisabled}
-        style={isExportDisabled ? { pointerEvents: 'none' } : {}}
-      >
+    return (
+      <Button variant="secondary" onClick={() => handleExport('docx')} disabled={isExportDisabled}>
         تصدير إلى DOCX
       </Button>
     );
-
-    if (isExportDisabled) {
-      return (
-        <OverlayTrigger
-          overlay={
-            <Tooltip id="tooltip-docx-disabled">
-              لتصدير DOCX، الرجاء تحديد ما بين 1 و 4 حقول.
-            </Tooltip>
-          }
-        >
-          <span className="d-inline-block">{button}</span>
-        </OverlayTrigger>
-      );
-    }
-    return button;
   };
 
   return (
