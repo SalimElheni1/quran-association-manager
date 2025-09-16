@@ -6,7 +6,7 @@ const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const ImageModule = require('docxtemplater-image');
-const sizeOf = require('image-size');
+const { imageSize } = require('image-size');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
 const {
@@ -359,7 +359,6 @@ function generateDocx(title, columns, data, outputPath, headerData) {
   }
   const content = fs.readFileSync(templatePath, 'binary');
 
-  // Configure the image module
   const imageOpts = {
     centered: false,
     fileType: 'docx',
@@ -373,7 +372,7 @@ function generateDocx(title, columns, data, outputPath, headerData) {
     },
     getSize: (img) => {
       if (img) {
-        const dimensions = sizeOf(img);
+        const dimensions = imageSize(img);
         const maxWidth = 150;
         const maxHeight = 75;
         const ratio = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height);
@@ -382,6 +381,7 @@ function generateDocx(title, columns, data, outputPath, headerData) {
       return [0, 0];
     },
   };
+
   const imageModule = new ImageModule(imageOpts);
 
   let zip;
@@ -393,13 +393,11 @@ function generateDocx(title, columns, data, outputPath, headerData) {
     );
   }
 
-  const doc = new Docxtemplater()
-    .attachModule(imageModule)
-    .loadZip(zip)
-    .setOptions({
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+  const doc = new Docxtemplater(zip, {
+    modules: [imageModule],
+    paragraphLoop: true,
+    linebreaks: true,
+  });
 
   const templateData = {
     report_title: title,
