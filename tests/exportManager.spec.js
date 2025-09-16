@@ -33,7 +33,12 @@ jest.mock('docx', () => {
         Packer: {
             toBuffer: jest.fn().mockResolvedValue(Buffer.from('docx content')),
         },
-        Table: jest.fn(), // Mock the Table constructor
+        Table: jest.fn(),
+        Document: jest.fn(),
+        Header: jest.fn(),
+        Media: {
+            addImage: jest.fn(),
+        }
     };
 });
 
@@ -113,16 +118,33 @@ describe('Export Manager Unit Tests', () => {
       { f1: 'd3', f2: 'd4' },
     ];
 
-    it('should create a table with the correct number of rows', async () => {
+    it('should create a table with correct rows and RTL property', async () => {
       const columns = [
         { header: 'h1', key: 'f1' },
         { header: 'h2', key: 'f2' },
       ];
       await generateDocx('Test', columns, data, 'test.docx', mockHeaderData);
 
-      expect(docx.Table).toHaveBeenCalledTimes(1);
-      const tableArgs = docx.Table.mock.calls[0][0];
+      // Header table and data table
+      expect(docx.Table).toHaveBeenCalledTimes(2);
+
+      // Find the call for the main data table, which will have more than one row
+      const mainTableCall = docx.Table.mock.calls.find(call => call[0].rows.length > 1);
+      expect(mainTableCall).toBeDefined();
+
+      const tableArgs = mainTableCall[0];
       expect(tableArgs.rows.length).toBe(data.length + 1); // +1 for header
+      expect(tableArgs.bidirectional).toBe(true);
+    });
+
+    it('should set landscape orientation for more than 5 columns', async () => {
+        const wideColumns = [{k:'f1'},{k:'f2'},{k:'f3'},{k:'f4'},{k:'f5'},{k:'f6'}];
+        await generateDocx('Test', wideColumns, data, 'test.docx', mockHeaderData);
+
+        expect(docx.Document).toHaveBeenCalledTimes(1);
+        const docArgs = docx.Document.mock.calls[0][0];
+        const pageOrientation = docArgs.sections[0].properties.page.orientation;
+        expect(pageOrientation).toBe(docx.PageOrientation.LANDSCAPE);
     });
   });
 });
