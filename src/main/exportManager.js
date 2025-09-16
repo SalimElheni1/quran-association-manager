@@ -367,7 +367,7 @@ async function generateFinancialXlsx(data, outputPath) {
 
 // --- DOCX Generation ---
 async function generateDocx(title, columns, data, outputPath, headerData) {
-  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation } = docx;
+  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, Bidi, Media } = docx;
   const localizedData = localizeData(data);
 
   const titleMap = {
@@ -407,7 +407,10 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
         children: columns.map(
           (col) =>
             new TableCell({
-              children: [new Paragraph(String(item[col.key] || ''))],
+              children: [new Paragraph({
+                children: [new TextRun(String(item[col.key] || ''))],
+                bidirectional: true,
+              })],
             }),
         ),
       }),
@@ -419,7 +422,20 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
       size: 100,
       type: WidthType.PERCENTAGE,
     },
+    bidirectional: true,
   });
+
+  const getLogo = (logoPath) => {
+    if (!logoPath) return null;
+    const resolvedPath = path.resolve(process.cwd(), 'public', logoPath);
+    if (fs.existsSync(resolvedPath)) {
+      return Media.addImage(fs.readFileSync(resolvedPath), 100, 50);
+    }
+    return null;
+  }
+
+  const nationalLogo = getLogo(headerData.nationalLogoPath);
+  const branchLogo = getLogo(headerData.regionalLocalLogoPath);
 
   const doc = new Document({
     sections: [
@@ -431,18 +447,24 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
               columns.length > 5 ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
           },
         },
+        headers: {
+            default: new docx.Header({
+                children: [new Table({
+                    rows: [new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph(nationalLogo || '')]}),
+                            new TableCell({ children: [
+                                new Paragraph({ text: headerData.nationalAssociationName, alignment: AlignmentType.CENTER, bidirectional: true }),
+                                new Paragraph({ text: headerData.localBranchName || headerData.regionalAssociationName || '', alignment: AlignmentType.CENTER, bidirectional: true }),
+                            ]}),
+                            new TableCell({ children: [new Paragraph(branchLogo || '')]}),
+                        ],
+                    })],
+                    width: { size: 100, type: WidthType.PERCENTAGE }
+                })],
+            }),
+        },
         children: [
-          new Paragraph({
-            children: [new TextRun({ text: headerData.nationalAssociationName, bold: true })],
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: headerData.localBranchName || headerData.regionalAssociationName || '' }),
-            ],
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({ text: '' }), // Spacer
           new Paragraph({
             children: [new TextRun({ text: arabicTitle, bold: true, size: 28 })],
             alignment: AlignmentType.CENTER,
