@@ -7,7 +7,7 @@ const { generatePdf, generateXlsx, generateDocx } = require('../src/main/exportM
 // Mock dependencies
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'), // Keep original fs methods
-  readFileSync: jest.fn().mockReturnValue('<html><body>{report_title} and {report_title}</body></html>'),
+  readFileSync: jest.fn().mockReturnValue('<html><body>{report_title} on {date} and {report_title}</body></html>'),
   writeFileSync: jest.fn(),
   unlinkSync: jest.fn(),
   existsSync: jest.fn().mockReturnValue(true),
@@ -72,6 +72,22 @@ describe('Export Manager Unit Tests', () => {
 
         // The mock template has "{report_title}" twice
         expect(titleOccurrences).toBe(2);
+    });
+
+    it('should use Arabic titles and dual-date format', async () => {
+      const columns = [{ header: 'h1', key: 'f1' }];
+      // Title must be in the format "type Report" to match the logic in generatePdf
+      await generatePdf('students Report', columns, mockData, 'test.pdf', mockHeaderData);
+
+      const writtenHtml = fs.writeFileSync.mock.calls[0][1];
+
+      // Check for Arabic title
+      expect(writtenHtml).toContain('تقرير الطلاب');
+
+      // Check for dual date format (presence of Hijri and Gregorian markers)
+      expect(writtenHtml).toContain('م /');
+      // A simple check for a Hijri year, assuming current year is 14xx
+      expect(writtenHtml).toMatch(/14\d{2}/);
     });
   });
 });

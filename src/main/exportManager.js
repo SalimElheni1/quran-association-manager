@@ -181,9 +181,29 @@ async function generatePdf(title, columns, data, outputPath, headerData) {
     return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
   };
 
+  const titleMap = {
+    students: 'تقرير الطلاب',
+    teachers: 'تقرير المعلمين',
+    admins: 'تقرير المستخدمين',
+    attendance: 'تقرير الحضور',
+  };
+  const exportType = title.split(' ')[0].toLowerCase();
+  const arabicTitle = titleMap[exportType] || title;
+
+  const gregorianDate = new Date().toLocaleDateString('ar-TN-u-ca-gregory', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const hijriDate = new Intl.DateTimeFormat('ar-TN-u-ca-islamic', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+
   const replacements = {
-    '{report_title}': title,
-    '{date}': new Date().toLocaleDateString('ar-SA'),
+    '{report_title}': arabicTitle,
+    '{date}': `${gregorianDate} م / ${hijriDate}`,
     '{table_headers}': headers,
     '{table_rows}': rows,
     '{national_association_name}': headerData.nationalAssociationName || '',
@@ -373,8 +393,8 @@ function generateDocx(title, columns, data, outputPath, headerData) {
     getSize: (img) => {
       if (img) {
         const dimensions = imageSize(img);
-        const maxWidth = 150;
-        const maxHeight = 75;
+        const maxWidth = 100; // Adjusted for better layout
+        const maxHeight = 50;
         const ratio = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height);
         return [dimensions.width * ratio, dimensions.height * ratio];
       }
@@ -383,33 +403,61 @@ function generateDocx(title, columns, data, outputPath, headerData) {
   };
 
   const imageModule = new ImageModule(imageOpts);
+  const zip = new PizZip(content);
 
-  let zip;
+  let doc;
   try {
-    zip = new PizZip(content);
+    doc = new Docxtemplater(zip, {
+      modules: [imageModule],
+      paragraphLoop: true,
+    });
   } catch (error) {
     throw new Error(
       'TEMPLATE_INVALID: Could not read the DOCX template. Is it a valid, non-empty Word document?',
     );
   }
 
-  const doc = new Docxtemplater(zip, {
-    modules: [imageModule],
-    paragraphLoop: true,
-    linebreaks: true,
+  const titleMap = {
+    students: 'تقرير الطلاب',
+    teachers: 'تقرير المعلمين',
+    admins: 'تقرير المستخدمين',
+    attendance: 'تقرير الحضور',
+  };
+  const exportType = title.split(' ')[0].toLowerCase();
+  const arabicTitle = titleMap[exportType] || title;
+
+  const gregorianDate = new Date().toLocaleDateString('ar-TN-u-ca-gregory', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const hijriDate = new Intl.DateTimeFormat('ar-TN-u-ca-islamic', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+
+  const table = [];
+  // Add header row
+  table.push({
+    is_header: true,
+    cols: columns.map(c => ({ text: c.header }))
+  });
+  // Add data rows
+  localizedData.forEach(item => {
+    table.push({
+      cols: columns.map(c => ({ text: item[c.key] || '' }))
+    });
   });
 
   const templateData = {
-    report_title: title,
-    date: new Date().toLocaleDateString('ar-SA'),
+    report_title: arabicTitle,
+    date: `${gregorianDate} م / ${hijriDate}`,
     national_association_name: headerData.nationalAssociationName,
-    branch_name: headerData.regionalAssociationName || headerData.localBranchName,
-    image_national: headerData.nationalLogoPath,
-    image_branch: headerData.regionalLocalLogoPath,
-    headers: columns.map((c) => ({ header: c.header })),
-    rows: localizedData.map((item) => ({
-      cols: columns.map((c) => ({ cell: item[c.key] || '' })),
-    })),
+    branch_name: headerData.localBranchName || headerData.regionalAssociationName,
+    image_national: headerData.nationalLogoPath || false,
+    image_branch: headerData.regionalLocalLogoPath || false,
+    table: table,
   };
 
   doc.render(templateData);
