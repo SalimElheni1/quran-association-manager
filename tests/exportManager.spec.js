@@ -2,11 +2,12 @@ const fs = require('fs');
 const os = 'os';
 const path = require('path');
 const { BrowserWindow } = require('electron');
-const { generatePdf, generateXlsx, generateDocx } = require('../src/main/exportManager');
+const { generatePdf, generateDocx } = require('../src/main/exportManager');
+const docx = require('docx');
 
 // Mock dependencies
 jest.mock('fs', () => ({
-  ...jest.requireActual('fs'), // Keep original fs methods
+  ...jest.requireActual('fs'),
   readFileSync: jest.fn().mockReturnValue('<html><body>{report_title} on {date} and {report_title}</body></html>'),
   writeFileSync: jest.fn(),
   unlinkSync: jest.fn(),
@@ -24,6 +25,17 @@ jest.mock('electron', () => ({
   })),
 }));
 
+// Mock the docx library
+jest.mock('docx', () => {
+    const originalDocx = jest.requireActual('docx');
+    return {
+        ...originalDocx,
+        Packer: {
+            toBuffer: jest.fn().mockResolvedValue(Buffer.from('docx content')),
+        },
+        Table: jest.fn(), // Mock the Table constructor
+    };
+});
 
 describe('Export Manager Unit Tests', () => {
 
@@ -88,6 +100,29 @@ describe('Export Manager Unit Tests', () => {
       expect(writtenHtml).toContain('م /');
       // A simple check for a Hijri year, assuming current year is 14xx
       expect(writtenHtml).toMatch(/14\d{2}/);
+    });
+  });
+
+  describe('generateDocx', () => {
+    const mockHeaderData = {
+      nationalAssociationName: 'National',
+      localBranchName: 'Local',
+    };
+    const data = [
+      { f1: 'd1', f2: 'd2' },
+      { f1: 'd3', f2: 'd4' },
+    ];
+
+    it('should create a table with the correct number of rows', async () => {
+      const columns = [
+        { header: 'h1', key: 'f1' },
+        { header: 'h2', key: 'f2' },
+      ];
+      await generateDocx('Test', columns, data, 'test.docx', mockHeaderData);
+
+      expect(docx.Table).toHaveBeenCalledTimes(1);
+      const tableArgs = docx.Table.mock.calls[0][0];
+      expect(tableArgs.rows.length).toBe(data.length + 1); // +1 for header
     });
   });
 });

@@ -3,10 +3,7 @@ const path = require('path');
 const os = require('os');
 const { BrowserWindow } = require('electron');
 const ExcelJS = require('exceljs');
-const PizZip = require('pizzip');
-const Docxtemplater = require('docxtemplater');
-const ImageModule = require('docxtemplater-image');
-const { imageSize } = require('image-size');
+const docx = require('docx');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
 const {
@@ -369,53 +366,9 @@ async function generateFinancialXlsx(data, outputPath) {
 }
 
 // --- DOCX Generation ---
-function generateDocx(title, columns, data, outputPath, headerData) {
+async function generateDocx(title, columns, data, outputPath, headerData) {
+  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation } = docx;
   const localizedData = localizeData(data);
-  const templatePath = path.resolve(__dirname, 'export_templates/export_template_v2.docx');
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(
-      `TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`,
-    );
-  }
-  const content = fs.readFileSync(templatePath, 'binary');
-
-  const imageOpts = {
-    centered: false,
-    fileType: 'docx',
-    getImage: (tagValue) => {
-      if (!tagValue) return null;
-      const imagePath = path.resolve(process.cwd(), 'public', tagValue);
-      if (fs.existsSync(imagePath)) {
-        return fs.readFileSync(imagePath);
-      }
-      return null;
-    },
-    getSize: (img) => {
-      if (img) {
-        const dimensions = imageSize(img);
-        const maxWidth = 100; // Adjusted for better layout
-        const maxHeight = 50;
-        const ratio = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height);
-        return [dimensions.width * ratio, dimensions.height * ratio];
-      }
-      return [0, 0];
-    },
-  };
-
-  const imageModule = new ImageModule(imageOpts);
-  const zip = new PizZip(content);
-
-  let doc;
-  try {
-    doc = new Docxtemplater(zip, {
-      modules: [imageModule],
-      paragraphLoop: true,
-    });
-  } catch (error) {
-    throw new Error(
-      'TEMPLATE_INVALID: Could not read the DOCX template. Is it a valid, non-empty Word document?',
-    );
-  }
 
   const titleMap = {
     students: 'تقرير الطلاب',
@@ -437,36 +390,76 @@ function generateDocx(title, columns, data, outputPath, headerData) {
     day: 'numeric',
   }).format(new Date());
 
-  const table = [];
-  // Add header row
-  table.push({
-    is_header: true,
-    cols: columns.map(c => ({ text: c.header }))
-  });
-  // Add data rows
-  localizedData.forEach(item => {
-    table.push({
-      cols: columns.map(c => ({ text: item[c.key] || '' }))
-    });
+  const tableHeader = new TableRow({
+    children: columns.map(
+      (col) =>
+        new TableCell({
+          children: [new Paragraph({ text: col.header, alignment: AlignmentType.CENTER })],
+          verticalAlign: VerticalAlign.CENTER,
+        }),
+    ),
+    tableHeader: true,
   });
 
-  const templateData = {
-    report_title: arabicTitle,
-    date: `${gregorianDate} م / ${hijriDate}`,
-    national_association_name: headerData.nationalAssociationName,
-    branch_name: headerData.localBranchName || headerData.regionalAssociationName,
-    image_national: headerData.nationalLogoPath || false,
-    image_branch: headerData.regionalLocalLogoPath || false,
-    table: table,
-  };
+  const dataRows = localizedData.map(
+    (item) =>
+      new TableRow({
+        children: columns.map(
+          (col) =>
+            new TableCell({
+              children: [new Paragraph(String(item[col.key] || ''))],
+            }),
+        ),
+      }),
+  );
 
-  doc.render(templateData);
-
-  const buf = doc.getZip().generate({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
+  const table = new Table({
+    rows: [tableHeader, ...dataRows],
+    width: {
+      size: 100,
+      type: WidthType.PERCENTAGE,
+    },
   });
-  fs.writeFileSync(outputPath, buf);
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 720, right: 720, bottom: 720, left: 720 },
+            orientation:
+              columns.length > 5 ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+          },
+        },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: headerData.nationalAssociationName, bold: true })],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: headerData.localBranchName || headerData.regionalAssociationName || '' }),
+            ],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({ text: '' }), // Spacer
+          new Paragraph({
+            children: [new TextRun({ text: arabicTitle, bold: true, size: 28 })],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: `${gregorianDate} م / ${hijriDate}`, size: 20 })],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({ text: '' }), // Spacer
+          table,
+        ],
+      },
+    ],
+  });
+
+  const buffer = await Packer.toBuffer(doc);
+  fs.writeFileSync(outputPath, buffer);
 }
 
 // --- Excel (XLSX) Template Generation ---
