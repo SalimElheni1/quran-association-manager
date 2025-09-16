@@ -5,6 +5,8 @@ const { BrowserWindow } = require('electron');
 const ExcelJS = require('exceljs');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
+const ImageModule = require('docxtemplater-image');
+const sizeOf = require('image-size');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
 const {
@@ -14,6 +16,31 @@ const {
   handleGetDonations,
   handleGetExpenses,
 } = require('./financialHandlers');
+
+// --- Header Data ---
+async function getExportHeaderData() {
+  const [
+    nationalAssociationName,
+    regionalAssociationName,
+    localBranchName,
+    nationalLogoPath,
+    regionalLocalLogoPath,
+  ] = await Promise.all([
+    getSetting('national_association_name'),
+    getSetting('regional_association_name'),
+    getSetting('local_branch_name'),
+    getSetting('national_logo_path'),
+    getSetting('regional_local_logo_path'),
+  ]);
+
+  return {
+    nationalAssociationName,
+    regionalAssociationName,
+    localBranchName,
+    nationalLogoPath,
+    regionalLocalLogoPath,
+  };
+}
 
 // --- Data Fetching ---
 async function fetchFinancialData(period) {
@@ -130,11 +157,12 @@ function localizeData(data) {
 }
 
 // --- PDF Generation ---
-async function generatePdf(title, columns, data, outputPath) {
+async function generatePdf(title, columns, data, outputPath, headerData) {
   const localizedData = localizeData(data);
-  // 1. Create the HTML content
-  const templatePath = path.resolve(__dirname, 'export_templates/report_template.html');
-  const templateHtml = fs.readFileSync(templatePath, 'utf8');
+  let templateHtml = fs.readFileSync(
+    path.resolve(__dirname, 'export_templates/report_template.html'),
+    'utf8',
+  );
 
   const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
   const rows = localizedData
@@ -144,16 +172,33 @@ async function generatePdf(title, columns, data, outputPath) {
     })
     .join('');
 
-  let finalHtml = templateHtml.replace('{title}', title);
-  finalHtml = finalHtml.replace('{date}', new Date().toLocaleDateString('ar-SA'));
-  finalHtml = finalHtml.replace('{table_headers}', headers);
-  finalHtml = finalHtml.replace('{table_rows}', rows);
+  const getBase64Image = (imagePath) => {
+    if (!imagePath) return '';
+    const resolvedPath = path.resolve(process.cwd(), 'public', imagePath);
+    if (!fs.existsSync(resolvedPath)) return '';
+    const imageBuffer = fs.readFileSync(resolvedPath);
+    const mimeType = resolvedPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+    return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+  };
 
-  // 2. Write to a temporary HTML file
+  const replacements = {
+    '{report_title}': title,
+    '{date}': new Date().toLocaleDateString('ar-SA'),
+    '{table_headers}': headers,
+    '{table_rows}': rows,
+    '{national_association_name}': headerData.nationalAssociationName || '',
+    '{branch_name}': headerData.regionalAssociationName || headerData.localBranchName || '',
+    '{image_national}': getBase64Image(headerData.nationalLogoPath),
+    '{image_branch}': getBase64Image(headerData.regionalLocalLogoPath),
+  };
+
+  for (const [key, value] of Object.entries(replacements)) {
+    templateHtml = templateHtml.replace(new RegExp(key.replace(/}/g, '\\}').replace(/{/g, '\\{'), 'g'), value);
+  }
+
   const tempHtmlPath = path.join(os.tmpdir(), `report-${Date.now()}.html`);
-  fs.writeFileSync(tempHtmlPath, finalHtml);
+  fs.writeFileSync(tempHtmlPath, templateHtml);
 
-  // 3. Create a hidden browser window
   const win = new BrowserWindow({
     show: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true },
@@ -162,32 +207,78 @@ async function generatePdf(title, columns, data, outputPath) {
   try {
     await win.loadFile(tempHtmlPath);
 
-    // 4. Print the window's contents to PDF
+    const landscape = columns.length > 4;
     const pdfData = await win.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
+      landscape,
     });
 
-    // 5. Save the PDF
     fs.writeFileSync(outputPath, pdfData);
   } finally {
-    // 6. Clean up
     win.close();
-    fs.unlinkSync(tempHtmlPath);
+    if (fs.existsSync(tempHtmlPath)) {
+      fs.unlinkSync(tempHtmlPath);
+    }
   }
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(columns, data, outputPath) {
+async function generateXlsx(columns, data, outputPath, headerData) {
   const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
   worksheet.views = [{ rightToLeft: true }];
 
+  // Define table structure first
   worksheet.columns = columns.map((col) => ({ ...col, width: 25 }));
-
+  // Add data rows
   worksheet.addRows(localizedData);
+  // Style the header row of the table
   worksheet.getRow(1).font = { bold: true };
+
+  // --- Insert Header Information Above the Table ---
+  const headerRowCount = 4; // 3 for logos/space, 1 for names
+  worksheet.insertRows(1, Array(headerRowCount).fill([]));
+
+  // Helper to add images
+  const addImageToWorksheet = (imagePath, range) => {
+    if (!imagePath) return;
+    const resolvedPath = path.resolve(process.cwd(), 'public', imagePath);
+    if (fs.existsSync(resolvedPath)) {
+      const ext = path.extname(resolvedPath).substring(1);
+      const imageId = workbook.addImage({
+        buffer: fs.readFileSync(resolvedPath),
+        extension: ext === 'jpg' ? 'jpeg' : ext,
+      });
+      worksheet.addImage(imageId, range);
+    }
+  };
+
+  // Add logos to the top-left and top-right of the sheet
+  const maxCol = columns.length > 1 ? columns.length - 1 : 1;
+  addImageToWorksheet(headerData.nationalLogoPath, {
+    tl: { col: 0, row: 0 },
+    ext: { width: 100, height: 50 },
+  });
+  addImageToWorksheet(headerData.regionalLocalLogoPath, {
+    tl: { col: maxCol - 1 > 0 ? maxCol -1 : 0, row: 0 },
+    ext: { width: 100, height: 50 },
+  });
+
+
+  // Add Association Names, centered
+  const mergeAcross = `A4:${String.fromCharCode(65 + maxCol)}4`;
+  worksheet.mergeCells(mergeAcross);
+  const titleCell = worksheet.getCell('A4');
+  const branchName = headerData.regionalAssociationName || headerData.localBranchName;
+  titleCell.value = `${headerData.nationalAssociationName || ''} - ${branchName || ''}`;
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.font = { bold: true, size: 16 };
+
+  // Adjust the original table header row style, which has now shifted down
+  worksheet.getRow(headerRowCount + 1).font = { bold: true };
+
   await workbook.xlsx.writeFile(outputPath);
 }
 
@@ -258,15 +349,40 @@ async function generateFinancialXlsx(data, outputPath) {
 }
 
 // --- DOCX Generation ---
-function generateDocx(title, columns, data, outputPath) {
+function generateDocx(title, columns, data, outputPath, headerData) {
   const localizedData = localizeData(data);
-  const templatePath = path.resolve(__dirname, 'export_templates/export_template.docx');
+  const templatePath = path.resolve(__dirname, 'export_templates/export_template_v2.docx');
   if (!fs.existsSync(templatePath)) {
     throw new Error(
       `TEMPLATE_NOT_FOUND: DOCX template not found at ${templatePath}. Please create it.`,
     );
   }
   const content = fs.readFileSync(templatePath, 'binary');
+
+  // Configure the image module
+  const imageOpts = {
+    centered: false,
+    fileType: 'docx',
+    getImage: (tagValue) => {
+      if (!tagValue) return null;
+      const imagePath = path.resolve(process.cwd(), 'public', tagValue);
+      if (fs.existsSync(imagePath)) {
+        return fs.readFileSync(imagePath);
+      }
+      return null;
+    },
+    getSize: (img) => {
+      if (img) {
+        const dimensions = sizeOf(img);
+        const maxWidth = 150;
+        const maxHeight = 75;
+        const ratio = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height);
+        return [dimensions.width * ratio, dimensions.height * ratio];
+      }
+      return [0, 0];
+    },
+  };
+  const imageModule = new ImageModule(imageOpts);
 
   let zip;
   try {
@@ -277,29 +393,29 @@ function generateDocx(title, columns, data, outputPath) {
     );
   }
 
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-  });
+  const doc = new Docxtemplater()
+    .attachModule(imageModule)
+    .loadZip(zip)
+    .setOptions({
+      paragraphLoop: true,
+      linebreaks: true,
+    });
 
   const templateData = {
-    title: title,
+    report_title: title,
     date: new Date().toLocaleDateString('ar-SA'),
-    c1: columns[0]?.header || '',
-    c2: columns[1]?.header || '',
-    c3: columns[2]?.header || '',
-    c4: columns[3]?.header || '',
-    data: localizedData.map((item) => {
-      return {
-        d1: item[columns[0]?.key] || '',
-        d2: item[columns[1]?.key] || '',
-        d3: item[columns[2]?.key] || '',
-        d4: item[columns[3]?.key] || '',
-      };
-    }),
+    national_association_name: headerData.nationalAssociationName,
+    branch_name: headerData.regionalAssociationName || headerData.localBranchName,
+    image_national: headerData.nationalLogoPath,
+    image_branch: headerData.regionalLocalLogoPath,
+    headers: columns.map((c) => ({ header: c.header })),
+    rows: localizedData.map((item) => ({
+      cols: columns.map((c) => ({ cell: item[c.key] || '' })),
+    })),
   };
 
   doc.render(templateData);
+
   const buf = doc.getZip().generate({
     type: 'nodebuffer',
     compression: 'DEFLATE',
@@ -913,6 +1029,7 @@ async function generateDevExcelTemplate(outputPath) {
 }
 
 module.exports = {
+  getExportHeaderData,
   fetchExportData,
   fetchFinancialData,
   generatePdf,
