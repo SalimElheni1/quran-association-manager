@@ -367,7 +367,7 @@ async function generateFinancialXlsx(data, outputPath) {
 
 // --- DOCX Generation ---
 async function generateDocx(title, columns, data, outputPath, headerData) {
-  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, Bidi, Media } = docx;
+  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, ImageRun, Header } = docx;
   const localizedData = localizeData(data);
 
   const titleMap = {
@@ -429,7 +429,10 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
     if (!logoPath) return null;
     const resolvedPath = path.resolve(process.cwd(), 'public', logoPath);
     if (fs.existsSync(resolvedPath)) {
-      return Media.addImage(fs.readFileSync(resolvedPath), 100, 50);
+      return new ImageRun({
+        data: fs.readFileSync(resolvedPath),
+        transformation: { width: 100, height: 50 },
+      });
     }
     return null;
   }
@@ -448,16 +451,16 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
           },
         },
         headers: {
-            default: new docx.Header({
+            default: new Header({
                 children: [new Table({
                     rows: [new TableRow({
                         children: [
-                            new TableCell({ children: [new Paragraph(nationalLogo || '')]}),
+                            new TableCell({ children: [new Paragraph(branchLogo || '')]}),
                             new TableCell({ children: [
                                 new Paragraph({ text: headerData.nationalAssociationName, alignment: AlignmentType.CENTER, bidirectional: true }),
                                 new Paragraph({ text: headerData.localBranchName || headerData.regionalAssociationName || '', alignment: AlignmentType.CENTER, bidirectional: true }),
                             ]}),
-                            new TableCell({ children: [new Paragraph(branchLogo || '')]}),
+                            new TableCell({ children: [new Paragraph(nationalLogo || '')]}),
                         ],
                     })],
                     width: { size: 100, type: WidthType.PERCENTAGE }
