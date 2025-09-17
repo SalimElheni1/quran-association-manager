@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const ExcelJS = require('exceljs');
 const docx = require('docx');
 const { allQuery } = require('../db/db');
@@ -12,6 +12,7 @@ const {
   handleGetSalaries,
   handleGetDonations,
   handleGetExpenses,
+  handleGetInventoryItems,
 } = require('./financialHandlers');
 
 // --- Header Data ---
@@ -52,7 +53,9 @@ async function fetchFinancialData(period) {
     handleGetDonations(null, period),
     handleGetExpenses(null, period),
   ]);
-  return { summary, payments, salaries, donations, expenses };
+  // include inventory items for the financial export
+  const inventory = await handleGetInventoryItems();
+  return { summary, payments, salaries, donations, expenses, inventory };
 }
 
 async function fetchExportData({ type, fields, options = {} }) {
@@ -68,7 +71,29 @@ async function fetchExportData({ type, fields, options = {} }) {
     case 'students': {
       query = `SELECT ${fieldSelection} FROM students`;
       const adultAge = getSetting('adultAgeThreshold');
-      if (options.gender) {
+      // If a groupId is provided, export only students belonging to that group.
+      if (options.groupId) {
+        // Join with student_groups to filter by group membership
+        query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ?`;
+        params.push(options.groupId);
+        // Allow additional gender-based constraints only if explicitly provided and not conflicting
+        if (options.gender) {
+          if (options.gender === 'men') {
+            query += ' AND s.gender = ?';
+            params.push('Male');
+            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?`;
+            params.push(adultAge);
+          } else if (options.gender === 'women') {
+            query += ' AND s.gender = ?';
+            params.push('Female');
+            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?`;
+            params.push(adultAge);
+          } else if (options.gender === 'kids') {
+            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?`;
+            params.push(adultAge);
+          }
+        }
+      } else if (options.gender) {
         if (options.gender === 'men') {
           whereClauses.push('gender = ?');
           params.push('Male');
@@ -84,7 +109,9 @@ async function fetchExportData({ type, fields, options = {} }) {
           params.push(adultAge);
         }
       }
-      query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
+      // Only append WHERE clause if we didn't already build a grouped query above
+      if (!options.groupId) query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
+      else query += ' ORDER BY s.name';
       break;
     }
     case 'teachers': {
@@ -144,12 +171,38 @@ function localizeData(data) {
   const genderMap = {
     Male: 'ذكر',
     Female: 'أنثى',
+    men: 'رجال',
+    women: 'نساء',
+    kids: 'أطفال',
+    all: 'الكل',
   };
+  const statusMap = {
+    active: 'نشط',
+    inactive: 'غير نشط',
+    pending: 'معلق',
+  };
+  const paymentMethodMap = {
+    Cash: 'نقداً',
+    'Bank Transfer': 'تحويل بنكي',
+    cash: 'نقداً',
+    'bank transfer': 'تحويل بنكي',
+  };
+  const donationTypeMap = {
+    Cash: 'نقدي',
+    'In-kind': 'عيني',
+    cash: 'نقدي',
+    'in-kind': 'عيني',
+  };
+
   return data.map((row) => {
-    if (row.gender && genderMap[row.gender]) {
-      return { ...row, gender: genderMap[row.gender] };
-    }
-    return row;
+    const out = { ...row };
+    if (out.gender && genderMap[out.gender]) out.gender = genderMap[out.gender];
+    if (out.status && statusMap[out.status]) out.status = statusMap[out.status];
+    if (out.payment_method && paymentMethodMap[out.payment_method])
+      out.payment_method = paymentMethodMap[out.payment_method];
+    if (out.donation_type && donationTypeMap[out.donation_type])
+      out.donation_type = donationTypeMap[out.donation_type];
+    return out;
   });
 }
 
@@ -171,11 +224,42 @@ async function generatePdf(title, columns, data, outputPath, headerData) {
 
   const getBase64Image = (imagePath) => {
     if (!imagePath) return '';
-    const resolvedPath = path.resolve(process.cwd(), 'public', imagePath);
-    if (!fs.existsSync(resolvedPath)) return '';
-    const imageBuffer = fs.readFileSync(resolvedPath);
-    const mimeType = resolvedPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    return `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    const candidates = [];
+    try {
+      if (path.isAbsolute(imagePath)) {
+        candidates.push(imagePath);
+      } else {
+        // user-uploaded files live under userData (internalCopyLogoAsset returns a relative path)
+        try {
+          const userDataPath = app.getPath('userData');
+          candidates.push(path.resolve(userDataPath, imagePath));
+        } catch (e) {
+          // ignore
+        }
+        candidates.push(path.resolve(process.cwd(), 'public', imagePath));
+        candidates.push(path.resolve(__dirname, '..', 'public', imagePath));
+        candidates.push(path.resolve(__dirname, imagePath));
+      }
+    } catch (e) {
+      candidates.push(imagePath);
+    }
+
+    for (const p of candidates) {
+      if (!p) continue;
+      try {
+        if (fs.existsSync(p)) {
+          const buffer = fs.readFileSync(p);
+          if (!buffer || buffer.length === 0) continue;
+          const ext = path.extname(p).toLowerCase();
+          const mimeType =
+            ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+          return `data:${mimeType};base64,${buffer.toString('base64')}`;
+        }
+      } catch (err) {
+        continue;
+      }
+    }
+    return '';
   };
 
   const titleMap = {
@@ -210,7 +294,10 @@ async function generatePdf(title, columns, data, outputPath, headerData) {
   };
 
   for (const [key, value] of Object.entries(replacements)) {
-    templateHtml = templateHtml.replace(new RegExp(key.replace(/}/g, '\\}').replace(/{/g, '\\{'), 'g'), value);
+    templateHtml = templateHtml.replace(
+      new RegExp(key.replace(/}/g, '\\}').replace(/{/g, '\\{'), 'g'),
+      value,
+    );
   }
 
   const tempHtmlPath = path.join(os.tmpdir(), `report-${Date.now()}.html`);
@@ -241,7 +328,7 @@ async function generatePdf(title, columns, data, outputPath, headerData) {
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(columns, data, outputPath, headerData) {
+async function generateXlsx(columns, data, outputPath) {
   const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Exported Data');
@@ -254,47 +341,33 @@ async function generateXlsx(columns, data, outputPath, headerData) {
   // Style the header row of the table
   worksheet.getRow(1).font = { bold: true };
 
-  // --- Insert Header Information Above the Table ---
-  const headerRowCount = 4; // 3 for logos/space, 1 for names
-  worksheet.insertRows(1, Array(headerRowCount).fill([]));
-
-  // Helper to add images
-  const addImageToWorksheet = (imagePath, range) => {
-    if (!imagePath) return;
-    const resolvedPath = path.resolve(process.cwd(), 'public', imagePath);
-    if (fs.existsSync(resolvedPath)) {
-      const ext = path.extname(resolvedPath).substring(1);
-      const imageId = workbook.addImage({
-        buffer: fs.readFileSync(resolvedPath),
-        extension: ext === 'jpg' ? 'jpeg' : ext,
-      });
-      worksheet.addImage(imageId, range);
-    }
+  // --- Insert Title Above the Table (no logos for XLSX exports) ---
+  // We'll insert a single title row merged across the table columns.
+  const titleMap = {
+    students: 'تقرير الطلاب',
+    teachers: 'تقرير المعلمين',
+    admins: 'تقرير المستخدمين',
+    attendance: 'تقرير الحضور',
   };
-
-  // Add logos to the top-left and top-right of the sheet
-  const maxCol = columns.length > 1 ? columns.length - 1 : 1;
-  addImageToWorksheet(headerData.nationalLogoPath, {
-    tl: { col: 0, row: 0 },
-    ext: { width: 100, height: 50 },
-  });
-  addImageToWorksheet(headerData.regionalLocalLogoPath, {
-    tl: { col: maxCol - 1 > 0 ? maxCol -1 : 0, row: 0 },
-    ext: { width: 100, height: 50 },
-  });
-
-
-  // Add Association Names, centered
-  const mergeAcross = `A4:${String.fromCharCode(65 + maxCol)}4`;
-  worksheet.mergeCells(mergeAcross);
-  const titleCell = worksheet.getCell('A4');
-  const branchName = headerData.regionalAssociationName || headerData.localBranchName;
-  titleCell.value = `${headerData.nationalAssociationName || ''} - ${branchName || ''}`;
+  // Try to infer export type from the first column's key (caller provides report title in later step)
+  const exportTypeGuess = (columns && columns[0] && columns[0].key) || '';
+  const arabicTitle = titleMap[exportTypeGuess] || '';
+  // Insert one empty row then the title row then another spacer row so headers shift down by 2
+  worksheet.insertRow(1, []);
+  worksheet.insertRow(2, [arabicTitle]);
+  worksheet.mergeCells(2, 1, 2, columns.length);
+  const titleCell = worksheet.getCell(2, 1);
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   titleCell.font = { bold: true, size: 16 };
+  worksheet.insertRow(3, []);
 
-  // Adjust the original table header row style, which has now shifted down
-  worksheet.getRow(headerRowCount + 1).font = { bold: true };
+  // XLSX exports intentionally omit logo resolution helpers to keep sheets focused on data.
+
+  // Note: XLSX exports intentionally omit logos to keep sheets clean and focused on data.
+
+  // Adjust the original table header row style, which has shifted down because of our inserted rows
+  // Header row will now be row 4 (two inserted + title + spacer)
+  worksheet.getRow(4).font = { bold: true };
 
   await workbook.xlsx.writeFile(outputPath);
 }
@@ -367,7 +440,22 @@ async function generateFinancialXlsx(data, outputPath) {
 
 // --- DOCX Generation ---
 async function generateDocx(title, columns, data, outputPath, headerData) {
-  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, ImageRun, Header, BorderStyle } = docx;
+  const {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun,
+    Table,
+    TableCell,
+    TableRow,
+    WidthType,
+    AlignmentType,
+    VerticalAlign,
+    PageOrientation,
+    ImageRun,
+    Header,
+    BorderStyle,
+  } = docx;
   const localizedData = localizeData(data);
 
   const titleMap = {
@@ -391,10 +479,17 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
   }).format(new Date());
 
   const tableHeader = new TableRow({
-    children: columns.map(
+    // Reverse columns so that the first logical column appears on the right in RTL Word docs
+    children: [...columns].reverse().map(
       (col) =>
         new TableCell({
-          children: [new Paragraph({ text: col.header, alignment: AlignmentType.CENTER })],
+          children: [
+            new Paragraph({
+              text: col.header,
+              alignment: AlignmentType.CENTER,
+              bidirectional: true,
+            }),
+          ],
           verticalAlign: VerticalAlign.CENTER,
         }),
     ),
@@ -404,20 +499,35 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
   const dataRows = localizedData.map(
     (item) =>
       new TableRow({
-        children: columns.map(
-          (col) =>
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun(String(item[col.key] || ''))],
-                bidirectional: true,
-              })],
-            }),
-        ),
+        // Reverse column order for RTL
+        children: [...columns]
+          .slice()
+          .reverse()
+          .map(
+            (col) =>
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    // Preserve numeric 0 and boolean false (only convert null/undefined to empty)
+                    children: (() => {
+                      const cellValue =
+                        item[col.key] === undefined || item[col.key] === null ? '' : item[col.key];
+
+                      return [new TextRun(String(cellValue))];
+                    })(),
+                    bidirectional: true,
+                  }),
+                ],
+              }),
+          ),
       }),
   );
 
   const mainTable = new Table({
-    rows: [tableHeader, ...dataRows],
+    // For RTL documents the visual order in Word places the first logical column on the right.
+    // To ensure columns appear in the logical order expected, reverse the column order in each row
+    // when creating the docx Table so that Word lays them out correctly.
+    rows: [tableHeader, ...dataRows.map((r) => r)],
     width: {
       size: 100,
       type: WidthType.PERCENTAGE,
@@ -427,39 +537,106 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
 
   const getLogo = (logoPath) => {
     if (!logoPath) return null;
-    const resolvedPath = path.resolve(process.cwd(), 'public', logoPath);
-    if (fs.existsSync(resolvedPath)) {
-      return new ImageRun({
-        data: fs.readFileSync(resolvedPath),
-        transformation: { width: 100, height: 50 },
-      });
+    // Try several sensible locations: if absolute, use as-is; otherwise try ./public/<logoPath>
+    const candidates = [];
+    try {
+      if (path.isAbsolute(logoPath)) {
+        candidates.push(logoPath);
+      } else {
+        // Prefer userData (uploaded by user) first
+        try {
+          const userDataPath = app.getPath('userData');
+          candidates.push(path.resolve(userDataPath, logoPath));
+        } catch (e) {
+          // ignore
+        }
+        // Then packaged/public paths
+        candidates.push(path.resolve(process.cwd(), 'public', logoPath));
+        candidates.push(path.resolve(__dirname, '..', 'public', logoPath));
+        // also allow relative paths from current module
+        candidates.push(path.resolve(__dirname, logoPath));
+      }
+    } catch (e) {
+      candidates.push(logoPath);
+    }
+
+    for (const p of candidates) {
+      if (!p) continue;
+      try {
+        if (fs.existsSync(p)) {
+          const ext = path.extname(p).toLowerCase();
+          // only handle common image extensions; skip unknowns to avoid embedding invalid data
+          if (!['.png', '.jpg', '.jpeg', '.gif'].includes(ext)) continue;
+          const buffer = fs.readFileSync(p);
+          if (!buffer || buffer.length === 0) continue;
+          return new ImageRun({ data: buffer, transformation: { width: 100, height: 50 } });
+        }
+      } catch (err) {
+        // ignore and try next candidate
+        continue;
+      }
     }
     return null;
-  }
+  };
 
   const nationalLogo = getLogo(headerData.nationalLogoPath);
   const branchLogo = getLogo(headerData.regionalLocalLogoPath);
 
   const headerTable = new Table({
-    rows: [new TableRow({
+    rows: [
+      new TableRow({
         children: [
-            new TableCell({ children: [new Paragraph({ children: [branchLogo].filter(Boolean)})], verticalAlign: VerticalAlign.CENTER }),
-            new TableCell({ children: [
-                new Paragraph({ text: headerData.nationalAssociationName, alignment: AlignmentType.CENTER, bidirectional: true }),
-                new Paragraph({ text: headerData.localBranchName || headerData.regionalAssociationName || '', alignment: AlignmentType.CENTER, bidirectional: true }),
-            ], verticalAlign: VerticalAlign.CENTER}),
-            new TableCell({ children: [new Paragraph({ children: [nationalLogo].filter(Boolean)})], verticalAlign: VerticalAlign.CENTER }),
+          new TableCell({
+            children: [
+              (() => {
+                const children = [];
+                if (branchLogo) children.push(branchLogo);
+                // docx requires paragraphs to have at least one child; add a fallback empty TextRun so packer
+                // doesn't produce empty paragraphs which can trigger Word recovery warnings.
+                children.push(new TextRun(''));
+                return new Paragraph({ children, bidirectional: true });
+              })(),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            children: [
+              new Paragraph({
+                text: headerData.nationalAssociationName || '',
+                alignment: AlignmentType.CENTER,
+                bidirectional: true,
+              }),
+              new Paragraph({
+                text: headerData.localBranchName || headerData.regionalAssociationName || '',
+                alignment: AlignmentType.CENTER,
+                bidirectional: true,
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            children: [
+              (() => {
+                const children = [];
+                if (nationalLogo) children.push(nationalLogo);
+                children.push(new TextRun(''));
+                return new Paragraph({ children, bidirectional: true });
+              })(),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
         ],
-    })],
+      }),
+    ],
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: {
-        top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-        insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-    }
+      top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    },
   });
 
   const doc = new Document({
@@ -468,14 +645,13 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
         properties: {
           page: {
             margin: { top: 720, right: 720, bottom: 720, left: 720 },
-            orientation:
-              columns.length > 5 ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+            orientation: columns.length > 5 ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
           },
         },
         headers: {
-            default: new Header({
-                children: [headerTable],
-            }),
+          default: new Header({
+            children: [headerTable],
+          }),
         },
         children: [
           new Paragraph({
@@ -493,8 +669,18 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
     ],
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  fs.writeFileSync(outputPath, buffer);
+  // Pack document and write only if packing succeeds. Catch errors and surface them
+  try {
+    const buffer = await Packer.toBuffer(doc);
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Packer produced empty buffer for DOCX document');
+    }
+    fs.writeFileSync(outputPath, buffer);
+  } catch (err) {
+    // Provide helpful diagnostics in console; do not write an empty/corrupt file
+    console.warn('Failed to generate DOCX:', err && err.message ? err.message : err);
+    throw err; // let caller handle the error
+  }
 }
 
 // --- Excel (XLSX) Template Generation ---

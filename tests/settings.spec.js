@@ -1,8 +1,6 @@
 const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandlers');
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
-const fs = require('fs');
-const path = require('path');
 const backupManager = require('../src/main/backupManager');
 
 // Mock dependencies
@@ -90,6 +88,11 @@ describe('Settings Handlers', () => {
       expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
         'false',
         'backup_enabled',
+      ]);
+      // adultAgeThreshold should be written to snake_case DB key
+      expect(db.runQuery).toHaveBeenCalledWith('UPDATE settings SET value = ? WHERE key = ?', [
+        '18',
+        'adult_age_threshold',
       ]);
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(backupManager.startScheduler).toHaveBeenCalled();

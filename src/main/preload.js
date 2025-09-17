@@ -43,12 +43,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateGroup: (id, groupData) => ipcRenderer.invoke('groups:update', id, groupData),
   deleteGroup: (id) => ipcRenderer.invoke('groups:delete', id),
   getGroupStudents: (groupId) => ipcRenderer.invoke('groups:getGroupStudents', groupId),
-  addStudentToGroup: (studentId, groupId) => ipcRenderer.invoke('groups:addStudentToGroup', { studentId, groupId }),
-  removeStudentFromGroup: (studentId, groupId) => ipcRenderer.invoke('groups:removeStudentFromGroup', { studentId, groupId }),
+  addStudentToGroup: (studentId, groupId) =>
+    ipcRenderer.invoke('groups:addStudentToGroup', { studentId, groupId }),
+  removeStudentFromGroup: (studentId, groupId) =>
+    ipcRenderer.invoke('groups:removeStudentFromGroup', { studentId, groupId }),
   getStudentGroups: (studentId) => ipcRenderer.invoke('groups:getStudentGroups', studentId),
   getAssignmentData: (groupId) => ipcRenderer.invoke('groups:getAssignmentData', groupId),
   updateGroupStudents: (data) => ipcRenderer.invoke('groups:updateGroupStudents', data),
-  getEligibleGroupsForClass: (classId) => ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
+  getEligibleGroupsForClass: (classId) =>
+    ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
 
   // Settings API
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -101,7 +104,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
-  deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete',id),
+  deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete', id),
 
   getSalaries: () => ipcRenderer.invoke('get-salaries'),
   addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
@@ -115,8 +118,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getFinancialSummary: (year) => ipcRenderer.invoke('get-financial-summary', year),
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
-  getStatementOfActivities: (period) =>
-    ipcRenderer.invoke('get-statement-of-activities', period),
+  getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),
   // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
   // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
   // getChartData: () => ipcRenderer.invoke('get-chart-data'),

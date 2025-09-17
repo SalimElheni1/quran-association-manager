@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
@@ -176,26 +176,43 @@ app.whenReady().then(async () => {
       try {
         const url = request.url.replace('safe-image://', '');
         const decodedUrl = decodeURI(url);
-        let fullPath;
 
-        // Check for absolute paths first (for user-uploaded content)
-        if (path.isAbsolute(decodedUrl) && fs.existsSync(decodedUrl)) {
-          fullPath = decodedUrl;
-        } else {
-          // Otherwise, resolve relative to app assets
-          if (app.isPackaged) {
-            fullPath = path.join(process.resourcesPath, 'app.asar', 'public', decodedUrl);
-          } else {
-            fullPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
-          }
+        // If it's an absolute path, try it directly
+        if (path.isAbsolute(decodedUrl)) {
+          if (fs.existsSync(decodedUrl)) return callback({ path: decodedUrl });
+          return callback({ error: -6 });
         }
 
-        if (fs.existsSync(fullPath)) {
-          callback({ path: fullPath });
-        } else {
-          logError(`[safe-image] File not found: ${fullPath}`);
-          callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+        // First check userData assets folder (where uploaded logos are copied)
+        const userDataPath = app.getPath('userData');
+        const userAssetPath = path.join(userDataPath, decodedUrl);
+        if (fs.existsSync(userAssetPath)) {
+          return callback({ path: userAssetPath });
         }
+
+        // Next check the app's public assets. When packaged, resourcesPath points
+        // to the folder containing the app.asar; public assets may either be
+        // in the unpacked resources or inside app.asar — attempt resourcesPath/public first.
+        let publicPath;
+        if (app.isPackaged) {
+          publicPath = path.join(process.resourcesPath, 'public', decodedUrl);
+        } else {
+          publicPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+        }
+        if (fs.existsSync(publicPath)) {
+          return callback({ path: publicPath });
+        }
+
+        // As a last resort, check for the resource inside an unpacked assets folder
+        const alternative = path.join(process.resourcesPath || app.getAppPath(), decodedUrl);
+        if (fs.existsSync(alternative)) {
+          return callback({ path: alternative });
+        }
+
+        logError(
+          `[safe-image] File not found (checked userData, public, resources): ${decodedUrl}`,
+        );
+        return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
       } catch (error) {
         logError('[safe-image] protocol handler error:', error);
         callback({ error: -2 }); // net::FAILED

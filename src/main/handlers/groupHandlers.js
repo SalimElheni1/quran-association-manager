@@ -1,9 +1,5 @@
 const { ipcMain } = require('electron');
-const {
-  runQuery,
-  getQuery,
-  allQuery,
-} = require('../../db/db');
+const { runQuery, getQuery, allQuery } = require('../../db/db');
 
 function registerGroupHandlers() {
   // Groups Management
@@ -109,8 +105,7 @@ function registerGroupHandlers() {
       const query = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
       await runQuery(query, [studentId, groupId]);
       return { success: true };
-    } catch (error)
-    {
+    } catch (error) {
       // Ignore unique constraint errors, as it means the assignment already exists.
       if (!error.message.includes('UNIQUE constraint failed')) {
         console.error(`Error adding student ${studentId} to group ${groupId}:`, error);
@@ -162,7 +157,9 @@ function registerGroupHandlers() {
       `;
       const params = [groupId];
 
-      const ageThresholdSetting = await getQuery("SELECT value FROM settings WHERE key = 'adult_age_threshold'");
+      const ageThresholdSetting = await getQuery(
+        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
+      );
       const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
       const thresholdDate = new Date();

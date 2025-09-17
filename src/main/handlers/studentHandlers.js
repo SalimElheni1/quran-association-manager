@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
-const { log, error: logError } = require('../logger');
+const { error: logError } = require('../logger');
 
 const studentFields = [
   'matricule',

@@ -1,6 +1,6 @@
 const { ipcMain, app, dialog } = require('electron');
 const db = require('../../db/db');
-const { log, error: logError } = require('../logger');
+const { error: logError } = require('../logger');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');

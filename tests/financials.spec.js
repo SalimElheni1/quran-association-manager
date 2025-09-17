@@ -1,23 +1,9 @@
-const { app } = require('electron');
 const {
   handleGetExpenses,
-  handleAddExpense,
-  handleUpdateExpense,
-  handleDeleteExpense,
-  handleGetDonations,
   handleAddDonation,
-  handleUpdateDonation,
-  handleDeleteDonation,
   handleGetSalaries,
-  handleAddSalary,
-  handleUpdateSalary,
-  handleDeleteSalary,
   handleGetPayments,
-  handleAddPayment,
-  handleUpdatePayment,
-  handleDeletePayment,
   handleGetFinancialSummary,
-  handleGetChartData,
 } = require('../src/main/financialHandlers');
 const db = require('../src/db/db');
 
@@ -50,7 +36,10 @@ describe('Financial Handlers', () => {
       const mockData = [{ id: 1, category: 'Supplies', amount: 100 }];
       db.allQuery.mockResolvedValue(mockData);
       const result = await handleGetExpenses(null, null); // Pass null for period
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM expenses ORDER BY expense_date DESC', []);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        'SELECT * FROM expenses ORDER BY expense_date DESC',
+        [],
+      );
       expect(result).toEqual(mockData);
     });
 
@@ -126,7 +115,10 @@ describe('Financial Handlers', () => {
       const mockData = [{ id: 1, employee_name: 'Test Teacher', amount: 5000 }];
       db.allQuery.mockResolvedValue(mockData);
       await handleGetSalaries(null, null);
-      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY s.payment_date DESC'), []);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ORDER BY s.payment_date DESC'),
+        [],
+      );
     });
   });
 
@@ -136,7 +128,10 @@ describe('Financial Handlers', () => {
       const mockData = [{ id: 1, student_name: 'Test Student', amount: 200 }];
       db.allQuery.mockResolvedValue(mockData);
       await handleGetPayments(null, null);
-      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY p.payment_date DESC'), []);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ORDER BY p.payment_date DESC'),
+        [],
+      );
     });
   });
 

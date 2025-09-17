@@ -16,12 +16,15 @@ import '@renderer/styles/ExportsPage.css';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
   const [genderFilter, setGenderFilter] = useState('all');
+  const [filterMode, setFilterMode] = useState('gender'); // 'gender' or 'group'
   const [selectedFields, setSelectedFields] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('all');
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState('all');
 
   const currentFields = useMemo(() => {
     if (exportType === 'students' && genderFilter === 'kids') {
@@ -43,6 +46,17 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
         .catch((err) => {
           logError('Failed to fetch classes for export:', err);
           setMessage({ type: 'danger', text: 'فشل تحميل قائمة الفصول.' });
+        });
+    }
+    // fetch groups for students exports
+    if (exportType === 'students') {
+      window.electronAPI
+        .getGroups()
+        .then((res) => {
+          if (res && res.success && Array.isArray(res.data)) setGroups(res.data);
+        })
+        .catch((err) => {
+          logError('Failed to fetch groups for export:', err);
         });
     }
   }, [isAttendance]);
@@ -85,7 +99,11 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
       exportOptions.options.endDate = endDate;
       exportOptions.options.classId = selectedClassId;
     } else {
-      exportOptions.options.gender = genderFilter;
+      if (filterMode === 'group' && exportType === 'students') {
+        exportOptions.options.groupId = selectedGroupId === 'all' ? null : selectedGroupId;
+      } else {
+        exportOptions.options.gender = genderFilter;
+      }
     }
 
     try {
@@ -137,18 +155,49 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
             <Row className="mb-3">
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label>فرز حسب الجنس</Form.Label>
-                  <Form.Select
-                    value={genderFilter}
-                    onChange={(e) => setGenderFilter(e.target.value)}
-                  >
-                    <option value="all">الكل</option>
-                    <option value="men">رجال</option>
-                    <option value="women">نساء</option>
-                    {exportType === 'students' && <option value="kids">أطفال</option>}
+                  <Form.Label>مرشح التصدير</Form.Label>
+                  <Form.Select value={filterMode} onChange={(e) => setFilterMode(e.target.value)}>
+                    <option value="gender">حسب الجنس</option>
+                    {exportType === 'students' && <option value="group">حسب المجموعة</option>}
                   </Form.Select>
                 </Form.Group>
               </Col>
+
+              {filterMode === 'gender' && (
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label>فرز حسب الجنس</Form.Label>
+                    <Form.Select
+                      value={genderFilter}
+                      onChange={(e) => setGenderFilter(e.target.value)}
+                    >
+                      <option value="all">الكل</option>
+                      <option value="men">رجال</option>
+                      <option value="women">نساء</option>
+                      {exportType === 'students' && <option value="kids">أطفال</option>}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              )}
+
+              {filterMode === 'group' && exportType === 'students' && (
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>اختر المجموعة</Form.Label>
+                    <Form.Select
+                      value={selectedGroupId}
+                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                    >
+                      <option value="all">كل المجموعات</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              )}
             </Row>
           )}
           {isAttendance && (
@@ -217,13 +266,21 @@ const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = fal
           {message.text && <Alert variant={message.type}>{message.text}</Alert>}
 
           <div className="d-flex justify-content-end gap-2">
-            <Button variant="secondary" onClick={() => handleExport('docx')} disabled={isExportDisabled}>
+            <Button
+              variant="secondary"
+              onClick={() => handleExport('docx')}
+              disabled={isExportDisabled}
+            >
               تصدير إلى DOCX
             </Button>
             <Button variant="primary" onClick={() => handleExport('xlsx')}>
               تصدير إلى Excel
             </Button>
-            <Button variant="danger" onClick={() => handleExport('pdf')} disabled={isExportDisabled}>
+            <Button
+              variant="danger"
+              onClick={() => handleExport('pdf')}
+              disabled={isExportDisabled}
+            >
               تصدير إلى PDF
             </Button>
           </div>
@@ -299,16 +356,23 @@ const ImportTabPanel = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const allSheets = [
-    'الطلاب', 'المعلمون', 'المستخدمون', 'الفصول', 'الرسوم الدراسية',
-    'الرواتب', 'التبرعات', 'المصاريف', 'الحضور', 'المجموعات', 'المخزون'
+    'الطلاب',
+    'المعلمون',
+    'المستخدمون',
+    'الفصول',
+    'الرسوم الدراسية',
+    'الرواتب',
+    'التبرعات',
+    'المصاريف',
+    'الحضور',
+    'المجموعات',
+    'المخزون',
   ];
   const [selectedSheets, setSelectedSheets] = useState(allSheets);
 
   const handleSheetCheckboxChange = (sheetName) => {
-    setSelectedSheets(prev =>
-      prev.includes(sheetName)
-        ? prev.filter(s => s !== sheetName)
-        : [...prev, sheetName]
+    setSelectedSheets((prev) =>
+      prev.includes(sheetName) ? prev.filter((s) => s !== sheetName) : [...prev, sheetName],
     );
   };
 
@@ -393,14 +457,20 @@ const ImportTabPanel = () => {
 
         <Form.Group className="mb-3">
           <div className="d-flex justify-content-between align-items-center">
-            <Form.Label><h5>الأوراق المراد استيرادها:</h5></Form.Label>
+            <Form.Label>
+              <h5>الأوراق المراد استيرادها:</h5>
+            </Form.Label>
             <div>
-              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(true)}>تحديد الكل</Button>
-              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(false)}>إلغاء تحديد الكل</Button>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(true)}>
+                تحديد الكل
+              </Button>
+              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(false)}>
+                إلغاء تحديد الكل
+              </Button>
             </div>
           </div>
           <div className="sheet-checkbox-container">
-            {allSheets.map(sheet => (
+            {allSheets.map((sheet) => (
               <Form.Check
                 key={sheet}
                 type="checkbox"
@@ -469,15 +539,29 @@ const ImportTabPanel = () => {
 };
 
 const ARABIC_MONTHS = [
-  'جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
-  'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+  'جانفي',
+  'فيفري',
+  'مارس',
+  'أفريل',
+  'ماي',
+  'جوان',
+  'جويلية',
+  'أوت',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
 ];
 
 const renderYearOptions = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let i = currentYear; i >= currentYear - 10; i--) {
-    years.push(<option key={i} value={i}>{i}</option>);
+    years.push(
+      <option key={i} value={i}>
+        {i}
+      </option>,
+    );
   }
   return years;
 };
@@ -493,14 +577,14 @@ const ExportsPage = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
 
     let period = null;
 
     if (filterType === 'month') {
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
+      const startDate =
+        new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
       const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
       period = { startDate, endDate };
     } else if (filterType === 'year') {
@@ -511,7 +595,10 @@ const ExportsPage = () => {
       if (customStartDate && customEndDate) {
         period = { startDate: customStartDate, endDate: customEndDate };
       } else {
-        setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين للفترة المخصصة.' });
+        setMessage({
+          type: 'danger',
+          text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين للفترة المخصصة.',
+        });
         return;
       }
     }
@@ -566,79 +653,96 @@ const ExportsPage = () => {
             <Card.Body>
               <Card.Title>تصدير تقرير مالي شامل</Card.Title>
               <p>
-                اختر فترة التصدير. يمكنك تصدير جميع البيانات، أو تحديد شهر معين، سنة معينة، أو فترة مخصصة.
+                اختر فترة التصدير. يمكنك تصدير جميع البيانات، أو تحديد شهر معين، سنة معينة، أو فترة
+                مخصصة.
               </p>
               <Form>
-                 <Row className="mb-3 align-items-end">
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label>نوع الفترة</Form.Label>
-                        <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                          <option value="all">الكل</option>
-                          <option value="month">شهر معين</option>
-                          <option value="year">سنة معينة</option>
-                          <option value="custom">فترة مخصصة</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
+                <Row className="mb-3 align-items-end">
+                  <Col md={3}>
+                    <Form.Group>
+                      <Form.Label>نوع الفترة</Form.Label>
+                      <Form.Select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                      >
+                        <option value="all">الكل</option>
+                        <option value="month">شهر معين</option>
+                        <option value="year">سنة معينة</option>
+                        <option value="custom">فترة مخصصة</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
 
-                    {filterType === 'month' && (
-                      <>
-                        <Col md={3}>
-                          <Form.Group>
-                            <Form.Label>اختر الشهر</Form.Label>
-                            <Form.Select value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}>
-                              {ARABIC_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                            </Form.Select>
-                          </Form.Group>
-                        </Col>
-                        <Col md={3}>
-                           <Form.Group>
-                            <Form.Label>اختر السنة</Form.Label>
-                            <Form.Select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
-                              {renderYearOptions()}
-                            </Form.Select>
-                          </Form.Group>
-                        </Col>
-                      </>
-                    )}
-
-                    {filterType === 'year' && (
+                  {filterType === 'month' && (
+                    <>
                       <Col md={3}>
-                         <Form.Group>
+                        <Form.Group>
+                          <Form.Label>اختر الشهر</Form.Label>
+                          <Form.Select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                          >
+                            {ARABIC_MONTHS.map((m, i) => (
+                              <option key={i} value={i}>
+                                {m}
+                              </option>
+                            ))}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={3}>
+                        <Form.Group>
                           <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>
+                          <Form.Select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                          >
                             {renderYearOptions()}
                           </Form.Select>
                         </Form.Group>
                       </Col>
-                    )}
+                    </>
+                  )}
 
-                    {filterType === 'custom' && (
-                       <>
-                        <Col md={3}>
-                          <Form.Group>
-                            <Form.Label>من تاريخ</Form.Label>
-                            <Form.Control
-                              type="date"
-                              value={customStartDate}
-                              onChange={(e) => setCustomStartDate(e.target.value)}
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col md={3}>
-                          <Form.Group>
-                            <Form.Label>إلى تاريخ</Form.Label>
-                            <Form.Control
-                              type="date"
-                              value={customEndDate}
-                              onChange={(e) => setCustomEndDate(e.target.value)}
-                            />
-                          </Form.Group>
-                        </Col>
-                      </>
-                    )}
-                 </Row>
+                  {filterType === 'year' && (
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>اختر السنة</Form.Label>
+                        <Form.Select
+                          value={selectedYear}
+                          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        >
+                          {renderYearOptions()}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                  )}
+
+                  {filterType === 'custom' && (
+                    <>
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label>من تاريخ</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label>إلى تاريخ</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </>
+                  )}
+                </Row>
               </Form>
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
               <div className="d-flex justify-content-end">
