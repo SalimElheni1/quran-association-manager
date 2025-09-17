@@ -8,7 +8,7 @@ const {
 } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { refreshSettings } = require('../settingsManager');
-const { log, error: logError } = require('../logger');
+const { error: logError } = require('../logger');
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({

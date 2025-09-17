@@ -1,7 +1,6 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
-const { getSetting } = require('../settingsManager');
 const { log, error: logError } = require('../logger');
 
 const classFields = [
@@ -112,7 +111,9 @@ function registerClassHandlers() {
       `;
       const notEnrolledParams = [classId];
 
-      const ageThresholdSetting = await db.getQuery("SELECT value FROM settings WHERE key = 'adult_age_threshold'");
+      const ageThresholdSetting = await db.getQuery(
+        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
+      );
       const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
       const thresholdDate = new Date();

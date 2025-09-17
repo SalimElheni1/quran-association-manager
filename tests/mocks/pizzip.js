@@ -8,7 +8,7 @@ const mockZipInstance = {
 
 let shouldThrow = false;
 
-const PizZip = jest.fn((content) => {
+const PizZip = jest.fn(() => {
   if (shouldThrow) {
     throw new Error('Invalid zip file');
   }

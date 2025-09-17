@@ -53,6 +53,15 @@ const internalGetSettingsHandler = async () => {
     return acc;
   }, {});
 
+  // Normalize legacy/snake_case keys from the DB to the schema's camelCase keys
+  if (Object.prototype.hasOwnProperty.call(dbSettings, 'adult_age_threshold')) {
+    // Only map if camelCase not already present
+    if (!Object.prototype.hasOwnProperty.call(dbSettings, 'adultAgeThreshold')) {
+      dbSettings.adultAgeThreshold = dbSettings['adult_age_threshold'];
+    }
+    delete dbSettings['adult_age_threshold'];
+  }
+
   // Merge database settings with defaults to ensure all keys are present
   const settings = { ...defaultSettings, ...dbSettings };
 
@@ -75,12 +84,43 @@ const internalCopyLogoAsset = async (tempPath) => {
 };
 
 const internalUpdateSettingsHandler = async (settingsData) => {
-  const validatedData = await settingsValidationSchema.validateAsync(settingsData);
+  // Accept legacy snake_case keys from the renderer and map them to the schema's camelCase
+  const normalized = { ...settingsData };
+  if (Object.prototype.hasOwnProperty.call(normalized, 'adult_age_threshold')) {
+    if (!Object.prototype.hasOwnProperty.call(normalized, 'adultAgeThreshold')) {
+      normalized.adultAgeThreshold = normalized['adult_age_threshold'];
+    }
+    delete normalized['adult_age_threshold'];
+  }
+
+  const validatedData = await settingsValidationSchema.validateAsync(normalized);
+  // Reverse-map camelCase validated keys back to snake_case DB keys when necessary
+  const dbKeyMap = {
+    adultAgeThreshold: 'adult_age_threshold',
+  };
+
+  function camelToSnake(s) {
+    return s.replace(/([A-Z])/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, '');
+  }
+
   await db.runQuery('BEGIN TRANSACTION;');
   try {
     for (const [key, value] of Object.entries(validatedData)) {
+      const primaryDbKey = Object.prototype.hasOwnProperty.call(dbKeyMap, key)
+        ? dbKeyMap[key]
+        : key;
+      const altKey = primaryDbKey === key ? camelToSnake(key) : key; // alternate form to try
       const dbValue = value === null || value === undefined ? '' : String(value);
-      await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [dbValue, key]);
+
+      // First try the primary key
+      const res = await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [
+        dbValue,
+        primaryDbKey,
+      ]);
+      // If no rows affected, try the alternate key form as a fallback
+      if ((!res || res.changes === 0) && altKey && altKey !== primaryDbKey) {
+        await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [dbValue, altKey]);
+      }
     }
     await db.runQuery('COMMIT;');
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
@@ -174,4 +214,5 @@ function registerSettingsHandlers(refreshSettings) {
 module.exports = {
   registerSettingsHandlers,
   internalGetSettingsHandler,
+  internalUpdateSettingsHandler,
 };

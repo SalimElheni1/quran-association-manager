@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../db/db');
-const { log, error: logError } = require('./logger');
+const { error: logError } = require('./logger');
 const { generateMatricule } = require('./matriculeService');
 
 // --- Generic Error Handler ---
@@ -62,8 +62,16 @@ async function handleGetDonations(event, period) {
   return allQuery(query, params);
 }
 async function handleAddDonation(event, donation) {
-  const { donor_name, amount, donation_date, notes, donation_type, description, quantity, category } =
-    donation;
+  const {
+    donor_name,
+    amount,
+    donation_date,
+    notes,
+    donation_type,
+    description,
+    quantity,
+    category,
+  } = donation;
   const sql = `INSERT INTO donations (donor_name, amount, donation_date, notes, donation_type, description, quantity, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
   const result = await runQuery(sql, [
     donor_name,
@@ -78,8 +86,17 @@ async function handleAddDonation(event, donation) {
   return getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
 }
 async function handleUpdateDonation(event, donation) {
-  const { id, donor_name, amount, donation_date, notes, donation_type, description, quantity, category } =
-    donation;
+  const {
+    id,
+    donor_name,
+    amount,
+    donation_date,
+    notes,
+    donation_type,
+    description,
+    quantity,
+    category,
+  } = donation;
   const sql = `UPDATE donations SET donor_name = ?, amount = ?, donation_date = ?, notes = ?, donation_type = ?, description = ?, quantity = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [
     donor_name,
@@ -325,7 +342,8 @@ async function handleGetStatementOfActivities(event, period) {
     endDate = period.endDate;
   } else {
     const now = new Date();
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    startDate =
+      new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   }
 
@@ -387,7 +405,8 @@ async function handleGetMonthlySnapshot(event, period) {
     endDate = period.endDate;
   } else {
     const now = new Date();
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    startDate =
+      new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   }
 
@@ -427,8 +446,9 @@ async function handleGetMonthlySnapshot(event, period) {
 
 async function handleGetFinancialSummary(event, year) {
   const targetYear = year || new Date().getFullYear();
-  const startOfYear = new Date(targetYear, 0, 1).toISOString().split('T')[0] + ' 00:00:00';
-  const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59).toISOString();
+  // Build local date strings to avoid UTC timezone shifts
+  const startOfYear = `${targetYear}-01-01 00:00:00`;
+  const endOfYear = `${targetYear}-12-31 23:59:59`;
 
   const incomeSql = `
         SELECT 'Payments' as source, SUM(amount) as total FROM payments WHERE payment_date BETWEEN ? AND ?

@@ -1,14 +1,13 @@
-const fs = require('fs');
-const os = 'os';
-const path = require('path');
+// No direct filesystem access required; mocks provide what we need
 const { BrowserWindow } = require('electron');
-const { generatePdf, generateDocx } = require('../src/main/exportManager');
-const docx = require('docx');
+const { generatePdf } = require('../src/main/exportManager');
 
 // Mock dependencies
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
-  readFileSync: jest.fn().mockReturnValue('<html><body>{report_title} on {date} and {report_title}</body></html>'),
+  readFileSync: jest
+    .fn()
+    .mockReturnValue('<html><body>{report_title} on {date} and {report_title}</body></html>'),
   writeFileSync: jest.fn(),
   unlinkSync: jest.fn(),
   existsSync: jest.fn().mockReturnValue(true),
@@ -26,21 +25,9 @@ jest.mock('electron', () => ({
 }));
 
 // Mock the docx library
-jest.mock('docx', () => {
-    const originalDocx = jest.requireActual('docx');
-    return {
-        ...originalDocx,
-        Packer: {
-            toBuffer: jest.fn().mockResolvedValue(Buffer.from('docx content')),
-        },
-        Table: jest.fn(),
-        Header: jest.fn(),
-        ImageRun: jest.fn(),
-    };
-});
+// We only test PDF generation here; docx generation is tested elsewhere if needed.
 
 describe('Export Manager Unit Tests', () => {
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -58,7 +45,8 @@ describe('Export Manager Unit Tests', () => {
       ];
       await generatePdf('Test', columns, mockData, 'test.pdf', mockHeaderData);
 
-      const printOptions = BrowserWindow.mock.results[0].value.webContents.printToPDF.mock.calls[0][0];
+      const printOptions =
+        BrowserWindow.mock.results[0].value.webContents.printToPDF.mock.calls[0][0];
       expect(printOptions.landscape).toBe(false);
     });
 
@@ -72,9 +60,9 @@ describe('Export Manager Unit Tests', () => {
       ];
       await generatePdf('Test', columns, mockData, 'test.pdf', mockHeaderData);
 
-      const printOptions = BrowserWindow.mock.results[0].value.webContents.printToPDF.mock.calls[0][0];
+      const printOptions =
+        BrowserWindow.mock.results[0].value.webContents.printToPDF.mock.calls[0][0];
       expect(printOptions.landscape).toBe(true);
     });
   });
-
 });

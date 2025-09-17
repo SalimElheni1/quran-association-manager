@@ -3,7 +3,7 @@ const db = require('../../db/db');
 const bcrypt = require('bcryptjs');
 const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
-const { log, error: logError } = require('../logger');
+const { error: logError } = require('../logger');
 
 const userFields = [
   'matricule',

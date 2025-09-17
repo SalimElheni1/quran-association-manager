@@ -26,7 +26,7 @@ jest.mock('electron', () => ({
   },
   app: {
     getVersion: jest.fn(),
-  }
+  },
 }));
 
 describe('Export Generation Handler', () => {
@@ -36,7 +36,7 @@ describe('Export Generation Handler', () => {
     registerSystemHandlers();
     // Find the 'export:generate' handler among the registered handlers
     exportGenerateHandler = ipcMain.handle.mock.calls.find(
-      (call) => call[0] === 'export:generate'
+      (call) => call[0] === 'export:generate',
     )[1];
   });
 
@@ -72,7 +72,7 @@ describe('Export Generation Handler', () => {
       options.columns,
       expect.any(Array), // data
       'test.out',
-      expectedHeaderData
+      expectedHeaderData,
     );
   });
 
@@ -90,7 +90,7 @@ describe('Export Generation Handler', () => {
       options.columns,
       expect.any(Array),
       'test.xlsx',
-      expectedHeaderData
+      expectedHeaderData,
     );
   });
 
@@ -109,7 +109,7 @@ describe('Export Generation Handler', () => {
       options.columns,
       expect.any(Array),
       'test.docx',
-      expectedHeaderData
+      expectedHeaderData,
     );
   });
 });
