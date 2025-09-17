@@ -367,7 +367,7 @@ async function generateFinancialXlsx(data, outputPath) {
 
 // --- DOCX Generation ---
 async function generateDocx(title, columns, data, outputPath, headerData) {
-  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, ImageRun, Header } = docx;
+  const { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, VerticalAlign, PageOrientation, ImageRun, Header, BorderStyle } = docx;
   const localizedData = localizeData(data);
 
   const titleMap = {
@@ -416,7 +416,7 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
       }),
   );
 
-  const table = new Table({
+  const mainTable = new Table({
     rows: [tableHeader, ...dataRows],
     width: {
       size: 100,
@@ -440,6 +440,28 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
   const nationalLogo = getLogo(headerData.nationalLogoPath);
   const branchLogo = getLogo(headerData.regionalLocalLogoPath);
 
+  const headerTable = new Table({
+    rows: [new TableRow({
+        children: [
+            new TableCell({ children: [new Paragraph({ children: [branchLogo].filter(Boolean)})], verticalAlign: VerticalAlign.CENTER }),
+            new TableCell({ children: [
+                new Paragraph({ text: headerData.nationalAssociationName, alignment: AlignmentType.CENTER, bidirectional: true }),
+                new Paragraph({ text: headerData.localBranchName || headerData.regionalAssociationName || '', alignment: AlignmentType.CENTER, bidirectional: true }),
+            ], verticalAlign: VerticalAlign.CENTER}),
+            new TableCell({ children: [new Paragraph({ children: [nationalLogo].filter(Boolean)})], verticalAlign: VerticalAlign.CENTER }),
+        ],
+    })],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+        top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    }
+  });
+
   const doc = new Document({
     sections: [
       {
@@ -452,19 +474,7 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
         },
         headers: {
             default: new Header({
-                children: [new Table({
-                    rows: [new TableRow({
-                        children: [
-                            new TableCell({ children: [new Paragraph(branchLogo || '')]}),
-                            new TableCell({ children: [
-                                new Paragraph({ text: headerData.nationalAssociationName, alignment: AlignmentType.CENTER, bidirectional: true }),
-                                new Paragraph({ text: headerData.localBranchName || headerData.regionalAssociationName || '', alignment: AlignmentType.CENTER, bidirectional: true }),
-                            ]}),
-                            new TableCell({ children: [new Paragraph(nationalLogo || '')]}),
-                        ],
-                    })],
-                    width: { size: 100, type: WidthType.PERCENTAGE }
-                })],
+                children: [headerTable],
             }),
         },
         children: [
@@ -477,7 +487,7 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
             alignment: AlignmentType.CENTER,
           }),
           new Paragraph({ text: '' }), // Spacer
-          table,
+          mainTable,
         ],
       },
     ],
