@@ -21,29 +21,39 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (token) {
-        try {
-          const response = await window.electronAPI.getProfile({ token });
-          if (response.success) {
-            // Format date fields for input[type="date"]
-            const formatInputDate = (date) =>
-              date ? new Date(date).toISOString().split('T')[0] : '';
+      if (!token) {
+        setLoading(false);
+        setError('Not authenticated');
+        return;
+      }
 
-            const formattedProfile = {
-              ...response.profile,
-              date_of_birth: formatInputDate(response.profile.date_of_birth),
-              start_date: formatInputDate(response.profile.start_date),
-              end_date: formatInputDate(response.profile.end_date),
-            };
-            setProfile(formattedProfile);
-          } else {
-            setError(response.message);
-          }
-        } catch (err) {
-          setError(err.message);
-        } finally {
-          setLoading(false);
+      try {
+        const res = await window.electronAPI.getProfile({ token });
+
+        // Support both shapes: { success: true, profile } and a direct profile object
+        let profileObj = null;
+        if (res && res.success && res.profile) profileObj = res.profile;
+        else if (res && res.id)
+          profileObj = res; // direct profile object
+        else if (res && res.message) {
+          setError(res.message);
         }
+
+        if (profileObj) {
+          const formatInputDate = (date) =>
+            date ? new Date(date).toISOString().split('T')[0] : '';
+          const formattedProfile = {
+            ...profileObj,
+            date_of_birth: formatInputDate(profileObj.date_of_birth),
+            start_date: formatInputDate(profileObj.start_date),
+            end_date: formatInputDate(profileObj.end_date),
+          };
+          setProfile(formattedProfile);
+        }
+      } catch (err) {
+        setError(err.message || 'Failed to fetch profile');
+      } finally {
+        setLoading(false);
       }
     };
 

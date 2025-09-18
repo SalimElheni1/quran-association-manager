@@ -110,6 +110,10 @@ const userValidationSchema = Joi.object({
   end_date: Joi.date().iso().allow(null, ''),
   notes: Joi.string().allow(null, ''),
   start_date: Joi.date().iso().allow(null, ''),
+  need_guide: Joi.alternatives()
+    .try(Joi.boolean(), Joi.number().integer().valid(0, 1))
+    .default(true),
+  current_step: Joi.number().integer().min(0).default(0),
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({

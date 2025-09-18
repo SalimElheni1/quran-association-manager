@@ -9,7 +9,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auth
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
   logout: () => ipcRenderer.send('logout'),
-  getProfile: (data) => ipcRenderer.invoke('auth:getProfile', data),
+  getProfile: (data) => {
+    // allow caller to pass { token } or call without args; when called without args, forward token from localStorage
+    const payload = data ?? { token: localStorage.getItem('token') };
+    return ipcRenderer.invoke('auth:getProfile', payload).then((res) => {
+      // return profile object or pass through error shape
+      if (res && res.success) return res.profile;
+      return res;
+    });
+  },
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
   updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),
 
@@ -74,6 +82,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserById: (id) => ipcRenderer.invoke('users:getById', id),
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
+  // Onboarding helpers
+  updateUserGuide: (id, guideData) =>
+    // Use lightweight handler that only updates onboarding fields to avoid validation errors
+    ipcRenderer.invoke('users:updateGuide', { id, guideData }),
 
   // Dashboard API
   getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),

@@ -23,6 +23,8 @@ const schema = `
     )),
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
     notes TEXT,
+    need_guide INTEGER DEFAULT 1,
+    current_step INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     branch_id INTEGER,
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
