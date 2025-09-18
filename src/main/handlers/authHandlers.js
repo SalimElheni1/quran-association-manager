@@ -42,12 +42,25 @@ const getUserIdFromToken = (token) => {
 const getProfileHandler = async (token) => {
   const userId = getUserIdFromToken(token);
   const userProfile = await db.getQuery(
-    'SELECT id, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, role, status, notes, branch_id FROM users WHERE id = ?',
+    'SELECT id, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, role, status, notes, branch_id, need_guide, current_step FROM users WHERE id = ?',
     [userId],
   );
   if (!userProfile) {
     throw new Error('User profile not found.');
   }
+
+  // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
+  try {
+    userProfile.need_guide = !!userProfile.need_guide;
+  } catch (e) {
+    userProfile.need_guide = false;
+  }
+  try {
+    userProfile.current_step = Number(userProfile.current_step) || 0;
+  } catch (e) {
+    userProfile.current_step = 0;
+  }
+
   return { success: true, profile: userProfile };
 };
 
@@ -166,8 +179,9 @@ function registerAuthHandlers() {
     }
   });
 
-  ipcMain.handle('auth:getProfile', async (_event, { token }) => {
+  ipcMain.handle('auth:getProfile', async (_event, data) => {
     try {
+      const token = data?.token;
       return await getProfileHandler(token);
     } catch (error) {
       logError('Error in auth:getProfile IPC wrapper:', error);
