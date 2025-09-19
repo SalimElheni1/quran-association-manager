@@ -1,0 +1,1249 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/db/db.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/db</a> db.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">8.54% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>17/199</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">6.06% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>4/66</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">9.09% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>3/33</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">8.9% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>17/191</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// --- Refactor Step 1: Import new dependencies ---
+const sqlite3 = require('@journeyapps/sqlcipher').verbose();
+const path = require('path');
+const fs = require('fs');
+const { app } = require('electron'); // &lt;-- Import `app` from Electron
+const crypto = require('crypto');
+const schema = require('./schema');
+const bcrypt = require('bcryptjs');
+const { getDbKey, getDbSalt } = require('../main/keyManager');
+const { log, error: logError, warn: logWarn } = require('../main/logger');
+&nbsp;
+// --- Refactor Step 2: `db` is now managed by `getDb` ---
+let db; // This will hold our database connection object
+&nbsp;
+// Helper function to get database file path
+function <span class="fstat-no" title="function not covered" >getDatabasePath(</span>) {
+  // Check if running in Electron or a plain Node.js script
+  const isElectron = <span class="cstat-no" title="statement not covered" >'electron' in process.versions;</span>
+&nbsp;
+  let dbPath;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (isElectron &amp;&amp; app) {</span>
+    // In Electron, use the reliable app.getPath('userData')
+    const userDataPath = <span class="cstat-no" title="statement not covered" >app.getPath('userData');</span>
+<span class="cstat-no" title="statement not covered" >    if (!fs.existsSync(userDataPath)) {</span>
+<span class="cstat-no" title="statement not covered" >      fs.mkdirSync(userDataPath, { recursive: true });</span>
+    }
+<span class="cstat-no" title="statement not covered" >    dbPath = path.join(userDataPath, 'quran_assoc_manager.sqlite');</span>
+  } else {
+    // In a script (like the seeder), use a local path.
+    // The .db directory will be created in the project root.
+    const localDbDir = <span class="cstat-no" title="statement not covered" >path.join(__dirname, '..', '..', '.db');</span>
+<span class="cstat-no" title="statement not covered" >    if (!fs.existsSync(localDbDir)) {</span>
+<span class="cstat-no" title="statement not covered" >      fs.mkdirSync(localDbDir, { recursive: true });</span>
+    }
+<span class="cstat-no" title="statement not covered" >    dbPath = path.join(localDbDir, 'quran_assoc_manager.sqlite');</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`Running in Node.js script, using local DB path: ${dbPath}`);</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return dbPath;</span>
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >seedSuperadmin(</span>) {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const existingAdmin = <span class="cstat-no" title="statement not covered" >await getQuery('SELECT id FROM users WHERE role = ?', ['Superadmin']);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    if (!existingAdmin) {</span>
+<span class="cstat-no" title="statement not covered" >      log('No superadmin found. Seeding default superadmin...');</span>
+&nbsp;
+      const tempPassword = <span class="cstat-no" title="statement not covered" >'123456';</span> //crypto.randomBytes(8).toString('hex');
+      const hashedPassword = <span class="cstat-no" title="statement not covered" >await bcrypt.hash(tempPassword, 10);</span>
+      const username = <span class="cstat-no" title="statement not covered" >'superadmin';</span>
+&nbsp;
+      const insertSql = <span class="cstat-no" title="statement not covered" >`</span>
+        INSERT INTO users (username, password, role, first_name, last_name, email)
+        VALUES (?, ?, 'Superadmin', ?, ?, ?)
+      `;
+&nbsp;
+      const result = <span class="cstat-no" title="statement not covered" >await runQuery(insertSql, [</span>
+        username,
+        hashedPassword,
+        'Super',
+        'Admin',
+        'superadmin@example.com',
+      ]);
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      if (result.id) {</span>
+        const matricule = <span class="cstat-no" title="statement not covered" >`U-${result.id.toString().padStart(6, '0')}`;</span>
+<span class="cstat-no" title="statement not covered" >        await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);</span>
+      }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      log(`Superadmin created successfully: ${username}`);</span>
+      // Return the credentials so they can be displayed to the user
+<span class="cstat-no" title="statement not covered" >      return { username, password: tempPassword };</span>
+    }
+    // If admin already exists, do nothing and return null
+<span class="cstat-no" title="statement not covered" >    return null;</span>
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    logError('Failed to seed superadmin:', error);</span>
+<span class="cstat-no" title="statement not covered" >    throw error; </span>// Re-throw the error to be handled by the caller
+  }
+}
+&nbsp;
+/**
+ * Checks if a database file is encrypted.
+ * @param {string} filePath Path to the database file.
+ * @returns {boolean} True if the file is encrypted or does not exist.
+ */
+function <span class="fstat-no" title="function not covered" >isDbEncrypted(</span>filePath) {
+<span class="cstat-no" title="statement not covered" >  if (!fs.existsSync(filePath)) {</span>
+<span class="cstat-no" title="statement not covered" >    return true; </span>// A new DB will be created as encrypted.
+  }
+  // A plaintext SQLite DB starts with 'SQLite format 3\0'. An encrypted one will not.
+  const buffer = <span class="cstat-no" title="statement not covered" >Buffer.alloc(16);</span>
+  const fd = <span class="cstat-no" title="statement not covered" >fs.openSync(filePath, 'r');</span>
+<span class="cstat-no" title="statement not covered" >  fs.readSync(fd, buffer, 0, 16, 0);</span>
+<span class="cstat-no" title="statement not covered" >  fs.closeSync(fd);</span>
+<span class="cstat-no" title="statement not covered" >  return buffer.toString('utf8', 0, 16) !== 'SQLite format 3\u0000';</span>
+}
+&nbsp;
+/**
+ * Migrates a plaintext SQLite database to an encrypted SQLCipher database.
+ * @param {string} dbPath The path to the database file.
+ * @param {string} key The encryption key.
+ */
+async function <span class="fstat-no" title="function not covered" >migrateToEncrypted(</span>dbPath, key) {
+<span class="cstat-no" title="statement not covered" >  log('Plaintext database detected. Starting migration to encrypted format...');</span>
+  const backupPath = <span class="cstat-no" title="statement not covered" >`${dbPath}.old_plaintext`;</span>
+&nbsp;
+  // 1. Rename the existing plaintext DB to create a backup
+<span class="cstat-no" title="statement not covered" >  fs.renameSync(dbPath, backupPath);</span>
+&nbsp;
+  // 2. Open a new encrypted DB and export the content from the old one.
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+    const encryptedDb = <span class="cstat-no" title="statement not covered" >new sqlite3.Database(dbPath, <span class="fstat-no" title="function not covered" >as</span>ync (err) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      try {</span>
+<span class="cstat-no" title="statement not covered" >        await dbRun(encryptedDb, `PRAGMA key = '${key}'`);</span>
+<span class="cstat-no" title="statement not covered" >        await dbRun(encryptedDb, `ATTACH DATABASE '${backupPath}' AS plaintext KEY ''`);</span>
+<span class="cstat-no" title="statement not covered" >        await dbRun(encryptedDb, 'SELECT sqlcipher_export("main", "plaintext")');</span>
+<span class="cstat-no" title="statement not covered" >        await dbRun(encryptedDb, 'DETACH DATABASE plaintext');</span>
+<span class="cstat-no" title="statement not covered" >        await dbClose(encryptedDb);</span>
+<span class="cstat-no" title="statement not covered" >        fs.unlinkSync(backupPath); </span>// Delete the plaintext backup
+<span class="cstat-no" title="statement not covered" >        log('Database migration completed successfully.');</span>
+<span class="cstat-no" title="statement not covered" >        resolve();</span>
+      } catch (migrationErr) {
+<span class="cstat-no" title="statement not covered" >        reject(migrationErr);</span>
+      }
+    });
+  });
+}
+&nbsp;
+async function <span class="fstat-no" title="function not covered" >runMigrations(</span>) {
+<span class="cstat-no" title="statement not covered" >  log('Checking for pending migrations...');</span>
+  const migrationsDir = <span class="cstat-no" title="statement not covered" >path.join(__dirname, 'migrations');</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!fs.existsSync(migrationsDir)) {</span>
+<span class="cstat-no" title="statement not covered" >    fs.mkdirSync(migrationsDir);</span>
+  }
+&nbsp;
+  const migrationFiles = <span class="cstat-no" title="statement not covered" >fs.readdirSync(migrationsDir).sort();</span>
+  const appliedMigrations = <span class="cstat-no" title="statement not covered" >(await allQuery('SELECT name FROM migrations')).map(<span class="fstat-no" title="function not covered" >(r</span>ow) =&gt; <span class="cstat-no" title="statement not covered" >row.name)</span>;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  for (const file of migrationFiles) {</span>
+<span class="cstat-no" title="statement not covered" >    if (!appliedMigrations.includes(file)) {</span>
+<span class="cstat-no" title="statement not covered" >      log(`Applying migration: ${file}`);</span>
+<span class="cstat-no" title="statement not covered" >      try {</span>
+        const migrationSql = <span class="cstat-no" title="statement not covered" >fs.readFileSync(path.join(migrationsDir, file), 'utf8');</span>
+<span class="cstat-no" title="statement not covered" >        await runQuery('BEGIN TRANSACTION;', []);</span>
+<span class="cstat-no" title="statement not covered" >        await dbExec(db, migrationSql); </span>// Use the raw exec for migration files
+<span class="cstat-no" title="statement not covered" >        await runQuery('INSERT INTO migrations (name) VALUES (?)', [file]);</span>
+<span class="cstat-no" title="statement not covered" >        await runQuery('COMMIT;');</span>
+<span class="cstat-no" title="statement not covered" >        log(`Successfully applied migration: ${file}`);</span>
+      } catch (err) {
+<span class="cstat-no" title="statement not covered" >        await runQuery('ROLLBACK;');</span>
+        // If the error is "duplicate column name", it means the migration was likely
+        // already applied manually or in a previous failed run. We can safely ignore it.
+<span class="cstat-no" title="statement not covered" >        if (err.message.includes('duplicate column name')) {</span>
+<span class="cstat-no" title="statement not covered" >          logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);</span>
+          // Manually insert into migrations table so it doesn't run again
+<span class="cstat-no" title="statement not covered" >          await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);</span>
+        } else {
+<span class="cstat-no" title="statement not covered" >          logError(`Failed to apply migration ${file}:`, err);</span>
+<span class="cstat-no" title="statement not covered" >          throw err;</span>
+        }
+      }
+    }
+  }
+<span class="cstat-no" title="statement not covered" >  log('All migrations are up to date.');</span>
+}
+&nbsp;
+/**
+ * Initializes the database connection. This is the main entry point for the DB.
+ * It handles key derivation, migration, and schema setup.
+ */
+async function <span class="fstat-no" title="function not covered" >initializeDatabase(</span>) {
+<span class="cstat-no" title="statement not covered" >  log('[DB_LOG] InitializeDatabase called.');</span>
+<span class="cstat-no" title="statement not covered" >  if (db &amp;&amp; db.open) {</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Database already open. Skipping initialization.');</span>
+<span class="cstat-no" title="statement not covered" >    return; </span>// Already initialized
+  }
+&nbsp;
+  const dbPath = <span class="cstat-no" title="statement not covered" >getDatabasePath();</span>
+<span class="cstat-no" title="statement not covered" >  log(`[DB_LOG] Database path: ${dbPath}`);</span>
+  const key = <span class="cstat-no" title="statement not covered" >getDbKey();</span> // &lt;-- Use the new key manager
+  const keyHash = <span class="cstat-no" title="statement not covered" >crypto.createHash('sha256').update(key).digest('hex');</span>
+<span class="cstat-no" title="statement not covered" >  log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);</span>
+&nbsp;
+  // --- Migration Check ---
+<span class="cstat-no" title="statement not covered" >  if (fs.existsSync(dbPath) &amp;&amp; !isDbEncrypted(dbPath)) {</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Plaintext database detected. Starting migration...');</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      await migrateToEncrypted(dbPath, key);</span>
+    } catch (migrationError) {
+<span class="cstat-no" title="statement not covered" >      logError('CRITICAL: Database migration failed.', migrationError);</span>
+      // In a real app, you would show a fatal error dialog and quit.
+<span class="cstat-no" title="statement not covered" >      throw migrationError;</span>
+    }
+  }
+&nbsp;
+  const dbExists = <span class="cstat-no" title="statement not covered" >fs.existsSync(dbPath);</span>
+<span class="cstat-no" title="statement not covered" >  log(`[DB_LOG] Database file exists: ${dbExists}`);</span>
+&nbsp;
+  // --- Open the Database ---
+<span class="cstat-no" title="statement not covered" >  log('[DB_LOG] Opening database connection...');</span>
+<span class="cstat-no" title="statement not covered" >  db = await new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+    const connection = <span class="cstat-no" title="statement not covered" >new sqlite3.Database(dbPath, <span class="fstat-no" title="function not covered" >(e</span>rr) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) {</span>
+<span class="cstat-no" title="statement not covered" >        logError('[DB_LOG] Failed to create database connection object.', err);</span>
+<span class="cstat-no" title="statement not covered" >        return reject(err);</span>
+      }
+<span class="cstat-no" title="statement not covered" >      log('[DB_LOG] Database connection object created.');</span>
+<span class="cstat-no" title="statement not covered" >      resolve(connection);</span>
+    });
+  });
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Setting PRAGMA key...');</span>
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, `PRAGMA key = '${key}'`);</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] PRAGMA key set successfully.');</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Setting PRAGMA journal_mode...');</span>
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, 'PRAGMA journal_mode = WAL');</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] PRAGMA journal_mode set to WAL.');</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Setting PRAGMA foreign_keys...');</span>
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, 'PRAGMA foreign_keys = ON');</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] PRAGMA foreign_keys set to ON.');</span>
+&nbsp;
+    // --- Verify Key and Setup Schema/Seed if new ---
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Verifying database key with a test query...');</span>
+<span class="cstat-no" title="statement not covered" >    await getQuery('SELECT count(*) FROM sqlite_master');</span>
+<span class="cstat-no" title="statement not covered" >    log('[DB_LOG] Database key is correct.');</span>
+&nbsp;
+    let tempCredentials = <span class="cstat-no" title="statement not covered" >null;</span>
+<span class="cstat-no" title="statement not covered" >    if (!dbExists) {</span>
+<span class="cstat-no" title="statement not covered" >      log('[DB_LOG] New database detected. Initializing schema and default data...');</span>
+<span class="cstat-no" title="statement not covered" >      await dbExec(db, schema);</span>
+<span class="cstat-no" title="statement not covered" >      await runMigrations();</span>
+<span class="cstat-no" title="statement not covered" >      getDbSalt();</span>
+<span class="cstat-no" title="statement not covered" >      log('[DB_LOG] Database salt created.');</span>
+<span class="cstat-no" title="statement not covered" >      tempCredentials = await seedSuperadmin(); </span>// Capture credentials
+<span class="cstat-no" title="statement not covered" >      log('[DB_LOG] Database schema and default data initialized.');</span>
+    } else {
+<span class="cstat-no" title="statement not covered" >      log('[DB_LOG] Existing database detected. Checking migrations...');</span>
+<span class="cstat-no" title="statement not covered" >      await runMigrations();</span>
+    }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    log(`[DB_LOG] Database initialized successfully at ${dbPath}`);</span>
+<span class="cstat-no" title="statement not covered" >    return tempCredentials; </span>// Return credentials to the caller
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    db = null; </span>// Clear the invalid db connection
+<span class="cstat-no" title="statement not covered" >    logError(</span>
+      '[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.',
+      error,
+    );
+<span class="cstat-no" title="statement not covered" >    throw new Error('Incorrect password or corrupt database.');</span>
+  }
+}
+&nbsp;
+// --- Refactor Step 3: Promisify the callback-based API ---
+// This gives us clean async/await syntax for the rest of the app.
+&nbsp;
+function <span class="fstat-no" title="function not covered" >getDb(</span>) {
+<span class="cstat-no" title="statement not covered" >  if (!db || !db.open) {</span>
+<span class="cstat-no" title="statement not covered" >    throw new Error('Database is not open. Call initializeDatabase(password) first.');</span>
+  }
+<span class="cstat-no" title="statement not covered" >  return db;</span>
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >dbRun(</span>database, sql, params = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> {
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    database.run(sql, params, <span class="fstat-no" title="function not covered" >fu</span>nction (err) {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      resolve({ id: this.lastID, changes: this.changes });</span>
+    });
+  });
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >runQuery(</span>sql, params = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> {
+<span class="cstat-no" title="statement not covered" >  return dbRun(getDb(), sql, params);</span>
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >getQuery(</span>sql, params = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> {
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    getDb().get(sql, params, <span class="fstat-no" title="function not covered" >(e</span>rr, row) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      resolve(row);</span>
+    });
+  });
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >allQuery(</span>sql, params = <span class="branch-0 cbranch-no" title="branch not covered" >[])</span> {
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    getDb().all(sql, params, <span class="fstat-no" title="function not covered" >(e</span>rr, rows) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      resolve(rows);</span>
+    });
+  });
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >dbExec(</span>database, sql) {
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    database.exec(sql, <span class="fstat-no" title="function not covered" >(e</span>rr) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      resolve();</span>
+    });
+  });
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >dbClose(</span>database) {
+<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    database.close(<span class="fstat-no" title="function not covered" >(e</span>rr) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span></span>
+<span class="cstat-no" title="statement not covered" >      resolve();</span>
+    });
+  });
+}
+&nbsp;
+// Close database connection
+async function <span class="fstat-no" title="function not covered" >closeDatabase(</span>) {
+<span class="cstat-no" title="statement not covered" >  if (db &amp;&amp; db.open) {</span>
+<span class="cstat-no" title="statement not covered" >    await dbClose(db);</span>
+<span class="cstat-no" title="statement not covered" >    db = null;</span>
+<span class="cstat-no" title="statement not covered" >    log('Database connection closed.');</span>
+  }
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >isDbOpen(</span>) {
+<span class="cstat-no" title="statement not covered" >  return db &amp;&amp; db.open;</span>
+}
+&nbsp;
+async function initializeTestDatabase(dbPath) {
+  // Always close any existing connection before starting a test
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (db &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >db.open)</span> {
+<span class="cstat-no" title="statement not covered" >    await dbClose(db);</span>
+<span class="cstat-no" title="statement not covered" >    db = null;</span>
+  }
+&nbsp;
+  // Ensure a clean slate by deleting the old test DB if it exists
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (fs.existsSync(dbPath)) {
+<span class="cstat-no" title="statement not covered" >    fs.unlinkSync(dbPath);</span>
+  }
+&nbsp;
+  // Use a simple, non-secret key for tests
+  const key = 'test-encryption-key';
+&nbsp;
+  // Open the database
+  db = await new Promise((resolve, reject) =&gt; {
+    const connection = new sqlite3.Database(dbPath, (err) =&gt; {
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (err) <span class="cstat-no" title="statement not covered" >return reject(err);</span>
+      resolve(connection);
+    });
+  });
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    // Set up encryption and pragmas
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, `PRAGMA key = '${key}'`);</span>
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, 'PRAGMA journal_mode = WAL');</span>
+<span class="cstat-no" title="statement not covered" >    await dbRun(db, 'PRAGMA foreign_keys = ON');</span>
+&nbsp;
+    // Build the schema and run migrations
+<span class="cstat-no" title="statement not covered" >    await dbExec(db, schema);</span>
+<span class="cstat-no" title="statement not covered" >    await runMigrations(); </span>// This function uses the global `db` object
+<span class="cstat-no" title="statement not covered" >    await seedSuperadmin(); </span>// This function also uses the global `db` object
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    log(`Test database initialized successfully at ${dbPath}`);</span>
+<span class="cstat-no" title="statement not covered" >    return db;</span>
+  } catch (error) {
+<span class="cstat-no" title="statement not covered" >    logError('Failed to initialize test database:', error);</span>
+<span class="cstat-no" title="statement not covered" >    await dbClose(db); </span>// Clean up on failure
+<span class="cstat-no" title="statement not covered" >    db = null;</span>
+<span class="cstat-no" title="statement not covered" >    throw error;</span>
+  }
+}
+&nbsp;
+module.exports = {
+  initializeDatabase,
+  initializeTestDatabase, // &lt;-- Export the new function
+  closeDatabase,
+  runQuery,
+  getQuery,
+  allQuery,
+  getDb,
+  getDatabasePath,
+  isDbOpen,
+  dbExec,
+};
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2025-09-19T18:29:20.332Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    
