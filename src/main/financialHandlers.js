@@ -485,15 +485,15 @@ async function handleGetFinancialSummary(event, year) {
 // async function handleGenerateExcelReport() { ... }
 
 function registerFinancialHandlers() {
-  ipcMain.handle('get-expenses', createHandler(handleGetExpenses));
-  ipcMain.handle('add-expense', createHandler(handleAddExpense));
-  ipcMain.handle('update-expense', createHandler(handleUpdateExpense));
-  ipcMain.handle('delete-expense', createHandler(handleDeleteExpense));
+  ipcMain.handle('expenses:get', createHandler(handleGetExpenses));
+  ipcMain.handle('expenses:add', createHandler(handleAddExpense));
+  ipcMain.handle('expenses:update', createHandler(handleUpdateExpense));
+  ipcMain.handle('expenses:delete', createHandler(handleDeleteExpense));
 
-  ipcMain.handle('get-donations', createHandler(handleGetDonations));
-  ipcMain.handle('add-donation', createHandler(handleAddDonation));
-  ipcMain.handle('update-donation', createHandler(handleUpdateDonation));
-  ipcMain.handle('delete-donation', createHandler(handleDeleteDonation));
+  ipcMain.handle('donations:get', createHandler(handleGetDonations));
+  ipcMain.handle('donations:add', createHandler(handleAddDonation));
+  ipcMain.handle('donations:update', createHandler(handleUpdateDonation));
+  ipcMain.handle('donations:delete', createHandler(handleDeleteDonation));
 
   ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
   ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
@@ -501,19 +501,19 @@ function registerFinancialHandlers() {
   ipcMain.handle('inventory:update', createHandler(handleUpdateInventoryItem));
   ipcMain.handle('inventory:delete', createHandler(handleDeleteInventoryItem));
 
-  ipcMain.handle('get-salaries', createHandler(handleGetSalaries));
-  ipcMain.handle('add-salary', createHandler(handleAddSalary));
-  ipcMain.handle('update-salary', createHandler(handleUpdateSalary));
-  ipcMain.handle('delete-salary', createHandler(handleDeleteSalary));
+  ipcMain.handle('salaries:get', createHandler(handleGetSalaries));
+  ipcMain.handle('salaries:add', createHandler(handleAddSalary));
+  ipcMain.handle('salaries:update', createHandler(handleUpdateSalary));
+  ipcMain.handle('salaries:delete', createHandler(handleDeleteSalary));
 
-  ipcMain.handle('get-payments', createHandler(handleGetPayments));
-  ipcMain.handle('add-payment', createHandler(handleAddPayment));
-  ipcMain.handle('update-payment', createHandler(handleUpdatePayment));
-  ipcMain.handle('delete-payment', createHandler(handleDeletePayment));
+  ipcMain.handle('payments:get', createHandler(handleGetPayments));
+  ipcMain.handle('payments:add', createHandler(handleAddPayment));
+  ipcMain.handle('payments:update', createHandler(handleUpdatePayment));
+  ipcMain.handle('payments:delete', createHandler(handleDeletePayment));
 
-  ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
-  ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
-  ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
+  ipcMain.handle('financials:getSummary', createHandler(handleGetFinancialSummary));
+  ipcMain.handle('financials:getMonthlySnapshot', createHandler(handleGetMonthlySnapshot));
+  ipcMain.handle('financials:getStatementOfActivities', createHandler(handleGetStatementOfActivities));
   // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
   // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
 }

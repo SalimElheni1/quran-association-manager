@@ -101,15 +101,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
 
   // Financials API
-  getExpenses: () => ipcRenderer.invoke('get-expenses'),
-  addExpense: (expense) => ipcRenderer.invoke('add-expense', expense),
-  updateExpense: (expense) => ipcRenderer.invoke('update-expense', expense),
-  deleteExpense: (id) => ipcRenderer.invoke('delete-expense', id),
+  getExpenses: (period) => ipcRenderer.invoke('expenses:get', period),
+  addExpense: (expense) => ipcRenderer.invoke('expenses:add', expense),
+  updateExpense: (expense) => ipcRenderer.invoke('expenses:update', expense),
+  deleteExpense: (id) => ipcRenderer.invoke('expenses:delete', id),
 
-  getDonations: () => ipcRenderer.invoke('get-donations'),
-  addDonation: (donation) => ipcRenderer.invoke('add-donation', donation),
-  updateDonation: (donation) => ipcRenderer.invoke('update-donation', donation),
-  deleteDonation: (id) => ipcRenderer.invoke('delete-donation', id),
+  getDonations: (period) => ipcRenderer.invoke('donations:get', period),
+  addDonation: (donation) => ipcRenderer.invoke('donations:add', donation),
+  updateDonation: (donation) => ipcRenderer.invoke('donations:update', donation),
+  deleteDonation: (id) => ipcRenderer.invoke('donations:delete', id),
 
   // Inventory API
   getInventoryItems: () => ipcRenderer.invoke('inventory:get'),
@@ -118,19 +118,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
   deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete', id),
 
-  getSalaries: () => ipcRenderer.invoke('get-salaries'),
-  addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
-  updateSalary: (salary) => ipcRenderer.invoke('update-salary', salary),
-  deleteSalary: (id) => ipcRenderer.invoke('delete-salary', id),
+  getSalaries: (period) => ipcRenderer.invoke('salaries:get', period),
+  addSalary: (salary) => ipcRenderer.invoke('salaries:add', salary),
+  updateSalary: (salary) => ipcRenderer.invoke('salaries:update', salary),
+  deleteSalary: (id) => ipcRenderer.invoke('salaries:delete', id),
 
-  getPayments: () => ipcRenderer.invoke('get-payments'),
-  addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
-  updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
-  deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
+  getPayments: (period) => ipcRenderer.invoke('payments:get', period),
+  addPayment: (payment) => ipcRenderer.invoke('payments:add', payment),
+  updatePayment: (payment) => ipcRenderer.invoke('payments:update', payment),
+  deletePayment: (id) => ipcRenderer.invoke('payments:delete', id),
 
-  getFinancialSummary: (year) => ipcRenderer.invoke('get-financial-summary', year),
-  getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
-  getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),
+  getFinancialSummary: (year) => ipcRenderer.invoke('financials:getSummary', year),
+  getMonthlySnapshot: (period) => ipcRenderer.invoke('financials:getMonthlySnapshot', period),
+  getStatementOfActivities: (period) =>
+    ipcRenderer.invoke('financials:getStatementOfActivities', period),
   // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
   // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
   // getChartData: () => ipcRenderer.invoke('get-chart-data'),

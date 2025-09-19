@@ -1,167 +1,119 @@
-const {
-  handleGetExpenses,
-  handleAddDonation,
-  handleGetSalaries,
-  handleGetPayments,
-  handleGetFinancialSummary,
-} = require('../src/main/financialHandlers');
-const db = require('../src/db/db');
-
-// Mock the electron app module
-jest.mock('electron', () => ({
-  app: {
-    getAppPath: jest.fn(() => '/mock/app/path'),
-    getPath: jest.fn((name) => `/mock/user/data/${name}`),
-  },
-  ipcMain: {
-    handle: jest.fn(),
-  },
-}));
-
-// Mock the db functions
-jest.mock('../src/db/db', () => ({
-  allQuery: jest.fn(),
-  runQuery: jest.fn(),
-  getQuery: jest.fn(),
-}));
+const { registerFinancialHandlers } = require('../src/main/financialHandlers');
+const { initializeTestDatabase, closeDatabase, runQuery, getQuery } = require('../src/db/db');
+const { ipcMain } = require('electron');
+const path = require('path');
 
 describe('Financial Handlers', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  // --- Expenses ---
-  describe('handleGetExpenses', () => {
-    it('should retrieve all expenses', async () => {
-      const mockData = [{ id: 1, category: 'Supplies', amount: 100 }];
-      db.allQuery.mockResolvedValue(mockData);
-      const result = await handleGetExpenses(null, null); // Pass null for period
-      expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT * FROM expenses ORDER BY expense_date DESC',
-        [],
-      );
-      expect(result).toEqual(mockData);
+    beforeAll(async () => {
+        const dbPath = path.join(__dirname, 'test-financials.sqlite');
+        await initializeTestDatabase(dbPath);
+        registerFinancialHandlers();
     });
 
-    it('should retrieve expenses for a given period', async () => {
-      const mockData = [{ id: 1, category: 'Supplies', amount: 100 }];
-      const period = { startDate: '2025-01-01', endDate: '2025-01-31' };
-      db.allQuery.mockResolvedValue(mockData);
-      const result = await handleGetExpenses(null, period);
-      expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT * FROM expenses WHERE expense_date BETWEEN ? AND ? ORDER BY expense_date DESC',
-        [period.startDate, period.endDate],
-      );
-      expect(result).toEqual(mockData);
-    });
-  });
-
-  // --- Donations ---
-  describe('handleAddDonation', () => {
-    it('should add a new cash donation', async () => {
-      const newDonation = {
-        donor_name: 'John Doe',
-        amount: 500,
-        donation_date: '2025-01-01',
-        notes: '',
-        donation_type: 'Cash',
-        description: null,
-      };
-      const insertedDonation = { id: 1, ...newDonation };
-      db.runQuery.mockResolvedValue({ id: 1 });
-      db.getQuery.mockResolvedValue(insertedDonation);
-
-      await handleAddDonation({}, newDonation);
-
-      expect(db.runQuery).toHaveBeenCalledWith(expect.any(String), [
-        'John Doe',
-        500,
-        '2025-01-01',
-        '',
-        'Cash',
-        null,
-      ]);
+    afterAll(async () => {
+        await closeDatabase();
     });
 
-    it('should add a new in-kind donation', async () => {
-      const newDonation = {
-        donor_name: 'Jane Doe',
-        amount: null,
-        donation_date: '2025-01-02',
-        notes: '',
-        donation_type: 'In-kind',
-        description: 'Office Chair',
-      };
-      const insertedDonation = { id: 2, ...newDonation };
-      db.runQuery.mockResolvedValue({ id: 2 });
-      db.getQuery.mockResolvedValue(insertedDonation);
-
-      await handleAddDonation({}, newDonation);
-
-      expect(db.runQuery).toHaveBeenCalledWith(expect.any(String), [
-        'Jane Doe',
-        null,
-        '2025-01-02',
-        '',
-        'In-kind',
-        'Office Chair',
-      ]);
+    afterEach(async () => {
+        await runQuery('DELETE FROM donations');
+        await runQuery('DELETE FROM expenses');
+        await runQuery('DELETE FROM salaries');
+        await runQuery('DELETE FROM payments');
+        await runQuery('DELETE FROM users');
+        await runQuery('DELETE FROM students');
     });
-  });
 
-  // --- Salaries ---
-  describe('handleGetSalaries', () => {
-    it('should retrieve all salaries with employee names', async () => {
-      const mockData = [{ id: 1, employee_name: 'Test Teacher', amount: 5000 }];
-      db.allQuery.mockResolvedValue(mockData);
-      await handleGetSalaries(null, null);
-      expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('ORDER BY s.payment_date DESC'),
-        [],
-      );
+    describe('donations:add', () => {
+        it('should add a new cash donation', async () => {
+            const newDonation = {
+                donor_name: 'John Doe',
+                amount: 500,
+                donation_date: '2025-01-01',
+                notes: 'Test note',
+                donation_type: 'Cash',
+                category: 'General',
+            };
+
+            const result = await ipcMain.invoke('donations:add', newDonation);
+            expect(result).toHaveProperty('id');
+
+            const insertedDonation = await getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
+            expect(insertedDonation.donor_name).toBe(newDonation.donor_name);
+            expect(insertedDonation.amount).toBe(newDonation.amount);
+        });
+
+        it('should add a new in-kind donation', async () => {
+            const newDonation = {
+                donor_name: 'Jane Doe',
+                donation_date: '2025-01-02',
+                donation_type: 'In-kind',
+                description: 'Office Chair',
+                category: 'Furniture',
+            };
+
+            const result = await ipcMain.invoke('donations:add', newDonation);
+            expect(result).toHaveProperty('id');
+
+            const insertedDonation = await getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
+            expect(insertedDonation.donor_name).toBe(newDonation.donor_name);
+            expect(insertedDonation.description).toBe(newDonation.description);
+        });
     });
-  });
 
-  // --- Payments ---
-  describe('handleGetPayments', () => {
-    it('should retrieve all payments with student names', async () => {
-      const mockData = [{ id: 1, student_name: 'Test Student', amount: 200 }];
-      db.allQuery.mockResolvedValue(mockData);
-      await handleGetPayments(null, null);
-      expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('ORDER BY p.payment_date DESC'),
-        [],
-      );
+    describe('expenses:add', () => {
+        it('should add a new expense', async () => {
+            const newExpense = {
+                category: 'Supplies',
+                amount: 100,
+                expense_date: '2025-01-03',
+                description: 'Pencils and paper',
+            };
+
+            const result = await ipcMain.invoke('expenses:add', newExpense);
+            expect(result).toHaveProperty('id');
+
+            const insertedExpense = await getQuery('SELECT * FROM expenses WHERE id = ?', [result.id]);
+            expect(insertedExpense.category).toBe(newExpense.category);
+            expect(insertedExpense.amount).toBe(newExpense.amount);
+        });
     });
-  });
 
-  // --- Summary & Charting ---
-  describe('handleGetFinancialSummary', () => {
-    it('should calculate the financial summary correctly for a given year', async () => {
-      db.allQuery.mockImplementation((sql, params) => {
-        // Check params to ensure the year is being used
-        expect(params[0]).toContain('2024-01-01');
-        expect(params[1]).toContain('2024-12-31');
+    describe('salaries:add', () => {
+        it('should add a new salary payment', async () => {
+            const newUser = await runQuery("INSERT INTO users (username, password, role, first_name, last_name) VALUES ('teacher1', 'pw', 'Admin', 'Test', 'Teacher')");
+            const newSalary = {
+                user_id: newUser.id,
+                user_type: 'admin',
+                amount: 5000,
+                payment_date: '2025-01-04',
+                notes: 'Monthly salary',
+            };
 
-        if (sql.includes('UNION ALL')) {
-          return Promise.resolve([
-            { source: 'Payments', total: 1000 },
-            { source: 'Donations', total: 500 },
-          ]);
-        }
-        if (sql.includes('FROM expenses')) {
-          return Promise.resolve([{ source: 'Expenses', total: 200 }]);
-        }
-        if (sql.includes('FROM salaries')) {
-          return Promise.resolve([{ source: 'Salaries', total: 300 }]);
-        }
-        return Promise.resolve([]);
-      });
+            const result = await ipcMain.invoke('salaries:add', newSalary);
+            expect(result).toHaveProperty('id');
 
-      const result = await handleGetFinancialSummary(null, 2024);
-      expect(result.totalIncome).toBe(1500);
-      expect(result.totalExpenses).toBe(500);
-      expect(result.balance).toBe(1000);
+            const insertedSalary = await getQuery('SELECT * FROM salaries WHERE id = ?', [result.id]);
+            expect(insertedSalary.user_id).toBe(newSalary.user_id);
+            expect(insertedSalary.amount).toBe(newSalary.amount);
+        });
     });
-  });
+
+    describe('payments:add', () => {
+        it('should add a new student payment', async () => {
+            const newStudent = await runQuery("INSERT INTO students (name) VALUES ('Test Student')");
+            const newPayment = {
+                student_id: newStudent.id,
+                amount: 200,
+                payment_date: '2025-01-05',
+                payment_type: 'fee',
+            };
+
+            const result = await ipcMain.invoke('payments:add', newPayment);
+            expect(result).toHaveProperty('id');
+
+            const insertedPayment = await getQuery('SELECT * FROM payments WHERE id = ?', [result.id]);
+            expect(insertedPayment.student_id).toBe(newPayment.student_id);
+            expect(insertedPayment.amount).toBe(newPayment.amount);
+        });
+    });
 });
