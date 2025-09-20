@@ -1,14 +1,11 @@
 // tests/mocks/electron-store.js
-const mockStore = {
-  get: jest.fn(),
-  set: jest.fn(),
-  delete: jest.fn(),
-  clear: jest.fn(),
-};
-
 class Store {
   constructor() {
-    return mockStore;
+    this.data = new Map();
+    this.get = jest.fn((key) => this.data.get(key));
+    this.set = jest.fn((key, value) => this.data.set(key, value));
+    this.delete = jest.fn((key) => this.data.delete(key));
+    this.clear = jest.fn(() => this.data.clear());
   }
 }
 

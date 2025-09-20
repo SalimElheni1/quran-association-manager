@@ -1,18 +1,52 @@
-// --- Refactor Step 1: Import new dependencies ---
+/**
+ * @fileoverview Database connection and management module for Quran Branch Manager.
+ * Handles SQLCipher encrypted database operations, migrations, and initialization.
+ * 
+ * This module provides a secure, encrypted SQLite database using SQLCipher with
+ * automatic key management, schema migrations, and connection pooling.
+ * 
+ * @author Quran Branch Manager Team
+ * @version 1.0.2-beta
+ * @requires @journeyapps/sqlcipher - SQLCipher database driver
+ * @requires electron - For app paths and user data directory
+ * @requires crypto - For encryption key generation and hashing
+ * @requires bcryptjs - For password hashing
+ */
+
+// Dependencies
 const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron'); // <-- Import `app` from Electron
+const { app } = require('electron');
 const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
 const { getDbKey, getDbSalt } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
-// --- Refactor Step 2: `db` is now managed by `getDb` ---
-let db; // This will hold our database connection object
+// ============================================================================
+// GLOBAL VARIABLES AND CONFIGURATION
+// ============================================================================
 
-// Helper function to get database file path
+/**
+ * Global database connection object.
+ * Managed by getDb() function to ensure proper initialization.
+ * @type {sqlite3.Database|null}
+ */
+let db = null;
+
+// ============================================================================
+// DATABASE PATH AND CONFIGURATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Determines the appropriate database file path based on the runtime environment.
+ * In Electron, uses app.getPath('userData') for persistent storage.
+ * In Node.js scripts, uses a local .db directory in the project root.
+ * 
+ * @returns {string} The absolute path to the database file
+ * @throws {Error} If unable to create the database directory
+ */
 function getDatabasePath() {
   // Check if running in Electron or a plain Node.js script
   const isElectron = 'electron' in process.versions;
@@ -40,6 +74,21 @@ function getDatabasePath() {
   return dbPath;
 }
 
+// ============================================================================
+// DATABASE INITIALIZATION AND SEEDING FUNCTIONS
+// ============================================================================
+
+/**
+ * Seeds the database with a default superadmin user if none exists.
+ * This function is called during initial database setup to ensure
+ * there's always at least one admin user who can access the system.
+ * 
+ * @returns {Promise<Object|null>} Temporary credentials object if a new admin was created,
+ *                                 null if an admin already exists
+ * @returns {string} returns.username - The created username
+ * @returns {string} returns.password - The temporary password
+ * @throws {Error} If database operations fail
+ */
 async function seedSuperadmin() {
   try {
     const existingAdmin = await getQuery('SELECT id FROM users WHERE role = ?', ['Superadmin']);
@@ -47,7 +96,7 @@ async function seedSuperadmin() {
     if (!existingAdmin) {
       log('No superadmin found. Seeding default superadmin...');
 
-      const tempPassword = '123456'; //crypto.randomBytes(8).toString('hex');
+      const tempPassword = '123456'; // TODO: Use crypto.randomBytes(8).toString('hex') for production
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
       const username = 'superadmin';
 
@@ -64,6 +113,7 @@ async function seedSuperadmin() {
         'superadmin@example.com',
       ]);
 
+      // Generate and assign matricule number
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
@@ -81,15 +131,24 @@ async function seedSuperadmin() {
   }
 }
 
+// ============================================================================
+// DATABASE ENCRYPTION AND MIGRATION FUNCTIONS
+// ============================================================================
+
 /**
- * Checks if a database file is encrypted.
- * @param {string} filePath Path to the database file.
- * @returns {boolean} True if the file is encrypted or does not exist.
+ * Checks if a database file is encrypted by examining its header.
+ * SQLite databases start with 'SQLite format 3\0', while encrypted
+ * databases have different headers due to encryption.
+ * 
+ * @param {string} filePath - Path to the database file to check
+ * @returns {boolean} True if the file is encrypted or does not exist (new DB will be encrypted)
+ * @throws {Error} If unable to read the database file
  */
 function isDbEncrypted(filePath) {
   if (!fs.existsSync(filePath)) {
-    return true; // A new DB will be created as encrypted.
+    return true; // A new DB will be created as encrypted
   }
+  
   // A plaintext SQLite DB starts with 'SQLite format 3\0'. An encrypted one will not.
   const buffer = Buffer.alloc(16);
   const fd = fs.openSync(filePath, 'r');
@@ -100,8 +159,19 @@ function isDbEncrypted(filePath) {
 
 /**
  * Migrates a plaintext SQLite database to an encrypted SQLCipher database.
- * @param {string} dbPath The path to the database file.
- * @param {string} key The encryption key.
+ * This function is called when an existing plaintext database is detected
+ * and needs to be converted to encrypted format for security.
+ * 
+ * The process involves:
+ * 1. Backing up the original plaintext database
+ * 2. Creating a new encrypted database
+ * 3. Copying all data from plaintext to encrypted format
+ * 4. Removing the plaintext backup
+ * 
+ * @param {string} dbPath - The path to the database file to migrate
+ * @param {string} key - The encryption key to use for the new encrypted database
+ * @returns {Promise<void>} Resolves when migration is complete
+ * @throws {Error} If migration fails at any step
  */
 async function migrateToEncrypted(dbPath, key) {
   log('Plaintext database detected. Starting migration to encrypted format...');

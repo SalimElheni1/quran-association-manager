@@ -8,9 +8,10 @@ jest.mock('../../src/renderer/utils/logger', () => ({
   error: jest.fn(),
 }));
 
+const mockLogin = jest.fn();
 jest.mock('../../src/renderer/contexts/AuthContext', () => ({
   useAuth: () => ({
-    login: jest.fn(),
+    login: mockLogin,
   }),
 }));
 
@@ -47,7 +48,6 @@ jest.mock('react-router-dom', () => ({
 
 describe('LoginPage', () => {
   let mockElectronAPI;
-  let mockLogin;
 
   beforeEach(() => {
     mockElectronAPI = {
@@ -55,12 +55,8 @@ describe('LoginPage', () => {
     };
     global.window.electronAPI = mockElectronAPI;
 
-    mockLogin = jest.fn();
-    jest.doMock('../../src/renderer/contexts/AuthContext', () => ({
-      useAuth: () => ({ login: mockLogin }),
-    }));
-
     jest.clearAllMocks();
+    mockLogin.mockClear();
   });
 
   const renderLoginPage = (props = {}) => {
@@ -76,7 +72,7 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('container')).toBeInTheDocument();
-      expect(screen.getByText('تسجيل الدخول')).toBeInTheDocument();
+      expect(screen.getAllByText('تسجيل الدخول')).toHaveLength(2); // h1 and button
       expect(screen.getByTestId('form-control')).toBeInTheDocument(); // username input
       expect(screen.getByTestId('password-input')).toBeInTheDocument();
       expect(screen.getByTestId('button')).toBeInTheDocument();
@@ -201,7 +197,7 @@ describe('LoginPage', () => {
   it('should prevent form submission when fields are empty', () => {
     renderLoginPage();
 
-    const form = screen.getByRole('form');
+    const form = screen.getByTestId('form');
     fireEvent.submit(form);
 
     // Form validation should prevent submission

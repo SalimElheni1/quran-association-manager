@@ -25,6 +25,7 @@ module.exports = {
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
         '^@renderer/styles/(.*)$': 'identity-obj-proxy',
+        '@renderer/styles/EnrollmentModal.css': 'identity-obj-proxy',
       },
       transformIgnorePatterns: [
         'node_modules/(?!(react-bootstrap)/)',
