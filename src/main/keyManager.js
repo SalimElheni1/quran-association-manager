@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const Store = require('electron-store');
-const { log } = require('./logger');
+const { log, error: logError } = require('./logger');
 
 // Store for the master encryption key for the database file itself
 const keyStore = new Store({
@@ -61,7 +61,7 @@ function getDbSalt() {
  */
 function setDbSalt(newSalt) {
   if (!newSalt || typeof newSalt !== 'string' || newSalt.length < 32) {
-    log.error('setDbSalt received an invalid or missing salt.');
+    logError('setDbSalt received an invalid or missing salt.');
     return;
   }
   saltStore.set(DB_SALT_NAME, newSalt);

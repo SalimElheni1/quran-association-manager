@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1758307281848" clover="3.2.0">
-  <project timestamp="1758307281848" name="All files">
-    <metrics statements="1425" coveredstatements="524" conditionals="665" coveredconditionals="140" methods="215" coveredmethods="63" elements="2305" coveredelements="727" complexity="0" loc="1425" ncloc="1425" packages="3" files="19" classes="19"/>
+<coverage generated="1758313327471" clover="3.2.0">
+  <project timestamp="1758313327471" name="All files">
+    <metrics statements="1425" coveredstatements="549" conditionals="665" coveredconditionals="151" methods="215" coveredmethods="68" elements="2305" coveredelements="768" complexity="0" loc="1425" ncloc="1425" packages="3" files="19" classes="19"/>
     <package name="src.main">
-      <metrics statements="962" coveredstatements="260" conditionals="454" coveredconditionals="53" methods="140" coveredmethods="25"/>
+      <metrics statements="962" coveredstatements="285" conditionals="454" coveredconditionals="64" methods="140" coveredmethods="30"/>
       <file name="backupManager.js" path="D:\01-Programming\quran-association-manager\src\main\backupManager.js">
         <metrics statements="75" coveredstatements="60" conditionals="22" coveredconditionals="9" methods="8" coveredmethods="5"/>
         <line num="1" count="7" type="stmt"/>
@@ -891,35 +891,35 @@
         <line num="647" count="2" type="stmt"/>
       </file>
       <file name="keyManager.js" path="D:\01-Programming\quran-association-manager\src\main\keyManager.js">
-        <metrics statements="28" coveredstatements="8" conditionals="9" coveredconditionals="0" methods="4" coveredmethods="0"/>
-        <line num="1" count="7" type="stmt"/>
-        <line num="2" count="7" type="stmt"/>
-        <line num="3" count="7" type="stmt"/>
-        <line num="6" count="7" type="stmt"/>
-        <line num="14" count="7" type="stmt"/>
-        <line num="16" count="7" type="stmt"/>
-        <line num="17" count="7" type="stmt"/>
-        <line num="26" count="0" type="stmt"/>
-        <line num="28" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="29" count="0" type="stmt"/>
-        <line num="30" count="0" type="stmt"/>
-        <line num="31" count="0" type="stmt"/>
-        <line num="32" count="0" type="stmt"/>
-        <line num="35" count="0" type="stmt"/>
-        <line num="45" count="0" type="stmt"/>
-        <line num="47" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="48" count="0" type="stmt"/>
-        <line num="49" count="0" type="stmt"/>
-        <line num="50" count="0" type="stmt"/>
-        <line num="51" count="0" type="stmt"/>
-        <line num="54" count="0" type="stmt"/>
-        <line num="63" count="0" type="cond" truecount="0" falsecount="5"/>
-        <line num="64" count="0" type="stmt"/>
+        <metrics statements="28" coveredstatements="27" conditionals="9" coveredconditionals="9" methods="4" coveredmethods="4"/>
+        <line num="1" count="16" type="stmt"/>
+        <line num="2" count="16" type="stmt"/>
+        <line num="3" count="16" type="stmt"/>
+        <line num="6" count="16" type="stmt"/>
+        <line num="14" count="16" type="stmt"/>
+        <line num="16" count="16" type="stmt"/>
+        <line num="17" count="16" type="stmt"/>
+        <line num="26" count="2" type="stmt"/>
+        <line num="28" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="35" count="2" type="stmt"/>
+        <line num="45" count="2" type="stmt"/>
+        <line num="47" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="49" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="54" count="2" type="stmt"/>
+        <line num="63" count="4" type="cond" truecount="5" falsecount="0"/>
+        <line num="64" count="3" type="stmt"/>
         <line num="65" count="0" type="stmt"/>
-        <line num="67" count="0" type="stmt"/>
-        <line num="68" count="0" type="stmt"/>
-        <line num="76" count="0" type="stmt"/>
-        <line num="79" count="7" type="stmt"/>
+        <line num="67" count="1" type="stmt"/>
+        <line num="68" count="1" type="stmt"/>
+        <line num="76" count="1" type="stmt"/>
+        <line num="79" count="16" type="stmt"/>
       </file>
       <file name="logger.js" path="D:\01-Programming\quran-association-manager\src\main\logger.js">
         <metrics statements="10" coveredstatements="8" conditionals="10" coveredconditionals="4" methods="3" coveredmethods="2"/>
@@ -967,20 +967,20 @@
         <line num="54" count="7" type="stmt"/>
       </file>
       <file name="settingsManager.js" path="D:\01-Programming\quran-association-manager\src\main\settingsManager.js">
-        <metrics statements="13" coveredstatements="7" conditionals="2" coveredconditionals="0" methods="2" coveredmethods="1"/>
-        <line num="1" count="4" type="stmt"/>
-        <line num="2" count="4" type="stmt"/>
-        <line num="4" count="4" type="stmt"/>
-        <line num="7" count="2" type="stmt"/>
-        <line num="8" count="2" type="stmt"/>
-        <line num="9" count="0" type="stmt"/>
-        <line num="10" count="0" type="stmt"/>
-        <line num="12" count="2" type="stmt"/>
-        <line num="19" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="20" count="0" type="stmt"/>
-        <line num="23" count="0" type="stmt"/>
-        <line num="25" count="0" type="stmt"/>
-        <line num="28" count="4" type="stmt"/>
+        <metrics statements="13" coveredstatements="13" conditionals="2" coveredconditionals="2" methods="2" coveredmethods="2"/>
+        <line num="1" count="6" type="stmt"/>
+        <line num="2" count="6" type="stmt"/>
+        <line num="4" count="6" type="stmt"/>
+        <line num="7" count="5" type="stmt"/>
+        <line num="8" count="5" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+        <line num="10" count="2" type="stmt"/>
+        <line num="12" count="3" type="stmt"/>
+        <line num="19" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="6" type="stmt"/>
       </file>
       <file name="validationSchemas.js" path="D:\01-Programming\quran-association-manager\src\main\validationSchemas.js">
         <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
