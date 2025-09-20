@@ -126,7 +126,7 @@ const REQUIRED_COLUMNS = {
 const getColumnIndex = (headerRow, headerText) => {
   let index = -1;
   headerRow.eachCell((cell, colNumber) => {
-    if (cell.value === headerText) {
+    if (cell.value && cell.value === headerText) {
       index = colNumber;
     }
   });
@@ -202,6 +202,7 @@ async function importExcelData(filePath, selectedSheets) {
 }
 
 let processStudentRow = async function (row, headerRow) {
+  debugger;
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
