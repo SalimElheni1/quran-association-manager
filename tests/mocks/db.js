@@ -5,23 +5,23 @@ const db = connect(); // In-memory database
 let isOpen = false;
 
 module.exports = {
-    initializeDatabase: () => {
+    initializeDatabase: jest.fn(() => {
         isOpen = true;
         return Promise.resolve();
-    },
-    initializeTestDatabase: () => {
+    }),
+    initializeTestDatabase: jest.fn(() => {
         isOpen = true;
         return Promise.resolve(db);
-    },
-    closeDatabase: () => {
+    }),
+    closeDatabase: jest.fn(() => {
         isOpen = false;
         return Promise.resolve();
-    },
-    isDbOpen: () => isOpen,
-    getQuery: () => Promise.resolve(),
-    allQuery: () => Promise.resolve([]),
-    runQuery: () => Promise.resolve({ id: 1, changes: 1 }),
-    dbExec: () => Promise.resolve(),
-    getDb: () => db,
-    dbClose: () => Promise.resolve(),
+    }),
+    isDbOpen: jest.fn(() => isOpen),
+    getQuery: jest.fn(() => Promise.resolve()),
+    allQuery: jest.fn(() => Promise.resolve([])),
+    runQuery: jest.fn(() => Promise.resolve({ id: 1, changes: 1 })),
+    dbExec: jest.fn(() => Promise.resolve()),
+    getDb: jest.fn(() => db),
+    dbClose: jest.fn(() => Promise.resolve()),
 };

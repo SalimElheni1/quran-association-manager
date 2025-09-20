@@ -1,0 +1,25 @@
+const mockJoi = {
+  object: jest.fn(() => mockJoi),
+  string: jest.fn(() => mockJoi),
+  number: jest.fn(() => mockJoi),
+  boolean: jest.fn(() => mockJoi),
+  array: jest.fn(() => mockJoi),
+  date: jest.fn(() => mockJoi),
+  allow: jest.fn(() => mockJoi),
+  required: jest.fn(() => mockJoi),
+  optional: jest.fn(() => mockJoi),
+  min: jest.fn(() => mockJoi),
+  max: jest.fn(() => mockJoi),
+  valid: jest.fn(() => mockJoi),
+  invalid: jest.fn(() => mockJoi),
+  default: jest.fn(() => mockJoi),
+  pattern: jest.fn(() => mockJoi),
+  integer: jest.fn(() => mockJoi),
+  messages: jest.fn(() => mockJoi),
+  iso: jest.fn(() => mockJoi),
+  email: jest.fn(() => mockJoi),
+  validateAsync: jest.fn(() => Promise.resolve({ error: null, value: {} })),
+  validate: jest.fn(() => ({ error: null, value: {} })),
+};
+
+module.exports = mockJoi;

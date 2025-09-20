@@ -1292,6 +1292,7 @@ module.exports = {
   getExportHeaderData,
   fetchExportData,
   fetchFinancialData,
+  localizeData,
   generatePdf,
   generateXlsx,
   generateFinancialXlsx,

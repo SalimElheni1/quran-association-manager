@@ -14,6 +14,7 @@ jest.mock('electron', () => ({
 }));
 jest.mock('exceljs');
 jest.mock('docx');
+jest.mock('../src/db/db');
 jest.mock('../src/main/settingsManager');
 jest.mock('../src/main/financialHandlers');
 
@@ -131,7 +132,7 @@ describe('exportManager', () => {
     it('should fetch students data with gender filter', async () => {
       const mockData = [{ id: 1, name: 'Student 1' }];
       allQuery.mockResolvedValue(mockData);
-      getSetting.mockResolvedValue(18);
+      getSetting.mockReturnValue(18);
 
       const result = await fetchExportData({
         type: 'students',
