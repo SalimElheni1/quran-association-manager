@@ -1,12 +1,23 @@
 // tests/mocks/electron-store.js
+// Global shared data store
+const globalData = new Map();
+
+// Create mock methods that operate on the global data
+const mockMethods = {
+  get: jest.fn((key) => globalData.get(key)),
+  set: jest.fn((key, value) => globalData.set(key, value)),
+  delete: jest.fn((key) => globalData.delete(key)),
+  clear: jest.fn(() => globalData.clear()),
+};
+
 class Store {
   constructor() {
-    this.data = new Map();
-    this.get = jest.fn((key) => this.data.get(key));
-    this.set = jest.fn((key, value) => this.data.set(key, value));
-    this.delete = jest.fn((key) => this.data.delete(key));
-    this.clear = jest.fn(() => this.data.clear());
+    // Assign mock methods to this instance
+    Object.assign(this, mockMethods);
   }
 }
 
+// Export the mock methods for test access
+Store.mockMethods = mockMethods;
+Store.globalData = globalData;
 module.exports = Store;

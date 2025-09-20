@@ -3,28 +3,28 @@ jest.mock('electron', () => ({}));
 const mockAutoUpdater = {
   checkForUpdatesAndNotify: jest.fn(),
   on: jest.fn(),
-  quitAndInstall: jest.fn()
+  quitAndInstall: jest.fn(),
 };
 
 jest.mock('electron-updater', () => ({
-  autoUpdater: mockAutoUpdater
+  autoUpdater: mockAutoUpdater,
 }));
 
 // Mock all handler modules
 jest.mock('../src/main/financialHandlers', () => ({
-  registerFinancialHandlers: jest.fn()
+  registerFinancialHandlers: jest.fn(),
 }));
 jest.mock('../src/main/handlers/studentHandlers', () => ({
-  registerStudentHandlers: jest.fn()
+  registerStudentHandlers: jest.fn(),
 }));
 jest.mock('../src/main/handlers/settingsHandlers', () => ({
-  registerSettingsHandlers: jest.fn()
+  registerSettingsHandlers: jest.fn(),
 }));
 jest.mock('../src/main/settingsManager', () => ({
-  refreshSettings: jest.fn()
+  refreshSettings: jest.fn(),
 }));
 jest.mock('../src/main/exportManager', () => ({
-  generateDevExcelTemplate: jest.fn().mockResolvedValue()
+  generateDevExcelTemplate: jest.fn().mockResolvedValue(),
 }));
 jest.mock('fs');
 jest.mock('path');
@@ -37,12 +37,12 @@ jest.mock('exceljs', () => ({
     addWorksheet: jest.fn(() => ({
       addRow: jest.fn(),
       getColumn: jest.fn(() => ({ width: 0 })),
-      columns: []
+      columns: [],
     })),
     xlsx: {
-      writeBuffer: jest.fn().mockResolvedValue(Buffer.from('mock-excel-data'))
-    }
-  }))
+      writeBuffer: jest.fn().mockResolvedValue(Buffer.from('mock-excel-data')),
+    },
+  })),
 }));
 jest.mock('../src/main/settingsManager');
 jest.mock('../src/main/handlers/teacherHandlers');
@@ -64,16 +64,16 @@ describe('Main Process (index.js)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock process methods
     originalProcessEnv = process.env;
     originalProcessExit = process.exit;
     originalProcessOn = process.on;
-    
+
     process.env = { ...originalProcessEnv };
     process.exit = jest.fn();
     process.on = jest.fn();
-    
+
     // Setup all mocks
     mockApp = {
       isPackaged: false,
@@ -81,9 +81,9 @@ describe('Main Process (index.js)', () => {
       getAppPath: jest.fn().mockReturnValue('/mock/app/path'),
       quit: jest.fn(),
       whenReady: jest.fn().mockResolvedValue(),
-      on: jest.fn()
+      on: jest.fn(),
     };
-    
+
     const mockWindow = {
       maximize: jest.fn(),
       show: jest.fn(),
@@ -93,31 +93,31 @@ describe('Main Process (index.js)', () => {
       webContents: {
         openDevTools: jest.fn(),
         send: jest.fn(),
-        on: jest.fn()
-      }
+        on: jest.fn(),
+      },
     };
-    
+
     mockBrowserWindow = jest.fn(() => mockWindow);
     mockBrowserWindow.getAllWindows = jest.fn();
-    
+
     mockIpcMain = {
       handle: jest.fn(),
-      on: jest.fn()
+      on: jest.fn(),
     };
-    
+
     mockMenu = {
-      setApplicationMenu: jest.fn()
+      setApplicationMenu: jest.fn(),
     };
-    
+
     mockProtocol = {
-      registerFileProtocol: jest.fn()
+      registerFileProtocol: jest.fn(),
     };
-    
+
     mockDialog = {
       showSaveDialog: jest.fn().mockResolvedValue({ filePath: '/mock/template.xlsx' }),
-      showMessageBox: jest.fn().mockResolvedValue({ response: 0 })
+      showMessageBox: jest.fn().mockResolvedValue({ response: 0 }),
     };
-    
+
     mockAutoUpdater = require('electron-updater').autoUpdater;
     mockFs = require('fs');
     mockPath = require('path');
@@ -125,13 +125,13 @@ describe('Main Process (index.js)', () => {
     mockStore = jest.fn(() => ({
       get: jest.fn(),
       set: jest.fn(),
-      delete: jest.fn()
+      delete: jest.fn(),
     }));
-    
+
     mockLog = require('../src/main/logger').log;
     mockLogError = require('../src/main/logger').error;
     mockDb = require('../src/db/db');
-    
+
     // Setup default mock implementations
     mockCrypto.randomBytes = jest.fn().mockReturnValue({ toString: () => 'mock-jwt-secret' });
     mockPath.join = jest.fn().mockImplementation((...args) => args.join('/'));
@@ -141,7 +141,7 @@ describe('Main Process (index.js)', () => {
     mockFs.writeFileSync = jest.fn();
     mockDb.initializeDatabase = jest.fn().mockResolvedValue(null);
     mockDb.closeDatabase = jest.fn().mockResolvedValue();
-    
+
     // Mock electron module
     const electronMock = require('electron');
     Object.assign(electronMock, {
@@ -150,9 +150,9 @@ describe('Main Process (index.js)', () => {
       ipcMain: mockIpcMain,
       Menu: mockMenu,
       protocol: mockProtocol,
-      dialog: mockDialog
+      dialog: mockDialog,
     });
-    
+
     // Mock electron-store
     require('electron-store').mockImplementation(() => mockStore());
   });
@@ -167,9 +167,9 @@ describe('Main Process (index.js)', () => {
   describe('Production Crash Logger', () => {
     it('should set up crash logger in packaged mode', () => {
       mockApp.isPackaged = true;
-      
+
       require('../src/main/index');
-      
+
       expect(process.on).toHaveBeenCalledWith('uncaughtException', expect.any(Function));
     });
 
@@ -177,16 +177,16 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = true;
       const mockError = new Error('Test error');
       mockError.stack = 'Error stack trace';
-      
+
       require('../src/main/index');
-      
-      const crashHandler = process.on.mock.calls.find(call => call[0] === 'uncaughtException')[1];
+
+      const crashHandler = process.on.mock.calls.find((call) => call[0] === 'uncaughtException')[1];
       crashHandler(mockError);
-      
+
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
         '/mock/dir/error-log.txt',
         expect.stringContaining('Uncaught Exception'),
-        { encoding: 'utf-8' }
+        { encoding: 'utf-8' },
       );
       expect(process.exit).toHaveBeenCalledWith(1);
     });
@@ -197,20 +197,20 @@ describe('Main Process (index.js)', () => {
       mockFs.writeFileSync.mockImplementation(() => {
         throw new Error('Write failed');
       });
-      
+
       require('../src/main/index');
-      
-      const crashHandler = process.on.mock.calls.find(call => call[0] === 'uncaughtException')[1];
+
+      const crashHandler = process.on.mock.calls.find((call) => call[0] === 'uncaughtException')[1];
       crashHandler(mockError);
-      
+
       expect(process.exit).toHaveBeenCalledWith(1);
     });
 
     it('should not set up crash logger in development mode', () => {
       mockApp.isPackaged = false;
-      
+
       require('../src/main/index');
-      
+
       expect(process.on).not.toHaveBeenCalledWith('uncaughtException', expect.any(Function));
     });
   });
@@ -220,9 +220,9 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = true;
       const mockStoreInstance = { get: jest.fn().mockReturnValue(null), set: jest.fn() };
       mockStore.mockReturnValue(mockStoreInstance);
-      
+
       require('../src/main/index');
-      
+
       expect(mockStoreInstance.get).toHaveBeenCalledWith('jwt_secret');
       expect(mockCrypto.randomBytes).toHaveBeenCalledWith(32);
       expect(mockStoreInstance.set).toHaveBeenCalledWith('jwt_secret', 'mock-jwt-secret');
@@ -231,11 +231,14 @@ describe('Main Process (index.js)', () => {
 
     it('should use existing JWT secret in packaged mode', () => {
       mockApp.isPackaged = true;
-      const mockStoreInstance = { get: jest.fn().mockReturnValue('existing-secret'), set: jest.fn() };
+      const mockStoreInstance = {
+        get: jest.fn().mockReturnValue('existing-secret'),
+        set: jest.fn(),
+      };
       mockStore.mockReturnValue(mockStoreInstance);
-      
+
       require('../src/main/index');
-      
+
       expect(mockStoreInstance.get).toHaveBeenCalledWith('jwt_secret');
       expect(mockCrypto.randomBytes).not.toHaveBeenCalled();
       expect(mockStoreInstance.set).not.toHaveBeenCalled();
@@ -245,19 +248,21 @@ describe('Main Process (index.js)', () => {
     it('should use environment JWT secret in development mode', () => {
       mockApp.isPackaged = false;
       process.env.JWT_SECRET = 'dev-secret';
-      
+
       require('../src/main/index');
-      
+
       expect(process.env.JWT_SECRET).toBe('dev-secret');
     });
 
     it('should quit app when JWT secret is missing', () => {
       mockApp.isPackaged = false;
       delete process.env.JWT_SECRET;
-      
+
       require('../src/main/index');
-      
-      expect(mockLogError).toHaveBeenCalledWith('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
+
+      expect(mockLogError).toHaveBeenCalledWith(
+        'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
+      );
       expect(mockApp.quit).toHaveBeenCalled();
     });
   });
@@ -265,10 +270,10 @@ describe('Main Process (index.js)', () => {
   describe('Window Creation', () => {
     it('should create window with correct configuration', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockBrowserWindow).toHaveBeenCalledWith({
         width: 1200,
         height: 800,
@@ -287,12 +292,12 @@ describe('Main Process (index.js)', () => {
     it('should load development URL in development mode', async () => {
       mockApp.isPackaged = false;
       const mockWindow = mockBrowserWindow();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockWindow.loadURL).toHaveBeenCalledWith('http://localhost:3000');
       expect(mockWindow.webContents.openDevTools).toHaveBeenCalled();
     });
@@ -302,27 +307,29 @@ describe('Main Process (index.js)', () => {
       const mockStoreInstance = { get: jest.fn().mockReturnValue('existing-secret') };
       mockStore.mockReturnValue(mockStoreInstance);
       const mockWindow = mockBrowserWindow();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockWindow.loadFile).toHaveBeenCalledWith(expect.stringContaining('index.html'));
       expect(mockWindow.webContents.openDevTools).not.toHaveBeenCalled();
     });
 
     it('should maximize and show window when ready', async () => {
       const mockWindow = mockBrowserWindow();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const readyToShowHandler = mockWindow.once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
+
+      const readyToShowHandler = mockWindow.once.mock.calls.find(
+        (call) => call[0] === 'ready-to-show',
+      )[1];
       readyToShowHandler();
-      
+
       expect(mockWindow.maximize).toHaveBeenCalled();
       expect(mockWindow.show).toHaveBeenCalled();
     });
@@ -331,10 +338,10 @@ describe('Main Process (index.js)', () => {
   describe('Database Initialization', () => {
     it('should initialize database on app ready', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockDb.initializeDatabase).toHaveBeenCalled();
       expect(mockLog).toHaveBeenCalledWith('App is ready, initializing database...');
       expect(mockLog).toHaveBeenCalledWith('Database initialized successfully.');
@@ -344,27 +351,32 @@ describe('Main Process (index.js)', () => {
       const tempCredentials = { username: 'admin', password: 'temp123' };
       mockDb.initializeDatabase.mockResolvedValue(tempCredentials);
       const mockWindow = mockBrowserWindow();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const finishLoadHandler = mockWindow.webContents.on.mock.calls.find(call => call[0] === 'did-finish-load')[1];
+
+      const finishLoadHandler = mockWindow.webContents.on.mock.calls.find(
+        (call) => call[0] === 'did-finish-load',
+      )[1];
       finishLoadHandler();
-      
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith('show-initial-credentials', tempCredentials);
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'show-initial-credentials',
+        tempCredentials,
+      );
     });
 
     it('should handle database initialization failure', async () => {
       const dbError = new Error('Database failed');
       mockDb.initializeDatabase.mockRejectedValue(dbError);
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await expect(readyHandler).rejects.toThrow();
-      
+
       expect(mockLogError).toHaveBeenCalledWith('Fatal error during application startup:', dbError);
       expect(mockApp.quit).toHaveBeenCalled();
     });
@@ -375,12 +387,12 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = true;
       const mockStoreInstance = { get: jest.fn().mockReturnValue('existing-secret') };
       mockStore.mockReturnValue(mockStoreInstance);
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockAutoUpdater.checkForUpdatesAndNotify).toHaveBeenCalled();
       expect(mockLog).toHaveBeenCalledWith('Setting up auto-updater...');
     });
@@ -389,30 +401,36 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = true;
       const mockStoreInstance = { get: jest.fn().mockReturnValue('existing-secret') };
       mockStore.mockReturnValue(mockStoreInstance);
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       // Test update-available
-      const updateAvailableHandler = mockAutoUpdater.on.mock.calls.find(call => call[0] === 'update-available')[1];
+      const updateAvailableHandler = mockAutoUpdater.on.mock.calls.find(
+        (call) => call[0] === 'update-available',
+      )[1];
       updateAvailableHandler();
       expect(mockLog).toHaveBeenCalledWith('Update available.');
-      
+
       // Test update-not-available
-      const updateNotAvailableHandler = mockAutoUpdater.on.mock.calls.find(call => call[0] === 'update-not-available')[1];
+      const updateNotAvailableHandler = mockAutoUpdater.on.mock.calls.find(
+        (call) => call[0] === 'update-not-available',
+      )[1];
       updateNotAvailableHandler();
       expect(mockLog).toHaveBeenCalledWith('Update not available.');
-      
+
       // Test error
-      const errorHandler = mockAutoUpdater.on.mock.calls.find(call => call[0] === 'error')[1];
+      const errorHandler = mockAutoUpdater.on.mock.calls.find((call) => call[0] === 'error')[1];
       const updateError = new Error('Update failed');
       errorHandler(updateError);
       expect(mockLogError).toHaveBeenCalledWith('Error in auto-updater. ' + updateError);
-      
+
       // Test download-progress
-      const progressHandler = mockAutoUpdater.on.mock.calls.find(call => call[0] === 'download-progress')[1];
+      const progressHandler = mockAutoUpdater.on.mock.calls.find(
+        (call) => call[0] === 'download-progress',
+      )[1];
       const progressObj = { bytesPerSecond: 1000, percent: 50, transferred: 500, total: 1000 };
       progressHandler(progressObj);
       expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('Download speed: 1000'));
@@ -423,32 +441,36 @@ describe('Main Process (index.js)', () => {
       const mockStoreInstance = { get: jest.fn().mockReturnValue('existing-secret') };
       mockStore.mockReturnValue(mockStoreInstance);
       mockDialog.showMessageBox.mockResolvedValue({ response: 0 });
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const downloadedHandler = mockAutoUpdater.on.mock.calls.find(call => call[0] === 'update-downloaded')[1];
+
+      const downloadedHandler = mockAutoUpdater.on.mock.calls.find(
+        (call) => call[0] === 'update-downloaded',
+      )[1];
       const info = { releaseName: 'v1.0.0', releaseNotes: 'Bug fixes' };
       await downloadedHandler(info);
-      
-      expect(mockDialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'info',
-        buttons: ['Restart', 'Later'],
-        title: 'Application Update'
-      }));
+
+      expect(mockDialog.showMessageBox).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'info',
+          buttons: ['Restart', 'Later'],
+          title: 'Application Update',
+        }),
+      );
       expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalled();
     });
 
     it('should not setup auto-updater in development mode', async () => {
       mockApp.isPackaged = false;
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockAutoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
     });
   });
@@ -456,36 +478,39 @@ describe('Main Process (index.js)', () => {
   describe('Protocol Registration', () => {
     it('should register safe-image protocol', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      expect(mockProtocol.registerFileProtocol).toHaveBeenCalledWith('safe-image', expect.any(Function));
+
+      expect(mockProtocol.registerFileProtocol).toHaveBeenCalledWith(
+        'safe-image',
+        expect.any(Function),
+      );
     });
 
     it('should handle safe-image protocol paths', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       const protocolHandler = mockProtocol.registerFileProtocol.mock.calls[0][1];
       const mockCallback = jest.fn();
-      
+
       // Test absolute path
       mockPath.isAbsolute.mockReturnValue(true);
       mockFs.existsSync.mockReturnValue(true);
       const request1 = { url: 'safe-image:///absolute/path/image.png' };
       protocolHandler(request1, mockCallback);
       expect(mockCallback).toHaveBeenCalledWith({ path: '/absolute/path/image.png' });
-      
+
       // Test userData path
       mockPath.isAbsolute.mockReturnValue(false);
-      mockFs.existsSync.mockImplementation(path => path.includes('userData'));
+      mockFs.existsSync.mockImplementation((path) => path.includes('userData'));
       const request2 = { url: 'safe-image://relative/path/image.png' };
       protocolHandler(request2, mockCallback);
       expect(mockCallback).toHaveBeenCalledWith({ path: expect.stringContaining('userData') });
-      
+
       // Test file not found
       mockFs.existsSync.mockReturnValue(false);
       const request3 = { url: 'safe-image://nonexistent.png' };
@@ -496,22 +521,27 @@ describe('Main Process (index.js)', () => {
 
     it('should handle safe-image protocol errors', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       const protocolHandler = mockProtocol.registerFileProtocol.mock.calls[0][1];
       const mockCallback = jest.fn();
       const request = { url: 'safe-image://invalid%url' };
-      
+
       const originalDecodeURI = global.decodeURI;
-      global.decodeURI = jest.fn(() => { throw new Error('Invalid URL'); });
-      
+      global.decodeURI = jest.fn(() => {
+        throw new Error('Invalid URL');
+      });
+
       protocolHandler(request, mockCallback);
-      
-      expect(mockLogError).toHaveBeenCalledWith('[safe-image] protocol handler error:', expect.any(Error));
+
+      expect(mockLogError).toHaveBeenCalledWith(
+        '[safe-image] protocol handler error:',
+        expect.any(Error),
+      );
       expect(mockCallback).toHaveBeenCalledWith({ error: -2 });
-      
+
       global.decodeURI = originalDecodeURI;
     });
   });
@@ -521,15 +551,17 @@ describe('Main Process (index.js)', () => {
       const mockStoreInstance = { get: jest.fn().mockReturnValue(true), delete: jest.fn() };
       mockStore.mockReturnValue(mockStoreInstance);
       const mockWindow = mockBrowserWindow();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const finishLoadHandler = mockWindow.webContents.on.mock.calls.find(call => call[0] === 'did-finish-load')[1];
+
+      const finishLoadHandler = mockWindow.webContents.on.mock.calls.find(
+        (call) => call[0] === 'did-finish-load',
+      )[1];
       finishLoadHandler();
-      
+
       expect(mockWindow.webContents.send).toHaveBeenCalledWith('force-logout');
       expect(mockStoreInstance.delete).toHaveBeenCalledWith('force-relogin-after-restart');
       expect(mockLog).toHaveBeenCalledWith('Force re-login flag cleared.');
@@ -539,32 +571,39 @@ describe('Main Process (index.js)', () => {
   describe('IPC Handlers Registration', () => {
     it('should register get-is-packaged handler', async () => {
       mockApp.isPackaged = true;
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockIpcMain.handle).toHaveBeenCalledWith('get-is-packaged', expect.any(Function));
-      
-      const handler = mockIpcMain.handle.mock.calls.find(call => call[0] === 'get-is-packaged')[1];
+
+      const handler = mockIpcMain.handle.mock.calls.find(
+        (call) => call[0] === 'get-is-packaged',
+      )[1];
       expect(handler()).toBe(true);
     });
 
     it('should register export:generate-dev-template handler', async () => {
       const { generateDevExcelTemplate } = require('../src/main/exportManager');
       generateDevExcelTemplate.mockResolvedValue();
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      expect(mockIpcMain.handle).toHaveBeenCalledWith('export:generate-dev-template', expect.any(Function));
-      
-      const handler = mockIpcMain.handle.mock.calls.find(call => call[0] === 'export:generate-dev-template')[1];
+
+      expect(mockIpcMain.handle).toHaveBeenCalledWith(
+        'export:generate-dev-template',
+        expect.any(Function),
+      );
+
+      const handler = mockIpcMain.handle.mock.calls.find(
+        (call) => call[0] === 'export:generate-dev-template',
+      )[1];
       const result = await handler();
-      
+
       expect(generateDevExcelTemplate).toHaveBeenCalledWith('/mock/template.xlsx');
       expect(result).toEqual({ success: true, path: '/mock/template.xlsx' });
     });
@@ -572,16 +611,21 @@ describe('Main Process (index.js)', () => {
     it('should handle export template error', async () => {
       const { generateDevExcelTemplate } = require('../src/main/exportManager');
       generateDevExcelTemplate.mockRejectedValue(new Error('Export failed'));
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const handler = mockIpcMain.handle.mock.calls.find(call => call[0] === 'export:generate-dev-template')[1];
+
+      const handler = mockIpcMain.handle.mock.calls.find(
+        (call) => call[0] === 'export:generate-dev-template',
+      )[1];
       const result = await handler();
-      
-      expect(mockLogError).toHaveBeenCalledWith('Failed to generate dev excel template:', expect.any(Error));
+
+      expect(mockLogError).toHaveBeenCalledWith(
+        'Failed to generate dev excel template:',
+        expect.any(Error),
+      );
       expect(result).toEqual({ success: false, message: 'Export failed' });
     });
 
@@ -590,12 +634,12 @@ describe('Main Process (index.js)', () => {
       const { registerStudentHandlers } = require('../src/main/handlers/studentHandlers');
       const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandlers');
       const { refreshSettings } = require('../src/main/settingsManager');
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(registerFinancialHandlers).toHaveBeenCalled();
       expect(registerStudentHandlers).toHaveBeenCalled();
       expect(registerSettingsHandlers).toHaveBeenCalledWith(refreshSettings);
@@ -605,15 +649,15 @@ describe('Main Process (index.js)', () => {
   describe('App Event Handlers', () => {
     it('should handle activate event', async () => {
       mockBrowserWindow.getAllWindows.mockReturnValue([]);
-      
+
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
-      const activateHandler = mockApp.on.mock.calls.find(call => call[0] === 'activate')[1];
+
+      const activateHandler = mockApp.on.mock.calls.find((call) => call[0] === 'activate')[1];
       activateHandler();
-      
+
       expect(mockBrowserWindow.getAllWindows).toHaveBeenCalled();
       expect(mockBrowserWindow).toHaveBeenCalledTimes(2);
     });
@@ -621,31 +665,33 @@ describe('Main Process (index.js)', () => {
     it('should handle window-all-closed event', async () => {
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
-      
+
       require('../src/main/index');
-      
-      const windowsClosedHandler = mockApp.on.mock.calls.find(call => call[0] === 'window-all-closed')[1];
+
+      const windowsClosedHandler = mockApp.on.mock.calls.find(
+        (call) => call[0] === 'window-all-closed',
+      )[1];
       windowsClosedHandler();
-      
+
       expect(mockApp.quit).toHaveBeenCalled();
-      
+
       Object.defineProperty(process, 'platform', { value: originalPlatform });
     });
 
     it('should handle logout and will-quit events', async () => {
       require('../src/main/index');
-      
+
       // Test logout
-      const logoutHandler = mockIpcMain.on.mock.calls.find(call => call[0] === 'logout')[1];
+      const logoutHandler = mockIpcMain.on.mock.calls.find((call) => call[0] === 'logout')[1];
       await logoutHandler();
-      
+
       expect(mockLog).toHaveBeenCalledWith('User logging out, closing database connection.');
       expect(mockDb.closeDatabase).toHaveBeenCalled();
-      
+
       // Test will-quit
-      const willQuitHandler = mockApp.on.mock.calls.find(call => call[0] === 'will-quit')[1];
+      const willQuitHandler = mockApp.on.mock.calls.find((call) => call[0] === 'will-quit')[1];
       await willQuitHandler();
-      
+
       expect(mockLog).toHaveBeenCalledWith('App is quitting, ensuring database is closed.');
       expect(mockDb.closeDatabase).toHaveBeenCalled();
     });
@@ -654,10 +700,10 @@ describe('Main Process (index.js)', () => {
   describe('Menu and Application Setup', () => {
     it('should set application menu to null', async () => {
       require('../src/main/index');
-      
+
       const readyHandler = mockApp.whenReady.mock.results[0].value;
       await readyHandler;
-      
+
       expect(mockMenu.setApplicationMenu).toHaveBeenCalledWith(null);
     });
   });
@@ -667,9 +713,9 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = false;
       const dotenv = require('dotenv');
       const electronReloader = require('electron-reloader');
-      
+
       require('../src/main/index');
-      
+
       expect(dotenv.config).toHaveBeenCalled();
       expect(electronReloader).toHaveBeenCalledWith(expect.any(Object));
     });
@@ -678,9 +724,9 @@ describe('Main Process (index.js)', () => {
       mockApp.isPackaged = true;
       const dotenv = require('dotenv');
       const electronReloader = require('electron-reloader');
-      
+
       require('../src/main/index');
-      
+
       expect(dotenv.config).not.toHaveBeenCalled();
       expect(electronReloader).not.toHaveBeenCalled();
     });

@@ -1,17 +1,9 @@
-const {
-  runBackup,
-  startScheduler,
-  stopScheduler,
-  isBackupDue,
-} = require('../src/main/backupManager');
-
-// Mock dependencies
+// Mock dependencies BEFORE importing the module
 jest.mock('fs', () => ({
   promises: {
     writeFile: jest.fn(),
   },
 }));
-jest.mock('electron-store');
 jest.mock('pizzip');
 jest.mock('../db/db');
 jest.mock('../src/main/logger', () => ({
@@ -22,12 +14,28 @@ jest.mock('../src/main/keyManager', () => ({
   getDbSalt: jest.fn(),
 }));
 
+// Clear module cache and mock electron-store
+beforeAll(() => {
+  jest.resetModules();
+});
+
 const fs = require('fs').promises;
-const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
 const { log, error: logError } = require('../src/main/logger');
 const { getDbSalt } = require('../src/main/keyManager');
+
+// Import the module AFTER mocks are set up
+let runBackup, startScheduler, stopScheduler, isBackupDue;
+const Store = require('electron-store');
+
+beforeAll(() => {
+  const backupManager = require('../src/main/backupManager');
+  runBackup = backupManager.runBackup;
+  startScheduler = backupManager.startScheduler;
+  stopScheduler = backupManager.stopScheduler;
+  isBackupDue = backupManager.isBackupDue;
+});
 
 describe('backupManager', () => {
   let mockStore;
@@ -38,11 +46,16 @@ describe('backupManager', () => {
     jest.clearAllTimers();
     jest.useFakeTimers();
 
-    mockStore = {
-      set: jest.fn(),
+    // Get the global mock methods and clear data
+    mockStore = Store.mockMethods || {
       get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(),
+      clear: jest.fn(),
     };
-    Store.mockImplementation(() => mockStore);
+    if (Store.globalData) {
+      Store.globalData.clear();
+    }
     
     // Mock global timer functions
     global.setInterval = jest.fn();

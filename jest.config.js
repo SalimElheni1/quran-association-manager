@@ -13,6 +13,9 @@ module.exports = {
         pizzip: '<rootDir>/tests/mocks/pizzip.js',
         bcryptjs: '<rootDir>/tests/mocks/bcryptjs.js',
         '../db/db': '<rootDir>/tests/mocks/db.js',
+        exceljs: '<rootDir>/tests/mocks/exceljs.js',
+        '^fs$': '<rootDir>/tests/mocks/fs.js',
+        '^joi$': '<rootDir>/tests/mocks/joi.js',
       },
     },
     {
@@ -26,9 +29,12 @@ module.exports = {
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
         '^@renderer/styles/(.*)$': 'identity-obj-proxy',
         '@renderer/styles/EnrollmentModal.css': 'identity-obj-proxy',
+        '@renderer/styles/LoginPage.css': 'identity-obj-proxy',
+        '@renderer/styles/StudentsPage.css': 'identity-obj-proxy',
       },
       transformIgnorePatterns: [
         'node_modules/(?!(react-bootstrap)/)',
+        '\\.css$',
       ],
       transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
