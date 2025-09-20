@@ -2,10 +2,10 @@ import '@testing-library/jest-dom';
 
 // Mock window.electronAPI
 global.window.electronAPI = {
-  login: jest.fn(),
+  login: jest.fn().mockResolvedValue({ success: true }),
   logout: jest.fn(),
   isPackaged: jest.fn().mockResolvedValue(false),
-  getLogo: jest.fn().mockResolvedValue({ success: true, path: 'assets/logos/icon.png' }),
+  getLogo: jest.fn().mockResolvedValue({ success: true, path: 'test-logo.png' }),
   onForceLogout: jest.fn().mockReturnValue(() => {}),
   onShowInitialCredentials: jest.fn().mockReturnValue(() => {}),
 };

@@ -1,3 +1,23 @@
+/**
+ * @fileoverview Main Electron process entry point for Quran Branch Manager.
+ * Handles application lifecycle, window management, auto-updates, database initialization,
+ * and IPC handler registration.
+ * 
+ * This file serves as the central coordinator for the desktop application, managing:
+ * - Application startup and shutdown
+ * - Main window creation and management
+ * - Database initialization and encryption
+ * - Auto-update functionality
+ * - IPC handler registration
+ * - Security protocols and crash handling
+ * 
+ * @author Quran Branch Manager Team
+ * @version 1.0.2-beta
+ * @requires electron - Desktop application framework
+ * @requires electron-updater - Auto-update functionality
+ * @requires electron-store - Persistent settings storage
+ */
+
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
@@ -75,17 +95,28 @@ if (!jwtSecret) {
 process.env.JWT_SECRET = jwtSecret;
 // =================================================================================
 
+/**
+ * Creates and configures the main application window.
+ * Implements security best practices including context isolation and disabled node integration.
+ * 
+ * Security features:
+ * - nodeIntegration: false - Prevents renderer from accessing Node.js APIs
+ * - contextIsolation: true - Isolates preload scripts from renderer context
+ * - Preload script for secure IPC communication
+ * 
+ * @returns {BrowserWindow} The configured main window instance
+ */
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    show: false,
+    width: 1200,                    // Default window width
+    height: 800,                   // Default window height
+    minWidth: 800,                 // Minimum usable width
+    minHeight: 600,                // Minimum usable height
+    show: false,                   // Hide until ready to prevent flash
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),  // Secure IPC bridge
+      nodeIntegration: false,      // CRITICAL: Security - no Node.js in renderer
+      contextIsolation: true,      // CRITICAL: Security - isolate contexts
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });

@@ -62,6 +62,12 @@ We provide comprehensive documentation to help you understand, use, and contribu
 | [`CHANGELOG.md`](CHANGELOG.md) | A log of all notable changes to the project. |
 | **Developer Docs** | |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | In-depth technical documentation for developers. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Application architecture and design patterns. |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Complete IPC API reference documentation. |
+| [`docs/TESTING.md`](docs/TESTING.md) | Comprehensive testing guide and best practices. |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Security architecture and best practices. |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Complete deployment and distribution guide. |
+| [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common issues and solutions guide. |
 | [`docs/BUILD_AND_PACKAGING.md`](docs/BUILD_AND_PACKAGING.md) | Instructions for building the app from source. |
 
 ## 🤝 Contributing

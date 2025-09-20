@@ -1,31 +1,144 @@
+/**
+ * @fileoverview Preload script for secure IPC communication between main and renderer processes.
+ * This script runs in a sandboxed environment and exposes a controlled API to the renderer process
+ * using Electron's contextBridge for security.
+ * 
+ * @author Quran Branch Manager Team
+ * @version 1.0.2-beta
+ */
+
 const { contextBridge, ipcRenderer } = require('electron');
 
+/**
+ * Exposes a secure API to the renderer process through contextBridge.
+ * This API provides controlled access to main process functionality without
+ * exposing the entire Node.js environment to the renderer.
+ * 
+ * All methods return Promises and use IPC channels for communication.
+ * The API is organized by feature namespaces for better maintainability.
+ */
 contextBridge.exposeInMainWorld('electronAPI', {
-  // General
+  // ========================================================================
+  // GENERAL APPLICATION APIs
+  // ========================================================================
+  
+  /**
+   * Checks if the application is running in packaged mode (production).
+   * @returns {Promise<boolean>} True if packaged, false if in development
+   */
   isPackaged: () => ipcRenderer.invoke('get-is-packaged'),
+  
+  /**
+   * Gets the current application version.
+   * @returns {Promise<string>} The application version string
+   */
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+  /**
+   * Retrieves a specific application setting by key.
+   * @param {string} key - The setting key to retrieve
+   * @returns {Promise<string|null>} The setting value or null if not found
+   */
   getSetting: (key) => ipcRenderer.invoke('settings:get', key),
 
-  // Auth
+  // ========================================================================
+  // AUTHENTICATION APIs
+  // ========================================================================
+  
+  /**
+   * Authenticates a user with username and password.
+   * @param {Object} credentials - The login credentials
+   * @param {string} credentials.username - The username
+   * @param {string} credentials.password - The password
+   * @returns {Promise<Object>} Authentication result with token and user info
+   */
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
+  
+  /**
+   * Logs out the current user and closes database connections.
+   * This is a one-way message (send, not invoke).
+   */
   logout: () => ipcRenderer.send('logout'),
+  
+  /**
+   * Retrieves the current user's profile information.
+   * @param {Object} [data] - Optional data object containing token
+   * @param {string} [data.token] - JWT token (defaults to localStorage token)
+   * @returns {Promise<Object>} User profile object or error response
+   */
   getProfile: (data) => {
-    // allow caller to pass { token } or call without args; when called without args, forward token from localStorage
+    // Allow caller to pass { token } or call without args; when called without args, forward token from localStorage
     const payload = data ?? { token: localStorage.getItem('token') };
     return ipcRenderer.invoke('auth:getProfile', payload).then((res) => {
-      // return profile object or pass through error shape
+      // Return profile object or pass through error shape
       if (res && res.success) return res.profile;
       return res;
     });
   },
+  
+  /**
+   * Updates the current user's profile information.
+   * @param {Object} data - Profile update data including token and profile fields
+   * @returns {Promise<Object>} Update result
+   */
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
+  
+  /**
+   * Updates the current user's password.
+   * @param {Object} data - Password update data
+   * @param {string} data.currentPassword - Current password for verification
+   * @param {string} data.newPassword - New password
+   * @param {string} data.token - JWT token
+   * @returns {Promise<Object>} Update result
+   */
   updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),
 
-  // Secure, specific database APIs
+  // ========================================================================
+  // STUDENT MANAGEMENT APIs
+  // ========================================================================
+  
+  /**
+   * Retrieves students with optional filtering.
+   * @param {Object} [filters] - Optional filters for student search
+   * @param {string} [filters.search] - Search term for name or matricule
+   * @param {string} [filters.status] - Student status filter
+   * @param {number} [filters.branchId] - Branch ID filter
+   * @returns {Promise<Array>} Array of student objects
+   */
   getStudents: (filters) => ipcRenderer.invoke('students:get', filters),
+  
+  /**
+   * Retrieves a specific student by ID.
+   * @param {number} id - The student ID
+   * @returns {Promise<Object|null>} Student object or null if not found
+   */
   getStudentById: (id) => ipcRenderer.invoke('students:getById', id),
+  
+  /**
+   * Adds a new student to the database.
+   * @param {Object} studentData - Student information
+   * @param {string} studentData.name - Student's full name
+   * @param {string} [studentData.email] - Student's email address
+   * @param {string} [studentData.contact_info] - Contact information
+   * @param {string} [studentData.parent_name] - Parent/guardian name
+   * @param {string} [studentData.memorization_level] - Current memorization level
+   * @returns {Promise<Object>} Creation result with new student ID
+   */
   addStudent: (studentData) => ipcRenderer.invoke('students:add', studentData),
+  
+  /**
+   * Updates an existing student's information.
+   * @param {number} id - The student ID to update
+   * @param {Object} studentData - Updated student information
+   * @returns {Promise<Object>} Update result
+   */
   updateStudent: (id, studentData) => ipcRenderer.invoke('students:update', id, studentData),
+  
+  /**
+   * Deletes a student from the database.
+   * @param {number} id - The student ID to delete
+   * @returns {Promise<Object>} Deletion result
+   */
   deleteStudent: (id) => ipcRenderer.invoke('students:delete', id),
 
   // Teachers API

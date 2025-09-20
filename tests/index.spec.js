@@ -1,11 +1,30 @@
 // Mock all dependencies before requiring the main module
 jest.mock('electron', () => ({}));
+const mockAutoUpdater = {
+  checkForUpdatesAndNotify: jest.fn(),
+  on: jest.fn(),
+  quitAndInstall: jest.fn()
+};
+
 jest.mock('electron-updater', () => ({
-  autoUpdater: {
-    checkForUpdatesAndNotify: jest.fn(),
-    on: jest.fn(),
-    quitAndInstall: jest.fn()
-  }
+  autoUpdater: mockAutoUpdater
+}));
+
+// Mock all handler modules
+jest.mock('../src/main/financialHandlers', () => ({
+  registerFinancialHandlers: jest.fn()
+}));
+jest.mock('../src/main/handlers/studentHandlers', () => ({
+  registerStudentHandlers: jest.fn()
+}));
+jest.mock('../src/main/handlers/settingsHandlers', () => ({
+  registerSettingsHandlers: jest.fn()
+}));
+jest.mock('../src/main/settingsManager', () => ({
+  refreshSettings: jest.fn()
+}));
+jest.mock('../src/main/exportManager', () => ({
+  generateDevExcelTemplate: jest.fn().mockResolvedValue()
 }));
 jest.mock('fs');
 jest.mock('path');
@@ -13,19 +32,27 @@ jest.mock('crypto');
 jest.mock('electron-store');
 jest.mock('../src/main/logger');
 jest.mock('../src/db/db');
+jest.mock('exceljs', () => ({
+  Workbook: jest.fn(() => ({
+    addWorksheet: jest.fn(() => ({
+      addRow: jest.fn(),
+      getColumn: jest.fn(() => ({ width: 0 })),
+      columns: []
+    })),
+    xlsx: {
+      writeBuffer: jest.fn().mockResolvedValue(Buffer.from('mock-excel-data'))
+    }
+  }))
+}));
 jest.mock('../src/main/settingsManager');
-jest.mock('../src/main/financialHandlers');
-jest.mock('../src/main/handlers/studentHandlers');
 jest.mock('../src/main/handlers/teacherHandlers');
 jest.mock('../src/main/handlers/classHandlers');
 jest.mock('../src/main/handlers/groupHandlers');
 jest.mock('../src/main/handlers/userHandlers');
 jest.mock('../src/main/handlers/attendanceHandlers');
 jest.mock('../src/main/handlers/authHandlers');
-jest.mock('../src/main/handlers/settingsHandlers');
 jest.mock('../src/main/handlers/dashboardHandlers');
 jest.mock('../src/main/handlers/systemHandlers');
-jest.mock('../src/main/exportManager');
 jest.mock('dotenv', () => ({ config: jest.fn() }));
 jest.mock('electron-reloader', () => jest.fn());
 
@@ -116,12 +143,15 @@ describe('Main Process (index.js)', () => {
     mockDb.closeDatabase = jest.fn().mockResolvedValue();
     
     // Mock electron module
-    require('electron').app = mockApp;
-    require('electron').BrowserWindow = mockBrowserWindow;
-    require('electron').ipcMain = mockIpcMain;
-    require('electron').Menu = mockMenu;
-    require('electron').protocol = mockProtocol;
-    require('electron').dialog = mockDialog;
+    const electronMock = require('electron');
+    Object.assign(electronMock, {
+      app: mockApp,
+      BrowserWindow: mockBrowserWindow,
+      ipcMain: mockIpcMain,
+      Menu: mockMenu,
+      protocol: mockProtocol,
+      dialog: mockDialog
+    });
     
     // Mock electron-store
     require('electron-store').mockImplementation(() => mockStore());

@@ -19,30 +19,49 @@ const mockIpcMain = {
   },
 };
 
+const mockApp = {
+  getPath: jest.fn().mockReturnValue('/mock/path'),
+  relaunch: jest.fn(),
+  quit: jest.fn(),
+  on: jest.fn(),
+  whenReady: jest.fn().mockResolvedValue(),
+  isPackaged: true,
+};
+
+const mockBrowserWindow = jest.fn(() => ({
+  loadFile: jest.fn().mockResolvedValue(),
+  webContents: {
+    printToPDF: jest.fn().mockResolvedValue(Buffer.from('pdf-data')),
+    send: jest.fn(),
+    on: jest.fn(),
+  },
+  close: jest.fn(),
+}));
+
+mockBrowserWindow.getAllWindows = jest.fn().mockReturnValue([]);
+
+const mockAutoUpdater = {
+  checkForUpdatesAndNotify: jest.fn(),
+  on: jest.fn(),
+};
+
+const mockMenu = {
+  setApplicationMenu: jest.fn(),
+};
+
+const mockProtocol = {
+  registerFileProtocol: jest.fn(),
+};
+
 module.exports = {
-  app: {
-    getPath: jest.fn().mockReturnValue('/mock/path'),
-    relaunch: jest.fn(),
-    quit: jest.fn(),
-  },
-  BrowserWindow: jest.fn(() => ({
-    loadFile: jest.fn().mockResolvedValue(),
-    webContents: {
-      printToPDF: jest.fn().mockResolvedValue(Buffer.from('pdf-data')),
-      send: jest.fn(),
-      on: jest.fn(),
-    },
-    close: jest.fn(),
-  })),
+  app: mockApp,
+  BrowserWindow: mockBrowserWindow,
   ipcMain: mockIpcMain,
-  Menu: {
-    setApplicationMenu: jest.fn(),
-  },
+  Menu: mockMenu,
   dialog: {
     showSaveDialog: jest.fn().mockResolvedValue({ filePath: '/mock/path/file.pdf' }),
     showOpenDialog: jest.fn().mockResolvedValue({ canceled: false, filePaths: ['/mock/path'] }),
   },
-  protocol: {
-    registerFileProtocol: jest.fn(),
-  },
+  protocol: mockProtocol,
+  autoUpdater: mockAutoUpdater,
 };
