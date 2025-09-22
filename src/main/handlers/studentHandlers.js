@@ -101,7 +101,7 @@ function registerStudentHandlers() {
         params.push(minAgeBirthYear.toString());
       }
       if (filters?.maxAgeFilter) {
-        const maxAgeBirthYear = today.getFullYear() - parseInt(filters.maxAgeFilter, 10) - 1;
+        const maxAgeBirthYear = today.getFullYear() - parseInt(filters.maxAgeFilter, 10);
         sql += ` AND SUBSTR(date_of_birth, 1, 4) >= ?`;
         params.push(maxAgeBirthYear.toString());
       }
