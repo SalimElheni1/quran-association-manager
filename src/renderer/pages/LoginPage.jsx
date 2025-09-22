@@ -36,6 +36,10 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!username || !password) {
+        setError('اسم المستخدم وكلمة المرور مطلوبان.');
+        return;
+    }
     setError('');
     setLoading(true);
     const response = await login(username, password);
@@ -61,9 +65,10 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
                 </div>
                 {error && <Alert variant="danger">{error}</Alert>}
                 <Form onSubmit={handleSubmit}>
-                  <Form.Group className="mb-3" controlId="username">
-                    <Form.Label>اسم المستخدم</Form.Label>
+                  <Form.Group className="mb-3">
+                    <Form.Label htmlFor="username">اسم المستخدم</Form.Label>
                     <Form.Control
+                      id="username"
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}

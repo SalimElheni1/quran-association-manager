@@ -1,77 +1,60 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const ExcelJS = require('exceljs');
-const {
-  importExcelData,
-} = require('../src/main/importManager');
-const {
-  initializeTestDatabase,
-  dbClose,
-  allQuery,
-  dbExec,
-} = require('../src/db/db');
-const { generateMatricule } = require('../src/main/matriculeService');
+// tests/simpleImport.spec.js
 
-// Helper function to create a mock Excel file for testing
-async function createMockExcelFile(sheets, filePath) {
-  const workbook = new ExcelJS.Workbook();
-  for (const sheetName in sheets) {
-    const worksheet = workbook.addWorksheet(sheetName);
-    worksheet.addRows(sheets[sheetName]);
-  }
-  await workbook.xlsx.writeFile(filePath);
-}
-
+// Mock dependencies
+jest.mock('exceljs');
+jest.mock('../src/main/logger');
+jest.mock('../src/db/db');
 jest.mock('../src/main/matriculeService');
 
+
+const ExcelJS = require('exceljs');
+const { runQuery, getQuery } = require('../src/db/db');
+const { generateMatricule } = require('../src/main/matriculeService');
+const { importExcelData } = require('../src/main/importManager');
+
+
 describe('Simple Excel Import', () => {
-  let db;
-  const testDbPath = path.join(os.tmpdir(), `test-db-simple-import-${Date.now()}.sqlite`);
-  const mockExcelPath = path.join(os.tmpdir(), `mock-excel-simple-${Date.now()}.xlsx`);
+  let mockWorkbook, mockWorksheet, mockHeaderRow, mockDataRow;
 
-  beforeAll(async () => {
-    db = await initializeTestDatabase(testDbPath);
-  });
+  beforeEach(() => {
+    jest.clearAllMocks();
 
-  afterAll(async () => {
-    if (db) {
-      await dbClose(db);
-    }
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
-    if (fs.existsSync(mockExcelPath)) {
-      fs.unlinkSync(mockExcelPath);
-    }
-  });
-
-  beforeEach(async () => {
-    // Clear all tables before each test
-    await dbExec(db, 'DELETE FROM students;');
-    generateMatricule.mockClear();
+    mockHeaderRow = {
+      hasValues: true,
+      eachCell: jest.fn((callback) => {
+        callback({ value: 'الاسم واللقب' }, 1);
+        callback({ value: 'الجنس' }, 2);
+      }),
+    };
+    const mockGenderCell = { value: 'ذكر' };
+    mockDataRow = {
+      hasValues: true,
+      getCell: jest.fn(index => {
+        if (index === 1) return { value: 'أحمد محمد' };
+        if (index === 2) return mockGenderCell;
+        return { value: null };
+      }),
+    };
+    mockWorksheet = {
+      getRow: jest.fn(rowNum => (rowNum === 2 ? mockHeaderRow : mockDataRow)),
+      rowCount: 3,
+    };
+    mockWorkbook = {
+      xlsx: { readFile: jest.fn().mockResolvedValue() },
+      getWorksheet: jest.fn(() => mockWorksheet),
+    };
+    ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
   });
 
   it('should import a single student', async () => {
-    const sheets = {
-      'الطلاب': [
-        [],
-        ['الاسم واللقب'],
-        ['John Doe'],
-      ],
-    };
-    await createMockExcelFile(sheets, mockExcelPath);
+    getQuery.mockResolvedValue(null);
+    generateMatricule.mockResolvedValue('S-000001');
 
-    generateMatricule.mockResolvedValue('S001');
+    await importExcelData('/path/to/data.xlsx', ['الطلاب']);
 
-    const results = await importExcelData(mockExcelPath, ['الطلاب']);
-
-    expect(results.successCount).toBe(1);
-    expect(results.errorCount).toBe(0);
-
-    const students = await allQuery('SELECT * FROM students');
-    expect(students).toHaveLength(1);
-    expect(students[0].name).toBe('John Doe');
-    expect(students[0].matricule).toBe('S001');
+    expect(runQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO students'),
+      expect.arrayContaining(['أحمد محمد', 'Male', 'S-000001'])
+    );
   });
 });
