@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.23% </span>
+                <span class="strong">64.7% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/17</span>
+                <span class='fraction'>11/17</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>8/10</span>
+                <span class='fraction'>5/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.23% </span>
+                <span class="strong">64.7% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/17</span>
+                <span class='fraction'>11/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -92,32 +92,32 @@
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">&nbsp;
 const connect = require('@databases/sqlite');
@@ -130,9 +130,9 @@ module.exports = {
         isOpen = true;
         return Promise.resolve();
     }),
-    initializeTestDatabase: jest.fn(() =&gt; {
-        isOpen = true;
-        return Promise.resolve(db);
+    initializeTestDatabase: jest.fn(<span class="fstat-no" title="function not covered" >()</span> =&gt; {
+<span class="cstat-no" title="statement not covered" >        isOpen = true;</span>
+<span class="cstat-no" title="statement not covered" >        return Promise.resolve(db);</span>
     }),
     closeDatabase: jest.fn(() =&gt; {
         isOpen = false;
@@ -142,10 +142,10 @@ module.exports = {
     getQuery: jest.fn(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >Promise.resolve())</span>,
     allQuery: jest.fn(() =&gt; Promise.resolve([])),
     runQuery: jest.fn(() =&gt; Promise.resolve({ id: 1, changes: 1 })),
-    dbExec: jest.fn(() =&gt; Promise.resolve()),
+    dbExec: jest.fn(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >Promise.resolve())</span>,
     getDb: jest.fn(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >db)</span>,
     getDatabasePath: jest.fn(),
-    dbClose: jest.fn(() =&gt; Promise.resolve()),
+    dbClose: jest.fn(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >Promise.resolve())</span>,
 };
 &nbsp;</pre></td></tr></table></pre>
 
@@ -154,7 +154,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-09-22T10:01:42.746Z
+                at 2025-09-22T12:00:06.815Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
