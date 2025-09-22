@@ -14,12 +14,56 @@ const {
   dbExec,
   runQuery,
   getQuery,
+  allQuery,
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./matriculeService');
 const { setDbSalt } = require('./keyManager');
 
 const mainStore = new Store();
+
+async function executeSqlScriptSafely(sqlScript) {
+  // Get current database tables
+  const tables = await allQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+  );
+  const existingTables = new Set(tables.map(t => t.name));
+  
+  // Split SQL script into individual statements
+  const statements = sqlScript
+    .split(';')
+    .map(stmt => stmt.trim())
+    .filter(stmt => stmt.length > 0);
+  
+  const validStatements = [];
+  const skippedTables = new Set();
+  
+  for (const statement of statements) {
+    // Extract table name from REPLACE INTO or INSERT statements
+    const match = statement.match(/(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"']+)["']?/i);
+    if (match) {
+      const tableName = match[1];
+      if (existingTables.has(tableName)) {
+        validStatements.push(statement);
+      } else {
+        skippedTables.add(tableName);
+      }
+    } else {
+      // Non-INSERT/REPLACE statements (like CREATE, etc.) - execute as-is
+      validStatements.push(statement);
+    }
+  }
+  
+  if (skippedTables.size > 0) {
+    logWarn(`Skipped data for non-existent tables: ${Array.from(skippedTables).join(', ')}`);
+  }
+  
+  // Execute valid statements
+  const finalScript = validStatements.join(';\n');
+  if (finalScript.trim()) {
+    await dbExec(getDb(), finalScript);
+  }
+}
 
 async function validateDatabaseFile(filePath) {
   try {
@@ -95,8 +139,8 @@ async function replaceDatabase(importedDbPath, password) {
     log('Initializing new database with imported salt...');
     await initializeDatabase(password);
     log('New database initialized successfully.');
-    log('Executing SQL script to import data...');
-    await dbExec(getDb(), sqlScript);
+    log('Processing SQL script to import data...');
+    await executeSqlScriptSafely(sqlScript);
     log('Data import completed successfully.');
     mainStore.set('force-relogin-after-restart', true);
     log('Database import successful. The app will now restart.');
@@ -576,6 +620,8 @@ async function processAttendanceRow(row, headerRow) {
 }
 
 async function processGroupRow(row, headerRow) {
+  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+
   const data = {
     name: row.getCell(getColumnIndex(headerRow, 'اسم المجموعة')).value,
     description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
@@ -587,9 +633,39 @@ async function processGroupRow(row, headerRow) {
   }
 
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO groups (${fields.join(', ')}) VALUES (${placeholders})`, values);
+
+  if (matricule) {
+    // Update existing record
+    const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [matricule]);
+    if (!existingGroup) {
+      return { success: false, message: `المجموعة بالرقم التعريفي "${matricule}" غير موجودة.` };
+    }
+
+    if (fields.length === 0) {
+      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
+    }
+
+    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+    const values = [...fields.map((k) => data[k]), matricule];
+    await runQuery(`UPDATE groups SET ${setClauses} WHERE matricule = ?`, values);
+    return { success: true };
+  }
+
+  // Insert new record
+  const existingGroup = await getQuery('SELECT id FROM groups WHERE name = ?', [data.name]);
+  if (existingGroup) {
+    return { success: false, message: `المجموعة "${data.name}" موجودة بالفعل.` };
+  }
+
+  const newMatricule = await generateMatricule('group');
+  const allData = { ...data, matricule: newMatricule };
+
+  const allFields = Object.keys(allData).filter(
+    (k) => allData[k] !== null && allData[k] !== undefined,
+  );
+  const placeholders = allFields.map(() => '?').join(', ');
+  const values = allFields.map((k) => allData[k]);
+  await runQuery(`INSERT INTO groups (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
 }
 

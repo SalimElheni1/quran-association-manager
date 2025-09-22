@@ -3,7 +3,7 @@ const { error: logError } = require('./logger');
 
 /**
  * Generates a new, unique matricule for a given entity type.
- * @param {('student'|'teacher'|'user'|'inventory')} entityType The type of entity.
+ * @param {('student'|'teacher'|'user'|'inventory'|'group')} entityType The type of entity.
  * @returns {Promise<string>} A promise that resolves to the new matricule (e.g., 'S-000001').
  */
 async function generateMatricule(entityType) {
@@ -26,6 +26,10 @@ async function generateMatricule(entityType) {
     case 'inventory':
       prefix = 'INV-';
       tableName = 'inventory_items';
+      break;
+    case 'group':
+      prefix = 'G-';
+      tableName = 'groups';
       break;
     default:
       throw new Error(`Invalid entity type for matricule generation: ${entityType}`);

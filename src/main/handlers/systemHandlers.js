@@ -150,8 +150,8 @@ function registerSystemHandlers() {
 
   ipcMain.handle('backup:run', async (_event, settings) => {
     try {
-      if (!settings) {
-        throw new Error('Backup settings were not provided.');
+      if (!settings || !settings.backup_path) {
+        throw new Error('Backup path is required.');
       }
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const { canceled, filePath } = await dialog.showSaveDialog({
