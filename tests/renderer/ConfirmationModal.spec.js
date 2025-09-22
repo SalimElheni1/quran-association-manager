@@ -1,84 +1,84 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import '@testing-library/jest-dom';
 
-// Mock the ConfirmationModal component since we don't have the actual implementation
-const ConfirmationModal = ({ show, title, message, onConfirm, onCancel, confirmText = 'تأكيد', cancelText = 'إلغاء' }) => {
-  if (!show) return null;
+// Mock react-bootstrap
+jest.mock('react-bootstrap', () => {
+    const React = require('react');
+    const Modal = ({ show, children, onHide }) => {
+      if (!show) return null;
+      // Pass onHide to children so Modal.Header can use it
+      const childrenWithProps = React.Children.map(children, child => {
+        if (React.isValidElement(child) && child.type.displayName === 'ModalHeader') {
+          return React.cloneElement(child, { onHide });
+        }
+        return child;
+      });
+      return <div role="dialog">{childrenWithProps}</div>;
+    };
   
-  return (
-    <div data-testid="confirmation-modal">
-      <div data-testid="modal-title">{title}</div>
-      <div data-testid="modal-message">{message}</div>
-      <button data-testid="confirm-button" onClick={onConfirm}>
-        {confirmText}
-      </button>
-      <button data-testid="cancel-button" onClick={onCancel}>
-        {cancelText}
-      </button>
-    </div>
-  );
-};
+    const ModalHeader = ({ children, closeButton, onHide }) => (
+      <div>
+        {children}
+        {closeButton && <button onClick={onHide}>Close</button>}
+      </div>
+    );
+    ModalHeader.displayName = 'ModalHeader';
+    Modal.Header = ModalHeader;
+
+    Modal.Title = ({ children }) => <h4>{children}</h4>;
+    Modal.Body = ({ children }) => <div>{children}</div>;
+    Modal.Footer = ({ children }) => <div>{children}</div>;
+    const Button = ({ children, onClick, variant }) => <button onClick={onClick} className={`btn-${variant}`}>{children}</button>;
+    return { Modal, Button };
+  });
 
 describe('ConfirmationModal', () => {
-  const defaultProps = {
+  const mockHandleClose = jest.fn();
+  const mockHandleConfirm = jest.fn();
+  const props = {
     show: true,
-    title: 'تأكيد الحذف',
-    message: 'هل أنت متأكد من حذف هذا العنصر؟',
-    onConfirm: jest.fn(),
-    onCancel: jest.fn(),
+    handleClose: mockHandleClose,
+    handleConfirm: mockHandleConfirm,
+    title: 'Test Title',
+    body: 'Test Body',
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should render when show is true', () => {
-    render(<ConfirmationModal {...defaultProps} />);
-
-    expect(screen.getByTestId('confirmation-modal')).toBeInTheDocument();
-    expect(screen.getByTestId('modal-title')).toHaveTextContent('تأكيد الحذف');
-    expect(screen.getByTestId('modal-message')).toHaveTextContent('هل أنت متأكد من حذف هذا العنصر؟');
-  });
-
   it('should not render when show is false', () => {
-    render(<ConfirmationModal {...defaultProps} show={false} />);
-
-    expect(screen.queryByTestId('confirmation-modal')).not.toBeInTheDocument();
+    render(<ConfirmationModal {...props} show={false} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('should call onConfirm when confirm button is clicked', () => {
-    render(<ConfirmationModal {...defaultProps} />);
-
-    fireEvent.click(screen.getByTestId('confirm-button'));
-
-    expect(defaultProps.onConfirm).toHaveBeenCalledTimes(1);
+  it('should render when show is true', () => {
+    render(<ConfirmationModal {...props} />);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+    expect(screen.getByText('Test Body')).toBeInTheDocument();
   });
 
-  it('should call onCancel when cancel button is clicked', () => {
-    render(<ConfirmationModal {...defaultProps} />);
-
-    fireEvent.click(screen.getByTestId('cancel-button'));
-
-    expect(defaultProps.onCancel).toHaveBeenCalledTimes(1);
+  it('should call handleClose when the cancel button is clicked', () => {
+    render(<ConfirmationModal {...props} />);
+    const cancelButton = screen.getByRole('button', { name: 'إلغاء' });
+    fireEvent.click(cancelButton);
+    expect(mockHandleClose).toHaveBeenCalledTimes(1);
   });
 
-  it('should use custom button texts', () => {
-    render(
-      <ConfirmationModal
-        {...defaultProps}
-        confirmText="موافق"
-        cancelText="رجوع"
-      />
-    );
-
-    expect(screen.getByTestId('confirm-button')).toHaveTextContent('موافق');
-    expect(screen.getByTestId('cancel-button')).toHaveTextContent('رجوع');
+  it('should call handleConfirm when the confirm button is clicked', () => {
+    render(<ConfirmationModal {...props} />);
+    const confirmButton = screen.getByRole('button', { name: 'تأكيد' });
+    fireEvent.click(confirmButton);
+    expect(mockHandleConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('should use default button texts when not provided', () => {
-    render(<ConfirmationModal {...defaultProps} />);
-
-    expect(screen.getByTestId('confirm-button')).toHaveTextContent('تأكيد');
-    expect(screen.getByTestId('cancel-button')).toHaveTextContent('إلغاء');
+  it('should display custom confirm button text and variant', () => {
+    render(<ConfirmationModal {...props} confirmText="Delete" confirmVariant="danger" />);
+    const confirmButton = screen.getByRole('button', { name: 'Delete' });
+    expect(confirmButton).toBeInTheDocument();
+    expect(confirmButton).toHaveClass('btn-danger');
   });
 });
