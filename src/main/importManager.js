@@ -26,7 +26,10 @@ async function validateDatabaseFile(filePath) {
     const zipFileContent = await fs.readFile(filePath);
     const zip = new PizZip(zipFileContent);
     const sqlFile = zip.file('backup.sql');
-    const configFile = zip.file('salt.json'); // Legacy: 'config.json'
+    let configFile = zip.file('salt.json'); // Legacy: 'config.json'
+    if (!configFile) {
+        configFile = zip.file('config.json');
+    }
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
@@ -201,8 +204,16 @@ async function importExcelData(filePath, selectedSheets) {
   return results;
 }
 
-let processStudentRow = async function (row, headerRow) {
-  debugger;
+async function processStudentRow(row, headerRow) {
+  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
+  if (genderAr) {
+    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+  }
+  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
+  if (statusAr) {
+    row.getCell(getColumnIndex(headerRow, 'الحالة')).value = STATUS_MAP_AR_TO_EN[statusAr] || statusAr;
+  }
+
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
@@ -258,9 +269,14 @@ let processStudentRow = async function (row, headerRow) {
 
   await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
-};
+}
 
-let processTeacherRow = async function (row, headerRow) {
+async function processTeacherRow(row, headerRow) {
+  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
+  if (genderAr) {
+    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+  }
+
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
   const data = {
@@ -311,7 +327,7 @@ let processTeacherRow = async function (row, headerRow) {
 
   await runQuery(`INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
-};
+}
 
 async function processUserRow(row, headerRow) {
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
@@ -525,7 +541,12 @@ async function processExpenseRow(row, headerRow) {
   return { success: true };
 }
 
-let processAttendanceRow = async function (row, headerRow) {
+async function processAttendanceRow(row, headerRow) {
+  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
+  if (statusAr) {
+    row.getCell(getColumnIndex(headerRow, 'الحالة')).value = ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
+  }
+
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
   const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
   if (!studentMatricule || !className) {
@@ -552,7 +573,7 @@ let processAttendanceRow = async function (row, headerRow) {
   const values = fields.map((k) => data[k]);
   await runQuery(`INSERT INTO attendance (${fields.join(', ')}) VALUES (${placeholders})`, values);
   return { success: true };
-};
+}
 
 async function processGroupRow(row, headerRow) {
   const data = {
@@ -611,38 +632,6 @@ const ATTENDANCE_MAP_AR_TO_EN = {
   غائب: 'absent',
   متأخر: 'late',
   معذور: 'excused',
-};
-
-// Override the original functions to include localization
-const originalProcessStudentRow = processStudentRow;
-processStudentRow = async (row, headerRow) => {
-  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
-  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
-  if (genderAr)
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value =
-      GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
-  if (statusAr)
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
-      STATUS_MAP_AR_TO_EN[statusAr] || statusAr;
-  return originalProcessStudentRow(row, headerRow);
-};
-
-const originalProcessTeacherRow = processTeacherRow;
-processTeacherRow = async (row, headerRow) => {
-  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
-  if (genderAr)
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value =
-      GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
-  return originalProcessTeacherRow(row, headerRow);
-};
-
-const originalProcessAttendanceRow = processAttendanceRow;
-processAttendanceRow = async (row, headerRow) => {
-  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
-  if (statusAr)
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
-      ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
-  return originalProcessAttendanceRow(row, headerRow);
 };
 
 module.exports = {

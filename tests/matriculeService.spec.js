@@ -1,148 +1,138 @@
-// Mock dependencies
-jest.mock('../src/main/logger');
-jest.mock('../src/main/settingsManager');
+/* eslint-disable jest/no-focused-tests */
+/* eslint-disable no-undef */
+// tests/matriculeService.spec.js
 
-const { log } = require('../src/main/logger');
-const { getSetting } = require('../src/main/settingsManager');
+// Mock the database dependency
+jest.mock('../src/db/db', () => ({
+  getQuery: jest.fn(),
+}));
+
+// Mock the logger to prevent console errors during tests
+jest.mock('../src/main/logger', () => ({
+  error: jest.fn(),
+}));
+
+const { getQuery } = require('../src/db/db');
 const { generateMatricule } = require('../src/main/matriculeService');
+const { error: logError } = require('../src/main/logger');
 
-describe('matriculeService', () => {
+describe('matriculeService › generateMatricule', () => {
   beforeEach(() => {
+    // Clear all mocks before each test
     jest.clearAllMocks();
   });
 
-  describe('generateMatricule', () => {
-    it('should generate student matricule with default format', async () => {
-      getSetting.mockResolvedValue(null); // No custom format
+  // Test case for students
+  it('should generate the first student matricule as S-000001', async () => {
+    getQuery.mockResolvedValue({ max_id: 0 });
+    const matricule = await generateMatricule('student');
+    expect(matricule).toBe('S-000001');
+    expect(getQuery).toHaveBeenCalledWith(
+      'SELECT COALESCE(MAX(CAST(SUBSTR(matricule, 3) AS INTEGER)), 0) as max_id FROM students WHERE matricule LIKE ?',
+      ['S-%'],
+    );
+  });
 
-      const result = await generateMatricule('student');
+  // Test case for teachers
+  it('should generate the first teacher matricule as T-000001', async () => {
+    getQuery.mockResolvedValue({ max_id: 0 });
+    const matricule = await generateMatricule('teacher');
+    expect(matricule).toBe('T-000001');
+    expect(getQuery).toHaveBeenCalledWith(
+      'SELECT COALESCE(MAX(CAST(SUBSTR(matricule, 3) AS INTEGER)), 0) as max_id FROM teachers WHERE matricule LIKE ?',
+      ['T-%'],
+    );
+  });
 
-      expect(result).toMatch(/^S-\d{6}$/);
-      expect(getSetting).toHaveBeenCalledWith('student_matricule_format');
-    });
+  // Test case for users
+  it('should generate the first user matricule as U-000001', async () => {
+    getQuery.mockResolvedValue({ max_id: 0 });
+    const matricule = await generateMatricule('user');
+    expect(matricule).toBe('U-000001');
+    expect(getQuery).toHaveBeenCalledWith(
+      'SELECT COALESCE(MAX(CAST(SUBSTR(matricule, 3) AS INTEGER)), 0) as max_id FROM users WHERE matricule LIKE ?',
+      ['U-%'],
+    );
+  });
 
-    it('should generate teacher matricule with default format', async () => {
-      getSetting.mockResolvedValue(null);
+  // Test case for inventory items
+  it('should generate the first inventory matricule as INV-000001', async () => {
+    getQuery.mockResolvedValue({ max_id: 0 });
+    const matricule = await generateMatricule('inventory');
+    expect(matricule).toBe('INV-000001');
+    expect(getQuery).toHaveBeenCalledWith(
+      'SELECT COALESCE(MAX(CAST(SUBSTR(matricule, 5) AS INTEGER)), 0) as max_id FROM inventory_items WHERE matricule LIKE ?',
+      ['INV-%'],
+    );
+  });
 
-      const result = await generateMatricule('teacher');
+  // Test incrementing an existing matricule
+  it('should correctly increment an existing matricule number', async () => {
+    getQuery.mockResolvedValue({ max_id: 42 });
+    const matricule = await generateMatricule('student');
+    expect(matricule).toBe('S-000043');
+  });
 
-      expect(result).toMatch(/^T-\d{6}$/);
-      expect(getSetting).toHaveBeenCalledWith('teacher_matricule_format');
-    });
+  // Test padding
+  it('should pad the matricule number with leading zeros to 6 digits', async () => {
+    getQuery.mockResolvedValue({ max_id: 99 });
+    const matricule = await generateMatricule('student');
+    expect(matricule).toBe('S-000100');
 
-    it('should generate user matricule with default format', async () => {
-      getSetting.mockResolvedValue(null);
+    getQuery.mockResolvedValue({ max_id: 999998 });
+    const nextMatricule = await generateMatricule('student');
+    expect(nextMatricule).toBe('S-999999');
+  });
 
-      const result = await generateMatricule('user');
+  // Test handling of null result from database
+  it('should handle a null max_id from the database and start from 1', async () => {
+    getQuery.mockResolvedValue({ max_id: null });
+    const matricule = await generateMatricule('student');
+    expect(matricule).toBe('S-000001');
+  });
 
-      expect(result).toMatch(/^U-\d{6}$/);
-      expect(getSetting).toHaveBeenCalledWith('user_matricule_format');
-    });
+  // Test consecutive calls
+  it('should generate unique matricules on consecutive calls', async () => {
+    // First call
+    getQuery.mockResolvedValue({ max_id: 10 });
+    const matricule1 = await generateMatricule('student');
+    expect(matricule1).toBe('S-000011');
 
-    it('should generate inventory matricule with default format', async () => {
-      getSetting.mockResolvedValue(null);
+    // Second call
+    getQuery.mockResolvedValue({ max_id: 11 });
+    const matricule2 = await generateMatricule('student');
+    expect(matricule2).toBe('S-000012');
+    expect(matricule1).not.toBe(matricule2);
+  });
 
-      const result = await generateMatricule('inventory');
+  // Test invalid entity type
+  it('should throw an error for an invalid entity type', async () => {
+    const invalidEntityType = 'unknown';
+    await expect(generateMatricule(invalidEntityType)).rejects.toThrow(
+      `Invalid entity type for matricule generation: ${invalidEntityType}`,
+    );
+  });
 
-      expect(result).toMatch(/^I-\d{6}$/);
-      expect(getSetting).toHaveBeenCalledWith('inventory_matricule_format');
-    });
+  it('should throw an error for a null entity type', async () => {
+    await expect(generateMatricule(null)).rejects.toThrow(
+      'Invalid entity type for matricule generation: null',
+    );
+  });
 
-    it('should use custom format when provided', async () => {
-      getSetting.mockResolvedValue('CUSTOM-{number}');
+  it('should throw an error for an undefined entity type', async () => {
+    await expect(generateMatricule(undefined)).rejects.toThrow(
+      'Invalid entity type for matricule generation: undefined',
+    );
+  });
 
-      const result = await generateMatricule('student');
+  // Test database error handling
+  it('should throw a specific error message when the database query fails', async () => {
+    const dbError = new Error('Database connection lost');
+    getQuery.mockRejectedValue(dbError);
 
-      expect(result).toMatch(/^CUSTOM-\d{6}$/);
-    });
+    await expect(generateMatricule('student')).rejects.toThrow('فشل في إنشاء الرقم التعريفي.');
 
-    it('should handle unknown entity type', async () => {
-      getSetting.mockResolvedValue(null);
-
-      const result = await generateMatricule('unknown');
-
-      expect(result).toMatch(/^UNKNOWN-\d{6}$/);
-      expect(getSetting).toHaveBeenCalledWith('unknown_matricule_format');
-    });
-
-    it('should generate unique numbers for consecutive calls', async () => {
-      getSetting.mockResolvedValue(null);
-
-      const result1 = await generateMatricule('student');
-      const result2 = await generateMatricule('student');
-
-      expect(result1).not.toBe(result2);
-      
-      // Extract numbers and verify they're different
-      const num1 = parseInt(result1.split('-')[1]);
-      const num2 = parseInt(result2.split('-')[1]);
-      expect(num1).not.toBe(num2);
-    });
-
-    it('should handle custom format with multiple placeholders', async () => {
-      getSetting.mockResolvedValue('PREFIX-{number}-SUFFIX');
-
-      const result = await generateMatricule('student');
-
-      expect(result).toMatch(/^PREFIX-\d{6}-SUFFIX$/);
-    });
-
-    it('should handle format without placeholder', async () => {
-      getSetting.mockResolvedValue('FIXED-FORMAT');
-
-      const result = await generateMatricule('student');
-
-      // Should append number even if no placeholder
-      expect(result).toBe('FIXED-FORMAT');
-    });
-
-    it('should pad numbers to 6 digits', async () => {
-      getSetting.mockResolvedValue('TEST-{number}');
-
-      const result = await generateMatricule('student');
-      const numberPart = result.split('-')[1];
-
-      expect(numberPart).toHaveLength(6);
-      expect(numberPart).toMatch(/^\d{6}$/);
-    });
-
-    it('should generate different prefixes for different entity types', async () => {
-      getSetting.mockResolvedValue(null);
-
-      const studentResult = await generateMatricule('student');
-      const teacherResult = await generateMatricule('teacher');
-      const userResult = await generateMatricule('user');
-      const inventoryResult = await generateMatricule('inventory');
-
-      expect(studentResult).toMatch(/^S-/);
-      expect(teacherResult).toMatch(/^T-/);
-      expect(userResult).toMatch(/^U-/);
-      expect(inventoryResult).toMatch(/^I-/);
-    });
-
-    it('should handle empty custom format', async () => {
-      getSetting.mockResolvedValue('');
-
-      const result = await generateMatricule('student');
-
-      // Should fall back to default format
-      expect(result).toMatch(/^S-\d{6}$/);
-    });
-
-    it('should handle null entity type gracefully', async () => {
-      getSetting.mockResolvedValue(null);
-
-      const result = await generateMatricule(null);
-
-      expect(result).toMatch(/^NULL-\d{6}$/);
-    });
-
-    it('should handle undefined entity type gracefully', async () => {
-      getSetting.mockResolvedValue(null);
-
-      const result = await generateMatricule(undefined);
-
-      expect(result).toMatch(/^UNDEFINED-\d{6}$/);
-    });
+    // Ensure the original error was logged
+    expect(logError).toHaveBeenCalledWith("Failed to generate matricule for student:", dbError);
   });
 });

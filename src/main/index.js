@@ -68,55 +68,29 @@ if (!app.isPackaged) {
 }
 
 // =================================================================================
-// JWT SECRET MANAGEMENT
-// =================================================================================
-// In production, we manage the JWT secret using electron-store for persistence.
-// In development, we use the .env file.
-let jwtSecret;
-if (app.isPackaged) {
-  // Production: get from store or generate a new one
-  jwtSecret = store.get('jwt_secret');
-  if (!jwtSecret) {
-    log('JWT secret not found in store, generating a new one...');
-    jwtSecret = crypto.randomBytes(32).toString('hex');
-    store.set('jwt_secret', jwtSecret);
-    log('New JWT secret generated and stored.');
-  }
-} else {
-  // Development: get from .env file
-  jwtSecret = process.env.JWT_SECRET;
-}
-
-if (!jwtSecret) {
-  logError('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
-  app.quit();
-}
-// Make the secret available to the rest of the app via process.env
-process.env.JWT_SECRET = jwtSecret;
-// =================================================================================
 
 /**
  * Creates and configures the main application window.
  * Implements security best practices including context isolation and disabled node integration.
- * 
+ *
  * Security features:
  * - nodeIntegration: false - Prevents renderer from accessing Node.js APIs
  * - contextIsolation: true - Isolates preload scripts from renderer context
  * - Preload script for secure IPC communication
- * 
+ *
  * @returns {BrowserWindow} The configured main window instance
  */
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 1200,                    // Default window width
-    height: 800,                   // Default window height
-    minWidth: 800,                 // Minimum usable width
-    minHeight: 600,                // Minimum usable height
-    show: false,                   // Hide until ready to prevent flash
+    width: 1200, // Default window width
+    height: 800, // Default window height
+    minWidth: 800, // Minimum usable width
+    minHeight: 600, // Minimum usable height
+    show: false, // Hide until ready to prevent flash
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),  // Secure IPC bridge
-      nodeIntegration: false,      // CRITICAL: Security - no Node.js in renderer
-      contextIsolation: true,      // CRITICAL: Security - isolate contexts
+      preload: path.join(__dirname, 'preload.js'), // Secure IPC bridge
+      nodeIntegration: false, // CRITICAL: Security - no Node.js in renderer
+      contextIsolation: true, // CRITICAL: Security - isolate contexts
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
@@ -133,8 +107,35 @@ const createWindow = () => {
   }
   return mainWindow;
 };
-app.whenReady().then(async () => {
+
+/**
+ * Main application initialization logic.
+ * This function is exported for testing purposes.
+ */
+const initializeApp = async () => {
   try {
+    // =================================================================================
+    // JWT SECRET MANAGEMENT
+    // =================================================================================
+    let jwtSecret;
+    if (app.isPackaged) {
+      jwtSecret = store.get('jwt_secret');
+      if (!jwtSecret) {
+        log('JWT secret not found in store, generating a new one...');
+        jwtSecret = crypto.randomBytes(32).toString('hex');
+        store.set('jwt_secret', jwtSecret);
+        log('New JWT secret generated and stored.');
+      }
+    } else {
+      jwtSecret = process.env.JWT_SECRET;
+    }
+
+    if (!jwtSecret) {
+      throw new Error('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
+    }
+    process.env.JWT_SECRET = jwtSecret;
+    // =================================================================================
+
     // =============================================================================
     // INITIALIZE DATABASE
     // =============================================================================
@@ -304,7 +305,10 @@ app.whenReady().then(async () => {
     logError('Fatal error during application startup:', error);
     app.quit();
   }
-});
+};
+
+// This is the main entry point for the application
+app.whenReady().then(initializeApp);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -327,3 +331,8 @@ app.on('will-quit', async () => {
 // --- Attendance IPC Handlers ---
 
 // --- Backup IPC Handlers ---
+
+module.exports = {
+  initializeApp,
+  createWindow,
+};
