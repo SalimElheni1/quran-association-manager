@@ -21,23 +21,18 @@ module.exports = {
     {
       displayName: 'renderer-process',
       testEnvironment: 'jsdom',
-      testMatch: ['<rootDir>/tests/renderer/*.spec.js'],
+      testMatch: ['<rootDir>/tests/renderer/**/*.spec.js'],
       setupFilesAfterEnv: ['<rootDir>/tests/renderer/setup.js'],
       moduleNameMapper: {
         '^@renderer/(.*)$': '<rootDir>/src/renderer/$1',
-        '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
-        '^@renderer/styles/(.*)$': 'identity-obj-proxy',
-        '@renderer/styles/EnrollmentModal.css': 'identity-obj-proxy',
-        '@renderer/styles/LoginPage.css': 'identity-obj-proxy',
-        '@renderer/styles/StudentsPage.css': 'identity-obj-proxy',
       },
       transformIgnorePatterns: [
         'node_modules/(?!(react-bootstrap)/)',
-        '\\.css$',
       ],
       transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
+        '\\.(css|less|scss|sass)$': 'jest-transform-stub',
       },
     },
   ],

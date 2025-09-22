@@ -165,7 +165,8 @@ describe('settingsHandlers - Comprehensive Tests', () => {
 
   describe('internalUpdateSettingsHandler - Advanced Cases', () => {
     beforeEach(() => {
-      mockValidationSchema.validateAsync.mockResolvedValue({});
+      // Default to successful validation that passes the data through
+      mockValidationSchema.validateAsync.mockImplementation(data => Promise.resolve(data));
       db.runQuery.mockResolvedValue({ changes: 1 });
     });
 

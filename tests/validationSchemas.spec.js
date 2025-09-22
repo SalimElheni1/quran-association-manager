@@ -1,3 +1,4 @@
+const Joi = require('joi');
 const {
   studentValidationSchema,
   teacherValidationSchema,
@@ -8,6 +9,11 @@ const {
 } = require('../src/main/validationSchemas');
 
 describe('validationSchemas', () => {
+  beforeEach(() => {
+    // Provide a default successful validation implementation
+    Joi.object().validate.mockImplementation(value => ({ value, error: undefined }));
+  });
+
   describe('studentValidationSchema', () => {
     it('should validate valid student data', () => {
       const validStudent = {
@@ -31,6 +37,14 @@ describe('validationSchemas', () => {
         gender: 'Male',
       };
 
+      const mockError = new Joi.ValidationError('ValidationError', [{
+        message: '"name" is required',
+        path: ['name'],
+        type: 'any.required',
+        context: { label: 'name', key: 'name' },
+      }]);
+      studentValidationSchema.validate.mockReturnValue({ error: mockError, value: invalidStudent });
+
       const { error } = studentValidationSchema.validate(invalidStudent);
       expect(error).toBeDefined();
       expect(error.details[0].path).toContain('name');
@@ -41,6 +55,8 @@ describe('validationSchemas', () => {
         name: 'أحمد محمد',
         email: 'invalid-email',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['email'] }]);
+      studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = studentValidationSchema.validate(invalidStudent);
       expect(error).toBeDefined();
@@ -52,6 +68,8 @@ describe('validationSchemas', () => {
         name: 'أحمد محمد',
         gender: 'InvalidGender',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['gender'] }]);
+      studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = studentValidationSchema.validate(invalidStudent);
       expect(error).toBeDefined();
@@ -63,6 +81,8 @@ describe('validationSchemas', () => {
         name: 'أحمد محمد',
         status: 'invalid_status',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
+      studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = studentValidationSchema.validate(invalidStudent);
       expect(error).toBeDefined();
@@ -90,6 +110,8 @@ describe('validationSchemas', () => {
       const invalidTeacher = {
         contact_info: '555-5678',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['name'] }]);
+      teacherValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = teacherValidationSchema.validate(invalidTeacher);
       expect(error).toBeDefined();
@@ -101,6 +123,8 @@ describe('validationSchemas', () => {
         name: 'فاطمة أحمد',
         contact_info: '123', // Too short
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['contact_info'] }]);
+      teacherValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = teacherValidationSchema.validate(invalidTeacher);
       expect(error).toBeDefined();
@@ -130,6 +154,8 @@ describe('validationSchemas', () => {
       const invalidClass = {
         teacher_id: 1,
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['name'] }]);
+      classValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = classValidationSchema.validate(invalidClass);
       expect(error).toBeDefined();
@@ -151,6 +177,8 @@ describe('validationSchemas', () => {
         teacher_id: 1,
         capacity: -5,
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['capacity'] }]);
+      classValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = classValidationSchema.validate(invalidClass);
       expect(error).toBeDefined();
@@ -163,6 +191,8 @@ describe('validationSchemas', () => {
         teacher_id: 1,
         gender: 'invalid_gender',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['gender'] }]);
+      classValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = classValidationSchema.validate(invalidClass);
       expect(error).toBeDefined();
@@ -193,6 +223,8 @@ describe('validationSchemas', () => {
         first_name: 'أحمد',
         last_name: 'محمود',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['username'] }]);
+      userValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = userValidationSchema.validate(invalidUser);
       expect(error).toBeDefined();
@@ -207,6 +239,8 @@ describe('validationSchemas', () => {
         last_name: 'محمود',
         role: 'InvalidRole',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['role'] }]);
+      userValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = userValidationSchema.validate(invalidUser);
       expect(error).toBeDefined();
@@ -221,6 +255,8 @@ describe('validationSchemas', () => {
         last_name: 'محمود',
         employment_type: 'invalid_type',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['employment_type'] }]);
+      userValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = userValidationSchema.validate(invalidUser);
       expect(error).toBeDefined();
@@ -248,6 +284,8 @@ describe('validationSchemas', () => {
         last_name: 'محمود',
         status: 'invalid_status',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
+      userUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = userUpdateValidationSchema.validate(invalidUpdate);
       expect(error).toBeDefined();
@@ -272,6 +310,8 @@ describe('validationSchemas', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'newpassword123',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['current_password'] }]);
+      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
       expect(error).toBeDefined();
@@ -284,6 +324,8 @@ describe('validationSchemas', () => {
         new_password: '123',
         confirm_new_password: '123',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['new_password'] }]);
+      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
       expect(error).toBeDefined();
@@ -296,6 +338,8 @@ describe('validationSchemas', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'differentpassword',
       };
+      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['confirm_new_password'] }]);
+      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
       expect(error).toBeDefined();

@@ -2,12 +2,14 @@ const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandl
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const backupManager = require('../src/main/backupManager');
+const Joi = require('joi');
 
 // Mock dependencies
 jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('path');
 jest.mock('../src/main/backupManager');
+jest.mock('joi');
 // Mock settingsManager and get a reference to the mock function
 const mockRefreshSettings = jest.fn();
 jest.mock('../src/main/settingsManager', () => ({
@@ -15,13 +17,20 @@ jest.mock('../src/main/settingsManager', () => ({
 }));
 
 describe('Settings Handlers', () => {
+  let mockValidationSchema;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Setup a default successful validation mock for Joi
+    mockValidationSchema = {
+      validateAsync: jest.fn(data => Promise.resolve(data)),
+    };
+    Joi.object.mockReturnValue(mockValidationSchema);
+  });
+
   beforeAll(() => {
     // Pass the mocked function to the handler registration
     registerSettingsHandlers(mockRefreshSettings);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('settings:get', () => {
