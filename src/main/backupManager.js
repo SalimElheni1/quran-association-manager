@@ -1,4 +1,5 @@
 const fs = require('fs').promises;
+const path = require('path');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
@@ -155,7 +156,13 @@ const startScheduler = (settings) => {
       // A more robust implementation would fetch settings inside the interval.
       if (settings.backup_enabled && isBackupDue(settings)) {
         log('Scheduled backup is due. Running now...');
-        await runBackup(settings);
+        if (settings.backup_path) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const backupFilePath = path.join(settings.backup_path, `auto-backup-${timestamp}.qdb`);
+          await runBackup(settings, backupFilePath);
+        } else {
+          logError('Scheduled backup failed: No backup path configured.');
+        }
       }
     },
     1000 * 60 * 60,

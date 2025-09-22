@@ -116,13 +116,8 @@ const SettingsPage = () => {
     setIsBackingUp(true);
     toast.info('بدء عملية النسخ الاحتياطي...');
     try {
-      // The backend's runBackup function incorrectly checks for `backup_enabled`,
-      // which is for automatic backups. A manual backup should only require a path.
-      // To work around this, we pass a specific configuration object for the manual
-      // run that satisfies the backend check.
       const response = await window.electronAPI.runBackup({
         backup_path: settings.backup_path,
-        backup_enabled: true, // Force true for manual run to pass backend validation
       });
       if (response.success) {
         toast.success(response.message);
