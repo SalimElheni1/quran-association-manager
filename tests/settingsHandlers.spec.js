@@ -16,24 +16,59 @@ jest.mock('electron', () => ({
     showOpenDialog: jest.fn(),
   },
 }));
-jest.mock('joi', () => ({
-  object: jest.fn(() => ({
+jest.mock('joi', () => {
+  const chainable = {
+    string: jest.fn().mockReturnThis(),
+    min: jest.fn().mockReturnThis(),
+    max: jest.fn().mockReturnThis(),
+    required: jest.fn().mockReturnThis(),
+    messages: jest.fn().mockReturnThis(),
+    email: jest.fn().mockReturnThis(),
+    pattern: jest.fn().mockReturnThis(),
+    alphanum: jest.fn().mockReturnThis(),
+    number: jest.fn().mockReturnThis(),
+    integer: jest.fn().mockReturnThis(),
+    positive: jest.fn().mockReturnThis(),
+    date: jest.fn().mockReturnThis(),
+    iso: jest.fn().mockReturnThis(),
+    boolean: jest.fn().mockReturnThis(),
+    array: jest.fn().mockReturnThis(),
+    any: jest.fn().mockReturnThis(),
+    allow: jest.fn().mockReturnThis(),
+    optional: jest.fn().mockReturnThis(),
+    unknown: jest.fn().mockReturnThis(),
+    valid: jest.fn().mockReturnThis(),
+    default: jest.fn().mockReturnThis(),
+    keys: jest.fn().mockReturnThis(),
+    when: jest.fn().mockReturnThis(),
+    try: jest.fn().mockReturnThis(),
+    with: jest.fn().mockReturnThis(),
+    ref: jest.fn((ref) => `ref:${ref}`),
     validateAsync: jest.fn(),
-  })),
-  string: jest.fn(() => ({
-    allow: jest.fn(() => ({})),
-  })),
-  boolean: jest.fn(() => ({})),
-  number: jest.fn(() => ({
-    integer: jest.fn(() => ({
-      min: jest.fn(() => ({
-        max: jest.fn(() => ({
-          required: jest.fn(() => ({})),
-        })),
-      })),
-    })),
-  })),
-}));
+    validate: jest.fn(),
+  };
+
+  return {
+    object: jest.fn(() => chainable),
+    string: jest.fn(() => chainable),
+    number: jest.fn(() => chainable),
+    boolean: jest.fn(() => chainable),
+    date: jest.fn(() => chainable),
+    array: jest.fn(() => chainable),
+    any: jest.fn(() => chainable),
+    alternatives: jest.fn(() => chainable),
+    exist: jest.fn(() => chainable),
+    required: jest.fn(() => chainable),
+    valid: jest.fn().mockReturnThis(),
+    ref: (ref) => chainable.ref(ref),
+    ValidationError: class ValidationError extends Error {
+      constructor(message, details) {
+        super(message);
+        this.details = details;
+      }
+    },
+  };
+});
 jest.mock('../../db/db');
 jest.mock('fs');
 jest.mock('path');
@@ -305,15 +340,39 @@ describe('settingsHandlers', () => {
   describe('settings:update', () => {
     it('should update settings and restart backup scheduler', async () => {
       const settingsData = { backup_enabled: true };
-      const mockNewSettings = { backup_enabled: true, backup_frequency: 'daily' };
+      const mockNewSettings = {
+        adultAgeThreshold: 18,
+        backup_enabled: true,
+        backup_frequency: 'daily',
+        backup_path: '',
+        backup_reminder_enabled: true,
+        backup_reminder_frequency_days: 7,
+        local_branch_name: '',
+        national_association_name: 'الرابطة الوطنية للقرآن الكريم',
+        national_logo_path: '/assets/logos/g247.png',
+        president_full_name: '',
+        regional_association_name: '',
+        regional_local_logo_path: '',
+      };
 
       Joi.object().validateAsync = jest.fn().mockResolvedValue(settingsData);
       db.runQuery.mockResolvedValue({ changes: 1 });
       db.allQuery.mockResolvedValue([
         { key: 'backup_enabled', value: 'true' },
-        { key: 'backup_frequency', value: 'daily' }
+        { key: 'backup_frequency', value: 'daily' },
       ]);
       backupManager.startScheduler.mockImplementation(() => {});
+
+      // Mock the getSettings handler to return the full new settings
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+      jest.mock('../src/main/handlers/settingsHandlers', () => ({
+        ...jest.requireActual('../src/main/handlers/settingsHandlers'),
+        internalGetSettingsHandler: jest.fn().mockResolvedValue({
+          success: true,
+          settings: mockNewSettings,
+        }),
+      }));
+
 
       const result = await handlers['settings:update'](null, settingsData);
 
@@ -386,14 +445,19 @@ describe('settingsHandlers', () => {
 
     it('should return null when no logos available', async () => {
       db.isDbOpen.mockReturnValue(true);
-      db.allQuery.mockResolvedValue([]);
+      // Ensure no logo paths are returned from the DB mock for this test
+      db.allQuery.mockResolvedValue([
+        { key: 'regional_local_logo_path', value: '' },
+        { key: 'national_logo_path', value: '' },
+      ]);
       app.getPath.mockReturnValue('/user/data');
+      fs.existsSync.mockReturnValue(false); // Mock that no logo files exist
 
       const result = await handlers['settings:getLogo']();
 
       expect(result).toEqual({
         success: true,
-        path: null
+        path: null,
       });
     });
 
@@ -426,27 +490,28 @@ describe('settingsHandlers', () => {
   describe('settings:uploadLogo', () => {
     it('should upload logo successfully', async () => {
       const mockFilePath = '/temp/logo.png';
-      const mockRelativePath = 'assets/logos/logo.png';
+      const mockDestPath = '/user/data/assets/logos/logo.png';
 
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: [mockFilePath]
+        filePaths: [mockFilePath],
       });
       app.getPath.mockReturnValue('/user/data');
+      path.join.mockImplementation((...args) => args.join('/'));
+      path.basename.mockReturnValue('logo.png');
+      // Mock that the directory does not exist, so it gets created
       fs.existsSync.mockReturnValue(false);
       fs.mkdirSync.mockImplementation(() => {});
       fs.copyFileSync.mockImplementation(() => {});
-      path.join.mockReturnValue('/user/data/assets/logos');
-      path.basename.mockReturnValue('logo.png');
 
       const result = await handlers['settings:uploadLogo']();
 
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
         properties: ['openFile'],
-        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }]
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }],
       });
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/user/data/assets/logos', { recursive: true });
-      expect(fs.copyFileSync).toHaveBeenCalledWith(mockFilePath, expect.any(String));
+      expect(fs.mkdirSync).toHaveBeenCalledWith('user/data/assets/logos', { recursive: true });
+      expect(fs.copyFileSync).toHaveBeenCalledWith(mockFilePath, expect.stringContaining('logo.png'));
       expect(result.success).toBe(true);
       expect(result.path).toContain('assets/logos/logo.png');
     });
@@ -507,19 +572,19 @@ describe('settingsHandlers', () => {
     it('should create logos directory if it does not exist', async () => {
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/temp/logo.png']
+        filePaths: ['/temp/logo.png'],
       });
       app.getPath.mockReturnValue('/user/data');
-      fs.existsSync.mockReturnValueOnce(false) // Directory doesn't exist
-        .mockReturnValueOnce(true); // File exists after copy
+      path.join.mockImplementation((...args) => args.join('/'));
+      // Mock that the directory does not exist, then that the file copy succeeds
+      fs.existsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
       fs.mkdirSync.mockImplementation(() => {});
       fs.copyFileSync.mockImplementation(() => {});
-      path.join.mockReturnValue('/user/data/assets/logos');
       path.basename.mockReturnValue('logo.png');
 
       const result = await handlers['settings:uploadLogo']();
 
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/user/data/assets/logos', { recursive: true });
+      expect(fs.mkdirSync).toHaveBeenCalledWith('user/data/assets/logos', { recursive: true });
       expect(result.success).toBe(true);
     });
 
