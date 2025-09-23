@@ -15,14 +15,29 @@ async function refreshSettings() {
   }
 }
 
-function getSetting(key) {
+async function getSetting(key) {
   if (!settingsCache) {
-    logError('CRITICAL: getSetting called before settings cache was initialized.');
-    // This is a synchronous fallback for critical early calls.
-    // The application should be structured to call refreshSettings on startup.
-    return 18; // Hardcoded fallback
+    await refreshSettings();
   }
-  return settingsCache[key];
+  
+  let value = settingsCache?.[key];
+  
+  // Handle age threshold key mapping between camelCase and snake_case
+  if (value === undefined && key === 'adult_age_threshold') {
+    value = settingsCache?.['adultAgeThreshold'];
+  } else if (value === undefined && key === 'adultAgeThreshold') {
+    value = settingsCache?.['adult_age_threshold'];
+  }
+  
+  if (value === undefined || value === null) {
+    // Provide sensible defaults for critical settings
+    if (key === 'adult_age_threshold' || key === 'adultAgeThreshold') {
+      return 18;
+    }
+    return null;
+  }
+  
+  return value;
 }
 
 module.exports = {

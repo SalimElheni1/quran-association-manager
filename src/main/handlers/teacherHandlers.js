@@ -87,7 +87,7 @@ function registerTeacherHandlers() {
         params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
       }
       if (filters?.genderFilter && filters.genderFilter !== 'all') {
-        sql += ' AND gender = ?';
+        sql += ' AND gender = ? AND gender IS NOT NULL';
         params.push(filters.genderFilter);
       }
       if (filters?.specializationFilter) {
@@ -95,7 +95,11 @@ function registerTeacherHandlers() {
         params.push(`%${filters.specializationFilter}%`);
       }
       sql += ' ORDER BY name ASC';
-      return await db.allQuery(sql, params);
+      const result = await db.allQuery(sql, params);
+      
+
+      
+      return result;
     } catch (error) {
       logError('Error in teachers:get handler:', error);
       throw new Error('فشل في جلب بيانات المعلمين.');

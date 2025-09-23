@@ -55,10 +55,7 @@ const internalGetSettingsHandler = async () => {
 
   // Normalize legacy/snake_case keys from the DB to the schema's camelCase keys
   if (Object.prototype.hasOwnProperty.call(dbSettings, 'adult_age_threshold')) {
-    // Only map if camelCase not already present
-    if (!Object.prototype.hasOwnProperty.call(dbSettings, 'adultAgeThreshold')) {
-      dbSettings.adultAgeThreshold = dbSettings['adult_age_threshold'];
-    }
+    dbSettings.adultAgeThreshold = dbSettings['adult_age_threshold'];
     delete dbSettings['adult_age_threshold'];
   }
 
@@ -87,9 +84,7 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   // Accept legacy snake_case keys from the renderer and map them to the schema's camelCase
   const normalized = { ...settingsData };
   if (Object.prototype.hasOwnProperty.call(normalized, 'adult_age_threshold')) {
-    if (!Object.prototype.hasOwnProperty.call(normalized, 'adultAgeThreshold')) {
-      normalized.adultAgeThreshold = normalized['adult_age_threshold'];
-    }
+    normalized.adultAgeThreshold = normalized['adult_age_threshold'];
     delete normalized['adult_age_threshold'];
   }
 
@@ -112,15 +107,11 @@ const internalUpdateSettingsHandler = async (settingsData) => {
       const altKey = primaryDbKey === key ? camelToSnake(key) : key; // alternate form to try
       const dbValue = value === null || value === undefined ? '' : String(value);
 
-      // First try the primary key
-      const res = await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [
-        dbValue,
+      // Use INSERT OR REPLACE to ensure the setting is always saved
+      await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
         primaryDbKey,
+        dbValue,
       ]);
-      // If no rows affected, try the alternate key form as a fallback
-      if ((!res || res.changes === 0) && altKey && altKey !== primaryDbKey) {
-        await db.runQuery('UPDATE settings SET value = ? WHERE key = ?', [dbValue, altKey]);
-      }
     }
     await db.runQuery('COMMIT;');
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
