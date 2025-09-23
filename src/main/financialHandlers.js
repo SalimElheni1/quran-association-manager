@@ -151,7 +151,7 @@ async function handleAddInventoryItem(event, item) {
   } = item;
 
   const matricule = await generateMatricule('inventory');
-  const total_value = (quantity || 0) * (unit_value || 0);
+  const total_value = (Number(quantity) || 0) * (Number(unit_value) || 0);
 
   const sql = `
     INSERT INTO inventory_items (
@@ -190,7 +190,7 @@ async function handleUpdateInventoryItem(event, item) {
     notes,
   } = item;
 
-  const total_value = (quantity || 0) * (unit_value || 0);
+  const total_value = (Number(quantity) || 0) * (Number(unit_value) || 0);
 
   const sql = `
     UPDATE inventory_items SET
