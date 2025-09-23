@@ -6,6 +6,25 @@ const ExcelJS = require('exceljs');
 const docx = require('docx');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
+
+/**
+ * Calculates age from date of birth string.
+ * Uses the same logic as the frontend and studentHandlers.
+ * 
+ * @param {string} dob - Date of birth in YYYY-MM-DD format
+ * @returns {number|null} Age in years or null if invalid date
+ */
+function calculateAge(dob) {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
 const {
   handleGetFinancialSummary,
   handleGetPayments,
@@ -69,68 +88,61 @@ async function fetchExportData({ type, fields, options = {} }) {
 
   switch (type) {
     case 'students': {
-      query = `SELECT ${fieldSelection} FROM students`;
-      const adultAge = getSetting('adultAgeThreshold');
-      // If a groupId is provided, export only students belonging to that group.
+      // Apply fast SQL filters (group membership and basic gender)
       if (options.groupId) {
-        // Join with student_groups to filter by group membership
         query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ?`;
         params.push(options.groupId);
-        // Allow additional gender-based constraints only if explicitly provided and not conflicting
-        if (options.gender) {
-          if (options.gender === 'men') {
-            query += ' AND s.gender = ?';
-            params.push('Male');
-            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?`;
-            params.push(adultAge);
-          } else if (options.gender === 'women') {
-            query += ' AND s.gender = ?';
-            params.push('Female');
-            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) >= ?`;
-            params.push(adultAge);
-          } else if (options.gender === 'kids') {
-            query += ` AND strftime('%Y', 'now') - strftime('%Y', s.date_of_birth) < ?`;
-            params.push(adultAge);
-          }
-        }
-      } else if (options.gender) {
-        if (options.gender === 'men') {
-          whereClauses.push('gender = ?');
-          params.push('Male');
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ?`);
-          params.push(adultAge);
-        } else if (options.gender === 'women') {
-          whereClauses.push('gender = ?');
-          params.push('Female');
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) >= ?`);
-          params.push(adultAge);
-        } else if (options.gender === 'kids') {
-          whereClauses.push(`strftime('%Y', 'now') - strftime('%Y', date_of_birth) < ?`);
-          params.push(adultAge);
-        }
+        query += ' ORDER BY s.name';
+      } else {
+        query = `SELECT ${fieldSelection} FROM students WHERE 1=1 ORDER BY name`;
       }
-      // Only append WHERE clause if we didn't already build a grouped query above
-      if (!options.groupId) query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
-      else query += ' ORDER BY s.name';
-      break;
+      
+      // Fetch all matching students, then apply age-based filtering in JavaScript
+      let students = await allQuery(query, params);
+      
+      // Apply gender-based age filtering if specified
+      if (options.gender) {
+        const adultAge = await getSetting('adult_age_threshold');
+        
+        students = students.filter(student => {
+          const age = calculateAge(student.date_of_birth);
+          if (age === null) return false; // Exclude students without valid birth date
+          
+          if (options.gender === 'men') {
+            return student.gender === 'Male' && age >= adultAge;
+          } else if (options.gender === 'women') {
+            return student.gender === 'Female' && age >= adultAge;
+          } else if (options.gender === 'kids') {
+            return age <= adultAge;
+          }
+          
+          return true;
+        });
+      }
+      
+      return students;
     }
     case 'teachers': {
       query = `SELECT ${fieldSelection} FROM teachers`;
-      if (options.gender) {
-        if (options.gender === 'men') {
-          whereClauses.push('gender = ?');
+      let teacherWhereClauses = [];
+      if (options.gender && options.gender !== 'all') {
+        if (options.gender === 'men' || options.gender === 'Male') {
+          teacherWhereClauses.push('gender = ? AND gender IS NOT NULL');
           params.push('Male');
-        } else if (options.gender === 'women') {
-          whereClauses.push('gender = ?');
+        } else if (options.gender === 'women' || options.gender === 'Female') {
+          teacherWhereClauses.push('gender = ? AND gender IS NOT NULL');
           params.push('Female');
         }
       }
-      query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY name`;
-      break;
+      if (teacherWhereClauses.length > 0) {
+        query += ` WHERE ${teacherWhereClauses.join(' AND ')}`;
+      }
+      query += ' ORDER BY name';
+      return allQuery(query, params);
     }
     case 'admins':
       query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
-      break;
+      return allQuery(query, params);
     case 'attendance': {
       const attendanceFieldMap = {
         student_name: 's.name as student_name',
@@ -163,7 +175,6 @@ async function fetchExportData({ type, fields, options = {} }) {
     default:
       throw new Error(`Invalid export type: ${type}`);
   }
-  return allQuery(query, params);
 }
 
 // --- Data Localization ---

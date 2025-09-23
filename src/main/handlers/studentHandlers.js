@@ -2,7 +2,7 @@
  * @fileoverview Student management IPC handlers for Quran Branch Manager.
  * Provides CRUD operations for student records including validation,
  * matricule generation, and group assignments.
- * 
+ *
  * @author Quran Branch Manager Team
  * @version 1.0.2-beta
  * @requires electron - For IPC communication
@@ -19,59 +19,78 @@ const { generateMatricule } = require('../matriculeService');
 const { error: logError } = require('../logger');
 
 /**
+ * Calculates age from date of birth string.
+ * Uses the same logic as the frontend calculateAge function.
+ *
+ * @param {string} dob - Date of birth in YYYY-MM-DD format
+ * @returns {number|null} Age in years or null if invalid date
+ */
+function calculateAge(dob) {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+/**
  * Array of valid student database fields used for INSERT and UPDATE operations.
  * This ensures only valid fields are processed and prevents SQL injection.
- * 
+ *
  * @type {string[]}
  * @constant
  */
 const studentFields = [
-  'matricule',                    // Unique student identifier
-  'name',                        // Full name
-  'date_of_birth',               // Birth date (YYYY-MM-DD)
-  'gender',                      // Gender (male/female)
-  'address',                     // Home address
-  'contact_info',                // Phone number or other contact
-  'email',                       // Email address
-  'status',                      // Active/inactive status
-  'memorization_level',          // Current Quran memorization level
-  'notes',                       // Additional notes
-  'parent_name',                 // Parent/guardian name
-  'guardian_relation',           // Relationship to guardian
-  'parent_contact',              // Parent contact information
-  'guardian_email',              // Guardian email address
-  'emergency_contact_name',      // Emergency contact person
-  'emergency_contact_phone',     // Emergency contact phone
-  'health_conditions',           // Medical conditions or allergies
-  'national_id',                 // National ID number
-  'school_name',                 // Current school name
-  'grade_level',                 // Current grade/class level
-  'educational_level',           // Education level (primary, secondary, etc.)
-  'occupation',                  // Student's occupation (if applicable)
-  'civil_status',                // Marital status
-  'related_family_members',      // Family members in the association
-  'financial_assistance_notes',  // Financial aid information
+  'matricule', // Unique student identifier
+  'name', // Full name
+  'date_of_birth', // Birth date (YYYY-MM-DD)
+  'gender', // Gender (male/female)
+  'address', // Home address
+  'contact_info', // Phone number or other contact
+  'email', // Email address
+  'status', // Active/inactive status
+  'memorization_level', // Current Quran memorization level
+  'notes', // Additional notes
+  'parent_name', // Parent/guardian name
+  'guardian_relation', // Relationship to guardian
+  'parent_contact', // Parent contact information
+  'guardian_email', // Guardian email address
+  'emergency_contact_name', // Emergency contact person
+  'emergency_contact_phone', // Emergency contact phone
+  'health_conditions', // Medical conditions or allergies
+  'national_id', // National ID number
+  'school_name', // Current school name
+  'grade_level', // Current grade/class level
+  'educational_level', // Education level (primary, secondary, etc.)
+  'occupation', // Student's occupation (if applicable)
+  'civil_status', // Marital status
+  'related_family_members', // Family members in the association
+  'financial_assistance_notes', // Financial aid information
 ];
 
 /**
  * Registers all student-related IPC handlers with the main process.
  * This function sets up the communication channels between the renderer
  * and main processes for student management operations.
- * 
+ *
  * Registered handlers:
  * - students:get - Retrieve students with optional filtering
  * - students:getById - Get a specific student by ID
  * - students:add - Add a new student
  * - students:update - Update an existing student
  * - students:delete - Delete a student
- * 
+ *
  * @returns {void}
  */
 function registerStudentHandlers() {
   /**
    * Retrieves students from the database with optional filtering.
    * Supports search by name/matricule, gender filtering, and age range filtering.
-   * 
+   *
    * @param {Object} _event - IPC event object (unused)
    * @param {Object} [filters] - Optional filters for student search
    * @param {string} [filters.searchTerm] - Search term for name or matricule
@@ -83,30 +102,41 @@ function registerStudentHandlers() {
    */
   ipcMain.handle('students:get', async (_event, filters) => {
     try {
+      // Apply fast SQL filters (search and gender)
       let sql =
         'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
       const params = [];
+
       if (filters?.searchTerm) {
         sql += ' AND (name LIKE ? OR matricule LIKE ?)';
         params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
       }
+
       if (filters?.genderFilter && filters.genderFilter !== 'all') {
         sql += ' AND gender = ?';
         params.push(filters.genderFilter);
       }
-      const today = new Date();
-      if (filters?.minAgeFilter) {
-        const minAgeBirthYear = today.getFullYear() - parseInt(filters.minAgeFilter, 10);
-        sql += ` AND SUBSTR(date_of_birth, 1, 4) <= ?`;
-        params.push(minAgeBirthYear.toString());
-      }
-      if (filters?.maxAgeFilter) {
-        const maxAgeBirthYear = today.getFullYear() - parseInt(filters.maxAgeFilter, 10) - 1;
-        sql += ` AND SUBSTR(date_of_birth, 1, 4) >= ?`;
-        params.push(maxAgeBirthYear.toString());
-      }
+
       sql += ' ORDER BY name ASC';
-      return await db.allQuery(sql, params);
+      let students = await db.allQuery(sql, params);
+
+      // Apply age filtering in JavaScript for accuracy
+      if (filters?.minAgeFilter || filters?.maxAgeFilter) {
+        const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
+        const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
+
+        students = students.filter((student) => {
+          const age = calculateAge(student.date_of_birth);
+          if (age === null) return false; // Exclude students without valid birth date
+
+          if (minAge !== null && age < minAge) return false;
+          if (maxAge !== null && age > maxAge) return false;
+
+          return true;
+        });
+      }
+
+      return students;
     } catch (error) {
       logError('Error in students:get handler:', error);
       throw new Error('فشل في جلب بيانات الطلاب.');
@@ -116,7 +146,7 @@ function registerStudentHandlers() {
   /**
    * Retrieves a specific student by their ID.
    * Returns all student fields for detailed view/editing.
-   * 
+   *
    * @param {Object} _event - IPC event object (unused)
    * @param {number} id - The student ID to retrieve
    * @returns {Promise<Object|null>} Complete student object or null if not found
@@ -135,7 +165,7 @@ function registerStudentHandlers() {
    * Adds a new student to the database.
    * Generates a unique matricule, validates data, and optionally assigns to groups.
    * Uses database transactions to ensure data consistency.
-   * 
+   *
    * @param {Object} _event - IPC event object (unused)
    * @param {Object} studentData - Student information to add
    * @param {string} studentData.name - Student's full name (required)

@@ -40,6 +40,30 @@ describe('Student Handlers', () => {
         expect.arrayContaining(['%Ali%', '%Ali%', 'Male'])
       );
     });
+
+    it('should correctly filter by max age', async () => {
+      db.allQuery.mockResolvedValue([]);
+      const maxAge = 10;
+      const filters = { maxAgeFilter: maxAge.toString() };
+
+      // Spy on Date to control the current year
+      const currentYear = 2024;
+      jest.spyOn(global, 'Date').mockImplementation(() => ({
+        getFullYear: () => currentYear,
+      }));
+
+      await ipcMain.invoke('students:get', filters);
+
+      const expectedMinBirthYear = currentYear - maxAge;
+
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('SUBSTR(date_of_birth, 1, 4) >= ?'),
+        [expectedMinBirthYear.toString()]
+      );
+
+      // Restore original Date object
+      jest.restoreAllMocks();
+    });
   });
 
   describe('students:getById', () => {
