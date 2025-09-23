@@ -121,4 +121,36 @@ describe('financialHandlers', () => {
             expect(result.balance).toBe(totalIncome - totalExpenses);
         });
     });
+
+    describe('handleAddInventoryItem', () => {
+        it('should handle non-numeric quantity and unit_value gracefully', async () => {
+            const itemData = {
+                item_name: 'New Item',
+                quantity: 'invalid-number', // Malformed input
+                unit_value: '10',
+            };
+            const newRecord = { id: 1, ...itemData, total_value: 0 }; // Expect total_value to be 0
+            db.runQuery.mockResolvedValue({ id: 1 });
+            db.getQuery.mockResolvedValue(newRecord);
+
+            // We need to mock generateMatricule since it's called by the handler
+            const matriculeService = require('../src/main/matriculeService');
+            jest.spyOn(matriculeService, 'generateMatricule').mockResolvedValue('INV-001');
+
+            await financialHandlers.handleAddInventoryItem(null, itemData);
+
+            // Get the arguments passed to runQuery
+            const callArgs = db.runQuery.mock.calls[0];
+            const query = callArgs[0];
+            const params = callArgs[1];
+
+            // The important check: the `total_value` parameter should be 0, not NaN
+            const totalValueIndex = 5; // Based on the INSERT query structure
+            const totalValue = params[totalValueIndex];
+
+            expect(query).toContain('INSERT INTO inventory_items');
+            expect(totalValue).not.toBeNaN();
+            expect(totalValue).toBe(0);
+        });
+    });
 });
