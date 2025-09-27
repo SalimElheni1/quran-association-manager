@@ -19,6 +19,7 @@ const {
 const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./matriculeService');
 const { setDbSalt } = require('./keyManager');
+const { getSheetsForStep, getStepInfo } = require('./importConstants');
 
 const mainStore = new Store();
 
@@ -318,7 +319,8 @@ async function processStudentRow(row, headerRow) {
 async function processTeacherRow(row, headerRow) {
   const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
   if (genderAr) {
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+    const mappedGender = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = mappedGender;
   }
 
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
@@ -328,6 +330,14 @@ async function processTeacherRow(row, headerRow) {
     national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
     contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
     email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
+    gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
+    address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
+    date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
+    educational_level: row.getCell(getColumnIndex(headerRow, 'المستوى التعليمي')).value,
+    specialization: row.getCell(getColumnIndex(headerRow, 'التخصص')).value,
+    years_of_experience: row.getCell(getColumnIndex(headerRow, 'سنوات الخبرة')).value,
+    availability: row.getCell(getColumnIndex(headerRow, 'أوقات التوفر')).value,
+    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
 
   if (!data.name) return { success: false, message: 'اسم المعلم مطلوب.' };
@@ -440,7 +450,10 @@ async function processUserRow(row, headerRow) {
 }
 
 async function processClassRow(row, headerRow) {
-  const teacherMatricule = row.getCell(getColumnIndex(headerRow, 'معرف المعلم'))?.value;
+  const teacherMatriculeIndex = getColumnIndex(headerRow, 'معرف المعلم');
+  if (teacherMatriculeIndex === -1) return { success: false, message: 'عمود معرف المعلم غير موجود.' };
+  
+  const teacherMatricule = row.getCell(teacherMatriculeIndex)?.value;
   if (!teacherMatricule) return { success: false, message: 'معرف المعلم مطلوب.' };
   const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
   if (!teacher) {
@@ -620,12 +633,21 @@ async function processAttendanceRow(row, headerRow) {
 }
 
 async function processGroupRow(row, headerRow) {
-  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+  const matriculeIndex = getColumnIndex(headerRow, 'الرقم التعريفي');
+  const nameIndex = getColumnIndex(headerRow, 'اسم المجموعة');
+  const descriptionIndex = getColumnIndex(headerRow, 'الوصف');
+  const categoryIndex = getColumnIndex(headerRow, 'الفئة');
+
+  if (nameIndex === -1 || categoryIndex === -1) {
+    return { success: false, message: 'عمود اسم المجموعة أو الفئة غير موجود.' };
+  }
+
+  const matricule = matriculeIndex !== -1 ? row.getCell(matriculeIndex)?.value : null;
 
   const data = {
-    name: row.getCell(getColumnIndex(headerRow, 'اسم المجموعة')).value,
-    description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
-    category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
+    name: row.getCell(nameIndex).value,
+    description: descriptionIndex !== -1 ? row.getCell(descriptionIndex).value : null,
+    category: row.getCell(categoryIndex).value,
   };
 
   if (!data.name || !data.category) {
@@ -710,8 +732,25 @@ const ATTENDANCE_MAP_AR_TO_EN = {
   معذور: 'excused',
 };
 
+/**
+ * Import Excel data for a specific step in sequential import process
+ * @param {string} filePath - Path to Excel file
+ * @param {string} stepId - Step identifier (step1, step2)
+ * @returns {Promise<Object>} Import results
+ */
+async function importExcelDataSequential(filePath, stepId) {
+  const stepInfo = getStepInfo(stepId);
+  if (!stepInfo) {
+    throw new Error(`خطوة الاستيراد غير صالحة: ${stepId}`);
+  }
+
+  const stepSheets = getSheetsForStep(stepId);
+  return await importExcelData(filePath, stepSheets);
+}
+
 module.exports = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
+  importExcelDataSequential,
 };

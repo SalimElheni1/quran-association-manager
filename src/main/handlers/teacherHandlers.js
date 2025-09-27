@@ -96,9 +96,7 @@ function registerTeacherHandlers() {
       }
       sql += ' ORDER BY name ASC';
       const result = await db.allQuery(sql, params);
-      
 
-      
       return result;
     } catch (error) {
       logError('Error in teachers:get handler:', error);

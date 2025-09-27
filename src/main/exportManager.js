@@ -203,6 +203,10 @@ function localizeData(data) {
     'In-kind': 'عيني',
     cash: 'نقدي',
     'in-kind': 'عيني',
+    // Add missing mappings
+    'In-Kind': 'عيني',
+    'CASH': 'نقدي',
+    'IN-KIND': 'عيني',
   };
 
   return data.map((row) => {
@@ -427,12 +431,26 @@ async function generateFinancialXlsx(data, outputPath) {
     { header: 'تاريخ التبرع', key: 'donation_date', width: 20 },
     { header: 'ملاحظات', key: 'notes', width: 30 },
   ];
-  donationsSheet.addRows(
-    data.donations.map((d) => ({
-      ...d,
-      amount: d.donation_type === 'Cash' ? d.amount : d.description,
-    })),
-  );
+  // Localize donation data before adding to sheet
+  const localizedDonations = data.donations.map((d) => {
+    const localized = { ...d };
+    // Localize donation type
+    const donationTypeMap = {
+      Cash: 'نقدي',
+      'In-kind': 'عيني',
+      'In-Kind': 'عيني',
+      cash: 'نقدي',
+      'in-kind': 'عيني',
+    };
+    if (localized.donation_type && donationTypeMap[localized.donation_type]) {
+      localized.donation_type = donationTypeMap[localized.donation_type];
+    }
+    // Set amount/description based on type
+    localized.amount = d.donation_type === 'Cash' || d.donation_type === 'cash' ? d.amount : d.description;
+    return localized;
+  });
+  
+  donationsSheet.addRows(localizedDonations);
 
   // Expenses Sheet
   const expensesSheet = workbook.addWorksheet('المصاريف');
@@ -700,6 +718,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
   const warningMessage =
     '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
 
+  // Simplified sheets - only basic data that can be imported independently
   const sheets = [
     {
       name: 'الطلاب',
@@ -829,68 +848,50 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
     },
     {
-      name: 'الفصول',
+      name: 'المجموعات',
       columns: [
-        { header: 'اسم الفصل', key: 'name', width: 25 },
-        { header: 'نوع الفصل', key: 'class_type', width: 20 },
-        { header: 'معرف المعلم', key: 'teacher_matricule', width: 25 },
-        { header: 'الجدول الزمني (JSON)', key: 'schedule', width: 30 },
-        { header: 'تاريخ البدء', key: 'start_date', width: 15 },
-        { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
-        { header: 'الحالة', key: 'status', width: 15 },
-        { header: 'السعة', key: 'capacity', width: 10 },
-        { header: 'الجنس', key: 'gender', width: 15 },
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم المجموعة', key: 'name', width: 25 },
+        { header: 'الوصف', key: 'description', width: 40 },
+        { header: 'الفئة', key: 'category', width: 20 },
       ],
       dummyData: [
-        {
-          name: 'حلقة التجويد للمبتدئين',
-          teacher_matricule: '',
-          gender: 'الكل',
-          capacity: 15,
-          status: 'نشط',
-        },
-        {
-          name: 'دورة الحفظ المكثفة',
-          teacher_matricule: '',
-          gender: 'رجال',
-          capacity: 10,
-          status: 'معلق',
-        },
+        { name: 'مجموعة الحفظ الصباحية', description: 'لمراجعة الحفظ اليومي', category: 'نساء' },
+        { name: 'مجموعة التجويد المسائية', description: 'لتحسين أحكام التلاوة', category: 'رجال' },
       ],
     },
     {
-      name: 'الرسوم الدراسية',
+      name: 'المخزون',
       columns: [
-        { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
-        { header: 'المبلغ', key: 'amount', width: 15 },
-        { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
-        { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
-        { header: 'ملاحظات', key: 'notes', width: 30 },
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم العنصر', key: 'item_name', width: 25 },
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'الكمية', key: 'quantity', width: 10 },
+        { header: 'قيمة الوحدة', key: 'unit_value', width: 15 },
+        { header: 'تاريخ الاقتناء', key: 'acquisition_date', width: 18 },
+        { header: 'مصدر الاقتناء', key: 'acquisition_source', width: 25 },
+        { header: 'الحالة', key: 'condition_status', width: 15 },
+        { header: 'الموقع', key: 'location', width: 25 },
+        { header: 'ملاحظات', key: 'notes', width: 40 },
       ],
       dummyData: [
         {
-          student_matricule: '',
-          amount: 100,
-          payment_date: '2024-09-01',
-          payment_method: 'نقداً',
+          item_name: 'مصحف (نسخة ورقية)',
+          category: 'مواد تعليمية',
+          quantity: 50,
+          unit_value: 15.0,
+          acquisition_date: '2024-01-10',
+          condition_status: 'جديد',
         },
         {
-          student_matricule: '',
-          amount: 100,
-          payment_date: '2024-09-02',
-          payment_method: 'تحويل بنكي',
+          item_name: 'سبورة بيضاء كبيرة',
+          category: 'أثاث مكتبي',
+          quantity: 5,
+          unit_value: 100.0,
+          acquisition_date: '2024-02-01',
+          condition_status: 'مستخدم',
         },
       ],
-    },
-    {
-      name: 'الرواتب',
-      columns: [
-        { header: 'الرقم التعريفي للموظف', key: 'user_matricule', width: 25 },
-        { header: 'المبلغ', key: 'amount', width: 15 },
-        { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
-        { header: 'ملاحظات', key: 'notes', width: 30 },
-      ],
-      dummyData: [{ user_matricule: '', amount: 1500, payment_date: '2024-09-05' }],
     },
     {
       name: 'التبرعات',
@@ -936,74 +937,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         },
       ],
     },
-    {
-      name: 'الحضور',
-      columns: [
-        { header: 'الرقم التعريفي للطالب', key: 'student_matricule', width: 25 },
-        { header: 'اسم الفصل', key: 'class_name', width: 25 },
-        { header: 'التاريخ', key: 'date', width: 20 },
-        { header: 'الحالة', key: 'status', width: 25 },
-      ],
-      dummyData: [
-        {
-          student_matricule: '',
-          class_name: 'حلقة التجويد للمبتدئين',
-          date: '2024-09-06',
-          status: 'حاضر',
-        },
-        {
-          student_matricule: '',
-          class_name: 'دورة الحفظ المكثفة',
-          date: '2024-09-06',
-          status: 'غائب',
-        },
-      ],
-    },
-    {
-      name: 'المجموعات',
-      columns: [
-        { header: 'اسم المجموعة', key: 'name', width: 25 },
-        { header: 'الوصف', key: 'description', width: 40 },
-        { header: 'الفئة', key: 'category', width: 20 },
-      ],
-      dummyData: [
-        { name: 'مجموعة الحفظ الصباحية', description: 'لمراجعة الحفظ اليومي', category: 'نساء' },
-        { name: 'مجموعة التجويد المسائية', description: 'لتحسين أحكام التلاوة', category: 'رجال' },
-      ],
-    },
-    {
-      name: 'المخزون',
-      columns: [
-        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
-        { header: 'اسم العنصر', key: 'item_name', width: 25 },
-        { header: 'الفئة', key: 'category', width: 20 },
-        { header: 'الكمية', key: 'quantity', width: 10 },
-        { header: 'قيمة الوحدة', key: 'unit_value', width: 15 },
-        { header: 'تاريخ الاقتناء', key: 'acquisition_date', width: 18 },
-        { header: 'مصدر الاقتناء', key: 'acquisition_source', width: 25 },
-        { header: 'الحالة', key: 'condition_status', width: 15 },
-        { header: 'الموقع', key: 'location', width: 25 },
-        { header: 'ملاحظات', key: 'notes', width: 40 },
-      ],
-      dummyData: [
-        {
-          item_name: 'مصحف (نسخة ورقية)',
-          category: 'مواد تعليمية',
-          quantity: 50,
-          unit_value: 15.0,
-          acquisition_date: '2024-01-10',
-          condition_status: 'جديد',
-        },
-        {
-          item_name: 'سبورة بيضاء',
-          category: 'أثاث مكتبي',
-          quantity: 5,
-          unit_value: 100.0,
-          acquisition_date: '2024-02-01',
-          condition_status: 'مستخدم',
-        },
-      ],
-    },
   ];
 
   if (returnDefsOnly) {
@@ -1041,33 +974,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     }
   }
 
-  // --- Add Data Validations for Dropdowns ---
-  const classesSheet = workbook.getWorksheet('الفصول');
-  const attendanceSheet = workbook.getWorksheet('الحاضر');
-  const paymentsSheet = workbook.getWorksheet('الرسوم الدراسية');
-  const salariesSheet = workbook.getWorksheet('الرواتب');
-
-  // Define ranges for the dropdown lists. Covers the dummy data + 1000 extra rows.
-  const studentMatriculeRange = `'الطلاب'!$A$3:$A$1002`;
-  const teacherMatriculeRange = `'المعلمون'!$A$3:$A$1002`;
-
-  const applyValidation = (worksheet, column, range) => {
-    if (!worksheet) return;
-    for (let i = 3; i <= 1002; i++) {
-      worksheet.getCell(`${column}${i}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: [range],
-        showErrorMessage: true,
-        error: 'الرجاء الاختيار من القائمة المنسدلة.',
-      };
-    }
-  };
-
-  applyValidation(paymentsSheet, 'A', studentMatriculeRange);
-  applyValidation(salariesSheet, 'A', teacherMatriculeRange);
-  applyValidation(classesSheet, 'C', teacherMatriculeRange);
-  applyValidation(attendanceSheet, 'A', studentMatriculeRange);
+  // No cross-sheet validations needed for simplified import system
 
   if (outputPath) {
     await workbook.xlsx.writeFile(outputPath);
@@ -1246,7 +1153,7 @@ async function generateDevExcelTemplate(outputPath) {
 
   const inventoryData = [
     {
-      item_name: 'مصحف (نسخة ورقية)',
+      item_name: 'مصحف (نسخة ورقية) - مجموعة 1',
       category: 'مواد تعليمية',
       quantity: 50,
       unit_value: 15.0,
@@ -1254,7 +1161,7 @@ async function generateDevExcelTemplate(outputPath) {
       condition_status: 'جديد',
     },
     {
-      item_name: 'سبورة بيضاء',
+      item_name: 'سبورة بيضاء كبيرة - قاعة 1',
       category: 'أثاث مكتبي',
       quantity: 5,
       unit_value: 100.0,
@@ -1270,18 +1177,15 @@ async function generateDevExcelTemplate(outputPath) {
     return def.columns;
   };
 
+  // Simplified sheets for dev template - only basic data
   const sheets = [
     { name: 'الطلاب', columns: getCols('الطلاب'), dummyData: studentData },
     { name: 'المعلمون', columns: getCols('المعلمون'), dummyData: teacherData },
     { name: 'المستخدمون', columns: getCols('المستخدمون'), dummyData: userData },
-    { name: 'الفصول', columns: getCols('الفصول'), dummyData: classData },
     { name: 'المجموعات', columns: getCols('المجموعات'), dummyData: groupData },
-    { name: 'الرسوم الدراسية', columns: getCols('الرسوم الدراسية'), dummyData: paymentData },
-    { name: 'الرواتب', columns: getCols('الرواتب'), dummyData: salaryData },
+    { name: 'المخزون', columns: getCols('المخزون'), dummyData: inventoryData },
     { name: 'التبرعات', columns: getCols('التبرعات'), dummyData: donationData },
     { name: 'المصاريف', columns: getCols('المصاريف'), dummyData: expenseData },
-    { name: 'المخزون', columns: getCols('المخزون'), dummyData: inventoryData },
-    { name: 'الحضور', columns: getCols('الحضور'), dummyData: attendanceData },
   ];
 
   for (const sheetInfo of sheets) {
