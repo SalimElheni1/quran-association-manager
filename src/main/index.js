@@ -57,6 +57,7 @@ const { registerAuthHandlers } = require('./handlers/authHandlers');
 const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
 const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { registerImportHandlers } = require('./handlers/importHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
@@ -284,6 +285,10 @@ const initializeApp = async () => {
       return { success: false, message: 'Save cancelled by user.' };
     });
 
+    ipcMain.handle('dialog:openFile', async (_event, options) => {
+      return await dialog.showOpenDialog(options);
+    });
+
     registerFinancialHandlers();
     registerStudentHandlers();
     registerTeacherHandlers();
@@ -295,6 +300,7 @@ const initializeApp = async () => {
     registerSettingsHandlers(refreshSettings);
     registerDashboardHandlers();
     registerSystemHandlers();
+    registerImportHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

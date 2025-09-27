@@ -12,6 +12,7 @@ import {
   OverlayTrigger,
   Tooltip,
 } from 'react-bootstrap';
+import ImportWizard from '@renderer/components/ImportWizard';
 import '@renderer/styles/ExportsPage.css';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
@@ -354,19 +355,18 @@ const ImportTabPanel = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [importResults, setImportResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Simplified sheets - only basic data
   const allSheets = [
     'الطلاب',
     'المعلمون',
     'المستخدمون',
-    'الفصول',
-    'الرسوم الدراسية',
-    'الرواتب',
-    'التبرعات',
-    'المصاريف',
-    'الحضور',
     'المجموعات',
     'المخزون',
+    'التبرعات',
+    'المصاريف'
   ];
   const [selectedSheets, setSelectedSheets] = useState(allSheets);
 
@@ -455,52 +455,153 @@ const ImportTabPanel = () => {
           قم بإنشاء قالب Excel، واملأه بالبيانات، ثم قم باستيراده لإضافة سجلات متعددة دفعة واحدة.
         </p>
 
-        <Form.Group className="mb-3">
-          <div className="d-flex justify-content-between align-items-center">
-            <Form.Label>
-              <h5>الأوراق المراد استيرادها:</h5>
-            </Form.Label>
+
+
+        {/* Template Generation */}
+        <div className="mb-4">
+          <div className="text-center">
+            <Button 
+              variant="success" 
+              size="lg"
+              onClick={handleGenerateTemplate}
+              disabled={isLoading}
+              className="px-4"
+            >
+              <i className="fas fa-file-excel me-2"></i>
+              إنشاء قالب Excel
+            </Button>
+            <p className="text-muted small mt-2 mb-0">
+              قم بإنشاء قالب Excel فارغ يحتوي على جميع الأوراق والأعمدة المطلوبة
+            </p>
+          </div>
+        </div>
+
+        <hr className="my-4" />
+
+        {/* Sheet Selection Interface */}
+        <div className="mb-4">
+          <h5 className="mb-3">
+            <i className="fas fa-check-square me-2 text-primary"></i>
+            اختر البيانات المراد استيرادها:
+          </h5>
+          
+          <div className="row mb-4">
+            {/* Basic Data Category */}
+            <div className="col-md-6 mb-3">
+              <div className="card h-100">
+                <div className="card-header bg-primary text-white">
+                  <h6 className="mb-0">
+                    <i className="fas fa-users me-2"></i>
+                    البيانات الأساسية
+                  </h6>
+                </div>
+                <div className="card-body">
+                  {['الطلاب', 'المعلمون', 'المستخدمون', 'المجموعات', 'المخزون'].map(sheet => (
+                    <Form.Check
+                      key={sheet}
+                      type="checkbox"
+                      id={`sheet-${sheet}`}
+                      label={sheet}
+                      checked={selectedSheets.includes(sheet)}
+                      onChange={() => handleSheetCheckboxChange(sheet)}
+                      className="mb-2"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Financial Data Category */}
+            <div className="col-md-6 mb-3">
+              <div className="card h-100">
+                <div className="card-header bg-success text-white">
+                  <h6 className="mb-0">
+                    <i className="fas fa-coins me-2"></i>
+                    البيانات المالية
+                  </h6>
+                </div>
+                <div className="card-body">
+                  {['التبرعات', 'المصاريف'].map(sheet => (
+                    <Form.Check
+                      key={sheet}
+                      type="checkbox"
+                      id={`sheet-${sheet}`}
+                      label={sheet}
+                      checked={selectedSheets.includes(sheet)}
+                      onChange={() => handleSheetCheckboxChange(sheet)}
+                      className="mb-2"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Selection Summary & Actions */}
+          <div className="d-flex justify-content-between align-items-center mb-3">
             <div>
-              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(true)}>
-                تحديد الكل
-              </Button>
-              <Button variant="link" size="sm" onClick={() => handleSelectAllSheets(false)}>
-                إلغاء تحديد الكل
+              <span className="text-muted">
+                تم تحديد {selectedSheets.length} من {allSheets.length} أوراق
+              </span>
+            </div>
+            <div>
+              <Button 
+                variant="outline-primary" 
+                size="sm" 
+                onClick={() => {
+                  const allSelected = selectedSheets.length === allSheets.length;
+                  handleSelectAllSheets(!allSelected);
+                }}
+              >
+                <i className={`fas ${selectedSheets.length === allSheets.length ? 'fa-times' : 'fa-check'} me-1`}></i>
+                {selectedSheets.length === allSheets.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
               </Button>
             </div>
           </div>
-          <div className="sheet-checkbox-container">
-            {allSheets.map((sheet) => (
-              <Form.Check
-                key={sheet}
-                type="checkbox"
-                id={`checkbox-${sheet}`}
-                label={sheet}
-                checked={selectedSheets.includes(sheet)}
-                onChange={() => handleSheetCheckboxChange(sheet)}
-                inline
-              />
-            ))}
-          </div>
-        </Form.Group>
-
-        <div className="d-flex justify-content-start gap-2 mb-3">
-          <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
-            {isLoading ? 'جاري الإنشاء...' : '1. إنشاء قالب Excel'}
-          </Button>
-          <Button variant="success" onClick={handleImport} disabled={isLoading}>
-            {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
-          </Button>
-          {/* {process.env.NODE_ENV === 'development' && (
-            <Button variant="warning" onClick={handleGenerateDevTemplate} disabled={isLoading}>
-              {isLoading ? 'جاري الإنشاء...' : 'إنشاء قالب تطوير'}
+          
+          {/* Start Wizard Button */}
+          <div className="text-center">
+            <Button 
+              variant="primary" 
+              size="lg"
+              onClick={() => setShowWizard(true)}
+              disabled={isLoading || selectedSheets.length === 0}
+              className="px-5"
+            >
+              <i className="fas fa-magic me-2"></i>
+              بدء معالج الاستيراد
+              {selectedSheets.length > 0 && (
+                <span className="badge bg-light text-primary ms-2">
+                  {selectedSheets.length}
+                </span>
+              )}
             </Button>
-          )} */}
+          </div>
+          
+          {selectedSheets.length === 0 && (
+            <Alert variant="warning" className="mt-3 text-center">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              الرجاء تحديد ورقة واحدة على الأقل لبدء الاستيراد
+            </Alert>
+          )}
         </div>
 
-        {message.text && <Alert variant={message.type}>{message.text}</Alert>}
+        {showAdvanced && (
+          <>
+            <div className="d-flex justify-content-start gap-2 mb-3">
+              <Button variant="primary" onClick={handleGenerateTemplate} disabled={isLoading}>
+                {isLoading ? 'جاري الإنشاء...' : '1. إنشاء قالب Excel'}
+              </Button>
+              <Button variant="success" onClick={handleImport} disabled={isLoading}>
+                {isLoading ? 'جاري الاستيراد...' : '2. استيراد ملف Excel'}
+              </Button>
+            </div>
+          </>
+        )}
 
-        {importResults && (
+        {showAdvanced && message.text && <Alert variant={message.type}>{message.text}</Alert>}
+
+        {showAdvanced && importResults && (
           <div className="mt-4">
             <h4>نتائج الاستيراد:</h4>
             <p>
@@ -533,6 +634,12 @@ const ImportTabPanel = () => {
             )}
           </div>
         )}
+        
+        <ImportWizard 
+          show={showWizard} 
+          handleClose={() => setShowWizard(false)}
+          selectedSheets={selectedSheets}
+        />
       </Card.Body>
     </Card>
   );

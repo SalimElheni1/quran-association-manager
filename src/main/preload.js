@@ -182,6 +182,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Dialog API
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
+  openFileDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
 
   // Backup API
   runBackup: (settings) => ipcRenderer.invoke('backup:run', settings),
@@ -255,6 +256,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
   executeImport: (args) => ipcRenderer.invoke('import:execute', args),
+  
+  // Sequential Import API
+  importExcelSequential: (filePath, stepId) => ipcRenderer.invoke('import:excel-sequential', filePath, stepId),
+  getImportSteps: () => ipcRenderer.invoke('import:get-steps'),
+  getStepInfo: (stepId) => ipcRenderer.invoke('import:get-step-info', stepId),
+  getStepSheets: (stepId) => ipcRenderer.invoke('import:get-step-sheets', stepId),
 
   // Listener for events from main process
   onForceLogout: (callback) => {
