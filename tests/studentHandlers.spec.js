@@ -24,45 +24,89 @@ describe('Student Handlers', () => {
   });
 
   describe('students:get', () => {
-    it('should get students with various filters', async () => {
+    const currentYear = 2024;
+    const OriginalDate = global.Date;
+
+    // Mock Date to control the current year for consistent test results.
+    // This allows us to have predictable age calculations.
+    beforeEach(() => {
+      const mockToday = new OriginalDate(`${currentYear}-06-15T10:00:00Z`);
+
+      global.Date = jest.fn((...args) => {
+        // If called with arguments (e.g., new Date('2010-01-01')), use the real constructor.
+        if (args.length > 0) {
+          return new OriginalDate(...args);
+        }
+        // If called without arguments (e.g., new Date()), return our mocked "today".
+        return mockToday;
+      });
+
+      // Jest doesn't copy static methods like `now()` automatically.
+      Object.assign(global.Date, OriginalDate);
+    });
+
+    afterEach(() => {
+      global.Date = OriginalDate; // Restore the real Date object
+    });
+
+    it('should fetch students and calculate their age correctly', async () => {
+      const mockStudents = [{ id: 1, name: 'Test Student', date_of_birth: '2014-01-01' }];
+      db.allQuery.mockResolvedValue(mockStudents);
+
+      const results = await ipcMain.invoke('students:get', {});
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('SELECT'), []);
+      // Age should be 2024 - 2014 = 10
+      expect(results[0].age).toBe(10);
+    });
+
+    it('should correctly build the SQL query with all filters applied', async () => {
       db.allQuery.mockResolvedValue([]);
       const filters = {
         searchTerm: 'Ali',
         genderFilter: 'Male',
         minAgeFilter: '10',
-        maxAgeFilter: '15',
+        maxAgeFilter: '20',
       };
 
       await ipcMain.invoke('students:get', filters);
 
+      const maxBirthYear = currentYear - parseInt(filters.minAgeFilter, 10); // 2014
+      const minBirthYear = currentYear - parseInt(filters.maxAgeFilter, 10) - 1; // 2003
+
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ? AND SUBSTR(date_of_birth, 1, 4) <= ? AND SUBSTR(date_of_birth, 1, 4) >= ?'),
-        expect.arrayContaining(['%Ali%', '%Ali%', 'Male'])
+        expect.stringContaining(
+          'AND (name LIKE ? OR matricule LIKE ?) AND gender = ? AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) <= ? AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) > ?'
+        ),
+        ['%Ali%', '%Ali%', 'Male', maxBirthYear, minBirthYear]
       );
     });
 
-    it('should correctly filter by max age', async () => {
+    it('should handle only the minAgeFilter', async () => {
       db.allQuery.mockResolvedValue([]);
-      const maxAge = 10;
-      const filters = { maxAgeFilter: maxAge.toString() };
-
-      // Spy on Date to control the current year
-      const currentYear = 2024;
-      jest.spyOn(global, 'Date').mockImplementation(() => ({
-        getFullYear: () => currentYear,
-      }));
+      const filters = { minAgeFilter: '15' };
 
       await ipcMain.invoke('students:get', filters);
 
-      const expectedMinBirthYear = currentYear - maxAge;
+      const maxBirthYear = currentYear - 15; // 2009
 
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SUBSTR(date_of_birth, 1, 4) >= ?'),
-        [expectedMinBirthYear.toString()]
+        expect.stringContaining('AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) <= ?'),
+        [maxBirthYear]
       );
+    });
 
-      // Restore original Date object
-      jest.restoreAllMocks();
+    it('should handle only the maxAgeFilter', async () => {
+      db.allQuery.mockResolvedValue([]);
+      const filters = { maxAgeFilter: '25' };
+
+      await ipcMain.invoke('students:get', filters);
+
+      const minBirthYear = currentYear - 25 - 1; // 1998
+
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) > ?'),
+        [minBirthYear]
+      );
     });
   });
 
