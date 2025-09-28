@@ -23,13 +23,6 @@ jest.mock('../src/main/backupManager');
 jest.mock('../src/main/handlers/settingsHandlers');
 jest.mock('electron-store');
 jest.mock('bcryptjs');
-jest.mock('path', () => {
-  const originalPath = jest.requireActual('path');
-  return {
-    ...originalPath,
-    join: (...args) => args.join('/'), // Force UNIX separators for consistent testing
-  };
-});
 
 const { ipcMain, app, dialog } = require('electron');
 const db = require('../../db/db');
@@ -404,59 +397,63 @@ describe('systemHandlers', () => {
   });
 
   describe('backup:run', () => {
-    it('should run backup successfully after user selects a path', async () => {
-      const settings = { backup_path: '/mock/dir' };
-      const mockBackupResult = { success: true, message: 'Backup successful' };
-
-      // Mock the dialog to return a path as if the user selected one.
-      dialog.showSaveDialog.mockResolvedValue({
-        canceled: false,
-        filePath: '/mock/dir/backup-file.qdb',
-      });
-      backupManager.runBackup.mockResolvedValue(mockBackupResult);
-
-      const result = await handlers['backup:run'](null, settings);
-
-      // It should always show the save dialog to the user.
-      expect(dialog.showSaveDialog).toHaveBeenCalled();
-      // It should call the backup manager with the path *from the dialog*.
-      expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/mock/dir/backup-file.qdb');
-      expect(result).toEqual(mockBackupResult);
-    });
-
-    it('should handle user cancellation from the save dialog', async () => {
-      const settings = { backup_path: '/mock/dir' };
-      dialog.showSaveDialog.mockResolvedValue({ canceled: true, filePath: null });
-
-      const result = await handlers['backup:run'](null, settings);
-
-      expect(backupManager.runBackup).not.toHaveBeenCalled();
-      expect(result).toEqual({ success: false, message: 'Backup canceled by user.' });
-    });
-
-    it('should return an error if backup_path is not provided in settings', async () => {
-      const settings = {}; // Missing backup_path
-      const result = await handlers['backup:run'](null, settings);
-
-      expect(dialog.showSaveDialog).not.toHaveBeenCalled();
-      expect(backupManager.runBackup).not.toHaveBeenCalled();
-      expect(result).toEqual({ success: false, message: 'Backup path is required.' });
-    });
-
-    it('should handle errors from the backup manager', async () => {
-      const settings = { backup_path: '/mock/dir' };
-      const backupError = new Error('Disk full');
+    it('should run backup successfully', async () => {
+      const settings = { backup_enabled: true };
+      const mockResult = { success: true, message: 'Backup completed' };
 
       dialog.showSaveDialog.mockResolvedValue({
         canceled: false,
-        filePath: '/mock/dir/backup-file.qdb',
+        filePath: '/path/to/backup.qdb'
       });
-      backupManager.runBackup.mockRejectedValue(backupError);
+      backupManager.runBackup.mockResolvedValue(mockResult);
 
       const result = await handlers['backup:run'](null, settings);
 
-      expect(logError).toHaveBeenCalledWith('Error in backup:run IPC wrapper:', backupError);
-      expect(result).toEqual({ success: false, message: 'Disk full' });
+      expect(dialog.showSaveDialog).toHaveBeenCalledWith({
+        title: 'Save Database Backup',
+        defaultPath: expect.stringContaining('backup-'),
+        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }]
+      });
+      expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/path/to/backup.qdb');
+      expect(result).toBe(mockResult);
+    });
+
+    it('should handle user cancellation', async () => {
+      const settings = { backup_enabled: true };
+      dialog.showSaveDialog.mockResolvedValue({ canceled: true });
+
+      const result = await handlers['backup:run'](null, settings);
+
+      expect(result).toEqual({
+        success: false,
+        message: 'Backup canceled by user.'
+      });
+    });
+
+    it('should handle missing settings', async () => {
+      const result = await handlers['backup:run'](null, null);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Backup settings were not provided');
+    });
+
+    it('should handle backup errors', async () => {
+      const settings = { backup_enabled: true };
+      const error = new Error('Backup failed');
+
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/path/to/backup.qdb'
+      });
+      backupManager.runBackup.mockRejectedValue(error);
+
+      const result = await handlers['backup:run'](null, settings);
+
+      expect(logError).toHaveBeenCalledWith('Error in backup:run IPC wrapper:', error);
+      expect(result).toEqual({
+        success: false,
+        message: 'Backup failed'
+      });
     });
   });
 
