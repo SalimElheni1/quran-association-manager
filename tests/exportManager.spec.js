@@ -129,22 +129,33 @@ describe('exportManager', () => {
       );
     });
 
-    it('should fetch students data with gender filter', async () => {
-      const mockData = [{ id: 1, name: 'Student 1' }];
-      allQuery.mockResolvedValue(mockData);
-      getSetting.mockReturnValue(18);
+    it('should fetch students data and apply filters', async () => {
+      // This mock data includes various cases to test the filtering logic.
+      const mockDbResponse = [
+        { id: 1, name: 'Adult Male', gender: 'Male', date_of_birth: '2000-01-01' },
+        { id: 2, name: 'Adult Female', gender: 'Female', date_of_birth: '2000-01-01' },
+        { id: 3, name: 'Minor Male', gender: 'Male', date_of_birth: '2010-01-01' },
+      ];
+      // The expected result should only contain the adult male student.
+      const expectedResult = [
+        { id: 1, name: 'Adult Male', gender: 'Male', date_of_birth: '2000-01-01' },
+      ];
+      allQuery.mockResolvedValue(mockDbResponse);
+      getSetting.mockReturnValue(18); // Mock age threshold for 'men' filter.
 
       const result = await fetchExportData({
         type: 'students',
-        fields: ['name', 'gender'],
-        options: { gender: 'men' }
+        fields: ['name', 'gender', 'date_of_birth'],
+        options: { gender: 'men' },
       });
 
+      // The test confirms that the initial query fetches all students,
+      // and the subsequent JS filtering correctly selects the right one.
       expect(allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT name, gender FROM students'),
-        expect.arrayContaining(['Male', 18])
+        'SELECT name, gender, date_of_birth FROM students WHERE 1=1 ORDER BY name',
+        [],
       );
-      expect(result).toEqual(mockData);
+      expect(result).toEqual(expectedResult);
     });
 
     it('should fetch teachers data', async () => {
@@ -153,12 +164,12 @@ describe('exportManager', () => {
 
       const result = await fetchExportData({
         type: 'teachers',
-        fields: ['name', 'email']
+        fields: ['name', 'email'],
       });
 
       expect(allQuery).toHaveBeenCalledWith(
-        'SELECT name, email FROM teachers WHERE 1=1 ORDER BY name',
-        []
+        'SELECT name, email FROM teachers ORDER BY name',
+        [],
       );
       expect(result).toEqual(mockData);
     });

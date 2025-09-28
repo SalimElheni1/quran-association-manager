@@ -105,8 +105,9 @@ function StudentsPage() {
       handleCloseModal();
     } catch (err) {
       logError('Error saving student:', err);
-      const friendlyMessage = err.message.split('Error:').pop().trim();
-      toast.error(friendlyMessage);
+      // Use the error message from the backend IPC call directly.
+      // This is cleaner and ensures the user sees the specific validation message.
+      toast.error(err.message || 'An unexpected error occurred.');
     }
   };
 
@@ -203,18 +204,6 @@ function StudentsPage() {
     }
   };
 
-  const calculateAge = (dob) => {
-    if (!dob) return null;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
   const renderStatusBadge = (status) => {
     const translations = { active: 'نشط', inactive: 'غير نشط' };
     const variants = { active: 'success', inactive: 'secondary' };
@@ -290,7 +279,7 @@ function StudentsPage() {
                   <td>{index + 1}</td>
                   <td>{student.matricule}</td>
                   <td>{student.name}</td>
-                  <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
+                  <td>{student.age ?? 'غير متوفر'}</td>
                   <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
                   <td>{renderStatusBadge(student.status)}</td>
                   <td className="table-actions d-flex gap-2">
