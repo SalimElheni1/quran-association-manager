@@ -7,15 +7,35 @@ files:
   - 'src/db/**/*'
   - 'package.json'
   - 'node_modules/**/*'
+  - '!node_modules/**/{README,readme}*'
+  - '!node_modules/**/{test,__tests__,tests,powered-test,example,examples}/**'
+  - '!node_modules/**/*.d.ts'
+  - '!node_modules/**/{*.md,*.txt,*.map}'
+  - '!node_modules/**/docs/**'
+  - '!node_modules/**/man/**'
+  - '!node_modules/**/.bin/**'
+  - '!**/node_modules/*/{CHANGELOG.md,LICENSE,license,License}'
 directories:
   output: release
   buildResources: build
+asar:
+  smartUnpack: false
+compression: maximum
+nodeGypRebuild: false
+buildDependenciesFromSource: false
 win:
-  target: nsis
-  icon: build/icon.png
+  target: 
+    target: nsis
+    arch: [x64]
+  icon: release/.icon-ico/icon.ico
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  installerIcon: release/.icon-ico/icon.ico
+  uninstallerIcon: release/.icon-ico/icon.ico
+  deleteAppDataOnUninstall: false
 publish:
   provider: github
   owner: SalimElheni1

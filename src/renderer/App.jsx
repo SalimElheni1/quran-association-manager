@@ -14,22 +14,24 @@
  * @requires react-router-dom - Client-side routing
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import MainLayout from '@renderer/layouts/MainLayout';
 import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
-import StudentsPage from '@renderer/pages/StudentsPage';
-import TeachersPage from '@renderer/pages/TeachersPage';
-import ClassesPage from '@renderer/pages/ClassesPage';
-import UsersPage from '@renderer/pages/UsersPage';
-import AttendancePage from '@renderer/pages/AttendancePage';
-import ProfilePage from '@renderer/pages/ProfilePage';
-import SettingsPage from '@renderer/pages/SettingsPage';
-import FinancialsPage from '@renderer/pages/FinancialsPage';
-import ExportsPage from '@renderer/pages/ExportsPage';
-import AboutPage from '@renderer/pages/AboutPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
+
+// Lazy load heavy pages
+const StudentsPage = React.lazy(() => import('@renderer/pages/StudentsPage'));
+const TeachersPage = React.lazy(() => import('@renderer/pages/TeachersPage'));
+const ClassesPage = React.lazy(() => import('@renderer/pages/ClassesPage'));
+const UsersPage = React.lazy(() => import('@renderer/pages/UsersPage'));
+const AttendancePage = React.lazy(() => import('@renderer/pages/AttendancePage'));
+const ProfilePage = React.lazy(() => import('@renderer/pages/ProfilePage'));
+const SettingsPage = React.lazy(() => import('@renderer/pages/SettingsPage'));
+const FinancialsPage = React.lazy(() => import('@renderer/pages/FinancialsPage'));
+const ExportsPage = React.lazy(() => import('@renderer/pages/ExportsPage'));
+const AboutPage = React.lazy(() => import('@renderer/pages/AboutPage'));
 
 /**
  * Main application component that handles routing and global state.
@@ -97,16 +99,16 @@ function App() {
         >
           {/* Child routes will be rendered inside MainLayout's <Outlet> */}
           <Route index element={<DashboardPage />} />
-          <Route path="/students" element={<StudentsPage />} />
-          <Route path="/teachers" element={<TeachersPage />} />
-          <Route path="/classes" element={<ClassesPage />} />
-          <Route path="/attendance" element={<AttendancePage />} />
-          <Route path="/financials" element={<FinancialsPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/exports" element={<ExportsPage />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/students" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><StudentsPage /></Suspense>} />
+          <Route path="/teachers" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><TeachersPage /></Suspense>} />
+          <Route path="/classes" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ClassesPage /></Suspense>} />
+          <Route path="/attendance" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><AttendancePage /></Suspense>} />
+          <Route path="/financials" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><FinancialsPage /></Suspense>} />
+          <Route path="/users" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><UsersPage /></Suspense>} />
+          <Route path="/profile" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ProfilePage /></Suspense>} />
+          <Route path="/settings" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><SettingsPage /></Suspense>} />
+          <Route path="/exports" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ExportsPage /></Suspense>} />
+          <Route path="/about" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><AboutPage /></Suspense>} />
         </Route>
       </Routes>
     </>
