@@ -1,12 +1,11 @@
 appId: com.salim-elheni.quran-branch-manager
 productName: QuranBranchManager
 copyright: Copyright © 2025 ${author}
+# By removing the explicit inclusion of node_modules, we allow electron-builder
+# to automatically prune devDependencies, which is the main source of bloat.
 files:
   - 'dist/**/*'
-  - 'src/main/**/*'
-  - 'src/db/**/*'
   - 'package.json'
-  - 'node_modules/**/*'
 directories:
   output: release
   buildResources: build
@@ -14,8 +13,11 @@ win:
   target: nsis
   icon: build/icon.png
 nsis:
+  # These settings create a standard installer experience.
   oneClick: false
   allowToChangeInstallationDirectory: true
+  # This setting ensures the smallest possible installer size.
+  compression: maximum
 publish:
   provider: github
   owner: SalimElheni1

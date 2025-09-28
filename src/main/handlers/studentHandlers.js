@@ -117,24 +117,26 @@ function registerStudentHandlers() {
         params.push(filters.genderFilter);
       }
 
-      // Apply age filtering directly in the SQL query for performance
-      if (filters?.minAgeFilter) {
-        const maxBirthYear = new Date().getFullYear() - parseInt(filters.minAgeFilter, 10);
-        sql += ' AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) <= ?';
-        params.push(maxBirthYear);
-      }
-      if (filters?.maxAgeFilter) {
-        // To get people who are at most maxAge, their birth year must be greater than
-        // the current year minus maxAge minus 1.
-        const minBirthYear = new Date().getFullYear() - parseInt(filters.maxAgeFilter, 10) - 1;
-        sql += ' AND CAST(SUBSTR(date_of_birth, 1, 4) AS INTEGER) > ?';
-        params.push(minBirthYear);
-      }
-
       sql += ' ORDER BY name ASC';
-      const students = await db.allQuery(sql, params);
+      let students = await db.allQuery(sql, params);
 
-      return students.map((s) => ({ ...s, age: calculateAge(s.date_of_birth) }));
+      // Apply age filtering in JavaScript for accuracy
+      if (filters?.minAgeFilter || filters?.maxAgeFilter) {
+        const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
+        const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
+
+        students = students.filter((student) => {
+          const age = calculateAge(student.date_of_birth);
+          if (age === null) return false; // Exclude students without valid birth date
+
+          if (minAge !== null && age < minAge) return false;
+          if (maxAge !== null && age > maxAge) return false;
+
+          return true;
+        });
+      }
+
+      return students;
     } catch (error) {
       logError('Error in students:get handler:', error);
       throw new Error('فشل في جلب بيانات الطلاب.');
