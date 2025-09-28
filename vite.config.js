@@ -7,7 +7,17 @@ export default defineConfig({
   plugins: [react()],
   base: './', // Important for Electron to load assets correctly
   build: {
-    outDir: 'dist/renderer', // Output to a 'renderer' subdirectory in 'dist'
+    outDir: 'dist/renderer',
+    minify: 'esbuild',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          bootstrap: ['bootstrap', 'react-bootstrap'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

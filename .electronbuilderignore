@@ -1,0 +1,42 @@
+# Development files
+.env
+.env.example
+.eslintrc.js
+.eslintignore
+.prettierrc.js
+.prettierignore
+babel.config.js
+jest.config.js
+
+# Documentation
+README.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+LICENSE
+AGENTS.md
+docs/
+
+# Test files
+tests/
+coverage/
+**/*.spec.js
+**/*.test.js
+**/__tests__/
+**/__mocks__/
+
+# Build scripts
+build-with-python311.bat
+scripts/
+
+# Git and IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
