@@ -10,8 +10,7 @@
     "electron-start": "electron .",
     "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
     "build": "vite build",
-    "dist": "npm run build && electron-builder --win --publish=never",
-    "dist:dir": "npm run build && electron-builder --win --dir",
+    "dist": "npm run build && electron-builder --win",
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
@@ -20,7 +19,6 @@
   },
   "dependencies": {
     "@databases/sqlite": "^4.0.2",
-
     "@journeyapps/sqlcipher": "^5.3.1",
     "arabic-reshaper": "^1.1.0",
     "bcryptjs": "^2.4.3",
@@ -36,7 +34,6 @@
     "react": "^19.0.0-rc-f994737d14-20240522",
     "react-bootstrap": "^2.10.4",
     "react-dom": "^19.0.0-rc-f994737d14-20240522",
-
     "react-router-dom": "^6.25.1",
     "react-select": "5.10.2",
     "react-toastify": "^11.0.5",
