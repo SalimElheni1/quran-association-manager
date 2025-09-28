@@ -42,7 +42,7 @@ const classValidationSchema = Joi.object({
     'string.min': 'يجب أن يكون اسم الفصل 3 أحرف على الأقل',
     'any.required': 'اسم الفصل مطلوب',
   }),
-  teacher_id: Joi.number().integer().positive().allow(null, ''),
+  teacher_id: Joi.number().integer().positive().allow(null),
   status: Joi.string().valid('pending', 'active', 'completed'),
   capacity: Joi.number().integer().min(1).allow(null, ''),
   schedule: Joi.string().allow(null, ''),

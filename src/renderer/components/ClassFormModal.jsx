@@ -95,10 +95,18 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const dataToSave = { ...formData };
+
+    // If teacher_id is an empty string, convert it to null. This ensures it's stored as NULL
+    // in the database for optional selection, rather than an invalid foreign key like 0.
+    if (dataToSave.teacher_id === '' || dataToSave.teacher_id === null) {
+      dataToSave.teacher_id = null;
+    }
+
     // Filter out empty schedule rows and serialize the array to a JSON string before saving
-    const filteredSchedule = formData.schedule.filter((s) => s.day && s.time);
+    const filteredSchedule = dataToSave.schedule.filter((s) => s.day && s.time);
     onSave(
-      { ...formData, schedule: JSON.stringify(filteredSchedule) },
+      { ...dataToSave, schedule: JSON.stringify(filteredSchedule) },
       classData ? classData.id : null,
     );
   };
