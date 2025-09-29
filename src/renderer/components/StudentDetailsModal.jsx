@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
+import UserCircleIcon from './icons/UserCircleIcon';
 
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
   if (!value) return null;
@@ -44,7 +45,7 @@ function StudentDetailsModal({ show, handleClose, student }) {
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
-          <i className="fas fa-user-circle me-2"></i>
+          <UserCircleIcon className="me-2" />
           تفاصيل الطالب: {student.name}
         </Modal.Title>
       </Modal.Header>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, Button } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import CopyIcon from './icons/CopyIcon';
 
 function InitialCredentialsBanner({ credentials, onClose }) {
   if (!credentials) {
@@ -31,7 +32,7 @@ function InitialCredentialsBanner({ credentials, onClose }) {
         </p>
       </div>
       <Button variant="primary" onClick={handleCopyAndClose}>
-        <i className="fas fa-copy me-2"></i>
+        <CopyIcon className="me-2" />
         نسخ وإغلاق
       </Button>
     </Alert>

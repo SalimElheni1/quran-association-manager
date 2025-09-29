@@ -14,6 +14,14 @@ import {
 } from 'react-bootstrap';
 import ImportWizard from '@renderer/components/ImportWizard';
 import '@renderer/styles/ExportsPage.css';
+import FileExcelIcon from '@renderer/components/icons/FileExcelIcon';
+import CheckSquareIcon from '@renderer/components/icons/CheckSquareIcon';
+import UsersIcon from '@renderer/components/icons/UsersIcon';
+import FinancialsIcon from '@renderer/components/icons/FinancialsIcon';
+import TimesIcon from '@renderer/components/icons/TimesIcon';
+import CheckIcon from '@renderer/components/icons/CheckIcon';
+import MagicIcon from '@renderer/components/icons/MagicIcon';
+import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
   const [genderFilter, setGenderFilter] = useState('all');
@@ -467,7 +475,7 @@ const ImportTabPanel = () => {
               disabled={isLoading}
               className="px-4"
             >
-              <i className="fas fa-file-excel me-2"></i>
+              <FileExcelIcon className="me-2" />
               إنشاء قالب Excel
             </Button>
             <p className="text-muted small mt-2 mb-0">
@@ -481,7 +489,7 @@ const ImportTabPanel = () => {
         {/* Sheet Selection Interface */}
         <div className="mb-4">
           <h5 className="mb-3">
-            <i className="fas fa-check-square me-2 text-primary"></i>
+            <CheckSquareIcon className="me-2 text-primary" />
             اختر البيانات المراد استيرادها:
           </h5>
           
@@ -491,7 +499,7 @@ const ImportTabPanel = () => {
               <div className="card h-100">
                 <div className="card-header bg-primary text-white">
                   <h6 className="mb-0">
-                    <i className="fas fa-users me-2"></i>
+                    <UsersIcon className="me-2" />
                     البيانات الأساسية
                   </h6>
                 </div>
@@ -516,7 +524,7 @@ const ImportTabPanel = () => {
               <div className="card h-100">
                 <div className="card-header bg-success text-white">
                   <h6 className="mb-0">
-                    <i className="fas fa-coins me-2"></i>
+                    <FinancialsIcon className="me-2" />
                     البيانات المالية
                   </h6>
                 </div>
@@ -553,7 +561,7 @@ const ImportTabPanel = () => {
                   handleSelectAllSheets(!allSelected);
                 }}
               >
-                <i className={`fas ${selectedSheets.length === allSheets.length ? 'fa-times' : 'fa-check'} me-1`}></i>
+                {selectedSheets.length === allSheets.length ? <TimesIcon className="me-1" /> : <CheckIcon className="me-1" />}
                 {selectedSheets.length === allSheets.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
               </Button>
             </div>
@@ -568,7 +576,7 @@ const ImportTabPanel = () => {
               disabled={isLoading || selectedSheets.length === 0}
               className="px-5"
             >
-              <i className="fas fa-magic me-2"></i>
+              <MagicIcon className="me-2" />
               بدء معالج الاستيراد
               {selectedSheets.length > 0 && (
                 <span className="badge bg-light text-primary ms-2">
@@ -580,7 +588,7 @@ const ImportTabPanel = () => {
           
           {selectedSheets.length === 0 && (
             <Alert variant="warning" className="mt-3 text-center">
-              <i className="fas fa-exclamation-triangle me-2"></i>
+              <ExclamationTriangleIcon className="me-2" />
               الرجاء تحديد ورقة واحدة على الأقل لبدء الاستيراد
             </Alert>
           )}

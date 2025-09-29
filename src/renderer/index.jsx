@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from '@renderer/App';
 import { AuthProvider } from '@renderer/contexts/AuthContext';
-import './styles/fontawesome-local.css'; // Local FontAwesome CSS
 import 'bootstrap/dist/css/bootstrap.rtl.min.css'; // Import Bootstrap RTL CSS
 import '@renderer/styles/index.css';
 import { ToastContainer } from 'react-toastify';

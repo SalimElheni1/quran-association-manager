@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
+import CogsIcon from '../icons/CogsIcon';
 
 const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
   return (
@@ -7,7 +8,7 @@ const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
       <Col md={12} className="mb-4">
         <Card>
           <Card.Header as="h5">
-            <i className="fas fa-cogs me-2"></i>تقنيات التطوير
+            <CogsIcon className="me-2" />تقنيات التطوير
           </Card.Header>
           <Card.Body>
             <p><strong>الواجهة الأمامية:</strong> React مع React Bootstrap</p>

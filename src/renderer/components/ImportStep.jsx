@@ -1,5 +1,25 @@
 import React, { useState } from 'react';
 import { Card, Button, Form, Alert, Spinner, ListGroup } from 'react-bootstrap';
+import UsersIcon from './icons/UsersIcon';
+import FinancialsIcon from './icons/FinancialsIcon';
+import FileExcelIcon from './icons/FileExcelIcon';
+import CheckCircleIcon from './icons/CheckCircleIcon';
+import ExclamationCircleIcon from './icons/ExclamationCircleIcon';
+import ListCheckIcon from './icons/ListCheckIcon';
+import TableIcon from './icons/TableIcon';
+import FolderOpenIcon from './icons/FolderOpenIcon';
+import ExportsIcon from './icons/ExportsIcon'; // Reusing for upload
+
+const StepIcon = ({ icon, className }) => {
+  switch (icon) {
+    case 'users':
+      return <UsersIcon className={className} />;
+    case 'coins':
+      return <FinancialsIcon className={className} />;
+    default:
+      return <FileExcelIcon className={className} />;
+  }
+};
 
 function ImportStep({ step, onComplete, result, disabled }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -50,7 +70,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
         <div className="d-flex justify-content-between align-items-center">
           <div className="d-flex align-items-center">
             <div className="me-3">
-              <i className={`${step.icon || 'fas fa-file-excel'} fa-2x ${isCompleted ? 'text-white' : hasError ? 'text-white' : 'text-primary'}`}></i>
+              <StepIcon icon={step.icon} className={`fa-2x ${isCompleted ? 'text-white' : hasError ? 'text-white' : 'text-primary'}`} />
             </div>
             <div>
               <h5 className="mb-0">{step.name}</h5>
@@ -60,8 +80,8 @@ function ImportStep({ step, onComplete, result, disabled }) {
             </div>
           </div>
           <div>
-            {isCompleted && <i className="fas fa-check-circle fa-2x text-white"></i>}
-            {hasError && <i className="fas fa-exclamation-circle fa-2x text-white"></i>}
+            {isCompleted && <CheckCircleIcon className="fa-2x text-white" />}
+            {hasError && <ExclamationCircleIcon className="fa-2x text-white" />}
           </div>
         </div>
       </Card.Header>
@@ -70,14 +90,14 @@ function ImportStep({ step, onComplete, result, disabled }) {
         {/* Step Instructions */}
         <div className="mb-4">
           <h6 className="text-primary mb-3">
-            <i className="fas fa-list-check me-2"></i>
+            <ListCheckIcon className="me-2" />
             الأوراق المطلوبة في هذه الخطوة:
           </h6>
           <div className="row">
             {step.sheets.map(sheet => (
               <div key={sheet} className="col-md-6 mb-2">
                 <div className="d-flex align-items-center p-2 bg-light rounded">
-                  <i className="fas fa-table me-2 text-success"></i>
+                  <TableIcon className="me-2 text-success" />
                   <span className="fw-medium">{sheet}</span>
                 </div>
               </div>
@@ -96,7 +116,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
                   onClick={handleFileSelect}
                   disabled={disabled || importing}
                 >
-                  <i className="fas fa-folder-open me-2"></i>
+                  <FolderOpenIcon className="me-2" />
                   اختيار ملف
                 </Button>
                 {selectedFile && (
@@ -124,7 +144,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
               </>
             ) : (
               <>
-                <i className="fas fa-upload me-2"></i>
+                <ExportsIcon className="me-2" />
                 استيراد البيانات
               </>
             )}

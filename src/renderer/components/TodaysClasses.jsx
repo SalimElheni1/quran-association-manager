@@ -3,6 +3,8 @@ import { Card, ListGroup, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { error as logError } from '@renderer/utils/logger';
+import AttendanceIcon from './icons/AttendanceIcon';
+import ChevronLeftIcon from './icons/ChevronLeftIcon';
 
 function TodaysClasses() {
   const [classes, setClasses] = useState([]);
@@ -42,7 +44,7 @@ function TodaysClasses() {
     if (classes.length === 0) {
       return (
         <Alert variant="info" className="m-3 text-center">
-          <i className="fas fa-calendar-check me-2"></i>
+          <AttendanceIcon className="me-2" />
           لا توجد فصول مجدولة لهذا اليوم.
         </Alert>
       );
@@ -63,7 +65,7 @@ function TodaysClasses() {
                 {cls.teacher_name ? `المعلم: ${cls.teacher_name}` : 'لم يحدد معلم'}
               </small>
             </div>
-            <i className="fas fa-chevron-left text-muted"></i>
+            <ChevronLeftIcon className="text-muted" />
           </ListGroup.Item>
         ))}
       </ListGroup>

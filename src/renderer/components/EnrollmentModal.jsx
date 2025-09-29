@@ -3,6 +3,8 @@ import { Modal, Button, ListGroup, Row, Col, Spinner, Form } from 'react-bootstr
 import { toast } from 'react-toastify';
 import '@renderer/styles/EnrollmentModal.css';
 import { error as logError } from '@renderer/utils/logger';
+import TimesCircleIcon from './icons/TimesCircleIcon';
+import PlusCircleIcon from './icons/PlusCircleIcon';
 
 function EnrollmentModal({ show, handleClose, classData }) {
   const [enrolled, setEnrolled] = useState([]);
@@ -147,7 +149,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
                       className="p-0 text-danger"
                       onClick={() => handleUnenroll(student)}
                     >
-                      <i className="fas fa-times-circle"></i>
+                      <TimesCircleIcon />
                     </Button>
                   </ListGroup.Item>
                 ))}
@@ -167,7 +169,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
                       className="p-0 text-success"
                       onClick={() => handleEnroll(student)}
                     >
-                      <i className="fas fa-plus-circle"></i>
+                      <PlusCircleIcon />
                     </Button>
                     {student.name}
                   </ListGroup.Item>

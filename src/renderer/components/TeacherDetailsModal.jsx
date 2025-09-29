@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col } from 'react-bootstrap';
+import TeacherIcon from './icons/TeacherIcon';
 
 function DetailItem({ label, value }) {
   if (!value) return null;
@@ -33,7 +34,7 @@ function TeacherDetailsModal({ show, handleClose, teacher }) {
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
-          <i className="fas fa-chalkboard-teacher me-2"></i>
+          <TeacherIcon className="me-2" />
           تفاصيل المعلم: {teacher.name}
         </Modal.Title>
       </Modal.Header>

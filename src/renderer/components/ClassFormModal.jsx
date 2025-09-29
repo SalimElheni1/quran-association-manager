@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
+import TrashIcon from './icons/TrashIcon';
+import PlusIcon from './icons/PlusIcon';
 
 const daysOfWeek = [
   { key: 'Monday', label: 'الإثنين' },
@@ -203,13 +205,13 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               />
               {formData.schedule.length > 1 && (
                 <Button variant="outline-danger" size="sm" onClick={() => removeScheduleRow(index)}>
-                  <i className="fas fa-trash"></i>
+                  <TrashIcon />
                 </Button>
               )}
             </div>
           ))}
           <Button variant="outline-primary" size="sm" onClick={addScheduleRow} className="mt-2">
-            <i className="fas fa-plus"></i> إضافة توقيت آخر
+            <PlusIcon /> إضافة توقيت آخر
           </Button>
           <Row className="mt-3">
             <Form.Group as={Col} md="6" className="mb-3">

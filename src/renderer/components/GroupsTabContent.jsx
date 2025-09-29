@@ -3,6 +3,10 @@ import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
 import GroupStudentAssignmentModal from './GroupStudentAssignmentModal';
+import SearchIcon from './icons/SearchIcon';
+import UsersIcon from './icons/UsersIcon';
+import EditIcon from './icons/EditIcon';
+import TrashIcon from './icons/TrashIcon';
 
 function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
   const [groups, setGroups] = useState([]);
@@ -49,7 +53,7 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
       <div className="filter-bar">
         <InputGroup className="search-input-group">
           <InputGroup.Text>
-            <i className="fas fa-search"></i>
+            <SearchIcon />
           </InputGroup.Text>
           <Form.Control
             type="search"
@@ -81,13 +85,13 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
                   <td>{{'Kids': 'أطفال', 'Women': 'نساء', 'Men': 'رجال'}[group.category] || group.category}</td>
                   <td className="table-actions d-flex gap-2">
                     <Button variant="outline-primary" size="sm" onClick={() => handleShowAssignmentModal(group)}>
-                      <i className="fas fa-users"></i> إدارة الطلاب
+                      <UsersIcon /> إدارة الطلاب
                     </Button>
                     <Button variant="outline-success" size="sm" onClick={() => onEditGroup(group)}>
-                      <i className="fas fa-edit"></i> تعديل
+                      <EditIcon /> تعديل
                     </Button>
                     <Button variant="outline-danger" size="sm" onClick={() => onDeleteGroup(group)}>
-                      <i className="fas fa-trash"></i> حذف
+                      <TrashIcon /> حذف
                     </Button>
                   </td>
                 </tr>

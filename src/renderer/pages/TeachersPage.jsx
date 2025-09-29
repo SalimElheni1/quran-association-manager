@@ -7,6 +7,11 @@ import TeacherDetailsModal from '@renderer/components/TeacherDetailsModal';
 // We can reuse the same page styles from the students page
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
+import PlusIcon from '@renderer/components/icons/PlusIcon';
+import SearchIcon from '@renderer/components/icons/SearchIcon';
+import EyeIcon from '@renderer/components/icons/EyeIcon';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
 
 function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
@@ -119,13 +124,13 @@ function TeachersPage() {
       <div className="page-header">
         <h1>شؤون المعلمين</h1>
         <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة معلم
+          <PlusIcon className="ms-2" /> إضافة معلم
         </Button>
       </div>
       <div className="filter-bar">
         <InputGroup className="search-input-group">
           <InputGroup.Text>
-            <i className="fas fa-search"></i>
+            <SearchIcon />
           </InputGroup.Text>
           <Form.Control
             type="search"
@@ -185,21 +190,21 @@ function TeachersPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(teacher)}
                     >
-                      <i className="fas fa-eye"></i> عرض التفاصيل
+                      <EyeIcon /> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
                       onClick={() => handleShowEditModal(teacher)}
                     >
-                      <i className="fas fa-edit"></i> تعديل
+                      <EditIcon /> تعديل
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDeleteRequest(teacher)}
                     >
-                      <i className="fas fa-trash"></i> حذف
+                      <TrashIcon /> حذف
                     </Button>
                   </td>
                 </tr>
