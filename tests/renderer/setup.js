@@ -144,16 +144,5 @@ jest.mock('react-bootstrap', () => {
   };
 });
 
-// Mock react-icons
-jest.mock('react-icons/fa', () => {
-  const FaEye = () => <span data-testid="fa-eye" />;
-  FaEye.displayName = 'FaEye';
-  
-  const FaEyeSlash = () => <span data-testid="fa-eye-slash" />;
-  FaEyeSlash.displayName = 'FaEyeSlash';
-  
-  return {
-    FaEye,
-    FaEyeSlash,
-  };
-});
+// The react-icons library is not used in this project.
+// Icons are inlined as SVG components, so no mock is needed.

@@ -81,6 +81,21 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', response.token);
       setToken(response.token);
       setUser(response.user);
+
+      // If the user needs the guide, dispatch an event to open it.
+      // A brief timeout ensures the UI is ready before the guide appears.
+      if (response.user?.need_guide) {
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent('onboarding:open', {
+              detail: {
+                action: 'open-begin',
+                profile: response.user,
+              },
+            }),
+          );
+        }, 500);
+      }
     }
     return response;
   };

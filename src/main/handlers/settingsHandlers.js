@@ -1,5 +1,6 @@
 const { ipcMain, app, dialog } = require('electron');
 const Joi = require('joi');
+const Store = require('electron-store');
 const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
@@ -155,23 +156,37 @@ function registerSettingsHandlers(refreshSettings) {
 
   ipcMain.handle('settings:getLogo', async () => {
     try {
-      if (!db.isDbOpen()) {
-        return { success: true, path: null };
-      }
-      const { settings } = await internalGetSettingsHandler();
       const userDataPath = app.getPath('userData');
-      if (settings.regional_local_logo_path) {
-        const logoPath = path.join(userDataPath, settings.regional_local_logo_path);
-        if (fs.existsSync(logoPath)) {
-          return { success: true, path: `safe-image://${settings.regional_local_logo_path}` };
+
+      // If the database is open, fetch the logo path from the database.
+      if (db.isDbOpen()) {
+        const { settings } = await internalGetSettingsHandler();
+        if (settings.regional_local_logo_path) {
+          const logoPath = path.join(userDataPath, settings.regional_local_logo_path);
+          if (fs.existsSync(logoPath)) {
+            return { success: true, path: `safe-image://${settings.regional_local_logo_path}` };
+          }
+        }
+        if (settings.national_logo_path) {
+          const logoPath = path.join(userDataPath, settings.national_logo_path);
+          if (fs.existsSync(logoPath)) {
+            return { success: true, path: `safe-image://${settings.national_logo_path}` };
+          }
+        }
+      } else {
+        // If the database is closed (e.g., on the login screen after logout),
+        // try to get the logo path from the persistent store.
+        const store = new Store();
+        const cachedLogoPath = store.get('cached_logo_path');
+        if (cachedLogoPath) {
+          const logoPath = path.join(userDataPath, cachedLogoPath);
+          if (fs.existsSync(logoPath)) {
+            return { success: true, path: `safe-image://${cachedLogoPath}` };
+          }
         }
       }
-      if (settings.national_logo_path) {
-        const logoPath = path.join(userDataPath, settings.national_logo_path);
-        if (fs.existsSync(logoPath)) {
-          return { success: true, path: `safe-image://${settings.national_logo_path}` };
-        }
-      }
+
+      // Fallback if no logo is found
       return { success: true, path: null };
     } catch (error) {
       logError('Failed to get logo:', error);
