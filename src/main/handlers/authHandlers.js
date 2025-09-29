@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const Store = require('electron-store');
 const db = require('../../db/db');
 const {
   userUpdateValidationSchema,
@@ -8,6 +9,7 @@ const {
 } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { refreshSettings } = require('../settingsManager');
+const { internalGetSettingsHandler } = require('./settingsHandlers');
 const { error: logError } = require('../logger');
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
@@ -160,6 +162,21 @@ function registerAuthHandlers() {
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
       await refreshSettings();
+
+      // After successful login, cache the logo path for offline access
+      try {
+        const store = new Store();
+        const { settings } = await internalGetSettingsHandler();
+        if (settings?.regional_local_logo_path) {
+          store.set('cached_logo_path', settings.regional_local_logo_path);
+        } else {
+          // If no specific logo is set, clear the cache
+          store.delete('cached_logo_path');
+        }
+      } catch (e) {
+        logError('Failed to cache logo path on login:', e);
+      }
+
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         process.env.JWT_SECRET,
@@ -168,7 +185,12 @@ function registerAuthHandlers() {
       return {
         success: true,
         token,
-        user: { id: user.id, username: user.username, role: user.role },
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          need_guide: !!user.need_guide, // Ensure need_guide is passed to the renderer
+        },
       };
     } catch (error) {
       logError('Error in auth:login handler:', error.message);

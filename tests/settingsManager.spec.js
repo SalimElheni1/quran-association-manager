@@ -1,4 +1,3 @@
-
 const { refreshSettings, getSetting } = require('../src/main/settingsManager');
 const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
 const { log, error: logError } = require('../src/main/logger');
@@ -13,13 +12,30 @@ jest.mock('../src/main/logger', () => ({
 }));
 
 describe('settingsManager', () => {
+  // We need to reset modules before each test to clear the module-level settingsCache
   beforeEach(() => {
+    jest.resetModules();
+    // Re-apply mocks after resetting modules
+    jest.mock('../src/main/handlers/settingsHandlers', () => ({
+      internalGetSettingsHandler: jest.fn(),
+    }));
+    jest.mock('../src/main/logger', () => ({
+      log: jest.fn(),
+      error: jest.fn(),
+    }));
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
-    jest.resetModules(); // Ensure a fresh module state for each test
   });
 
   describe('refreshSettings', () => {
-    it('should refresh the settings cache successfully', async () => {
+    it('should refresh the settings cache successfully and allow getSetting to read it', async () => {
+      // Re-require modules to get fresh instances for this test
+      const { refreshSettings, getSetting } = require('../src/main/settingsManager');
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+      const { log } = require('../src/main/logger');
+
       const mockSettings = { theme: 'dark', fontSize: 16 };
       internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
 
@@ -27,12 +43,19 @@ describe('settingsManager', () => {
 
       expect(internalGetSettingsHandler).toHaveBeenCalledTimes(1);
       expect(log).toHaveBeenCalledWith('Settings cache refreshed.');
-      expect(logError).not.toHaveBeenCalled();
-      expect(getSetting('theme')).toBe('dark');
-      expect(getSetting('fontSize')).toBe(16);
+
+      // Check if getSetting can retrieve the cached values without re-fetching
+      expect(await getSetting('theme')).toBe('dark');
+      expect(await getSetting('fontSize')).toBe(16);
+      // Ensure getSetting used the cache and did not call refreshSettings again
+      expect(internalGetSettingsHandler).toHaveBeenCalledTimes(1);
     });
 
     it('should log an error if refreshing settings fails', async () => {
+      const { refreshSettings } = require('../src/main/settingsManager');
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+      const { log, error: logError } = require('../src/main/logger');
+
       const mockError = new Error('Failed to fetch settings');
       internalGetSettingsHandler.mockRejectedValue(mockError);
 
@@ -45,31 +68,55 @@ describe('settingsManager', () => {
   });
 
   describe('getSetting', () => {
-    it('should return the setting from the cache if initialized', async () => {
+    it('should return a setting from the cache if already initialized', async () => {
+      const { refreshSettings, getSetting } = require('../src/main/settingsManager');
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+
       const mockSettings = { appName: 'Quran Manager', language: 'ar' };
       internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
-      await refreshSettings(); // Initialize cache
 
-      const appName = getSetting('appName');
-      const language = getSetting('language');
+      // Initialize the cache first
+      await refreshSettings();
+      // Clear mock calls from the initialization step
+      internalGetSettingsHandler.mockClear();
+
+      const appName = await getSetting('appName');
+      const language = await getSetting('language');
 
       expect(appName).toBe('Quran Manager');
       expect(language).toBe('ar');
-      expect(logError).not.toHaveBeenCalled();
+      // Verify that getSetting used the cache and did not call the handler again
+      expect(internalGetSettingsHandler).not.toHaveBeenCalled();
     });
 
-    it('should log a critical error and return fallback if cache is not initialized', () => {
-      // Re-import getSetting to ensure settingsCache is null
-      jest.resetModules();
+    it('should automatically refresh the cache if it is not initialized', async () => {
       const { getSetting } = require('../src/main/settingsManager');
-      const { log, error: logError } = require('../src/main/logger');
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+      const { log } = require('../src/main/logger');
 
-      const setting = getSetting('ageThreshold');
+      const mockSettings = { adultAgeThreshold: 21 };
+      internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
 
-      expect(setting).toBe(18); // Hardcoded fallback
-      expect(logError).toHaveBeenCalledWith(
-        'CRITICAL: getSetting called before settings cache was initialized.',
-      );
+      // Call getSetting with an empty cache
+      const setting = await getSetting('adultAgeThreshold');
+
+      expect(setting).toBe(21);
+      expect(internalGetSettingsHandler).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith('Settings cache refreshed.');
+    });
+
+    it('should return a fallback for age threshold if the setting is missing', async () => {
+      const { getSetting } = require('../src/main/settingsManager');
+      const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
+
+      // Simulate settings from DB that are missing the age threshold
+      const mockSettings = { theme: 'light' };
+      internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
+
+      const setting = await getSetting('adultAgeThreshold');
+
+      expect(setting).toBe(18); // Check for the hardcoded fallback
+      expect(internalGetSettingsHandler).toHaveBeenCalledTimes(1);
     });
   });
 });

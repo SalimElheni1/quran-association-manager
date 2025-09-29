@@ -15,13 +15,15 @@ describe('PasswordInput', () => {
   });
 
   it('should render with default props', () => {
-    render(<PasswordInput {...defaultProps} />);
+    const { container } = render(<PasswordInput {...defaultProps} />);
 
     expect(screen.getByTestId('form-group')).toBeInTheDocument();
     expect(screen.getByTestId('form-label')).toHaveTextContent('كلمة المرور');
     expect(screen.getByTestId('form-control')).toHaveAttribute('type', 'password');
     expect(screen.getByTestId('form-control')).toHaveAttribute('placeholder', 'Enter password');
-    expect(screen.getByTestId('fa-eye')).toBeInTheDocument();
+    const eyeIcon = container.querySelector('svg');
+    expect(eyeIcon).toBeInTheDocument();
+    expect(eyeIcon).toHaveAttribute('viewBox', '0 0 576 512');
   });
 
   it('should render with custom label', () => {
@@ -37,24 +39,27 @@ describe('PasswordInput', () => {
   });
 
   it('should toggle password visibility', () => {
-    render(<PasswordInput {...defaultProps} />);
+    const { container } = render(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByTestId('form-control');
     const toggleButton = screen.getByTestId('button');
 
     // Initially password type
     expect(input).toHaveAttribute('type', 'password');
-    expect(screen.getByTestId('fa-eye')).toBeInTheDocument();
+    let eyeIcon = container.querySelector('svg');
+    expect(eyeIcon).toHaveAttribute('viewBox', '0 0 576 512');
 
     // Click to show password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'text');
-    expect(screen.getByTestId('fa-eye-slash')).toBeInTheDocument();
+    eyeIcon = container.querySelector('svg');
+    expect(eyeIcon).toHaveAttribute('viewBox', '0 0 640 512');
 
     // Click to hide password
     fireEvent.click(toggleButton);
     expect(input).toHaveAttribute('type', 'password');
-    expect(screen.getByTestId('fa-eye')).toBeInTheDocument();
+    eyeIcon = container.querySelector('svg');
+    expect(eyeIcon).toHaveAttribute('viewBox', '0 0 576 512');
   });
 
   it('should call onChange when input value changes', () => {
