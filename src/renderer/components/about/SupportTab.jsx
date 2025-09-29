@@ -43,7 +43,7 @@ const SupportTab = ({ developerInfo, bugReportSubject, bugReportBody, whatsappMe
             <Button variant="primary" href={`mailto:${developerInfo.email}?subject=${bugReportSubject}&body=${bugReportBody}`} className="me-2">
               <EnvelopeIcon className="me-2" />إرسال عبر البريد الإلكتروني
             </Button>
-            <Button variant="success" href={`https://wa.me/${developerInfo.whatsapp.replace('+', '')}?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="success" href={`https://wa.me/${developerInfo.whatsapp.replace('+', '')}?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer" className="me-2">
               <WhatsappIcon className="me-2" />إرسال عبر واتساب
             </Button>
           </Card.Body>
