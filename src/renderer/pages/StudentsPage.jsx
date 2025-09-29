@@ -9,6 +9,11 @@ import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
 import GroupFormModal from '../components/GroupFormModal';
+import PlusIcon from '@renderer/components/icons/PlusIcon';
+import SearchIcon from '@renderer/components/icons/SearchIcon';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
+import EyeIcon from '@renderer/components/icons/EyeIcon';
 
 function StudentsPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -230,7 +235,7 @@ function StudentsPage() {
       <div className="filter-bar">
         <InputGroup className="search-input-group">
           <InputGroup.Text>
-            <i className="fas fa-search"></i>
+            <SearchIcon />
           </InputGroup.Text>
           <Form.Control
             type="search"
@@ -299,21 +304,21 @@ function StudentsPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(student)}
                     >
-                      <i className="fas fa-eye"></i> عرض التفاصيل
+                      <EyeIcon /> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
                       onClick={() => handleShowEditModal(student)}
                     >
-                      <i className="fas fa-edit"></i> تعديل
+                      <EditIcon /> تعديل
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDeleteRequest(student)}
                     >
-                      <i className="fas fa-trash"></i> حذف
+                      <TrashIcon /> حذف
                     </Button>
                   </td>
                 </tr>
@@ -339,12 +344,12 @@ function StudentsPage() {
         <h1>شؤون الطلاب</h1>
         {activeTab === 'students' && (
           <Button variant="primary" onClick={handleShowAddModal}>
-            <i className="fas fa-plus ms-2"></i> إضافة طالب
+            <PlusIcon className="ms-2" /> إضافة طالب
           </Button>
         )}
         {activeTab === 'groups' && (
           <Button variant="primary" onClick={handleShowAddGroupModal}>
-            <i className="fas fa-plus ms-2"></i> إضافة مجموعة
+            <PlusIcon className="ms-2" /> إضافة مجموعة
           </Button>
         )}
       </div>

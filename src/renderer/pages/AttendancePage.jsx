@@ -15,6 +15,9 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import '@renderer/styles/AttendancePage.css';
 import { toast } from 'react-toastify';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import SaveIcon from '@renderer/components/icons/SaveIcon';
+import TimesIcon from '@renderer/components/icons/TimesIcon';
 
 function AttendancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -214,7 +217,7 @@ function AttendancePage() {
                 <div>
                   {isSaved && !isEditMode && (
                     <Button variant="secondary" onClick={() => setIsEditMode(true)}>
-                      <i className="fas fa-edit me-2"></i>
+                      <EditIcon className="me-2" />
                       تعديل
                     </Button>
                   )}
@@ -291,7 +294,7 @@ function AttendancePage() {
                     disabled={loadingStudents}
                     className="me-3"
                   >
-                    <i className="fas fa-save me-2"></i>
+                    <SaveIcon className="me-2" />
                     حفظ التغييرات
                   </Button>
                   <Button
@@ -300,7 +303,7 @@ function AttendancePage() {
                     onClick={handleCancelEdit}
                     disabled={loadingStudents}
                   >
-                    <i className="fas fa-times me-2"></i>
+                    <TimesIcon className="me-2" />
                     إلغاء
                   </Button>
                 </div>

@@ -9,6 +9,7 @@ import TodaysClasses from '@renderer/components/TodaysClasses';
 import '@renderer/styles/DashboardPage.css';
 import { error as logError } from '@renderer/utils/logger';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -109,7 +110,7 @@ function DashboardPage() {
             className="d-flex justify-content-between align-items-center"
           >
             <div>
-              <i className="fas fa-exclamation-triangle me-2"></i>
+              <ExclamationTriangleIcon className="me-2" />
               {backupReminder.message}
             </div>
             <Button variant="outline-dark" size="sm" onClick={handleGoToBackupPage}>
@@ -123,19 +124,19 @@ function DashboardPage() {
           <StatCard
             title="الطلاب النشطون"
             value={stats.studentCount}
-            icon="fas fa-user-graduate"
+            icon="user-graduate"
             variant="primary"
           />
           <StatCard
             title="المعلمون"
             value={stats.teacherCount}
-            icon="fas fa-chalkboard-teacher"
+            icon="chalkboard-teacher"
             variant="success"
           />
           <StatCard
             title="الفصول النشطة"
             value={stats.classCount}
-            icon="fas fa-school"
+            icon="school"
             variant="info"
           />
         </Row>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
+import ClassesIcon from './icons/ClassesIcon';
 
 // Reusable DetailItem component for consistent display
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
@@ -71,7 +72,7 @@ function ClassDetailsModal({ show, handleClose, classData }) {
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
         <Modal.Title>
-          <i className="fas fa-school me-2"></i>
+          <ClassesIcon className="me-2" />
           تفاصيل الفصل: {classData.name}
         </Modal.Title>
       </Modal.Header>

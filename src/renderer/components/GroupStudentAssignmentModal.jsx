@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, ListGroup, Form, InputGroup, Spinner, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
+import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import ArrowRightIcon from './icons/ArrowRightIcon';
 
 function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSave }) {
   const [loading, setLoading] = useState(false);
@@ -133,10 +135,10 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
             </Col>
             <Col md={2} className="d-flex flex-column align-items-center justify-content-center gap-2">
               <Button variant="outline-secondary" onClick={handleAddStudents} disabled={selectedNonMembers.size === 0}>
-                <i className="fas fa-arrow-left"></i> إضافة
+                <ArrowLeftIcon /> إضافة
               </Button>
               <Button variant="outline-secondary" onClick={handleRemoveStudents} disabled={selectedMembers.size === 0}>
-                إزالة <i className="fas fa-arrow-right"></i>
+                إزالة <ArrowRightIcon />
               </Button>
             </Col>
             <Col md={5}>

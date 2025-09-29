@@ -7,6 +7,12 @@ import ClassDetailsModal from '@renderer/components/ClassDetailsModal'; // We wi
 import EnrollmentModal from '@renderer/components/EnrollmentModal';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import { error as logError } from '@renderer/utils/logger';
+import PlusIcon from '@renderer/components/icons/PlusIcon';
+import SearchIcon from '@renderer/components/icons/SearchIcon';
+import UserPlusIcon from '@renderer/components/icons/UserPlusIcon';
+import EyeIcon from '@renderer/components/icons/EyeIcon';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
 
 function ClassesPage() {
   const [classes, setClasses] = useState([]);
@@ -173,13 +179,13 @@ function ClassesPage() {
       <div className="page-header">
         <h1>الفصول الدراسية</h1>
         <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة فصل
+          <PlusIcon className="ms-2" /> إضافة فصل
         </Button>
       </div>
       <div className="filter-bar">
         <InputGroup className="search-input-group">
           <InputGroup.Text>
-            <i className="fas fa-search"></i>
+            <SearchIcon />
           </InputGroup.Text>
           <Form.Control
             type="search"
@@ -224,28 +230,28 @@ function ClassesPage() {
                       size="sm"
                       onClick={() => handleShowEnrollmentModal(cls)}
                     >
-                      <i className="fas fa-user-plus"></i> الطلاب المسجلون
+                      <UserPlusIcon /> الطلاب المسجلون
                     </Button>
                     <Button
                       variant="outline-info"
                       size="sm"
                       onClick={() => handleShowDetailsModal(cls)}
                     >
-                      <i className="fas fa-eye"></i> عرض التفاصيل
+                      <EyeIcon /> عرض التفاصيل
                     </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
                       onClick={() => handleShowEditModal(cls)}
                     >
-                      <i className="fas fa-edit"></i> تعديل
+                      <EditIcon /> تعديل
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDeleteRequest(cls)}
                     >
-                      <i className="fas fa-trash"></i> حذف
+                      <TrashIcon /> حذف
                     </Button>
                   </td>
                 </tr>

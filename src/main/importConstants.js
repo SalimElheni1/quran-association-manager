@@ -10,7 +10,7 @@ const IMPORT_STEPS = {
     description: 'استيراد المستخدمين والمعلمين والطلاب والمجموعات والمخزون',
     sheets: ['المستخدمون', 'المعلمون', 'الطلاب', 'المجموعات', 'المخزون'],
     order: 1,
-    icon: 'fas fa-users'
+    icon: 'users'
   },
   STEP_2: {
     id: 'step2', 
@@ -19,7 +19,7 @@ const IMPORT_STEPS = {
     sheets: ['التبرعات', 'المصاريف'],
     order: 2,
     dependencies: ['step1'],
-    icon: 'fas fa-coins'
+    icon: 'coins'
   }
 };
 

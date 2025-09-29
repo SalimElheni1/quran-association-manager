@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
+import HomeIcon from './icons/HomeIcon';
+import UsersIcon from './icons/UsersIcon';
+import TeacherIcon from './icons/TeacherIcon';
+import ClassesIcon from './icons/ClassesIcon';
+import AttendanceIcon from './icons/AttendanceIcon';
+import FinancialsIcon from './icons/FinancialsIcon';
+import ExportsIcon from './icons/ExportsIcon';
+import UserShieldIcon from './icons/UserShieldIcon';
+import SettingsIcon from './icons/SettingsIcon';
+import ProfileIcon from './icons/ProfileIcon';
+import InfoIcon from './icons/InfoIcon';
+import LogOutIcon from './icons/LogOutIcon';
 
 function Sidebar() {
   const { user, logout } = useAuth();
@@ -46,59 +58,59 @@ function Sidebar() {
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">
-            <i className="fas fa-home"></i>
+            <HomeIcon />
             <span>الرئيسية</span>
           </NavLink>
           <NavLink to="/students" className="nav-link">
-            <i className="fas fa-users"></i>
+            <UsersIcon />
             <span>شؤون الطلاب</span>
           </NavLink>
           <NavLink to="/teachers" className="nav-link">
-            <i className="fas fa-chalkboard-teacher"></i>
+            <TeacherIcon />
             <span>شؤون المعلمين</span>
           </NavLink>
           <NavLink to="/classes" className="nav-link">
-            <i className="fas fa-school"></i>
+            <ClassesIcon />
             <span>الفصول الدراسية</span>
           </NavLink>
           <NavLink to="/attendance" className="nav-link">
-            <i className="fas fa-calendar-check"></i>
+            <AttendanceIcon />
             <span>الحضور والغياب</span>
           </NavLink>
           {['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(user?.role) && (
             <NavLink to="/financials" className="nav-link">
-              <i className="fas fa-wallet"></i>
+              <FinancialsIcon />
               <span>الشؤون المالية</span>
             </NavLink>
           )}
           <NavLink to="/exports" className="nav-link">
-            <i className="fas fa-file-export"></i>
+            <ExportsIcon />
             <span>تصدير البيانات</span>
           </NavLink>
           {user?.role === 'Superadmin' && (
             <NavLink to="/users" className="nav-link">
-              <i className="fas fa-user-shield"></i>
+              <UserShieldIcon />
               <span>إدارة المستخدمين</span>
             </NavLink>
           )}
           {user?.role === 'Superadmin' && (
             <NavLink to="/settings" className="nav-link">
-              <i className="fas fa-cog"></i>
+              <SettingsIcon />
               <span>الإعدادات</span>
             </NavLink>
           )}
           <NavLink to="/profile" className="nav-link">
-            <i className="fas fa-user-cog"></i>
+            <ProfileIcon />
             <span>ملفي الشخصي</span>
           </NavLink>
           <NavLink to="/about" className="nav-link">
-            <i className="fas fa-info-circle"></i>
+            <InfoIcon />
             <span>حول التطبيق</span>
           </NavLink>
         </nav>
       </div>
       <button onClick={handleLogout} className="logout-btn">
-        <i className="fas fa-sign-out-alt"></i>
+        <LogOutIcon />
         <span>خروج</span>
       </button>
     </aside>

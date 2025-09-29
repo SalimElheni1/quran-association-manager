@@ -1,5 +1,8 @@
 import React from 'react';
 import { Card, ListGroup, Accordion, Row, Col } from 'react-bootstrap';
+import InfoIcon from './icons/InfoIcon';
+import BullseyeIcon from './icons/BullseyeIcon';
+import MagicIcon from './icons/MagicIcon';
 
 const AboutAppTab = () => {
   return (
@@ -8,7 +11,7 @@ const AboutAppTab = () => {
         <Col lg={8} className="mb-4">
           <Card className="h-100">
             <Card.Header as="h5">
-              <i className="fas fa-info-circle me-2"></i>عن التطبيق
+              <InfoIcon className="me-2" />عن التطبيق
             </Card.Header>
             <Card.Body>
               <Card.Text>
@@ -20,7 +23,7 @@ const AboutAppTab = () => {
         <Col lg={4} className="mb-4">
           <Card className="h-100">
             <Card.Header as="h5">
-              <i className="fas fa-bullseye me-2"></i>الرؤية والرسالة
+              <BullseyeIcon className="me-2" />الرؤية والرسالة
             </Card.Header>
             <Card.Body>
               <Card.Text>
@@ -35,7 +38,7 @@ const AboutAppTab = () => {
         <Accordion>
           <Accordion.Item eventKey="0">
             <Accordion.Header>
-              <i className="fas fa-star me-2"></i>المميزات الرئيسية
+              <MagicIcon className="me-2" />المميزات الرئيسية
             </Accordion.Header>
             <Accordion.Body>
               <ListGroup variant="flush">
