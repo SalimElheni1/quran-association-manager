@@ -61,6 +61,7 @@ const { registerImportHandlers } = require('./handlers/importHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
+let initialCredentials = null;
 
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
@@ -144,6 +145,9 @@ const initializeApp = async () => {
     // The key is managed internally, so no password is needed here.
     log('App is ready, initializing database...');
     const tempCredentials = await db.initializeDatabase();
+    if (tempCredentials) {
+      initialCredentials = tempCredentials;
+    }
     log('Database initialized successfully.');
     // =============================================================================
 
@@ -194,14 +198,6 @@ const initializeApp = async () => {
     // =============================================================================
 
     const mainWindow = createWindow();
-
-    // If a new superadmin was created, send the credentials to the renderer process
-    // to be displayed in a custom modal.
-    if (tempCredentials) {
-      mainWindow.webContents.on('did-finish-load', () => {
-        mainWindow.webContents.send('show-initial-credentials', tempCredentials);
-      });
-    }
 
     // Register a custom protocol to safely serve images from the app's data directory.
     // This prevents exposing the entire filesystem to the renderer process.
@@ -266,6 +262,10 @@ const initializeApp = async () => {
 
     // Register all IPC handlers
     ipcMain.handle('get-is-packaged', () => app.isPackaged);
+    ipcMain.handle('get-initial-credentials', () => initialCredentials);
+    ipcMain.handle('clear-initial-credentials', () => {
+      initialCredentials = null;
+    });
     ipcMain.handle('export:generate-dev-template', async () => {
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Dev Excel Template',
