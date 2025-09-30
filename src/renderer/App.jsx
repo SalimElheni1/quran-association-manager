@@ -54,19 +54,18 @@ function App() {
   const [initialCredentials, setInitialCredentials] = useState(null);
 
   /**
-   * Effect hook to listen for initial credentials from the main process.
-   * This is triggered when a new database is created and a superadmin user is seeded.
+   * Effect hook to fetch initial credentials from the main process.
+   * This is triggered on first launch to display superadmin credentials.
    */
   useEffect(() => {
-    // Listen for the event from the main process
-    const removeListener = window.electronAPI.onShowInitialCredentials((event, credentials) => {
-      setInitialCredentials(credentials);
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => {
-      removeListener();
+    const fetchCredentials = async () => {
+      const credentials = await window.electronAPI.getInitialCredentials();
+      if (credentials) {
+        setInitialCredentials(credentials);
+      }
     };
+
+    fetchCredentials();
   }, []);
 
   /**
@@ -75,6 +74,7 @@ function App() {
    */
   const handleCloseInitialCredentialsBanner = () => {
     setInitialCredentials(null);
+    window.electronAPI.clearInitialCredentials();
   };
 
   return (

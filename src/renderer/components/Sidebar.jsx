@@ -18,7 +18,7 @@ import LogOutIcon from './icons/LogOutIcon';
 function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [associationName, setAssociationName] = useState('📖الرابطة الوطنية للقرآن الكريم ');
+  const [associationName, setAssociationName] = useState('الرابطة الوطنية للقرآن الكريم');
 
   useEffect(() => {
     const fetchAssociationName = async () => {
