@@ -76,11 +76,17 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Ensure roles array is not empty
+      const dataToSubmit = {
+        ...formData,
+        roles: formData.roles && formData.roles.length > 0 ? formData.roles : ['Administrator']
+      };
+      
       if (isEditMode) {
-        await window.electronAPI.updateUser(user.id, formData);
+        await window.electronAPI.updateUser(user.id, dataToSubmit);
         toast.success('تم تحديث بيانات المستخدم بنجاح!');
       } else {
-        await window.electronAPI.addUser(formData);
+        await window.electronAPI.addUser(dataToSubmit);
       }
       onSaveSuccess();
     } catch (err) {

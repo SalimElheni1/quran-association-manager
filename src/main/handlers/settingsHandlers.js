@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
 const { log, error: logError } = require('../logger');
+const { requireRoles } = require('../authMiddleware');
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({

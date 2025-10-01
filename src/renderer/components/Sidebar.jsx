@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
+import { usePermissions } from '@renderer/hooks/usePermissions';
 import { error as logError } from '@renderer/utils/logger';
 import HomeIcon from './icons/HomeIcon';
 import UsersIcon from './icons/UsersIcon';
@@ -17,6 +18,7 @@ import LogOutIcon from './icons/LogOutIcon';
 
 function Sidebar() {
   const { user, logout } = useAuth();
+  const { canAccessModule } = usePermissions();
   const navigate = useNavigate();
   const [associationName, setAssociationName] = useState('الرابطة الوطنية للقرآن الكريم');
 
@@ -61,23 +63,31 @@ function Sidebar() {
             <HomeIcon />
             <span>الرئيسية</span>
           </NavLink>
-          <NavLink to="/students" className="nav-link">
-            <UsersIcon />
-            <span>شؤون الطلاب</span>
-          </NavLink>
-          <NavLink to="/teachers" className="nav-link">
-            <TeacherIcon />
-            <span>شؤون المعلمين</span>
-          </NavLink>
-          <NavLink to="/classes" className="nav-link">
-            <ClassesIcon />
-            <span>الفصول الدراسية</span>
-          </NavLink>
-          <NavLink to="/attendance" className="nav-link">
-            <AttendanceIcon />
-            <span>الحضور والغياب</span>
-          </NavLink>
-          {user?.roles?.some(role => ['Superadmin', 'Administrator', 'FinanceManager'].includes(role)) && (
+          {canAccessModule('students') && (
+            <NavLink to="/students" className="nav-link">
+              <UsersIcon />
+              <span>شؤون الطلاب</span>
+            </NavLink>
+          )}
+          {canAccessModule('teachers') && (
+            <NavLink to="/teachers" className="nav-link">
+              <TeacherIcon />
+              <span>شؤون المعلمين</span>
+            </NavLink>
+          )}
+          {canAccessModule('classes') && (
+            <NavLink to="/classes" className="nav-link">
+              <ClassesIcon />
+              <span>الفصول الدراسية</span>
+            </NavLink>
+          )}
+          {canAccessModule('attendance') && (
+            <NavLink to="/attendance" className="nav-link">
+              <AttendanceIcon />
+              <span>الحضور والغياب</span>
+            </NavLink>
+          )}
+          {canAccessModule('financials') && (
             <NavLink to="/financials" className="nav-link">
               <FinancialsIcon />
               <span>الشؤون المالية</span>
@@ -87,13 +97,13 @@ function Sidebar() {
             <ExportsIcon />
             <span>تصدير البيانات</span>
           </NavLink>
-          {user?.roles?.includes('Superadmin') && (
+          {canAccessModule('users') && (
             <NavLink to="/users" className="nav-link">
               <UserShieldIcon />
               <span>إدارة المستخدمين</span>
             </NavLink>
           )}
-          {user?.roles?.includes('Superadmin') && (
+          {canAccessModule('settings') && (
             <NavLink to="/settings" className="nav-link">
               <SettingsIcon />
               <span>الإعدادات</span>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import Select from 'react-select';
 import { error as logError } from '@renderer/utils/logger';
 import { paymentMethods } from '@renderer/utils/paymentMethods';
 
@@ -93,9 +92,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleStudentChange = (selectedOption) => {
-    setFormData((prev) => ({ ...prev, student_id: selectedOption ? selectedOption.value : '' }));
-  };
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -111,30 +108,38 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3" controlId="formPaymentCategory">
             <Form.Label>الفئة</Form.Label>
-            <Select
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={setSelectedCategory}
-              placeholder="اختر فئة..."
-              isSearchable={false}
-            />
+            <Form.Select
+              value={selectedCategory.value}
+              onChange={(e) => {
+                const selected = categoryOptions.find(opt => opt.value === e.target.value);
+                setSelectedCategory(selected);
+              }}
+            >
+              {categoryOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Form.Select>
           </Form.Group>
 
           <Form.Group className="mb-3" controlId="formPaymentStudent">
             <Form.Label>
               الطالب<span className="text-danger">*</span>
             </Form.Label>
-            <Select
-              options={studentOptions}
-              value={studentOptions.find((opt) => opt.value === formData.student_id)}
-              onChange={handleStudentChange}
-              placeholder="ابحث عن طالب..."
-              isClearable
-              isRtl
-              isSearchable
+            <Form.Select
+              name="student_id"
+              value={formData.student_id}
+              onChange={handleChange}
               required
-              noOptionsMessage={() => 'لا يوجد طلاب مطابقون'}
-            />
+            >
+              <option value="">اختر طالب...</option>
+              {studentOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentAmount">
             <Form.Label>

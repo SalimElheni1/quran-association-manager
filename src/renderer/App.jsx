@@ -20,6 +20,7 @@ import MainLayout from '@renderer/layouts/MainLayout';
 import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 
 // Lazy load heavy pages
 const StudentsPage = React.lazy(() => import('@renderer/pages/StudentsPage'));
@@ -99,14 +100,56 @@ function App() {
         >
           {/* Child routes will be rendered inside MainLayout's <Outlet> */}
           <Route index element={<DashboardPage />} />
-          <Route path="/students" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><StudentsPage /></Suspense>} />
-          <Route path="/teachers" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><TeachersPage /></Suspense>} />
-          <Route path="/classes" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ClassesPage /></Suspense>} />
-          <Route path="/attendance" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><AttendancePage /></Suspense>} />
-          <Route path="/financials" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><FinancialsPage /></Suspense>} />
-          <Route path="/users" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><UsersPage /></Suspense>} />
+          <Route path="/students" element={
+            <ProtectedRoute requiredModule="students">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <StudentsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/teachers" element={
+            <ProtectedRoute requiredModule="teachers">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <TeachersPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/classes" element={
+            <ProtectedRoute requiredModule="classes">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <ClassesPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/attendance" element={
+            <ProtectedRoute requiredModule="attendance">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <AttendancePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/financials" element={
+            <ProtectedRoute requiredModule="financials">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <FinancialsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/users" element={
+            <ProtectedRoute requiredModule="users">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <UsersPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route path="/profile" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ProfilePage /></Suspense>} />
-          <Route path="/settings" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><SettingsPage /></Suspense>} />
+          <Route path="/settings" element={
+            <ProtectedRoute requiredModule="settings">
+              <Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}>
+                <SettingsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route path="/exports" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><ExportsPage /></Suspense>} />
           <Route path="/about" element={<Suspense fallback={<div className="text-center p-4">جاري التحميل...</div>}><AboutPage /></Suspense>} />
         </Route>

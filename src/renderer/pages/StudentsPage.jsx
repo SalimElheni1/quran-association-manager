@@ -14,8 +14,11 @@ import SearchIcon from '@renderer/components/icons/SearchIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 import EyeIcon from '@renderer/components/icons/EyeIcon';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 
 function StudentsPage() {
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState('students');
 
   // Student-related state
@@ -306,20 +309,24 @@ function StudentsPage() {
                     >
                       <EyeIcon /> عرض التفاصيل
                     </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => handleShowEditModal(student)}
-                    >
-                      <EditIcon /> تعديل
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRequest(student)}
-                    >
-                      <TrashIcon /> حذف
-                    </Button>
+                    {hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={() => handleShowEditModal(student)}
+                      >
+                        <EditIcon /> تعديل
+                      </Button>
+                    )}
+                    {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteRequest(student)}
+                      >
+                        <TrashIcon /> حذف
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -342,12 +349,12 @@ function StudentsPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>شؤون الطلاب</h1>
-        {activeTab === 'students' && (
+        {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
           <Button variant="primary" onClick={handleShowAddModal}>
             <PlusIcon className="ms-2" /> إضافة طالب
           </Button>
         )}
-        {activeTab === 'groups' && (
+        {activeTab === 'groups' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
           <Button variant="primary" onClick={handleShowAddGroupModal}>
             <PlusIcon className="ms-2" /> إضافة مجموعة
           </Button>

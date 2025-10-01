@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
 const { error: logError } = require('../logger');
+const { requireRoles } = require('../authMiddleware');
 
 const userFields = [
   'matricule',
@@ -27,59 +28,46 @@ const userFields = [
 ];
 
 function registerUserHandlers() {
-  ipcMain.handle('users:get', async (_event, filters) => {
+  ipcMain.handle('users:get', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, filters) => {
     let sql = `
-      SELECT u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step, r.name as role_name
+      SELECT
+        u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step,
+        GROUP_CONCAT(r.name) as roles
       FROM users u
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
+      WHERE 1=1
     `;
     const params = [];
-    const whereClauses = [];
 
     if (filters?.searchTerm) {
-      whereClauses.push('(u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.matricule LIKE ?)');
+      sql += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.matricule LIKE ?)';
       const searchTerm = `%${filters.searchTerm}%`;
       params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
     if (filters?.statusFilter && filters.statusFilter !== 'all') {
-      whereClauses.push('u.status = ?');
+      sql += ' AND u.status = ?';
       params.push(filters.statusFilter);
     }
     if (filters?.roleFilter && filters.roleFilter !== 'all') {
-        sql = `
-            SELECT u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step, r.name as role_name
-            FROM users u
-            INNER JOIN user_roles ur ON u.id = ur.user_id
-            INNER JOIN roles r ON ur.role_id = r.id
-            WHERE r.name = ?
-        `;
-        params.unshift(filters.roleFilter);
+      sql += `
+        AND u.id IN (
+          SELECT ur.user_id FROM user_roles ur
+          JOIN roles r ON ur.role_id = r.id
+          WHERE r.name = ?
+        )
+      `;
+      params.push(filters.roleFilter);
     }
 
-    if (whereClauses.length > 0 && !filters.roleFilter) {
-        sql += ' WHERE ' + whereClauses.join(' AND ');
-    }
+    sql += ' GROUP BY u.id ORDER BY u.username ASC';
+    const users = await db.allQuery(sql, params);
 
-    sql += ' ORDER BY u.username ASC';
-
-    const rows = await db.allQuery(sql, params);
-    const users = {};
-    rows.forEach(row => {
-        if (!users[row.id]) {
-            users[row.id] = {
-                ...row,
-                roles: [],
-            };
-        }
-        if (row.role_name) {
-            users[row.id].roles.push(row.role_name);
-        }
-        delete users[row.id].role_name;
-    });
-
-    return Object.values(users);
-  });
+    return users.map((user) => ({
+      ...user,
+      roles: user.roles ? user.roles.split(',') : [],
+    }));
+  }));
 
   ipcMain.handle('users:getById', async (_event, id) => {
     const user = await db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
@@ -93,13 +81,13 @@ function registerUserHandlers() {
     return user;
   });
 
-  ipcMain.handle('users:add', async (_event, userData) => {
+  ipcMain.handle('users:add', requireRoles(['Superadmin'])(async (_event, userData) => {
     const { roles, ...restOfUserData } = userData;
     try {
       await db.runQuery('BEGIN TRANSACTION;');
 
       const matricule = await generateMatricule('user');
-      const dataWithMatricule = { ...restOfUserData, matricule };
+      const dataWithMatricule = { ...restOfUserData, matricule, roles };
 
       const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
@@ -144,9 +132,9 @@ function registerUserHandlers() {
       logError('Error in users:add handler:', error);
       throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
     }
-  });
+  }));
 
-  ipcMain.handle('users:update', async (_event, { id, userData }) => {
+  ipcMain.handle('users:update', requireRoles(['Superadmin'])(async (_event, { id, userData }) => {
     const { roles, ...restOfUserData } = userData;
     try {
       await db.runQuery('BEGIN TRANSACTION;');
@@ -203,13 +191,13 @@ function registerUserHandlers() {
       logError('Error in users:update handler:', error);
       throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
     }
-  });
+  }));
 
-  ipcMain.handle('users:delete', (_event, id) => {
+  ipcMain.handle('users:delete', requireRoles(['Superadmin'])((_event, id) => {
     if (!id || typeof id !== 'number') throw new Error('A valid user ID is required for deletion.');
     const sql = 'DELETE FROM users WHERE id = ?';
     return db.runQuery(sql, [id]);
-  });
+  }));
 
   // Lightweight handler to update only onboarding-related fields without triggering full user validation
   ipcMain.handle('users:updateGuide', async (_event, { id, guideData }) => {
