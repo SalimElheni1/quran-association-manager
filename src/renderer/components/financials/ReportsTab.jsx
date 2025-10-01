@@ -80,8 +80,7 @@ function ReportsTab() {
     (activities?.expensesByCategory.reduce((acc, exp) => acc + exp.total, 0) || 0);
   const netMonthlyResult = totalMonthlyRevenue - totalMonthlyExpenses;
 
-  const canViewDetailedReport =
-    user?.roles?.some((role) => ['Superadmin', 'FinanceManager'].includes(role));
+  const canViewDetailedReport = user?.role === 'Superadmin' || user?.role === 'FinanceManager';
 
   const renderYearOptions = () => {
     const currentYear = new Date().getFullYear();

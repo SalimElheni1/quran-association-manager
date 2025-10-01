@@ -4,6 +4,7 @@
 jest.mock('electron');
 jest.mock('../src/db/db');
 jest.mock('../src/main/backupManager');
+// Joi is mocked globally via jest.config.js
 jest.mock('../src/main/settingsManager');
 
 
@@ -11,6 +12,7 @@ const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandl
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const backupManager = require('../src/main/backupManager');
+const Joi = require('joi');
 
 describe('Settings Handlers IPC', () => {
     let handlers = {};
@@ -26,6 +28,8 @@ describe('Settings Handlers IPC', () => {
 
         mockRefreshSettings = jest.fn();
         registerSettingsHandlers(mockRefreshSettings);
+
+        Joi.object().validateAsync.mockImplementation(data => Promise.resolve(data));
     });
 
     describe('settings:get', () => {
@@ -42,14 +46,7 @@ describe('Settings Handlers IPC', () => {
     });
 
     describe('settings:update', () => {
-        const mockSettings = {
-            national_association_name: 'New Name',
-            adultAgeThreshold: 18,
-            backup_enabled: false,
-            backup_frequency: 'daily',
-            backup_reminder_enabled: true,
-            backup_reminder_frequency_days: 7,
-        };
+        const mockSettings = { national_association_name: 'New Name' };
 
         it('should update settings successfully', async () => {
             db.runQuery.mockResolvedValue({ changes: 1 });
@@ -71,7 +68,7 @@ describe('Settings Handlers IPC', () => {
 
             expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
             expect(result.success).toBe(false);
-            expect(result.message).toContain('فشل تحديث الإعدادات.');
+      expect(result.message).toContain('فشل تحديث الإعدادات.');
         });
     });
 });

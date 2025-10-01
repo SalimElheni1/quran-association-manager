@@ -77,9 +77,7 @@ function Sidebar() {
             <AttendanceIcon />
             <span>الحضور والغياب</span>
           </NavLink>
-          {user?.roles?.some((role) =>
-            ['Superadmin', 'Administrator', 'FinanceManager'].includes(role),
-          ) && (
+          {user?.roles?.some(role => ['Superadmin', 'Administrator', 'FinanceManager'].includes(role)) && (
             <NavLink to="/financials" className="nav-link">
               <FinancialsIcon />
               <span>الشؤون المالية</span>

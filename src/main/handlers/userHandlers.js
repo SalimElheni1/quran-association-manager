@@ -20,7 +20,6 @@ const userFields = [
   'employment_type',
   'start_date',
   'end_date',
-  // 'role' is deprecated and managed in user_roles table
   'status',
   'notes',
   'need_guide',
@@ -30,67 +29,72 @@ const userFields = [
 function registerUserHandlers() {
   ipcMain.handle('users:get', async (_event, filters) => {
     let sql = `
-      SELECT
-        u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step,
-        GROUP_CONCAT(r.name) as roles
+      SELECT u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step, r.name as role_name
       FROM users u
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
-      WHERE 1=1
     `;
     const params = [];
+    const whereClauses = [];
+
     if (filters?.searchTerm) {
-      sql += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.matricule LIKE ?)';
+      whereClauses.push('(u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.matricule LIKE ?)');
       const searchTerm = `%${filters.searchTerm}%`;
       params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
     if (filters?.statusFilter && filters.statusFilter !== 'all') {
-      sql += ' AND u.status = ?';
+      whereClauses.push('u.status = ?');
       params.push(filters.statusFilter);
     }
-
     if (filters?.roleFilter && filters.roleFilter !== 'all') {
-      sql += `
-        AND u.id IN (
-          SELECT ur.user_id FROM user_roles ur
-          JOIN roles r ON ur.role_id = r.id
-          WHERE r.name = ?
-        )
-      `;
-      params.push(filters.roleFilter);
+        sql = `
+            SELECT u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step, r.name as role_name
+            FROM users u
+            INNER JOIN user_roles ur ON u.id = ur.user_id
+            INNER JOIN roles r ON ur.role_id = r.id
+            WHERE r.name = ?
+        `;
+        params.unshift(filters.roleFilter);
     }
 
-    sql += ' GROUP BY u.id ORDER BY u.username ASC';
-    const users = await db.allQuery(sql, params);
+    if (whereClauses.length > 0 && !filters.roleFilter) {
+        sql += ' WHERE ' + whereClauses.join(' AND ');
+    }
 
-    return users.map((user) => ({
-      ...user,
-      roles: user.roles ? user.roles.split(',') : [],
-    }));
+    sql += ' ORDER BY u.username ASC';
+
+    const rows = await db.allQuery(sql, params);
+    const users = {};
+    rows.forEach(row => {
+        if (!users[row.id]) {
+            users[row.id] = {
+                ...row,
+                roles: [],
+            };
+        }
+        if (row.role_name) {
+            users[row.id].roles.push(row.role_name);
+        }
+        delete users[row.id].role_name;
+    });
+
+    return Object.values(users);
   });
 
   ipcMain.handle('users:getById', async (_event, id) => {
-    const userQuery = `
-      SELECT
-        u.*,
-        GROUP_CONCAT(r.name) as roles
-      FROM users u
-      LEFT JOIN user_roles ur ON u.id = ur.user_id
-      LEFT JOIN roles r ON ur.role_id = r.id
-      WHERE u.id = ?
-      GROUP BY u.id
-    `;
-    const user = await db.getQuery(userQuery, [id]);
+    const user = await db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
     if (user) {
-      user.roles = user.roles ? user.roles.split(',') : [];
+      const roles = await db.allQuery(
+        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
+        [id]
+      );
+      user.roles = roles.map(r => r.name);
     }
     return user;
   });
 
   ipcMain.handle('users:add', async (_event, userData) => {
-    // The roles are expected to be an array of role names, e.g., ['Administrator', 'FinanceManager']
     const { roles, ...restOfUserData } = userData;
-
     try {
       await db.runQuery('BEGIN TRANSACTION;');
 
@@ -99,7 +103,7 @@ function registerUserHandlers() {
 
       const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
-        stripUnknown: true, // Use stripUnknown to remove fields not in schema
+        stripUnknown: true,
       });
 
       if (validatedData.password) {
@@ -117,17 +121,13 @@ function registerUserHandlers() {
       const userId = result.id;
 
       if (roles && roles.length > 0) {
-        // Get role IDs from role names
         const roleIds = await db.allQuery(
           `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
           roles,
         );
-
         if (roleIds.length !== roles.length) {
-          await db.runQuery('ROLLBACK;');
           throw new Error('One or more roles are invalid.');
         }
-
         const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
         for (const role of roleIds) {
           await db.runQuery(userRolesSql, [userId, role.id]);
@@ -148,7 +148,6 @@ function registerUserHandlers() {
 
   ipcMain.handle('users:update', async (_event, { id, userData }) => {
     const { roles, ...restOfUserData } = userData;
-
     try {
       await db.runQuery('BEGIN TRANSACTION;');
 
@@ -172,27 +171,25 @@ function registerUserHandlers() {
         await db.runQuery(sql, params);
       }
 
-      // Synchronize roles
       if (roles) {
-        // 1. Delete existing roles for the user
-        await db.runQuery('DELETE FROM user_roles WHERE user_id = ?', [id]);
+        const currentRolesResult = await db.allQuery('SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?', [id]);
+        const currentRoles = currentRolesResult.map(r => r.name);
 
-        // 2. Insert new roles if any
-        if (roles.length > 0) {
-          const roleIds = await db.allQuery(
-            `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
-            roles,
-          );
+        const rolesToAdd = roles.filter(r => !currentRoles.includes(r));
+        const rolesToRemove = currentRoles.filter(r => !roles.includes(r));
 
-          if (roleIds.length !== roles.length) {
-            await db.runQuery('ROLLBACK;');
-            throw new Error('One or more roles are invalid.');
-          }
+        if (rolesToAdd.length > 0) {
+            const roleIds = await db.allQuery(`SELECT id FROM roles WHERE name IN (${rolesToAdd.map(() => '?').join(',')})`, rolesToAdd);
+            const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+            for (const role of roleIds) {
+              await db.runQuery(userRolesSql, [id, role.id]);
+            }
+        }
 
-          const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
-          for (const role of roleIds) {
-            await db.runQuery(userRolesSql, [id, role.id]);
-          }
+        if (rolesToRemove.length > 0) {
+            const roleIds = await db.allQuery(`SELECT id FROM roles WHERE name IN (${rolesToRemove.map(() => '?').join(',')})`, rolesToRemove);
+            const deleteSql = `DELETE FROM user_roles WHERE user_id = ? AND role_id IN (${roleIds.map(() => '?').join(',')})`;
+            await db.runQuery(deleteSql, [id, ...roleIds.map(r => r.id)]);
         }
       }
 

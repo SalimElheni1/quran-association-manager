@@ -2,6 +2,8 @@
 
 const {
   registerSettingsHandlers,
+  internalGetSettingsHandler,
+  internalUpdateSettingsHandler,
 } = require('../src/main/handlers/settingsHandlers');
 
 // Mock dependencies
@@ -10,11 +12,14 @@ jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('../src/main/backupManager');
 jest.mock('../src/main/logger');
+// Joi is mocked globally via jest.config.js
 
 const { ipcMain, app, dialog } = require('electron');
+const Joi = require('joi');
 const db = require('../src/db/db');
 const fs = require('fs');
 const path = require('path'); // Use real path module
+const backupManager = require('../src/main/backupManager');
 const { log, error: logError } = require('../src/main/logger');
 
 describe('settingsHandlers - Comprehensive Tests', () => {
@@ -34,8 +39,11 @@ describe('settingsHandlers - Comprehensive Tests', () => {
 
     // Default mock implementations
     app.getPath.mockReturnValue('/mock/userData');
+    Joi.object().validateAsync.mockImplementation(data => Promise.resolve(data));
     db.runQuery.mockResolvedValue({ changes: 1 });
   });
+
+  // ... (passing tests omitted for brevity) ...
 
   describe('IPC Handler - settings:uploadLogo - Comprehensive Cases', () => {
     it('should create directory and upload logo when directory does not exist', async () => {
@@ -44,6 +52,7 @@ describe('settingsHandlers - Comprehensive Tests', () => {
       
       dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockFilePath] });
       
+      // Make existsSync specific: return true for source file, false for destination dir
       fs.existsSync.mockImplementation(p => {
         if (p === mockFilePath) return true;
         if (p === expectedDir) return false;
@@ -64,6 +73,7 @@ describe('settingsHandlers - Comprehensive Tests', () => {
 
         dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockFilePath] });
         
+        // Make existsSync specific: return true for source file, false for destination dir
         fs.existsSync.mockImplementation(p => {
             if (p === mockFilePath) return true;
             if (p === expectedDir) return false;
