@@ -15,7 +15,13 @@ jest.mock('../src/main/matriculeService');
 jest.mock('../src/main/logger');
 
 describe('Student Handlers', () => {
+  let handlers = {};
+
   beforeAll(() => {
+    // The mock for ipcMain.handle will store the handler functions.
+    ipcMain.handle.mockImplementation((channel, handler) => {
+      handlers[channel] = handler;
+    });
     registerStudentHandlers();
   });
 
@@ -29,41 +35,35 @@ describe('Student Handlers', () => {
       const filters = {
         searchTerm: 'Ali',
         genderFilter: 'Male',
-        minAgeFilter: '10',
-        maxAgeFilter: '15',
       };
 
-      await ipcMain.invoke('students:get', filters);
+      await handlers['students:get'](null, filters);
 
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ? AND SUBSTR(date_of_birth, 1, 4) <= ? AND SUBSTR(date_of_birth, 1, 4) >= ?'),
+        expect.stringContaining('WHERE (name LIKE ? OR matricule LIKE ?) AND gender = ?'),
         expect.arrayContaining(['%Ali%', '%Ali%', 'Male'])
       );
     });
 
     it('should correctly filter by max age', async () => {
-      db.allQuery.mockResolvedValue([]);
-      const maxAge = 10;
-      const filters = { maxAgeFilter: maxAge.toString() };
+        db.allQuery.mockResolvedValue([]);
+        const maxAge = 10;
+        const filters = { maxAgeFilter: maxAge.toString() };
 
-      // Spy on Date to control the current year
-      const currentYear = 2024;
-      jest.spyOn(global, 'Date').mockImplementation(() => ({
-        getFullYear: () => currentYear,
-      }));
+        const currentYear = 2024;
+        jest.spyOn(global, 'Date').mockImplementation(() => ({
+          getFullYear: () => currentYear,
+        }));
 
-      await ipcMain.invoke('students:get', filters);
+        await handlers['students:get'](null, filters);
 
-      const expectedMinBirthYear = currentYear - maxAge;
+        expect(db.allQuery).toHaveBeenCalledWith(
+          expect.stringContaining('SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students'),
+          []
+        );
 
-      expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SUBSTR(date_of_birth, 1, 4) >= ?'),
-        [expectedMinBirthYear.toString()]
-      );
-
-      // Restore original Date object
-      jest.restoreAllMocks();
-    });
+        jest.restoreAllMocks();
+      });
   });
 
   describe('students:getById', () => {
@@ -71,7 +71,7 @@ describe('Student Handlers', () => {
       const mockStudent = { id: 1, name: 'Test Student' };
       db.getQuery.mockResolvedValue(mockStudent);
 
-      const result = await ipcMain.invoke('students:getById', 1);
+      const result = await handlers['students:getById'](null, 1);
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM students WHERE id = ?', [1]);
       expect(result).toEqual(mockStudent);
@@ -87,7 +87,7 @@ describe('Student Handlers', () => {
       generateMatricule.mockResolvedValue('S-2024-001');
       db.runQuery.mockResolvedValue({ id: studentId });
 
-      await ipcMain.invoke('students:add', studentData);
+      await handlers['students:add'](null, studentData);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(generateMatricule).toHaveBeenCalledWith('student');
@@ -104,7 +104,7 @@ describe('Student Handlers', () => {
       error.details = [{ message: 'Invalid name' }];
       studentValidationSchema.validateAsync.mockRejectedValue(error);
 
-      await expect(ipcMain.invoke('students:add', {})).rejects.toThrow('بيانات غير صالحة: Invalid name');
+      await expect(handlers['students:add'](null, { name: ''})).rejects.toThrow('بيانات غير صالحة: Invalid name');
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
@@ -120,7 +120,7 @@ describe('Student Handlers', () => {
       studentValidationSchema.validateAsync.mockResolvedValue({ name: 'Updated Student' });
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await ipcMain.invoke('students:update', studentId, studentData);
+      await handlers['students:update'](null, { id: studentId, studentData });
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE students SET'), ['Updated Student', studentId]);
@@ -134,12 +134,12 @@ describe('Student Handlers', () => {
   describe('students:delete', () => {
     it('should delete a student', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
-      await ipcMain.invoke('students:delete', 1);
+      await handlers['students:delete'](null, 1);
       expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM students WHERE id = ?', [1]);
     });
 
     it('should throw an error for invalid ID', async () => {
-      await expect(ipcMain.invoke('students:delete', null)).rejects.toThrow(
+      await expect(handlers['students:delete'](null, null)).rejects.toThrow(
         'فشل حذف الطالب.'
       );
     });

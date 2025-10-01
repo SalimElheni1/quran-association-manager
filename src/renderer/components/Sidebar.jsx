@@ -77,7 +77,9 @@ function Sidebar() {
             <AttendanceIcon />
             <span>الحضور والغياب</span>
           </NavLink>
-          {['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(user?.role) && (
+          {user?.roles?.some((role) =>
+            ['Superadmin', 'Administrator', 'FinanceManager'].includes(role),
+          ) && (
             <NavLink to="/financials" className="nav-link">
               <FinancialsIcon />
               <span>الشؤون المالية</span>
@@ -87,13 +89,13 @@ function Sidebar() {
             <ExportsIcon />
             <span>تصدير البيانات</span>
           </NavLink>
-          {user?.role === 'Superadmin' && (
+          {user?.roles?.includes('Superadmin') && (
             <NavLink to="/users" className="nav-link">
               <UserShieldIcon />
               <span>إدارة المستخدمين</span>
             </NavLink>
           )}
-          {user?.role === 'Superadmin' && (
+          {user?.roles?.includes('Superadmin') && (
             <NavLink to="/settings" className="nav-link">
               <SettingsIcon />
               <span>الإعدادات</span>

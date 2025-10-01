@@ -88,7 +88,12 @@ const userValidationSchema = Joi.object({
   first_name: Joi.string().min(2).max(50).required(),
   last_name: Joi.string().min(2).max(50).required(),
   employment_type: Joi.string().valid('volunteer', 'contract'),
-  role: Joi.string().valid('Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor'),
+  roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1).required().messages({
+    'array.base': 'يجب أن تكون الأدوار مصفوفة',
+    'array.min': 'يجب تحديد دور واحد على الأقل',
+    'any.required': 'حقل الأدوار مطلوب',
+    'any.only': 'يحتوي على أدوار غير صالحة'
+  }),
   date_of_birth: Joi.date().iso().allow(null, ''),
   national_id: Joi.string()
     .pattern(/^\d{8}$/)
@@ -119,6 +124,7 @@ const userValidationSchema = Joi.object({
 const userUpdateValidationSchema = userValidationSchema.keys({
   password: Joi.string().min(6).allow(null, ''),
   status: Joi.string().valid('active', 'inactive').required(),
+  roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1).optional(),
 });
 
 const passwordUpdateValidationSchema = Joi.object({

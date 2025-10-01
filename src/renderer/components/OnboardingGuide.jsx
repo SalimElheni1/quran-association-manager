@@ -189,13 +189,19 @@ function OnboardingGuide() {
 
         // If sidebar not found or resulted in only overview, build default order respecting role
         if (steps.length === 1) {
-          const role = user?.role || 'Guest';
-          const defaultOrder = [1, 2, 3, 4, 5];
-          if (['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(role))
+          const roles = user?.roles || [];
+          const defaultOrder = [1, 2, 3, 4, 5]; // Default for all users
+          // Add financials if user has relevant roles
+          if (roles.some((role) => ['Superadmin', 'Administrator', 'FinanceManager'].includes(role))) {
             defaultOrder.push(6);
-          defaultOrder.push(10);
-          if (role === 'Superadmin') defaultOrder.push(7, 9);
-          defaultOrder.push(8, 11);
+          }
+          defaultOrder.push(10); // Exports for everyone
+          // Add admin-only sections
+          if (roles.includes('Superadmin')) {
+            defaultOrder.push(7, 9); // Users, Settings
+          }
+          defaultOrder.push(8, 11); // Profile, About for everyone
+
           defaultOrder.forEach((s) => {
             if (!steps.includes(s) && onboardingContent[s]) steps.push(s);
           });

@@ -14,13 +14,6 @@ const schema = `
     employment_type TEXT CHECK(employment_type IN ('volunteer', 'contract')),
     start_date DATE,
     end_date DATE,
-    role TEXT NOT NULL CHECK(role IN (
-      'Superadmin',
-      'Manager',
-      'FinanceManager',
-      'Admin',
-      'SessionSupervisor'
-    )),
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
     notes TEXT,
     need_guide INTEGER DEFAULT 1,
@@ -28,6 +21,19 @@ const schema = `
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     branch_id INTEGER,
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS roles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS user_roles (
+    user_id INTEGER NOT NULL,
+    role_id INTEGER NOT NULL,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS migrations (
