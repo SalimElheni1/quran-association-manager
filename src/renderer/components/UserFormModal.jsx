@@ -23,7 +23,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
       employment_type: 'volunteer',
       start_date: '',
       end_date: '',
-      role: 'Admin',
+      roles: ['Administrator'], // Default role
       status: 'active',
       notes: '',
     };
@@ -39,7 +39,8 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
       setFormData({
         ...initialData,
         ...user,
-        password: '',
+        roles: user.roles || [], // Ensure roles is an array
+        password: '', // Clear password on edit
         date_of_birth: dob,
         start_date: start,
         end_date: end,
@@ -50,15 +51,26 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   }, [user, show]);
 
   const roleOptions = {
-    Manager: 'الهيئة المديرة',
-    FinanceManager: 'الهيئة المديرة - المالية',
-    Admin: 'إداري',
+    Superadmin: 'مدير النظام',
+    Administrator: 'إداري',
+    FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRoleChange = (e) => {
+    const { value, checked } = e.target;
+    setFormData((prev) => {
+      const currentRoles = prev.roles || [];
+      if (checked) {
+        return { ...prev, roles: [...currentRoles, value] };
+      }
+      return { ...prev, roles: currentRoles.filter((role) => role !== value) };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -234,14 +246,20 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الدور في النظام</Form.Label>
-              <Form.Select name="role" value={formData.role || 'Admin'} onChange={handleChange}>
+              <Form.Label>الأدوار في النظام</Form.Label>
+              <div>
                 {Object.entries(roleOptions).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
+                  <Form.Check
+                    key={key}
+                    type="checkbox"
+                    id={`role-${key}`}
+                    label={label}
+                    value={key}
+                    checked={formData.roles?.includes(key)}
+                    onChange={handleRoleChange}
+                  />
                 ))}
-              </Form.Select>
+              </div>
             </Form.Group>
             {isEditMode && (
               <Form.Group as={Col} md="6" className="mb-3">

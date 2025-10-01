@@ -81,7 +81,12 @@ async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
   }
-  const fieldSelection = fields.join(', ');
+
+  let finalFields = [...fields];
+  if (type === 'students' && options.gender && !finalFields.includes('date_of_birth')) {
+    finalFields.push('date_of_birth');
+  }
+  const fieldSelection = finalFields.join(', ');
   let query = '';
   let params = [];
   let whereClauses = ['1=1'];
@@ -140,9 +145,34 @@ async function fetchExportData({ type, fields, options = {} }) {
       query += ' ORDER BY name';
       return allQuery(query, params);
     }
-    case 'admins':
-      query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
-      return allQuery(query, params);
+    case 'admins': {
+      // Note: fieldSelection comes from the client and might contain 'role', which no longer exists.
+      // We will filter out 'role' and manually add the new 'roles' field.
+      const finalFields = fields.filter((f) => f !== 'role').map((f) => `u.${f}`).join(', ');
+
+      query = `
+        SELECT
+          ${finalFields},
+          (SELECT GROUP_CONCAT(r_inner.name)
+           FROM user_roles ur_inner
+           JOIN roles r_inner ON ur_inner.role_id = r_inner.id
+           WHERE ur_inner.user_id = u.id) as roles
+        FROM users u
+        WHERE EXISTS (
+          SELECT 1
+          FROM user_roles ur
+          JOIN roles r ON ur.role_id = r.id
+          WHERE ur.user_id = u.id AND r.name IN ('Administrator', 'Superadmin')
+        )
+        ORDER BY u.username
+      `;
+      const users = await allQuery(query, params);
+      // For compatibility with templates that expect a 'role' key, we map the 'roles' array string to it.
+      return users.map((user) => ({
+        ...user,
+        role: user.roles,
+      }));
+    }
     case 'attendance': {
       const attendanceFieldMap = {
         student_name: 's.name as student_name',
@@ -822,27 +852,27 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'نوع التوظيف', key: 'employment_type', width: 15 },
         { header: 'تاريخ البدء', key: 'start_date', width: 15 },
         { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
-        { header: 'الدور', key: 'role', width: 20 },
+        { header: 'الأدوار', key: 'roles', width: 25 },
         { header: 'الحالة', key: 'status', width: 15 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
       ],
       dummyData: [
         {
-          username: 'manager_user',
+          username: 'admin_user',
           first_name: 'أحمد',
           last_name: 'محمود',
-          role: 'Manager',
+          roles: 'Administrator',
           employment_type: 'contract',
-          email: 'manager@example.com',
+          email: 'admin@example.com',
           national_id: '303030303',
         },
         {
-          username: 'admin_user',
+          username: 'finance_user',
           first_name: 'نورة',
           last_name: 'سالم',
-          role: 'Admin',
+          roles: 'Administrator,FinanceManager',
           employment_type: 'volunteer',
-          email: 'admin@example.com',
+          email: 'finance@example.com',
           national_id: '404040404',
         },
       ],

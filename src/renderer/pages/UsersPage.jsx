@@ -74,9 +74,9 @@ function UsersPage() {
   };
 
   const roleTranslations = {
-    Manager: 'الهيئة المديرة',
-    FinanceManager: 'الهيئة المديرة - المالية',
-    Admin: 'إداري',
+    Superadmin: 'مدير النظام',
+    Administrator: 'إداري',
+    FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };
 
@@ -107,7 +107,7 @@ function UsersPage() {
               <th>الرقم التعريفي</th>
               <th>الاسم الكامل</th>
               <th>اسم المستخدم</th>
-              <th>الدور</th>
+              <th>الأدوار</th>
               <th>الحالة</th>
               <th>إجراءات</th>
             </tr>
@@ -121,7 +121,11 @@ function UsersPage() {
                   <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
                   <td>{user.username}</td>
                   <td>
-                    <Badge bg="info">{roleTranslations[user.role] || user.role}</Badge>
+                    {user.roles?.map((role) => (
+                      <Badge key={role} bg="info" className="ms-1">
+                        {roleTranslations[role] || role}
+                      </Badge>
+                    ))}
                   </td>
                   <td>
                     <Badge bg={statusVariants[user.status]}>
@@ -148,7 +152,7 @@ function UsersPage() {
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center">
+                <td colSpan="7" className="text-center">
                   لم يتم العثور على مستخدمين.
                 </td>
               </tr>

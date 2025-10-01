@@ -160,7 +160,7 @@ async function replaceDatabase(importedDbPath, password) {
 const REQUIRED_COLUMNS = {
   الطلاب: ['الاسم واللقب'],
   المعلمون: ['الاسم واللقب'],
-  المستخدمون: ['اسم المستخدم', 'الاسم الأول', 'اللقب', 'الدور', 'نوع التوظيف'],
+  المستخدمون: ['اسم المستخدم', 'الاسم الأول', 'اللقب', 'الأدوار', 'نوع التوظيف'],
   الفصول: ['اسم الفصل', 'معرف المعلم'],
   'الرسوم الدراسية': ['الرقم التعريفي للطالب', 'المبلغ', 'تاريخ الدفع'],
   الرواتب: ['الرقم التعريفي للموظف', 'المبلغ', 'تاريخ الدفع'],
@@ -385,68 +385,96 @@ async function processTeacherRow(row, headerRow) {
 
 async function processUserRow(row, headerRow) {
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+  const rolesRaw = row.getCell(getColumnIndex(headerRow, 'الأدوار'))?.value;
+  const roles = rolesRaw ? String(rolesRaw).split(',').map(r => r.trim()).filter(Boolean) : [];
 
   const data = {
     username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
     first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
     last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-    role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
     employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
   };
 
-  if (
-    !data.username ||
-    !data.first_name ||
-    !data.last_name ||
-    !data.role ||
-    !data.employment_type
-  ) {
+  if (!data.username || !data.first_name || !data.last_name || roles.length === 0 || !data.employment_type) {
     return {
       success: false,
-      message: 'اسم المستخدم، الاسم الأول، اللقب، الدور، ونوع التوظيف هي حقول مطلوبة.',
+      message: 'اسم المستخدم، الاسم الأول، اللقب، الأدوار، ونوع التوظيف هي حقول مطلوبة.',
     };
   }
 
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
+  // Validate roles against the database
+  const allDbRoles = await allQuery('SELECT name FROM roles');
+  const validRoleNames = allDbRoles.map(r => r.name);
+  const invalidRoles = roles.filter(r => !validRoleNames.includes(r));
+  if (invalidRoles.length > 0) {
+    return { success: false, message: `الأدوار التالية غير صالحة: ${invalidRoles.join(', ')}` };
+  }
 
-  if (matricule) {
-    // Update existing record
-    const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
-    if (!existingUser) {
-      return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
+  try {
+    await runQuery('BEGIN TRANSACTION;');
+
+    if (matricule) {
+      // Update existing record
+      const user = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
+      if (!user) {
+        throw new Error(`المستخدم بالرقم التعريفي "${matricule}" غير موجود.`);
+      }
+      const userId = user.id;
+
+      const fieldsToUpdate = Object.keys(data).filter(k => data[k] !== null && data[k] !== undefined);
+      if (fieldsToUpdate.length > 0) {
+        const setClauses = fieldsToUpdate.map(field => `${field} = ?`).join(', ');
+        const values = [...fieldsToUpdate.map(k => data[k]), userId];
+        await runQuery(`UPDATE users SET ${setClauses} WHERE id = ?`, values);
+      }
+
+      // Synchronize roles
+      await runQuery('DELETE FROM user_roles WHERE user_id = ?', [userId]);
+      const roleIds = await allQuery(`SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`, roles);
+      const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+      for (const role of roleIds) {
+        await runQuery(userRolesSql, [userId, role.id]);
+      }
+    } else {
+      // Insert new record
+      const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
+      if (existingUser) {
+        throw new Error(`المستخدم "${data.username}" موجود بالفعل.`);
+      }
+
+      const password = Math.random().toString(36).slice(-8);
+      const newMatricule = await generateMatricule('user');
+      const allData = {
+        ...data,
+        matricule: newMatricule,
+        password: bcrypt.hashSync(password, 10),
+      };
+
+      const fields = Object.keys(allData).filter(k => allData[k] !== null && allData[k] !== undefined);
+      const placeholders = fields.map(() => '?').join(', ');
+      const values = fields.map(k => allData[k]);
+
+      const result = await runQuery(`INSERT INTO users (${fields.join(', ')}) VALUES (${placeholders})`, values);
+      const userId = result.id;
+
+      // Assign roles
+      const roleIds = await allQuery(`SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`, roles);
+      const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+      for (const role of roleIds) {
+        await runQuery(userRolesSql, [userId, role.id]);
+      }
+
+      await runQuery('COMMIT;');
+      return { success: true, newUser: { username: data.username, password } };
     }
 
-    if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
-    }
-
-    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-    const values = [...fields.map((k) => data[k]), matricule];
-    await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
+    await runQuery('COMMIT;');
     return { success: true };
+
+  } catch (error) {
+    await runQuery('ROLLBACK;');
+    return { success: false, message: error.message };
   }
-  // Insert new record
-  const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
-  if (existingUser) {
-    return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
-  }
-
-  const password = Math.random().toString(36).slice(-8);
-  const newMatricule = await generateMatricule('user');
-  const allData = {
-    ...data,
-    matricule: newMatricule,
-    password: bcrypt.hashSync(password, 10),
-  };
-
-  const allFields = Object.keys(allData).filter(
-    (k) => allData[k] !== null && allData[k] !== undefined,
-  );
-  const placeholders = allFields.map(() => '?').join(', ');
-  const values = allFields.map((k) => allData[k]);
-
-  await runQuery(`INSERT INTO users (${allFields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true, newUser: { username: data.username, password } };
 }
 
 async function processClassRow(row, headerRow) {

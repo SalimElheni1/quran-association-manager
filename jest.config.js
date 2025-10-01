@@ -15,7 +15,6 @@ module.exports = {
         '../db/db': '<rootDir>/tests/mocks/db.js',
         exceljs: '<rootDir>/tests/mocks/exceljs.js',
         '^fs$': '<rootDir>/tests/mocks/fs.js',
-        '^joi$': '<rootDir>/tests/mocks/joi.js',
       },
     },
     {

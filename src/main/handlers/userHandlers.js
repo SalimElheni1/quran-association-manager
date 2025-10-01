@@ -20,7 +20,7 @@ const userFields = [
   'employment_type',
   'start_date',
   'end_date',
-  'role',
+  // 'role' is deprecated and managed in user_roles table
   'status',
   'notes',
   'need_guide',
@@ -29,78 +29,182 @@ const userFields = [
 
 function registerUserHandlers() {
   ipcMain.handle('users:get', async (_event, filters) => {
-    // include onboarding columns so admins can see/modify guide status in the users table if needed
-    let sql =
-      'SELECT id, matricule, username, first_name, last_name, email, role, status, need_guide, current_step FROM users WHERE 1=1';
+    let sql = `
+      SELECT
+        u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step,
+        GROUP_CONCAT(r.name) as roles
+      FROM users u
+      LEFT JOIN user_roles ur ON u.id = ur.user_id
+      LEFT JOIN roles r ON ur.role_id = r.id
+      WHERE 1=1
+    `;
     const params = [];
     if (filters?.searchTerm) {
-      sql += ' AND (username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR matricule LIKE ?)';
+      sql += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.matricule LIKE ?)';
       const searchTerm = `%${filters.searchTerm}%`;
       params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
-    if (filters?.roleFilter && filters.roleFilter !== 'all') {
-      sql += ' AND role = ?';
-      params.push(filters.roleFilter);
-    }
     if (filters?.statusFilter && filters.statusFilter !== 'all') {
-      sql += ' AND status = ?';
+      sql += ' AND u.status = ?';
       params.push(filters.statusFilter);
     }
-    sql += ' ORDER BY username ASC';
-    return db.allQuery(sql, params);
+
+    if (filters?.roleFilter && filters.roleFilter !== 'all') {
+      sql += `
+        AND u.id IN (
+          SELECT ur.user_id FROM user_roles ur
+          JOIN roles r ON ur.role_id = r.id
+          WHERE r.name = ?
+        )
+      `;
+      params.push(filters.roleFilter);
+    }
+
+    sql += ' GROUP BY u.id ORDER BY u.username ASC';
+    const users = await db.allQuery(sql, params);
+
+    return users.map((user) => ({
+      ...user,
+      roles: user.roles ? user.roles.split(',') : [],
+    }));
   });
 
-  ipcMain.handle('users:getById', (_event, id) => {
-    return db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
+  ipcMain.handle('users:getById', async (_event, id) => {
+    const userQuery = `
+      SELECT
+        u.*,
+        GROUP_CONCAT(r.name) as roles
+      FROM users u
+      LEFT JOIN user_roles ur ON u.id = ur.user_id
+      LEFT JOIN roles r ON ur.role_id = r.id
+      WHERE u.id = ?
+      GROUP BY u.id
+    `;
+    const user = await db.getQuery(userQuery, [id]);
+    if (user) {
+      user.roles = user.roles ? user.roles.split(',') : [];
+    }
+    return user;
   });
 
   ipcMain.handle('users:add', async (_event, userData) => {
+    // The roles are expected to be an array of role names, e.g., ['Administrator', 'FinanceManager']
+    const { roles, ...restOfUserData } = userData;
+
     try {
+      await db.runQuery('BEGIN TRANSACTION;');
+
       const matricule = await generateMatricule('user');
-      const dataWithMatricule = { ...userData, matricule };
+      const dataWithMatricule = { ...restOfUserData, matricule };
 
       const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
         abortEarly: false,
-        stripUnknown: false,
+        stripUnknown: true, // Use stripUnknown to remove fields not in schema
       });
+
       if (validatedData.password) {
         validatedData.password = bcrypt.hashSync(validatedData.password, 10);
       }
+
       const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
-      if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+      if (fieldsToInsert.length === 0) throw new Error('No valid user fields to insert.');
+
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
       const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
       const sql = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-      return db.runQuery(sql, params);
+
+      const result = await db.runQuery(sql, params);
+      const userId = result.id;
+
+      if (roles && roles.length > 0) {
+        // Get role IDs from role names
+        const roleIds = await db.allQuery(
+          `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
+          roles,
+        );
+
+        if (roleIds.length !== roles.length) {
+          await db.runQuery('ROLLBACK;');
+          throw new Error('One or more roles are invalid.');
+        }
+
+        const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+        for (const role of roleIds) {
+          await db.runQuery(userRolesSql, [userId, role.id]);
+        }
+      }
+
+      await db.runQuery('COMMIT;');
+      return { success: true, id: userId };
     } catch (error) {
-      if (error.isJoi)
+      await db.runQuery('ROLLBACK;');
+      if (error.isJoi) {
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      }
       logError('Error in users:add handler:', error);
-      throw new Error('حدث خطأ غير متوقع في الخادم.');
+      throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
     }
   });
 
   ipcMain.handle('users:update', async (_event, { id, userData }) => {
+    const { roles, ...restOfUserData } = userData;
+
     try {
-      const validatedData = await userUpdateValidationSchema.validateAsync(userData, {
+      await db.runQuery('BEGIN TRANSACTION;');
+
+      const validatedData = await userUpdateValidationSchema.validateAsync(restOfUserData, {
         abortEarly: false,
-        stripUnknown: false,
+        stripUnknown: true,
       });
+
       if (validatedData.password) {
         validatedData.password = bcrypt.hashSync(validatedData.password, 10);
       }
+
       const fieldsToUpdate = userFields.filter(
         (field) => field !== 'matricule' && validatedData[field] !== undefined,
       );
-      const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
-      const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
-      const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
-      return db.runQuery(sql, params);
+
+      if (fieldsToUpdate.length > 0) {
+        const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+        const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+        const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
+        await db.runQuery(sql, params);
+      }
+
+      // Synchronize roles
+      if (roles) {
+        // 1. Delete existing roles for the user
+        await db.runQuery('DELETE FROM user_roles WHERE user_id = ?', [id]);
+
+        // 2. Insert new roles if any
+        if (roles.length > 0) {
+          const roleIds = await db.allQuery(
+            `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
+            roles,
+          );
+
+          if (roleIds.length !== roles.length) {
+            await db.runQuery('ROLLBACK;');
+            throw new Error('One or more roles are invalid.');
+          }
+
+          const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+          for (const role of roleIds) {
+            await db.runQuery(userRolesSql, [id, role.id]);
+          }
+        }
+      }
+
+      await db.runQuery('COMMIT;');
+      return { success: true };
     } catch (error) {
-      if (error.isJoi)
+      await db.runQuery('ROLLBACK;');
+      if (error.isJoi) {
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      }
       logError('Error in users:update handler:', error);
-      throw new Error('حدث خطأ غير متوقع في الخادم.');
+      throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
     }
   });
 

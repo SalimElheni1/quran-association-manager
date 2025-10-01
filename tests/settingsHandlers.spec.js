@@ -7,15 +7,12 @@ jest.mock('fs');
 jest.mock('../src/main/backupManager');
 jest.mock('../src/main/logger');
 
-// Note: 'joi' is automatically mocked by the jest.config.js moduleNameMapper
-
 const {
   registerSettingsHandlers,
   internalGetSettingsHandler,
   internalUpdateSettingsHandler,
 } = require('../src/main/handlers/settingsHandlers');
 const { ipcMain, app, dialog } = require('electron');
-const Joi = require('joi');
 const db = require('../src/db/db');
 const fs = require('fs');
 const path = require('path'); // Use the real path module
@@ -25,6 +22,21 @@ const { log, error: logError } = require('../src/main/logger');
 describe('settingsHandlers', () => {
   let handlers = {};
   let mockRefreshSettings;
+
+  const getValidSettings = () => ({
+    national_association_name: 'Test Association',
+    regional_association_name: 'Test Region',
+    local_branch_name: 'Test Branch',
+    national_logo_path: 'path/to/logo.png',
+    regional_local_logo_path: 'path/to/logo2.png',
+    backup_path: '/backup/path',
+    backup_enabled: true,
+    backup_frequency: 'daily',
+    president_full_name: 'Test President',
+    backup_reminder_enabled: true,
+    backup_reminder_frequency_days: 7,
+    adultAgeThreshold: 18,
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -73,11 +85,7 @@ describe('settingsHandlers', () => {
 
   describe('internalUpdateSettingsHandler', () => {
     it('should update settings successfully', async () => {
-      const settingsData = {
-        national_association_name: 'Updated National',
-        adultAgeThreshold: 20,
-      };
-      Joi.object().validateAsync.mockResolvedValue(settingsData);
+      const settingsData = getValidSettings();
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result = await internalUpdateSettingsHandler(settingsData);
@@ -89,21 +97,19 @@ describe('settingsHandlers', () => {
 
     it('should rollback on database error', async () => {
       const dbError = new Error('Database error');
-      Joi.object().validateAsync.mockResolvedValue({ name: 'test' });
+      const validSettings = getValidSettings();
       db.runQuery.mockResolvedValueOnce() // BEGIN
                  .mockRejectedValueOnce(dbError); // First UPDATE fails
 
-      await expect(internalUpdateSettingsHandler({ name: 'test' })).rejects.toThrow('فشل تحديث الإعدادات.');
+      await expect(internalUpdateSettingsHandler(validSettings)).rejects.toThrow('فشل تحديث الإعدادات.');
 
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
       expect(logError).toHaveBeenCalledWith('Failed to update settings:', dbError);
     });
 
-    it('should re-throw validation errors', async () => {
-      const validationError = new Error('Validation failed');
-      Joi.object().validateAsync.mockRejectedValue(validationError);
-
-      await expect(internalUpdateSettingsHandler({})).rejects.toThrow(validationError);
+    it('should throw validation errors', async () => {
+        const invalidSettings = { ...getValidSettings(), adultAgeThreshold: 10 }; // Below minimum of 12
+        await expect(internalUpdateSettingsHandler(invalidSettings)).rejects.toThrow('"adultAgeThreshold" must be greater than or equal to 12');
     });
   });
 
@@ -120,21 +126,15 @@ describe('settingsHandlers', () => {
 
   describe('settings:update', () => {
     it('should update settings and restart backup scheduler', async () => {
-      const settingsData = { backup_enabled: true };
-      const mockNewSettings = { backup_enabled: true, backup_frequency: 'daily' };
+      const settingsData = getValidSettings();
 
-      // Mock the dependencies of the entire flow
-      Joi.object().validateAsync.mockResolvedValue(settingsData);
       db.runQuery.mockResolvedValue({ changes: 1 }); // for the update
-      db.allQuery.mockResolvedValue([ // for the get settings call after update
-        { key: 'backup_enabled', value: 'true' },
-        { key: 'backup_frequency', value: 'daily' },
-      ]);
+      db.allQuery.mockResolvedValue(Object.entries(settingsData).map(([k,v]) => ({key: k, value: v})));
 
       await handlers['settings:update'](null, settingsData);
 
       expect(log).toHaveBeenCalledWith('Settings updated, restarting backup scheduler...');
-      expect(backupManager.startScheduler).toHaveBeenCalledWith(expect.objectContaining(mockNewSettings));
+      expect(backupManager.startScheduler).toHaveBeenCalledWith(expect.objectContaining(settingsData));
       expect(mockRefreshSettings).toHaveBeenCalled();
     });
   });
@@ -148,7 +148,6 @@ describe('settingsHandlers', () => {
 
         dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockTempPath] });
         app.getPath.mockReturnValue(mockUserDataPath);
-        // Make existsSync specific: return false only for the directory we want to create
         fs.existsSync.mockImplementation(p => p !== mockDestDir);
 
         await handlers['settings:uploadLogo']();
@@ -161,7 +160,6 @@ describe('settingsHandlers', () => {
         dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/logo.png'] });
         app.getPath.mockReturnValue('/user/data');
         fs.existsSync.mockReturnValue(true);
-        // Spy on path.basename for this test since we are using the real path module
         const basenameSpy = jest.spyOn(path, 'basename').mockReturnValue('logo.png');
 
         const result = await handlers['settings:uploadLogo']();
