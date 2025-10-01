@@ -22,6 +22,8 @@ import TimesIcon from '@renderer/components/icons/TimesIcon';
 import CheckIcon from '@renderer/components/icons/CheckIcon';
 import MagicIcon from '@renderer/components/icons/MagicIcon';
 import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 
 const ExportTabPanel = ({ exportType, fields, kidFields = [], isAttendance = false }) => {
   const [genderFilter, setGenderFilter] = useState('all');
@@ -682,7 +684,20 @@ const renderYearOptions = () => {
 };
 
 const ExportsPage = () => {
-  const [activeTab, setActiveTab] = useState('students');
+  const { hasPermission } = usePermissions();
+  
+  // Set default tab based on permissions
+  const getDefaultTab = () => {
+    if (hasPermission(PERMISSIONS.STUDENTS_VIEW)) return 'students';
+    if (hasPermission(PERMISSIONS.TEACHERS_VIEW)) return 'teachers';
+    if (hasPermission(PERMISSIONS.ATTENDANCE_VIEW)) return 'attendance';
+    if (hasPermission(PERMISSIONS.FINANCIALS_VIEW)) return 'financials';
+    if (hasPermission(PERMISSIONS.USERS_VIEW)) return 'admins';
+    if (hasPermission(PERMISSIONS.USERS_CREATE)) return 'import';
+    return 'students'; // fallback
+  };
+  
+  const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // State for financial export filters
@@ -741,29 +756,29 @@ const ExportsPage = () => {
   const renderActivePanel = () => {
     switch (activeTab) {
       case 'import':
-        return <ImportTabPanel />;
+        return hasPermission(PERMISSIONS.USERS_CREATE) ? <ImportTabPanel /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لاستيراد البيانات.</Alert>;
       case 'students':
-        return (
+        return hasPermission(PERMISSIONS.STUDENTS_VIEW) ? (
           <ExportTabPanel
             exportType="students"
             fields={arabicFieldDefinitions.students}
             kidFields={arabicFieldDefinitions.studentsKids}
           />
-        );
+        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات الطلاب.</Alert>;
       case 'teachers':
-        return <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} />;
+        return hasPermission(PERMISSIONS.TEACHERS_VIEW) ? <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المعلمين.</Alert>;
       case 'admins':
-        return <ExportTabPanel exportType="admins" fields={arabicFieldDefinitions.admins} />;
+        return hasPermission(PERMISSIONS.USERS_VIEW) ? <ExportTabPanel exportType="admins" fields={arabicFieldDefinitions.admins} /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المستخدمين.</Alert>;
       case 'attendance':
-        return (
+        return hasPermission(PERMISSIONS.ATTENDANCE_VIEW) ? (
           <ExportTabPanel
             exportType="attendance"
             fields={arabicFieldDefinitions.attendance}
             isAttendance={true}
           />
-        );
+        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير سجل الحضور.</Alert>;
       case 'financials':
-        return (
+        return hasPermission(PERMISSIONS.FINANCIALS_VIEW) ? (
           <Card className="mt-3">
             <Card.Body>
               <Card.Title>تصدير تقرير مالي شامل</Card.Title>
@@ -867,9 +882,9 @@ const ExportsPage = () => {
               </div>
             </Card.Body>
           </Card>
-        );
+        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير التقارير المالية.</Alert>;
       default:
-        return null;
+        return <Alert variant="info">اختر قسماً من الأعلى لبدء التصدير.</Alert>;
     }
   };
 
@@ -883,24 +898,36 @@ const ExportsPage = () => {
       </p>
 
       <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
-        <Nav.Item>
-          <Nav.Link eventKey="import">استيراد البيانات</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="students">تصدير بيانات الطلاب</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="teachers">تصدير بيانات المعلمين</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="admins">تصدير بيانات المستخدمين</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="attendance">تصدير سجل الحضور</Nav.Link>
-        </Nav.Item>
-        <Nav.Item>
-          <Nav.Link eventKey="financials">تصدير التقارير المالية</Nav.Link>
-        </Nav.Item>
+        {hasPermission(PERMISSIONS.USERS_CREATE) && (
+          <Nav.Item>
+            <Nav.Link eventKey="import">استيراد البيانات</Nav.Link>
+          </Nav.Item>
+        )}
+        {hasPermission(PERMISSIONS.STUDENTS_VIEW) && (
+          <Nav.Item>
+            <Nav.Link eventKey="students">تصدير بيانات الطلاب</Nav.Link>
+          </Nav.Item>
+        )}
+        {hasPermission(PERMISSIONS.TEACHERS_VIEW) && (
+          <Nav.Item>
+            <Nav.Link eventKey="teachers">تصدير بيانات المعلمين</Nav.Link>
+          </Nav.Item>
+        )}
+        {hasPermission(PERMISSIONS.USERS_VIEW) && (
+          <Nav.Item>
+            <Nav.Link eventKey="admins">تصدير بيانات المستخدمين</Nav.Link>
+          </Nav.Item>
+        )}
+        {hasPermission(PERMISSIONS.ATTENDANCE_VIEW) && (
+          <Nav.Item>
+            <Nav.Link eventKey="attendance">تصدير سجل الحضور</Nav.Link>
+          </Nav.Item>
+        )}
+        {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
+          <Nav.Item>
+            <Nav.Link eventKey="financials">تصدير التقارير المالية</Nav.Link>
+          </Nav.Item>
+        )}
       </Nav>
 
       <div className="content-panel">{renderActivePanel()}</div>

@@ -91,18 +91,37 @@ function getDatabasePath() {
  */
 async function seedSuperadmin() {
   try {
-    const existingAdmin = await getQuery('SELECT id FROM users WHERE role = ?', ['Superadmin']);
+    // First check if there's a user with Superadmin role
+    const existingAdmin = await getQuery(`
+      SELECT u.id FROM users u
+      JOIN user_roles ur ON u.id = ur.user_id
+      JOIN roles r ON ur.role_id = r.id
+      WHERE r.name = 'Superadmin'
+    `);
 
     if (!existingAdmin) {
-      log('No superadmin found. Seeding default superadmin...');
+      // Check if there's a superadmin user without roles (from old system)
+      const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', ['superadmin']);
+      
+      if (existingUser) {
+        log('Found existing superadmin user without roles. Assigning Superadmin role...');
+        const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
+        if (roleResult) {
+          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [existingUser.id, roleResult.id]);
+          log('Superadmin role assigned to existing user.');
+        }
+        return null;
+      }
 
-      const tempPassword = '123456'; // TODO: Use crypto.randomBytes(8).toString('hex') for production
+      // Create new superadmin if none exists
+      log('No superadmin found. Seeding default superadmin...');
+      const tempPassword = '123456';
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
       const username = 'superadmin';
 
       const insertSql = `
-        INSERT INTO users (username, password, role, first_name, last_name, email)
-        VALUES (?, ?, 'Superadmin', ?, ?, ?)
+        INSERT INTO users (username, password, first_name, last_name, email)
+        VALUES (?, ?, ?, ?, ?)
       `;
 
       const result = await runQuery(insertSql, [
@@ -113,21 +132,23 @@ async function seedSuperadmin() {
         'superadmin@example.com',
       ]);
 
-      // Generate and assign matricule number
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
+        
+        const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
+        if (roleResult) {
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, roleResult.id]);
+        }
       }
 
       log(`Superadmin created successfully: ${username}`);
-      // Return the credentials so they can be displayed to the user
       return { username, password: tempPassword };
     }
-    // If admin already exists, do nothing and return null
     return null;
   } catch (error) {
     logError('Failed to seed superadmin:', error);
-    throw error; // Re-throw the error to be handled by the caller
+    throw error;
   }
 }
 

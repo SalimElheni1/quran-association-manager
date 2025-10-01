@@ -17,6 +17,7 @@ const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../matriculeService');
 const { error: logError } = require('../logger');
+const { requireRoles } = require('../authMiddleware');
 
 /**
  * Calculates age from date of birth string.
@@ -100,7 +101,7 @@ function registerStudentHandlers() {
    * @returns {Promise<Array>} Array of student objects with basic information
    * @throws {Error} If database query fails
    */
-  ipcMain.handle('students:get', async (_event, filters) => {
+  ipcMain.handle('students:get', requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(async (_event, filters) => {
     try {
       // Apply fast SQL filters (search and gender)
       let sql =
@@ -141,7 +142,7 @@ function registerStudentHandlers() {
       logError('Error in students:get handler:', error);
       throw new Error('فشل في جلب بيانات الطلاب.');
     }
-  });
+  }));
 
   /**
    * Retrieves a specific student by their ID.
@@ -176,7 +177,7 @@ function registerStudentHandlers() {
    * @returns {Promise<Object>} Database result with new student ID
    * @throws {Error} If validation fails or database operation fails
    */
-  ipcMain.handle('students:add', async (_event, studentData) => {
+  ipcMain.handle('students:add', requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
     const { groupIds, ...restOfStudentData } = studentData;
     try {
       await db.runQuery('BEGIN TRANSACTION;');
@@ -215,9 +216,9 @@ function registerStudentHandlers() {
       logError('Error in students:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
-  });
+  }));
 
-  ipcMain.handle('students:update', async (_event, id, studentData) => {
+  ipcMain.handle('students:update', requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
     const { groupIds, ...restOfStudentData } = studentData;
     try {
       await db.runQuery('BEGIN TRANSACTION;');
@@ -259,9 +260,9 @@ function registerStudentHandlers() {
       logError('Error in students:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
-  });
+  }));
 
-  ipcMain.handle('students:delete', async (_event, id) => {
+  ipcMain.handle('students:delete', requireRoles(['Superadmin', 'Administrator'])(async (_event, id) => {
     try {
       if (!id || typeof id !== 'number')
         throw new Error('A valid student ID is required for deletion.');
@@ -271,7 +272,7 @@ function registerStudentHandlers() {
       logError(`Error deleting student ${id}:`, error);
       throw new Error('فشل حذف الطالب.');
     }
-  });
+  }));
 }
 
 module.exports = { registerStudentHandlers };

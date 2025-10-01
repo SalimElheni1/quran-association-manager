@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
-import Select from 'react-select';
 import { toast } from 'react-toastify';
 
 function StudentFormModal({ show, handleClose, onSave, student }) {
@@ -169,17 +168,23 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           <Row>
             <Form.Group as={Col} className="mb-3" controlId="formStudentGroups">
               <Form.Label>المجموعات</Form.Label>
-              <Select
-                isMulti
+              <Form.Select
+                multiple
                 name="groups"
-                options={allGroups}
-                className="basic-multi-select"
-                classNamePrefix="select"
-                placeholder="اختر المجموعات..."
-                value={selectedGroups}
-                onChange={(selectedOptions) => setSelectedGroups(selectedOptions || [])}
-                noOptionsMessage={() => 'لا توجد مجموعات متاحة'}
-              />
+                value={selectedGroups.map(g => g.value)}
+                onChange={(e) => {
+                  const values = Array.from(e.target.selectedOptions, option => option.value);
+                  const selected = allGroups.filter(g => values.includes(g.value.toString()));
+                  setSelectedGroups(selected);
+                }}
+              >
+                {allGroups.map(group => (
+                  <option key={group.value} value={group.value}>
+                    {group.label}
+                  </option>
+                ))}
+              </Form.Select>
+              <Form.Text className="text-muted">اضغط Ctrl للاختيار المتعدد</Form.Text>
             </Form.Group>
           </Row>
           <Row>
