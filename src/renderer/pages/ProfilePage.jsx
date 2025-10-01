@@ -12,6 +12,13 @@ const ProfilePage = () => {
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
   const [error, setError] = useState('');
 
+  const roleTranslations = {
+    Superadmin: 'مدير النظام',
+    Administrator: 'إداري',
+    FinanceManager: 'مسؤول مالي',
+    SessionSupervisor: 'مشرف حصص',
+  };
+
   // State for password change
   const [passwordData, setPasswordData] = useState({
     current_password: '',
@@ -157,11 +164,11 @@ const ProfilePage = () => {
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
-                          <Form.Label>الدور</Form.Label>
+                          <Form.Label>الأدوار</Form.Label>
                           <Form.Control
                             type="text"
-                            name="role"
-                            value={profile.role || ''}
+                            name="roles"
+                            value={profile.roles?.map(role => roleTranslations[role] || role).join(', ') || ''}
                             readOnly
                           />
                         </Form.Group>

@@ -43,24 +43,20 @@ const getUserIdFromToken = (token) => {
 
 const getProfileHandler = async (token) => {
   const userId = getUserIdFromToken(token);
-  const userQuery = `
-    SELECT
-      u.id, u.username, u.first_name, u.last_name, u.date_of_birth, u.national_id, u.email, u.phone_number, u.occupation, u.civil_status, u.employment_type, u.start_date, u.end_date, u.status, u.notes, u.branch_id, u.need_guide, u.current_step,
-      GROUP_CONCAT(r.name) as roles
-    FROM users u
-    LEFT JOIN user_roles ur ON u.id = ur.user_id
-    LEFT JOIN roles r ON ur.role_id = r.id
-    WHERE u.id = ?
-    GROUP BY u.id
-  `;
-  const userProfile = await db.getQuery(userQuery, [userId]);
+  const userProfile = await db.getQuery(
+    'SELECT id, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, status, notes, branch_id, need_guide, current_step FROM users WHERE id = ?',
+    [userId],
+  );
 
   if (!userProfile) {
     throw new Error('User profile not found.');
   }
-  // userProfile.roles will be a comma-separated string, e.g., "Administrator,FinanceManager"
-  // or null if the user has no roles.
-  userProfile.roles = userProfile.roles ? userProfile.roles.split(',') : [];
+
+  const roles = await db.allQuery(
+    'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
+    [userId]
+  );
+  userProfile.roles = roles.map(r => r.name);
 
   // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
   try {
@@ -109,7 +105,6 @@ const updateProfileHandler = async (token, profileData) => {
 
   const fieldsToExclude = [
     'id',
-    'role',
     'current_password',
     'new_password',
     'confirm_new_password',
@@ -164,18 +159,7 @@ function registerAuthHandlers() {
         await db.initializeDatabase();
       }
 
-      const userQuery = `
-        SELECT
-          u.id, u.username, u.password, u.need_guide,
-          GROUP_CONCAT(r.name) as roles
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id
-        LEFT JOIN roles r ON ur.role_id = r.id
-        WHERE u.username = ?
-        GROUP BY u.id
-      `;
-
-      const user = await db.getQuery(userQuery, [username]);
+      const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
       if (!user) {
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
@@ -183,6 +167,13 @@ function registerAuthHandlers() {
       if (!isMatch) {
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
+
+      const roles = await db.allQuery(
+        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
+        [user.id]
+      );
+      const userRoles = roles.map(r => r.name);
+
       await refreshSettings();
 
       // After successful login, cache the logo path for offline access
@@ -199,10 +190,8 @@ function registerAuthHandlers() {
         logError('Failed to cache logo path on login:', e);
       }
 
-      const roles = user.roles ? user.roles.split(',') : [];
-
       const token = jwt.sign(
-        { id: user.id, username: user.username, roles: roles },
+        { id: user.id, username: user.username, roles: userRoles },
         process.env.JWT_SECRET,
         { expiresIn: '8h' },
       );
@@ -212,7 +201,7 @@ function registerAuthHandlers() {
         user: {
           id: user.id,
           username: user.username,
-          roles: roles,
+          roles: userRoles,
           need_guide: !!user.need_guide, // Ensure need_guide is passed to the renderer
         },
       };
