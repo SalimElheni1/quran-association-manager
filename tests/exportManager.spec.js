@@ -129,22 +129,29 @@ describe('exportManager', () => {
       );
     });
 
-    it('should fetch students data with gender filter', async () => {
-      const mockData = [{ id: 1, name: 'Student 1' }];
-      allQuery.mockResolvedValue(mockData);
-      getSetting.mockReturnValue(18);
+    it('should fetch students data and filter by gender/age in JS', async () => {
+      const mockStudents = [
+        { id: 1, name: 'Adult Man', gender: 'Male', date_of_birth: '1990-01-01' },
+        { id: 2, name: 'Adult Woman', gender: 'Female', date_of_birth: '1992-01-01' },
+        { id: 3, name: 'Kid Male', gender: 'Male', date_of_birth: '2015-01-01' },
+      ];
+      allQuery.mockResolvedValue(mockStudents);
+      getSetting.mockResolvedValue(18); // adult_age_threshold
 
       const result = await fetchExportData({
         type: 'students',
-        fields: ['name', 'gender'],
+        fields: ['name', 'gender', 'date_of_birth'],
         options: { gender: 'men' }
       });
 
+      // The SQL query should be simple, without gender/age filters
       expect(allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT name, gender FROM students'),
-        expect.arrayContaining(['Male', 18])
+        'SELECT name, gender, date_of_birth FROM students WHERE 1=1 ORDER BY name',
+        []
       );
-      expect(result).toEqual(mockData);
+
+      // The result should be filtered in JS
+      expect(result).toEqual([mockStudents[0]]);
     });
 
     it('should fetch teachers data', async () => {
@@ -157,7 +164,7 @@ describe('exportManager', () => {
       });
 
       expect(allQuery).toHaveBeenCalledWith(
-        'SELECT name, email FROM teachers WHERE 1=1 ORDER BY name',
+        'SELECT name, email FROM teachers ORDER BY name',
         []
       );
       expect(result).toEqual(mockData);

@@ -7,8 +7,14 @@ jest.mock('bcryptjs');
 jest.mock('../src/main/validationSchemas');
 jest.mock('../src/main/matriculeService');
 jest.mock('../src/main/logger');
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+}));
 
 const { ipcMain } = require('electron');
+const db = require('../src/db/db');
+const { userValidationSchema, userUpdateValidationSchema } = require('../src/main/validationSchemas');
+const { generateMatricule } = require('../src/main/matriculeService');
 
 describe('userHandlers', () => {
   let registerUserHandlers;
@@ -24,27 +30,71 @@ describe('userHandlers', () => {
     registerUserHandlers();
   });
 
-  // Skipping this block due to persistent mock interaction issues
-  describe.skip('users:add error handling', () => {
-    it('should handle database errors', async () => {
-        const db = require('../src/db/db');
-        const { userValidationSchema } = require('../src/main/validationSchemas');
-        const { error: logError } = require('../src/main/logger');
-        const dbError = new Error('Database connection failed');
-        userValidationSchema.validateAsync.mockResolvedValue({ username: 'test' });
-        db.runQuery.mockRejectedValue(dbError);
+  describe('users:get', () => {
+    it('should fetch users and their roles', async () => {
+      const mockUsers = [{ id: 1, username: 'test', roles: 'Administrator,Superadmin' }];
+      db.allQuery.mockResolvedValue(mockUsers);
+      const result = await handlers['users:get'](null, {});
+      expect(db.allQuery).toHaveBeenCalled();
+      expect(result[0].roles).toEqual(['Administrator', 'Superadmin']);
+    });
+  });
 
-        await expect(handlers['users:add'](null, { username: 'test' }))
-          .rejects.toThrow('حدث خطأ غير متوقع في الخادم.');
+  describe('users:getById', () => {
+      it('should fetch a single user with roles', async () => {
+          const mockUser = { id: 1, username: 'test' };
+          const mockRoles = [{ name: 'Administrator' }];
+          db.getQuery.mockResolvedValue(mockUser);
+          db.allQuery.mockResolvedValue(mockRoles);
 
-        expect(logError).toHaveBeenCalledWith('Error in users:add handler:', dbError);
+          const result = await handlers['users:getById'](null, 1);
+
+          expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM users WHERE id = ?', [1]);
+          expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('SELECT r.name FROM roles'), [1]);
+          expect(result.roles).toEqual(['Administrator']);
       });
+  });
+
+  describe('users:add', () => {
+    it('should add a user and commit', async () => {
+      const userData = { username: 'new', password: 'password', first_name: 'first', last_name: 'last', roles: ['Administrator'] };
+      userValidationSchema.validateAsync.mockResolvedValue(userData);
+      generateMatricule.mockResolvedValue('U-123456');
+      db.runQuery.mockResolvedValue({ id: 99 });
+      db.allQuery.mockResolvedValue([{ id: 1 }]); // Mock role ID lookup
+
+      await handlers['users:add'](null, userData);
+
+      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
+      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
+      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
+    });
+  });
+
+  describe('users:update', () => {
+    it('should update a user and commit', async () => {
+      const userData = { userData: { first_name: 'Updated' }, id: 1 };
+      userUpdateValidationSchema.validateAsync.mockResolvedValue(userData.userData);
+      db.allQuery.mockResolvedValue([]); // No roles to change
+
+      await handlers['users:update'](null, userData);
+
+      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
+      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
+      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
+    });
+  });
+
+  describe('users:delete', () => {
+    it('should delete a user successfully', async () => {
+        db.runQuery.mockResolvedValue({ changes: 1 });
+        await handlers['users:delete'](null, 1);
+        expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [1]);
     });
 
-    describe('users:delete', () => {
-        it('should throw error for invalid user ID', () => {
-          expect(() => handlers['users:delete'](null, null))
-            .toThrow('A valid user ID is required for deletion.');
-        });
-      });
+    it('should throw error for invalid user ID', () => {
+      expect(() => handlers['users:delete'](null, null))
+        .toThrow('A valid user ID is required for deletion.');
+    });
+  });
 });

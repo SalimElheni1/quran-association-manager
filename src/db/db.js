@@ -278,10 +278,12 @@ async function initializeDatabase() {
   log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
+  let wasMigrated = false;
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
     log('[DB_LOG] Plaintext database detected. Starting migration...');
     try {
       await migrateToEncrypted(dbPath, key);
+      wasMigrated = true;
     } catch (migrationError) {
       logError('CRITICAL: Database migration failed.', migrationError);
       // In a real app, you would show a fatal error dialog and quit.
@@ -334,6 +336,11 @@ async function initializeDatabase() {
       log('[DB_LOG] Database schema and default data initialized.');
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
+      if (wasMigrated) {
+        log('[DB_LOG] Plaintext-to-encrypted migration detected. Applying schema to ensure all tables exist...');
+        await dbExec(db, schema);
+        log('[DB_LOG] Schema applied post-migration.');
+      }
       await runMigrations();
     }
 
