@@ -23,6 +23,7 @@ const chainable = {
   boolean: jest.fn().mockReturnThis(),
 
   array: jest.fn().mockReturnThis(),
+  items: jest.fn().mockReturnThis(),
   any: jest.fn().mockReturnThis(),
 
   allow: jest.fn().mockReturnThis(),

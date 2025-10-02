@@ -1,63 +1,97 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import ProtectedRoute from '../../src/renderer/components/ProtectedRoute';
+import ProtectedRoute from '@renderer/components/ProtectedRoute';
+import { usePermissions } from '@renderer/hooks/usePermissions';
 
-// Mock logger
-jest.mock('../../src/renderer/utils/logger', () => ({
-  log: jest.fn(),
-}));
+// Mock the custom hook
+jest.mock('@renderer/hooks/usePermissions');
 
-// Mock useAuth hook
-jest.mock('../../src/renderer/contexts/AuthContext', () => {
-  const mockUseAuth = jest.fn(() => ({ isAuthenticated: false }));
-  return {
-    useAuth: mockUseAuth,
-    _mockUseAuth: mockUseAuth, // Expose for test access
-  };
+// Mock react-bootstrap components to isolate the ProtectedRoute logic
+jest.mock('react-bootstrap', () => {
+  const Alert = ({ children }) => <div>{children}</div>;
+  Alert.Heading = ({ children }) => <h4>{children}</h4>;
+  return { Alert };
 });
 
 describe('ProtectedRoute', () => {
-  let mockUseAuth;
-  
   beforeEach(() => {
-    const authModule = require('../../src/renderer/contexts/AuthContext');
-    mockUseAuth = authModule._mockUseAuth;
-    
-    global.window.electronAPI = {
-      onForceLogout: jest.fn().mockReturnValue(() => {}),
-    };
-    
+    // Reset mocks before each test
     jest.clearAllMocks();
   });
 
-  it('should render children when authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true });
+  it('should render children when user has required permissions', () => {
+    // Arrange: Mock that the user has the required permissions
+    usePermissions.mockReturnValue({
+      hasAnyPermission: () => true,
+      canAccessModule: () => true,
+    });
 
+    // Act
     render(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <div data-testid="protected-content">Protected Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>
+      <ProtectedRoute requiredPermissions={['some:permission']}>
+        <div data-testid="protected-content">Protected Content</div>
+      </ProtectedRoute>
     );
 
+    // Assert
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();
+    expect(screen.queryByText('غير مصرح لك بالوصول')).not.toBeInTheDocument();
   });
 
-  it('should redirect to login when not authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+  it('should render children when user can access the required module', () => {
+    // Arrange: Mock that the user has module access
+    usePermissions.mockReturnValue({
+      hasAnyPermission: () => true,
+      canAccessModule: () => true,
+    });
 
+    // Act
     render(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <div data-testid="protected-content">Protected Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>
+      <ProtectedRoute requiredModule="students">
+        <div data-testid="protected-content">Protected Content</div>
+      </ProtectedRoute>
     );
 
-    expect(screen.getByTestId('navigate')).toBeInTheDocument();
-    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/login');
+    // Assert
+    expect(screen.getByTestId('protected-content')).toBeInTheDocument();
+    expect(screen.queryByText('غير مصرح لك بالوصول')).not.toBeInTheDocument();
+  });
+
+  it('should show "Permission Denied" when user lacks specific permissions', () => {
+    // Arrange: Mock that the user does NOT have the required permissions
+    usePermissions.mockReturnValue({
+      hasAnyPermission: () => false,
+      canAccessModule: () => true, // Assume module access is fine for this test
+    });
+
+    // Act
+    render(
+      <ProtectedRoute requiredPermissions={['some:permission']}>
+        <div data-testid="protected-content">Protected Content</div>
+      </ProtectedRoute>
+    );
+
+    // Assert
     expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    expect(screen.getByText('غير مصرح لك بالوصول')).toBeInTheDocument();
+  });
+
+  it('should show "Permission Denied" when user cannot access the required module', () => {
+    // Arrange: Mock that the user does NOT have module access
+    usePermissions.mockReturnValue({
+      hasAnyPermission: () => true,
+      canAccessModule: () => false,
+    });
+
+    // Act
+    render(
+      <ProtectedRoute requiredModule="students">
+        <div data-testid="protected-content">Protected Content</div>
+      </ProtectedRoute>
+    );
+
+    // Assert
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    expect(screen.getByText('غير مصرح لك بالوصول')).toBeInTheDocument();
   });
 });

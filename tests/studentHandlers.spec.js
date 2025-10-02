@@ -13,6 +13,9 @@ jest.mock('../src/main/validationSchemas', () => ({
 }));
 jest.mock('../src/main/matriculeService');
 jest.mock('../src/main/logger');
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+}));
 
 describe('Student Handlers', () => {
   beforeAll(() => {
@@ -35,8 +38,9 @@ describe('Student Handlers', () => {
 
       await ipcMain.invoke('students:get', filters);
 
+      // The test should check the SQL query and the parameters
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ? AND SUBSTR(date_of_birth, 1, 4) <= ? AND SUBSTR(date_of_birth, 1, 4) >= ?'),
+        expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ?'),
         expect.arrayContaining(['%Ali%', '%Ali%', 'Male'])
       );
     });
@@ -54,11 +58,10 @@ describe('Student Handlers', () => {
 
       await ipcMain.invoke('students:get', filters);
 
-      const expectedMinBirthYear = currentYear - maxAge;
-
+      // We expect the filter to happen in JS, so the SQL query should be simple
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SUBSTR(date_of_birth, 1, 4) >= ?'),
-        [expectedMinBirthYear.toString()]
+        expect.stringContaining('SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students'),
+        []
       );
 
       // Restore original Date object

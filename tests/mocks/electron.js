@@ -7,8 +7,13 @@ const mockIpcMain = {
   invoke: jest.fn(async (channel, ...args) => {
     const handler = mockIpcMain.handlers.get(channel);
     if (handler) {
-      // The first argument to the handler is the event object, which we can mock as an empty object.
-      return await handler({}, ...args);
+      // Mock the event object with the structure our auth middleware expects
+      const mockEvent = {
+        sender: {
+          executeJavaScript: jest.fn().mockResolvedValue('mock-jwt-token'),
+        },
+      };
+      return await handler(mockEvent, ...args);
     }
     throw new Error(`No handler registered for channel '${channel}'`);
   }),

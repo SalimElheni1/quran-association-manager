@@ -398,7 +398,7 @@ describe('systemHandlers', () => {
 
   describe('backup:run', () => {
     it('should run backup successfully', async () => {
-      const settings = { backup_enabled: true };
+      const settings = { backup_path: '/mock/backup/path' };
       const mockResult = { success: true, message: 'Backup completed' };
 
       dialog.showSaveDialog.mockResolvedValue({
@@ -419,7 +419,7 @@ describe('systemHandlers', () => {
     });
 
     it('should handle user cancellation', async () => {
-      const settings = { backup_enabled: true };
+      const settings = { backup_path: '/mock/backup/path' };
       dialog.showSaveDialog.mockResolvedValue({ canceled: true });
 
       const result = await handlers['backup:run'](null, settings);
@@ -434,11 +434,11 @@ describe('systemHandlers', () => {
       const result = await handlers['backup:run'](null, null);
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Backup settings were not provided');
+      expect(result.message).toContain('Backup path is required.');
     });
 
     it('should handle backup errors', async () => {
-      const settings = { backup_enabled: true };
+      const settings = { backup_path: '/mock/backup/path' };
       const error = new Error('Backup failed');
 
       dialog.showSaveDialog.mockResolvedValue({

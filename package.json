@@ -28,7 +28,7 @@
     "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
-    "joi": "^18.0.1",
+    "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.2",
     "pizzip": "^3.2.0",
     "react": "^19.0.0-rc-f994737d14-20240522",

@@ -16,6 +16,7 @@ module.exports = {
         exceljs: '<rootDir>/tests/mocks/exceljs.js',
         '^fs$': '<rootDir>/tests/mocks/fs.js',
         '^joi$': '<rootDir>/tests/mocks/joi.js',
+        'jsonwebtoken': '<rootDir>/tests/mocks/jsonwebtoken.js',
       },
     },
     {
