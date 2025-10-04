@@ -98,6 +98,9 @@ function registerUserHandlers() {
         validatedData.password = bcrypt.hashSync(validatedData.password, 10);
       }
 
+      // Convert empty email to null for UNIQUE constraint
+      if (validatedData.email === '') validatedData.email = null;
+
       const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid user fields to insert.');
 
@@ -147,6 +150,9 @@ function registerUserHandlers() {
       if (validatedData.password) {
         validatedData.password = bcrypt.hashSync(validatedData.password, 10);
       }
+
+      // Convert empty email to null for UNIQUE constraint
+      if (validatedData.email === '') validatedData.email = null;
 
       const fieldsToUpdate = userFields.filter(
         (field) => field !== 'matricule' && validatedData[field] !== undefined,

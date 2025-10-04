@@ -74,9 +74,7 @@ function OnboardingGuide() {
   const [step, setStep] = useState(0);
   const [manualOpen, setManualOpen] = useState(null); // 'open' | 'begin' | null
   const [sidebarWidth, setSidebarWidth] = useState(250);
-  const [orderedSteps, setOrderedSteps] = useState(
-    Object.keys(onboardingContent).map((k) => Number(k)),
-  );
+  const [orderedSteps, setOrderedSteps] = useState([0, 1, 2, 3, 4, 5, 8, 10, 11]);
 
   // measure function reusable by multiple effects
   const measureSidebarWidth = () => {
@@ -148,96 +146,23 @@ function OnboardingGuide() {
     window.addEventListener('onboarding:open', handleOpen);
     return () => window.removeEventListener('onboarding:open', handleOpen);
   }, []);
-
   useEffect(() => {
-    // Build ordered steps list by scanning the sidebar nav links in DOM to match user's menu order.
-    // Attach a MutationObserver to keep the order updated if the sidebar toggles or changes.
-    const buildSteps = () => {
-      try {
-        const navLinks = Array.from(document.querySelectorAll('.sidebar .nav-links .nav-link'));
-        const mapping = {
-          '/': 1,
-          '/students': 2,
-          '/teachers': 3,
-          '/classes': 4,
-          '/attendance': 5,
-          '/financials': 6,
-          '/exports': 10,
-          '/users': 7,
-          '/settings': 9,
-          '/profile': 8,
-          '/about': 11,
-        };
+    if (!user?.roles) return;
 
-        const steps = [0];
-        if (navLinks && navLinks.length > 0) {
-          navLinks.forEach((a) => {
-            const href = a.getAttribute('href') || a.getAttribute('to') || a.dataset.to;
-            if (!href) return;
-            // Normalise absolute/relative
-            let route = href.split('?')[0];
-            try {
-              if (route.startsWith(window.location.origin))
-                route = route.replace(window.location.origin, '');
-            } catch (e) {
-              // ignore
-            }
-            const mapped = mapping[route];
-            if (mapped && !steps.includes(mapped) && onboardingContent[mapped]) steps.push(mapped);
-          });
-        }
+    const steps = [0, 1];
+    const roles = user.roles;
+    const hasRole = (r) => roles.includes(r);
+    const hasAnyRole = (...r) => roles.some(role => r.includes(role));
 
-        // If sidebar not found or resulted in only overview, build default order respecting role
-        if (steps.length === 1) {
-          const role = user?.role || 'Guest';
-          const defaultOrder = [1, 2, 3, 4, 5];
-          if (['Superadmin', 'Admin', 'FinanceManager', 'Manager'].includes(role))
-            defaultOrder.push(6);
-          defaultOrder.push(10);
-          if (role === 'Superadmin') defaultOrder.push(7, 9);
-          defaultOrder.push(8, 11);
-          defaultOrder.forEach((s) => {
-            if (!steps.includes(s) && onboardingContent[s]) steps.push(s);
-          });
-        }
+    if (hasAnyRole('Superadmin', 'Administrator', 'SessionSupervisor', 'FinanceManager')) steps.push(2);
+    if (hasAnyRole('Superadmin', 'Administrator')) steps.push(3, 4, 5);
+    if (hasAnyRole('Superadmin', 'Administrator', 'FinanceManager')) steps.push(6);
+    steps.push(10);
+    if (hasRole('Superadmin')) steps.push(7, 9);
+    steps.push(8, 11);
 
-        // Append any leftover steps (safety)
-        Object.keys(onboardingContent)
-          .map((k) => Number(k))
-          .forEach((k) => {
-            if (!steps.includes(k)) steps.push(k);
-          });
-
-        setOrderedSteps(steps);
-      } catch (e) {
-        setOrderedSteps(Object.keys(onboardingContent).map((k) => Number(k)));
-      }
-    };
-
-    // initial build + ensure measurement is in sync
-    buildSteps();
-    measureSidebarWidth();
-
-    const sidebarEl = document.querySelector('.app-sidebar') || document.querySelector('.sidebar');
-    let mo = null;
-    if (sidebarEl && window.MutationObserver) {
-      mo = new MutationObserver(() => {
-        // Recompute steps and measure on any structural or attribute changes
-        buildSteps();
-        measureSidebarWidth();
-      });
-      mo.observe(sidebarEl, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-        attributeFilter: ['class', 'style'],
-      });
-    }
-
-    return () => {
-      if (mo) mo.disconnect();
-    };
-  }, [user]);
+    setOrderedSteps(steps);
+  }, [user?.roles]);
 
   if (!visible) return null;
 

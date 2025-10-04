@@ -182,13 +182,16 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               />
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>رقم ب.ت.و</Form.Label>
+              <Form.Label>
+                رقم ب.ت.و<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="national_id"
                 value={formData.national_id || ''}
                 onChange={handleChange}
                 maxLength={8}
+                required
               />
             </Form.Group>
           </Row>
@@ -203,13 +206,16 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
               />
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>رقم الهاتف</Form.Label>
+              <Form.Label>
+                رقم الهاتف<span className="text-danger">*</span>
+              </Form.Label>
               <Form.Control
                 type="text"
                 name="phone_number"
                 value={formData.phone_number || ''}
                 onChange={handleChange}
                 maxLength={8}
+                required
               />
             </Form.Group>
           </Row>

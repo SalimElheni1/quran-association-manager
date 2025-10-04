@@ -11,4 +11,14 @@ body {
   font-family: 'Cairo', sans-serif; /* From mockup */
 }
 
+/* Fix modal close button spacing in RTL mode */
+.modal-header .btn-close {
+  margin-right: auto !important;
+  margin-left: 0 !important;
+}
+
+.modal-header {
+  gap: 1rem;
+}
+
 /* You might need to add the font import to your main index.html for it to load correctly */
