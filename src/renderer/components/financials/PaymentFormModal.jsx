@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
 import { paymentMethods } from '@renderer/utils/paymentMethods';
+import { useAuth } from '@renderer/contexts/AuthContext';
 
 const categoryOptions = [
   { value: 'all', label: 'الكل' },
@@ -11,16 +12,19 @@ const categoryOptions = [
 ];
 
 function PaymentFormModal({ show, onHide, onSave, payment }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     student_id: '',
     amount: '',
     payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'Cash',
     notes: '',
+    receipt_number: '',
   });
   const [students, setStudents] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(categoryOptions[0]);
   const [adultAgeThreshold, setAdultAgeThreshold] = useState(18);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
 
   const isEditMode = payment != null;
 
@@ -45,6 +49,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
       setFormData({
         ...payment,
         payment_date: new Date(payment.payment_date).toISOString().split('T')[0],
+        receipt_number: payment.receipt_number || '',
       });
     } else {
       setFormData({
@@ -53,6 +58,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         payment_date: new Date().toISOString().split('T')[0],
         payment_method: 'Cash',
         notes: '',
+        receipt_number: '',
       });
     }
   }, [payment, show]);
@@ -92,7 +98,29 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-
+  const handleGetNextReceipt = async () => {
+    try {
+      setLoadingReceipt(true);
+      const result = await window.electronAPI.getNextReceiptNumber('payment');
+      if (result.error) {
+        logError(result.error);
+        alert(result.error);
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          receipt_number: result.receipt_number,
+          receipt_book_id: result.book_id,
+          receipt_issued_by: user?.id,
+          receipt_issued_date: new Date().toISOString(),
+        }));
+      }
+    } catch (err) {
+      logError('Failed to get next receipt number:', err);
+      alert('فشل الحصول على رقم الإيصال التالي');
+    } finally {
+      setLoadingReceipt(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -182,6 +210,28 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
               onChange={handleChange}
               required
             />
+          </Form.Group>
+          <Form.Group className="mb-3" controlId="formPaymentReceipt">
+            <Form.Label>رقم الإيصال</Form.Label>
+            <InputGroup>
+              <Form.Control
+                type="text"
+                name="receipt_number"
+                value={formData.receipt_number}
+                onChange={handleChange}
+                placeholder="اختياري"
+              />
+              <Button
+                variant="outline-secondary"
+                onClick={handleGetNextReceipt}
+                disabled={loadingReceipt}
+              >
+                {loadingReceipt ? 'جاري...' : 'رقم تلقائي'}
+              </Button>
+            </InputGroup>
+            <Form.Text className="text-muted">
+              اضغط "رقم تلقائي" للحصول على رقم إيصال من الدفتر النشط
+            </Form.Text>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentNotes">
             <Form.Label>ملاحظات</Form.Label>

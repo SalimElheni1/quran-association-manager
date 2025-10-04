@@ -6,6 +6,7 @@ import SalariesTab from '@renderer/components/financials/SalariesTab';
 import PaymentsTab from '@renderer/components/financials/PaymentsTab';
 import ReportsTab from '@renderer/components/financials/ReportsTab';
 import InventoryTab from '@renderer/components/financials/InventoryTab';
+import ReceiptBooksTab from '@renderer/components/financials/ReceiptBooksTab';
 
 function FinancialsPage() {
   const [activeTab, setActiveTab] = useState('reports');
@@ -31,7 +32,7 @@ function FinancialsPage() {
           الشؤون المالية
         </Card.Header>
         <Card.Body>
-          <Tabs activeKey={activeTab} onSelect={handleTabSelect} id="financials-tabs" className="mb-3" fill>
+          <Tabs activeKey={activeTab} onSelect={handleTabSelect} id="financials-tabs" className="mb-3">
             <Tab eventKey="reports" title="تقارير وإحصائيات">
               <ReportsTab key={reportsTabKey} />
             </Tab>
@@ -49,6 +50,9 @@ function FinancialsPage() {
             </Tab>
             <Tab eventKey="expenses" title="المصاريف والنثريات">
               <ExpensesTab />
+            </Tab>
+            <Tab eventKey="receipt-books" title="دفاتر الإيصالات">
+              <ReceiptBooksTab />
             </Tab>
           </Tabs>
         </Card.Body>

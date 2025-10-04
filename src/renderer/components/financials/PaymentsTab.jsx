@@ -107,6 +107,7 @@ function PaymentsTab() {
             <th>اسم الطالب</th>
             <th>المبلغ</th>
             <th>طريقة الدفع</th>
+            <th>رقم الإيصال</th>
             <th>تاريخ الدفعة</th>
             <th>ملاحظات</th>
             <th>الإجراءات</th>
@@ -120,6 +121,7 @@ function PaymentsTab() {
                 <td>{payment.student_name}</td>
                 <td className="text-start">{payment.amount.toFixed(2)}</td>
                 <td>{getPaymentMethodLabel(payment.payment_method)}</td>
+                <td>{payment.receipt_number || '-'}</td>
                 <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td>{payment.notes}</td>
                 <td>
@@ -143,7 +145,7 @@ function PaymentsTab() {
             ))
           ) : (
             <tr>
-              <td colSpan="7" className="text-center">
+              <td colSpan="8" className="text-center">
                 لا توجد رسوم دراسية مسجلة حالياً.
               </td>
             </tr>

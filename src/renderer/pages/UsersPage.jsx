@@ -5,8 +5,11 @@ import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '@renderer/components/UserFormModal';
 import ConfirmationModal from '@renderer/components/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 
 function UsersPage() {
+  const { hasPermission } = usePermissions();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -90,9 +93,11 @@ function UsersPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>إدارة المستخدمين</h1>
-        <Button variant="primary" onClick={handleShowAddModal}>
-          <i className="fas fa-plus ms-2"></i> إضافة مستخدم جديد
-        </Button>
+        {hasPermission(PERMISSIONS.USERS_CREATE) && (
+          <Button variant="primary" onClick={handleShowAddModal}>
+            <i className="fas fa-plus ms-2"></i> إضافة مستخدم جديد
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -129,20 +134,24 @@ function UsersPage() {
                     </Badge>
                   </td>
                   <td className="table-actions d-flex gap-2">
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <i className="fas fa-edit"></i> تعديل
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRequest(user)}
-                    >
-                      <i className="fas fa-trash"></i> حذف
-                    </Button>
+                    {hasPermission(PERMISSIONS.USERS_EDIT) && (
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <i className="fas fa-edit"></i> تعديل
+                      </Button>
+                    )}
+                    {hasPermission(PERMISSIONS.USERS_DELETE) && (
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteRequest(user)}
+                      >
+                        <i className="fas fa-trash"></i> حذف
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))

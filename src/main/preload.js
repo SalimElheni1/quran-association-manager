@@ -263,6 +263,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStepInfo: (stepId) => ipcRenderer.invoke('import:get-step-info', stepId),
   getStepSheets: (stepId) => ipcRenderer.invoke('import:get-step-sheets', stepId),
 
+  // Receipt Books API
+  getReceiptBooks: (filters) => ipcRenderer.invoke('receipt-books:get', filters),
+  getActiveReceiptBook: (receiptType) => ipcRenderer.invoke('receipt-books:get-active', receiptType),
+  addReceiptBook: (book) => ipcRenderer.invoke('receipt-books:add', book),
+  updateReceiptBook: (book) => ipcRenderer.invoke('receipt-books:update', book),
+  deleteReceiptBook: (id) => ipcRenderer.invoke('receipt-books:delete', id),
+  getNextReceiptNumber: (receiptType) => ipcRenderer.invoke('receipt-books:get-next-number', receiptType),
+  checkReceiptExists: (data) => ipcRenderer.invoke('receipt-books:check-exists', data),
+
   // Listener for events from main process
   onForceLogout: (callback) => {
     const handler = (event, ...args) => callback(event, ...args);

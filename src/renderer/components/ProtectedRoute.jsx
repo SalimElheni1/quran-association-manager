@@ -1,10 +1,16 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { Alert } from 'react-bootstrap';
+import { useAuth } from '@renderer/contexts/AuthContext';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 
 function ProtectedRoute({ children, requiredPermissions = [], requiredModule = null }) {
+  const { isAuthenticated } = useAuth();
   const { hasAnyPermission, canAccessModule } = usePermissions();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   // Check module access if specified
   if (requiredModule && !canAccessModule(requiredModule)) {

@@ -83,27 +83,44 @@ const userValidationSchema = Joi.object({
     .messages({
       'string.pattern.base': 'الرقم التعريفي للمستخدم غير صالح.',
     }),
-  username: Joi.string().alphanum().min(3).max(30).required(),
-  password: Joi.string().min(6).required(),
-  first_name: Joi.string().min(2).max(50).required(),
-  last_name: Joi.string().min(2).max(50).required(),
+  username: Joi.string().alphanum().min(3).max(30).required().messages({
+    'string.empty': 'اسم المستخدم مطلوب',
+    'any.required': 'اسم المستخدم مطلوب',
+  }),
+  password: Joi.string().min(8).required().messages({
+    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+    'string.empty': 'كلمة المرور مطلوبة',
+    'any.required': 'كلمة المرور مطلوبة',
+  }),
+  first_name: Joi.string().min(2).max(50).required().messages({
+    'string.empty': 'الاسم الأول مطلوب',
+    'any.required': 'الاسم الأول مطلوب',
+  }),
+  last_name: Joi.string().min(2).max(50).required().messages({
+    'string.empty': 'اللقب مطلوب',
+    'any.required': 'اللقب مطلوب',
+  }),
   employment_type: Joi.string().valid('volunteer', 'contract'),
   roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1).required(),
   date_of_birth: Joi.date().iso().allow(null, ''),
   national_id: Joi.string()
     .pattern(/^\d{8}$/)
-    .allow(null, '')
+    .required()
     .messages({
       'string.pattern.base': 'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
+      'string.empty': 'رقم ب.ت.و مطلوب',
+      'any.required': 'رقم ب.ت.و مطلوب',
     }),
   email: Joi.string()
     .email({ tlds: { allow: false } })
     .allow(null, ''),
   phone_number: Joi.string()
     .pattern(/^\d{8}$/)
-    .allow(null, '')
+    .required()
     .messages({
       'string.pattern.base': 'رقم الهاتف يجب أن يتكون من 8 أرقام.',
+      'string.empty': 'رقم الهاتف مطلوب',
+      'any.required': 'رقم الهاتف مطلوب',
     }),
   occupation: Joi.string().allow(null, ''),
   civil_status: Joi.string().valid('Single', 'Married', 'Divorced', 'Widowed').allow(null, ''),
@@ -117,7 +134,9 @@ const userValidationSchema = Joi.object({
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({
-  password: Joi.string().min(6).allow(null, ''),
+  password: Joi.string().min(8).allow(null, '').messages({
+    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+  }),
   status: Joi.string().valid('active', 'inactive').required(),
   roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1),
 });
