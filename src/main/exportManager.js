@@ -32,7 +32,7 @@ const {
   handleGetDonations,
   handleGetExpenses,
   handleGetInventoryItems,
-} = require('./financialHandlers');
+} = require('./handlers/financialHandlers.legacy');
 
 // --- Header Data ---
 async function getExportHeaderData() {

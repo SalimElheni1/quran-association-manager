@@ -157,6 +157,45 @@ const passwordUpdateValidationSchema = Joi.object({
   }),
 });
 
+const transactionValidationSchema = Joi.object({
+  type: Joi.string().valid('INCOME', 'EXPENSE').required().messages({
+    'any.only': 'نوع العملية يجب أن يكون مدخول أو مصروف',
+    'any.required': 'نوع العملية مطلوب',
+  }),
+  category: Joi.string().required().messages({
+    'string.empty': 'الفئة مطلوبة',
+    'any.required': 'الفئة مطلوبة',
+  }),
+  amount: Joi.number().positive().required().messages({
+    'number.base': 'المبلغ يجب أن يكون رقماً',
+    'number.positive': 'المبلغ يجب أن يكون موجباً',
+    'any.required': 'المبلغ مطلوب',
+  }),
+  transaction_date: Joi.date().iso().required().messages({
+    'date.base': 'التاريخ غير صالح',
+    'any.required': 'التاريخ مطلوب',
+  }),
+  description: Joi.string().allow(null, ''),
+  payment_method: Joi.string().valid('CASH', 'CHECK', 'TRANSFER').required().messages({
+    'any.only': 'طريقة الدفع غير صالحة',
+    'any.required': 'طريقة الدفع مطلوبة',
+  }),
+  check_number: Joi.string().when('payment_method', {
+    is: 'CHECK',
+    then: Joi.required().messages({
+      'any.required': 'رقم الشيك مطلوب',
+    }),
+    otherwise: Joi.optional().allow(null, ''),
+  }),
+  account_id: Joi.number().integer().positive().required().messages({
+    'number.base': 'الحساب غير صالح',
+    'any.required': 'الحساب مطلوب',
+  }),
+  related_person_name: Joi.string().allow(null, ''),
+  related_entity_type: Joi.string().valid('Student', 'Teacher', 'Donor', 'Supplier').allow(null, ''),
+  related_entity_id: Joi.number().integer().positive().allow(null),
+}).unknown(true);
+
 module.exports = {
   studentValidationSchema,
   classValidationSchema,
@@ -164,4 +203,5 @@ module.exports = {
   userValidationSchema,
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
+  transactionValidationSchema,
 };

@@ -46,7 +46,8 @@ const Store = require('electron-store');
 const { log, error: logError } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
-const { registerFinancialHandlers } = require('./financialHandlers');
+const { registerFinancialHandlers } = require('./handlers/financialHandlers');
+const { registerFinancialExportHandlers } = require('./handlers/financialExportHandlers');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
 const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
 const { registerClassHandlers } = require('./handlers/classHandlers');
@@ -291,6 +292,7 @@ const initializeApp = async () => {
     });
 
     registerFinancialHandlers();
+    registerFinancialExportHandlers();
     registerStudentHandlers();
     registerTeacherHandlers();
     registerClassHandlers();

@@ -21,3 +21,4 @@ yarn-error.log*
 *.sqlite
 *.sqlite-journal
 out/
+docs/new-finacial-system

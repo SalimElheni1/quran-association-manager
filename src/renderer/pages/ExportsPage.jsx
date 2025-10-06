@@ -701,7 +701,8 @@ const ExportsPage = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // State for financial export filters
-  const [filterType, setFilterType] = useState('all'); // 'all', 'month', 'year', 'custom'
+  const [reportType, setReportType] = useState('cash-ledger');
+  const [filterType, setFilterType] = useState('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [customStartDate, setCustomStartDate] = useState('');
@@ -710,45 +711,51 @@ const ExportsPage = () => {
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
 
-    let period = null;
+    let period;
 
     if (filterType === 'month') {
-      const startDate =
-        new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
+      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
+      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
       period = { startDate, endDate };
     } else if (filterType === 'year') {
-      const startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0] + ' 00:00:00';
-      const endDate = new Date(selectedYear, 11, 31, 23, 59, 59).toISOString();
+      const startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
+      const endDate = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
       period = { startDate, endDate };
     } else if (filterType === 'custom') {
-      if (customStartDate && customEndDate) {
-        period = { startDate: customStartDate, endDate: customEndDate };
-      } else {
+      if (!customStartDate || !customEndDate) {
         setMessage({
           type: 'danger',
-          text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين للفترة المخصصة.',
+          text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين.',
         });
         return;
       }
+      period = { startDate: customStartDate, endDate: customEndDate };
+    } else {
+      const firstTransaction = await window.electronAPI.getTransactions({ limit: 1 });
+      const startDate = firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
+      const endDate = new Date().toISOString().split('T')[0];
+      period = { startDate, endDate };
     }
-    // For 'all', period remains null
-
-    const exportOptions = {
-      exportType: 'financial-report',
-      format: 'xlsx',
-      options: { period },
-    };
 
     try {
-      const result = await window.electronAPI.generateExport(exportOptions);
-      if (result.success) {
-        setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
+      let result;
+      if (reportType === 'cash-ledger') {
+        result = await window.electronAPI.exportCashLedger({ period });
+      } else if (reportType === 'inventory-register') {
+        result = await window.electronAPI.exportInventoryRegister({ period });
+      } else if (reportType === 'financial-summary') {
+        result = await window.electronAPI.exportFinancialSummary({ period });
+      }
+
+      if (result.cancelled) {
+        setMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
+      } else if (result.success) {
+        setMessage({ type: 'success', text: '✅ تم تصدير التقرير بنجاح!' });
       } else {
-        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+        setMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
+      setMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     }
   };
@@ -781,12 +788,47 @@ const ExportsPage = () => {
         return hasPermission(PERMISSIONS.FINANCIALS_VIEW) ? (
           <Card className="mt-3">
             <Card.Body>
-              <Card.Title>تصدير تقرير مالي شامل</Card.Title>
-              <p>
-                اختر فترة التصدير. يمكنك تصدير جميع البيانات، أو تحديد شهر معين، سنة معينة، أو فترة
-                مخصصة.
-              </p>
+              <Card.Title>تصدير التقارير المالية</Card.Title>
+              <p>اختر نوع التقرير والفترة الزمنية للتصدير.</p>
+              
               <Form>
+                <Row className="mb-4">
+                  <Col md={12}>
+                    <Form.Group>
+                      <Form.Label className="fw-bold">نوع التقرير</Form.Label>
+                      <div className="d-flex gap-3 mt-2">
+                        <Form.Check
+                          type="radio"
+                          id="report-cash-ledger"
+                          name="reportType"
+                          label="📒 سجل المحاسبة"
+                          value="cash-ledger"
+                          checked={reportType === 'cash-ledger'}
+                          onChange={(e) => setReportType(e.target.value)}
+                        />
+                        <Form.Check
+                          type="radio"
+                          id="report-inventory"
+                          name="reportType"
+                          label="📦 سجل الجرد"
+                          value="inventory-register"
+                          checked={reportType === 'inventory-register'}
+                          onChange={(e) => setReportType(e.target.value)}
+                        />
+                        <Form.Check
+                          type="radio"
+                          id="report-summary"
+                          name="reportType"
+                          label="📊 التقرير المالي"
+                          value="financial-summary"
+                          checked={reportType === 'financial-summary'}
+                          onChange={(e) => setReportType(e.target.value)}
+                        />
+                      </div>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
                 <Row className="mb-3 align-items-end">
                   <Col md={3}>
                     <Form.Group>
@@ -874,10 +916,12 @@ const ExportsPage = () => {
                   )}
                 </Row>
               </Form>
+              
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
+              
               <div className="d-flex justify-content-end">
-                <Button variant="primary" onClick={handleFinancialExport}>
-                  تصدير إلى Excel
+                <Button variant="success" size="lg" onClick={handleFinancialExport}>
+                  📄 تصدير التقرير
                 </Button>
               </div>
             </Card.Body>

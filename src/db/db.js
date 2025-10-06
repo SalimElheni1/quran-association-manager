@@ -341,6 +341,10 @@ async function initializeDatabase() {
         await dbExec(db, schema);
         log('[DB_LOG] Schema applied post-migration.');
       }
+      
+      // Ensure the migrations table exists before running migrations
+      await dbExec(db, 'CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+
       await runMigrations();
     }
 

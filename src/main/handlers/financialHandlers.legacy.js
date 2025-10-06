@@ -1,7 +1,7 @@
 const { ipcMain } = require('electron');
-const { allQuery, runQuery, getQuery } = require('../db/db');
-const { error: logError } = require('./logger');
-const { generateMatricule } = require('./matriculeService');
+const { allQuery, runQuery, getQuery } = require('../../db/db');
+const { error: logError } = require('../logger');
+const { generateMatricule } = require('../matriculeService');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
