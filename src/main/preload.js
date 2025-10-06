@@ -242,15 +242,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
   deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
 
-  getFinancialSummary: (year) => ipcRenderer.invoke('get-financial-summary', year),
+  // New Unified Financial API
+  getTransactions: (filters) => ipcRenderer.invoke('transactions:get', filters),
+  addTransaction: (transaction) => ipcRenderer.invoke('transactions:add', transaction),
+  updateTransaction: (id, transaction) => ipcRenderer.invoke('transactions:update', id, transaction),
+  deleteTransaction: (id) => ipcRenderer.invoke('transactions:delete', id),
+  getFinancialSummary: (period) => ipcRenderer.invoke('financial:get-summary', period),
+  exportFinancialReportPDF: (data) => ipcRenderer.invoke('financial:export-pdf', data),
+  exportFinancialReportExcel: (data) => ipcRenderer.invoke('financial:export-excel', data),
+  getAccounts: () => ipcRenderer.invoke('accounts:get'),
+  addAccount: (account) => ipcRenderer.invoke('accounts:add', account),
+  getCategories: (type) => ipcRenderer.invoke('categories:get', type),
+  getInKindCategories: () => ipcRenderer.invoke('in-kind-categories:get'),
+  addInKindCategory: (name) => ipcRenderer.invoke('in-kind-categories:add', name),
+  updateInKindCategory: (id, name) => ipcRenderer.invoke('in-kind-categories:update', id, name),
+  deleteInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:delete', id),
+
+  // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
   getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),
-  // generatePdfReport: () => ipcRenderer.invoke('generate-pdf-report'),
-  // generateExcelReport: () => ipcRenderer.invoke('generate-excel-report'),
-  // getChartData: () => ipcRenderer.invoke('get-chart-data'),
 
   // Exports API
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),
+  
+  // Financial Export API
+  exportCashLedger: (period) => ipcRenderer.invoke('financial-export:cash-ledger', period),
+  exportInventoryRegister: (period) => ipcRenderer.invoke('financial-export:inventory-register', period),
+  exportFinancialSummary: (period) => ipcRenderer.invoke('financial-export:financial-summary', period),
 
   // Imports API
   generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),

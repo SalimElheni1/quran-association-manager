@@ -1,28 +1,17 @@
 import React, { useState } from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
-import ExpensesTab from '@renderer/components/financials/ExpensesTab';
-import DonationsTab from '@renderer/components/financials/DonationsTab';
-import SalariesTab from '@renderer/components/financials/SalariesTab';
-import PaymentsTab from '@renderer/components/financials/PaymentsTab';
-import ReportsTab from '@renderer/components/financials/ReportsTab';
+import FinancialDashboard from './FinancialDashboard';
+import IncomePage from './IncomePage';
+import ExpensesPage from './ExpensesPage';
+import AccountsPage from './AccountsPage';
 import InventoryTab from '@renderer/components/financials/InventoryTab';
-import ReceiptBooksTab from '@renderer/components/financials/ReceiptBooksTab';
 
 function FinancialsPage() {
-  const [activeTab, setActiveTab] = useState('reports');
-  const [reportsTabKey, setReportsTabKey] = useState(Date.now());
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [inventoryTabKey, setInventoryTabKey] = useState(Date.now());
 
   const handleInventoryUpdate = () => {
     setInventoryTabKey(Date.now());
-  };
-
-  const handleTabSelect = (key) => {
-    setActiveTab(key);
-    // If the reports tab is selected, give it a new key to force a remount
-    if (key === 'reports') {
-      setReportsTabKey(Date.now());
-    }
   };
 
   return (
@@ -32,27 +21,21 @@ function FinancialsPage() {
           الشؤون المالية
         </Card.Header>
         <Card.Body>
-          <Tabs activeKey={activeTab} onSelect={handleTabSelect} id="financials-tabs" className="mb-3">
-            <Tab eventKey="reports" title="تقارير وإحصائيات">
-              <ReportsTab key={reportsTabKey} />
+          <Tabs activeKey={activeTab} onSelect={setActiveTab} id="financials-tabs" className="mb-3">
+            <Tab eventKey="dashboard" title="📈 لوحة التحكم">
+              <FinancialDashboard />
             </Tab>
-            <Tab eventKey="payments" title="الرسوم الدراسية">
-              <PaymentsTab />
+            <Tab eventKey="income" title="💰 المداخيل">
+              <IncomePage />
             </Tab>
-            <Tab eventKey="salaries" title="الرواتب والأجور">
-              <SalariesTab />
+            <Tab eventKey="expenses" title="💸 المصاريف">
+              <ExpensesPage />
             </Tab>
-            <Tab eventKey="donations" title="التبرعات والهبات">
-              <DonationsTab onInventoryUpdate={handleInventoryUpdate} />
+            <Tab eventKey="accounts" title="📋 إدارة الفئات">
+              <AccountsPage />
             </Tab>
-            <Tab eventKey="inventory" title="المخزون">
+            <Tab eventKey="inventory" title="📦 المخزون">
               <InventoryTab key={inventoryTabKey} />
-            </Tab>
-            <Tab eventKey="expenses" title="المصاريف والنثريات">
-              <ExpensesTab />
-            </Tab>
-            <Tab eventKey="receipt-books" title="دفاتر الإيصالات">
-              <ReceiptBooksTab />
             </Tab>
           </Tabs>
         </Card.Body>

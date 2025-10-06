@@ -7,7 +7,7 @@ const initialFormData = {
   quantity: 0,
   unit_value: 0,
   acquisition_date: new Date().toISOString().split('T')[0],
-  acquisition_source: '',
+  acquisition_source: 'تبرع',
   condition_status: 'New',
   location: '',
   notes: '',
@@ -18,8 +18,15 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
   const [isUnique, setIsUnique] = useState(true);
   const [isValidated, setIsValidated] = useState(false);
   const [itemNameForCheck, setItemNameForCheck] = useState('');
+  const [categories, setCategories] = useState([]);
 
   const isEditMode = item != null;
+  
+  useEffect(() => {
+    if (show) {
+      window.electronAPI.getInKindCategories().then(setCategories).catch(() => {});
+    }
+  }, [show]);
 
   // Debounce effect for item name uniqueness check
   useEffect(() => {
@@ -125,14 +132,21 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>الفئة</Form.Label>
+                <Form.Label>الفئة <span className="text-danger">*</span></Form.Label>
                 <Form.Control
-                  type="text"
+                  as="select"
                   name="category"
-                  placeholder="مثال: مواد تنظيف، أثاث مكتبي..."
                   value={formData.category}
                   onChange={handleChange}
-                />
+                  required
+                >
+                  <option value="">اختر الفئة</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </Form.Control>
               </Form.Group>
             </Col>
             <Col md={6}>
@@ -154,7 +168,7 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
           </Row>
 
           <Row>
-            <Col md={6}>
+            <Col md={4}>
               <Form.Group className="mb-3">
                 <Form.Label>الكمية</Form.Label>
                 <Form.Control
@@ -165,15 +179,26 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
                 />
               </Form.Group>
             </Col>
-            <Col md={6}>
+            <Col md={4}>
               <Form.Group className="mb-3">
-                <Form.Label>قيمة الوحدة (بالدينار حسب التقريب)</Form.Label>
+                <Form.Label>قيمة الوحدة (دينار)</Form.Label>
                 <Form.Control
                   type="number"
-                  step="0.01"
+                  step="0.001"
                   name="unit_value"
                   value={formData.unit_value}
                   onChange={handleChange}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group className="mb-3">
+                <Form.Label>القيمة الإجمالية</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={(formData.quantity * formData.unit_value).toFixed(3) + ' د.ت'}
+                  readOnly
+                  disabled
                 />
               </Form.Group>
             </Col>
@@ -195,12 +220,15 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
               <Form.Group className="mb-3">
                 <Form.Label>مصدر الاقتناء</Form.Label>
                 <Form.Control
-                  type="text"
+                  as="select"
                   name="acquisition_source"
-                  placeholder="مثال: تبرع، شراء"
                   value={formData.acquisition_source}
                   onChange={handleChange}
-                />
+                >
+                  <option value="تبرع">تبرع</option>
+                  <option value="شراء">شراء</option>
+                  <option value="أخرى">أخرى</option>
+                </Form.Control>
               </Form.Group>
             </Col>
           </Row>
