@@ -10,7 +10,7 @@ const { getSetting } = require('./settingsManager');
 /**
  * Calculates age from date of birth string.
  * Uses the same logic as the frontend and studentHandlers.
- * 
+ *
  * @param {string} dob - Date of birth in YYYY-MM-DD format
  * @returns {number|null} Age in years or null if invalid date
  */
@@ -96,18 +96,18 @@ async function fetchExportData({ type, fields, options = {} }) {
       } else {
         query = `SELECT ${fieldSelection} FROM students WHERE 1=1 ORDER BY name`;
       }
-      
+
       // Fetch all matching students, then apply age-based filtering in JavaScript
       let students = await allQuery(query, params);
-      
+
       // Apply gender-based age filtering if specified
       if (options.gender) {
         const adultAge = await getSetting('adult_age_threshold');
-        
-        students = students.filter(student => {
+
+        students = students.filter((student) => {
           const age = calculateAge(student.date_of_birth);
           if (age === null) return false; // Exclude students without valid birth date
-          
+
           if (options.gender === 'men') {
             return student.gender === 'Male' && age >= adultAge;
           } else if (options.gender === 'women') {
@@ -115,11 +115,11 @@ async function fetchExportData({ type, fields, options = {} }) {
           } else if (options.gender === 'kids') {
             return age <= adultAge;
           }
-          
+
           return true;
         });
       }
-      
+
       return students;
     }
     case 'teachers': {
@@ -205,7 +205,7 @@ function localizeData(data) {
     'in-kind': 'عيني',
     // Add missing mappings
     'In-Kind': 'عيني',
-    'CASH': 'نقدي',
+    CASH: 'نقدي',
     'IN-KIND': 'عيني',
   };
 
@@ -446,10 +446,11 @@ async function generateFinancialXlsx(data, outputPath) {
       localized.donation_type = donationTypeMap[localized.donation_type];
     }
     // Set amount/description based on type
-    localized.amount = d.donation_type === 'Cash' || d.donation_type === 'cash' ? d.amount : d.description;
+    localized.amount =
+      d.donation_type === 'Cash' || d.donation_type === 'cash' ? d.amount : d.description;
     return localized;
   });
-  
+
   donationsSheet.addRows(localizedDonations);
 
   // Expenses Sheet
@@ -828,21 +829,21 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
       dummyData: [
         {
-          username: 'manager_user',
+          username: 'finance_manager',
           first_name: 'أحمد',
           last_name: 'محمود',
-          role: 'Manager',
+          role: 'FinanceManager', // Updated to match database role
           employment_type: 'contract',
           email: 'manager@example.com',
           national_id: '303030303',
         },
         {
-          username: 'admin_user',
+          username: 'session_supervisor',
           first_name: 'نورة',
           last_name: 'سالم',
-          role: 'Admin',
+          role: 'SessionSupervisor', // Updated to match database role
           employment_type: 'volunteer',
-          email: 'admin@example.com',
+          email: 'supervisor@example.com',
           national_id: '404040404',
         },
       ],
@@ -871,7 +872,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'تاريخ الاقتناء', key: 'acquisition_date', width: 18 },
         { header: 'مصدر الاقتناء', key: 'acquisition_source', width: 25 },
         { header: 'الحالة', key: 'condition_status', width: 15 },
-        { header: 'الموقع', key: 'location', width: 25 },
+        { header: 'موقع التخزين', key: 'location', width: 25 },
         { header: 'ملاحظات', key: 'notes', width: 40 },
       ],
       dummyData: [
@@ -881,6 +882,7 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           quantity: 50,
           unit_value: 15.0,
           acquisition_date: '2024-01-10',
+          acquisition_source: 'تبرع',
           condition_status: 'جديد',
         },
         {
@@ -889,51 +891,62 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           quantity: 5,
           unit_value: 100.0,
           acquisition_date: '2024-02-01',
-          condition_status: 'مستخدم',
+          acquisition_source: 'شراء',
+          condition_status: 'جيد',
         },
       ],
     },
     {
-      name: 'التبرعات',
+      name: 'العمليات المالية',
       columns: [
-        { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
-        { header: 'نوع التبرع', key: 'donation_type', width: 20 },
-        { header: 'المبلغ', key: 'amount', width: 20 },
-        { header: 'الوصف', key: 'description', width: 30 },
-        { header: 'تاريخ التبرع', key: 'donation_date', width: 20 },
-        { header: 'ملاحظات', key: 'notes', width: 30 },
-      ],
-      dummyData: [
-        {
-          donor_name: 'فاعل خير',
-          donation_type: 'نقدي',
-          amount: 500,
-          donation_date: '2024-09-10',
-        },
-        {
-          donor_name: 'مكتبة المدينة',
-          donation_type: 'عيني',
-          description: '50 مصحف',
-          donation_date: '2024-09-11',
-        },
-      ],
-    },
-    {
-      name: 'المصاريف',
-      columns: [
+        { header: 'الرقم التسلسلي', key: 'matricule', width: 18 },
+        { header: 'النوع', key: 'type', width: 12 },
         { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'نوع الوصل', key: 'receipt_type', width: 18 },
         { header: 'المبلغ', key: 'amount', width: 15 },
-        { header: 'تاريخ الصرف', key: 'expense_date', width: 20 },
-        { header: 'المسؤول', key: 'responsible_person', width: 25 },
+        { header: 'التاريخ', key: 'transaction_date', width: 15 },
         { header: 'الوصف', key: 'description', width: 30 },
+        { header: 'طريقة الدفع', key: 'payment_method', width: 15 },
+        { header: 'رقم الشيك', key: 'check_number', width: 15 },
+        { header: 'رقم الوصل', key: 'voucher_number', width: 15 },
+        { header: 'اسم الشخص', key: 'related_person_name', width: 25 },
       ],
       dummyData: [
         {
-          category: 'فواتير',
+          type: 'مدخول',
+          category: 'التبرعات النقدية',
+          receipt_type: 'تبرع',
+          amount: 100,
+          transaction_date: '2024-09-10',
+          payment_method: 'نقدي',
+          related_person_name: 'فاعل خير',
+          description: 'تبرع للمشروع التعليمي',
+        },
+        {
+          type: 'مصروف',
+          category: 'الكهرباء والماء',
           amount: 150,
-          expense_date: '2024-09-03',
-          responsible_person: 'أحمد محمود',
-          description: 'فاتورة الكهرباء',
+          transaction_date: '2024-09-03',
+          payment_method: 'نقدي',
+          description: 'فاتورة الكهرباء والماء',
+        },
+        {
+          type: 'مدخول',
+          category: 'مداخيل أخرى',
+          amount: 250,
+          transaction_date: '2024-09-05',
+          payment_method: 'شيك',
+          check_number: 'CHK-2024-001',
+          related_person_name: 'أحمد محمد',
+          description: 'دفع رسوم خدمات',
+        },
+        {
+          type: 'مصروف',
+          category: 'رواتب المعلمين',
+          amount: 400,
+          transaction_date: '2024-09-01',
+          payment_method: 'تحويل',
+          description: 'راتب شهري',
         },
       ],
     },
@@ -1095,35 +1108,7 @@ async function generateDevExcelTemplate(outputPath) {
     { user_matricule: 'T-000002', amount: 1350, payment_date: '2024-09-05' },
   ];
 
-  const donationData = [
-    {
-      donor_name: 'فاعل خير (للتطوير)',
-      donation_type: 'Cash',
-      amount: 1000,
-      donation_date: '2024-09-10',
-    },
-    {
-      donor_name: 'مكتبة (للتطوير)',
-      donation_type: 'In-kind',
-      description: '100 مصحف',
-      donation_date: '2024-09-11',
-    },
-  ];
-
-  const expenseData = [
-    {
-      category: 'لوازم مكتبية',
-      amount: 75,
-      expense_date: '2024-09-03',
-      responsible_person: 'مدير المالية',
-    },
-    {
-      category: 'كهرباء وماء',
-      amount: 250,
-      expense_date: '2024-09-04',
-      responsible_person: 'مدير المالية',
-    },
-  ];
+  // Legacy donation/expense data not used in unified dev template
 
   const attendanceData = [
     {
@@ -1177,15 +1162,16 @@ async function generateDevExcelTemplate(outputPath) {
     return def.columns;
   };
 
-  // Simplified sheets for dev template - only basic data
+  // Dev template sheets - match importConstants.js exactly
   const sheets = [
     { name: 'الطلاب', columns: getCols('الطلاب'), dummyData: studentData },
     { name: 'المعلمون', columns: getCols('المعلمون'), dummyData: teacherData },
     { name: 'المستخدمون', columns: getCols('المستخدمون'), dummyData: userData },
+    { name: 'الفصول', columns: getCols('الفصول'), dummyData: [] },
+    { name: 'العمليات المالية', columns: getCols('العمليات المالية'), dummyData: [] },
+    { name: 'الحضور', columns: getCols('الحضور'), dummyData: attendanceData },
     { name: 'المجموعات', columns: getCols('المجموعات'), dummyData: groupData },
     { name: 'المخزون', columns: getCols('المخزون'), dummyData: inventoryData },
-    { name: 'التبرعات', columns: getCols('التبرعات'), dummyData: donationData },
-    { name: 'المصاريف', columns: getCols('المصاريف'), dummyData: expenseData },
   ];
 
   for (const sheetInfo of sheets) {

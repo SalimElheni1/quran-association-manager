@@ -22,3 +22,8 @@ yarn-error.log*
 *.sqlite-journal
 out/
 docs/new-finacial-system
+
+# Test Coverage Reports
+coverage/
+lcov.info
+*.lcov

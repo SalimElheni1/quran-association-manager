@@ -368,15 +368,15 @@ const ImportTabPanel = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Simplified sheets - only basic data
+  // All available import sheets (unified as single group)
   const allSheets = [
     'الطلاب',
     'المعلمون',
     'المستخدمون',
+    'الفصول',
+    'العمليات المالية',
     'المجموعات',
     'المخزون',
-    'التبرعات',
-    'المصاريف'
   ];
   const [selectedSheets, setSelectedSheets] = useState(allSheets);
 
@@ -465,13 +465,11 @@ const ImportTabPanel = () => {
           قم بإنشاء قالب Excel، واملأه بالبيانات، ثم قم باستيراده لإضافة سجلات متعددة دفعة واحدة.
         </p>
 
-
-
         {/* Template Generation */}
         <div className="mb-4">
           <div className="text-center">
-            <Button 
-              variant="success" 
+            <Button
+              variant="success"
               size="lg"
               onClick={handleGenerateTemplate}
               disabled={isLoading}
@@ -494,59 +492,27 @@ const ImportTabPanel = () => {
             <CheckSquareIcon className="me-2 text-primary" />
             اختر البيانات المراد استيرادها:
           </h5>
-          
-          <div className="row mb-4">
-            {/* Basic Data Category */}
-            <div className="col-md-6 mb-3">
-              <div className="card h-100">
-                <div className="card-header bg-primary text-white">
-                  <h6 className="mb-0">
-                    <UsersIcon className="me-2" />
-                    البيانات الأساسية
-                  </h6>
-                </div>
-                <div className="card-body">
-                  {['الطلاب', 'المعلمون', 'المستخدمون', 'المجموعات', 'المخزون'].map(sheet => (
+
+          <div className="card">
+            <div className="card-body">
+              <Row>
+                {allSheets.map((sheet) => (
+                  <Col md={3} key={sheet} className="mb-2">
                     <Form.Check
-                      key={sheet}
                       type="checkbox"
                       id={`sheet-${sheet}`}
                       label={sheet}
                       checked={selectedSheets.includes(sheet)}
                       onChange={() => handleSheetCheckboxChange(sheet)}
-                      className="mb-2"
+                      reverse
+                      className="d-flex gap-2 justify-content-start align-items-center"
                     />
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {/* Financial Data Category */}
-            <div className="col-md-6 mb-3">
-              <div className="card h-100">
-                <div className="card-header bg-success text-white">
-                  <h6 className="mb-0">
-                    <FinancialsIcon className="me-2" />
-                    البيانات المالية
-                  </h6>
-                </div>
-                <div className="card-body">
-                  {['التبرعات', 'المصاريف'].map(sheet => (
-                    <Form.Check
-                      key={sheet}
-                      type="checkbox"
-                      id={`sheet-${sheet}`}
-                      label={sheet}
-                      checked={selectedSheets.includes(sheet)}
-                      onChange={() => handleSheetCheckboxChange(sheet)}
-                      className="mb-2"
-                    />
-                  ))}
-                </div>
-              </div>
+                  </Col>
+                ))}
+              </Row>
             </div>
           </div>
-          
+
           {/* Selection Summary & Actions */}
           <div className="d-flex justify-content-between align-items-center mb-3">
             <div>
@@ -555,24 +521,28 @@ const ImportTabPanel = () => {
               </span>
             </div>
             <div>
-              <Button 
-                variant="outline-primary" 
-                size="sm" 
+              <Button
+                variant="outline-primary"
+                size="sm"
                 onClick={() => {
                   const allSelected = selectedSheets.length === allSheets.length;
                   handleSelectAllSheets(!allSelected);
                 }}
               >
-                {selectedSheets.length === allSheets.length ? <TimesIcon className="me-1" /> : <CheckIcon className="me-1" />}
+                {selectedSheets.length === allSheets.length ? (
+                  <TimesIcon className="me-1" />
+                ) : (
+                  <CheckIcon className="me-1" />
+                )}
                 {selectedSheets.length === allSheets.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
               </Button>
             </div>
           </div>
-          
+
           {/* Start Wizard Button */}
           <div className="text-center">
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               size="lg"
               onClick={() => setShowWizard(true)}
               disabled={isLoading || selectedSheets.length === 0}
@@ -581,13 +551,11 @@ const ImportTabPanel = () => {
               <MagicIcon className="me-2" />
               بدء معالج الاستيراد
               {selectedSheets.length > 0 && (
-                <span className="badge bg-light text-primary ms-2">
-                  {selectedSheets.length}
-                </span>
+                <span className="badge bg-light text-primary ms-2">{selectedSheets.length}</span>
               )}
             </Button>
           </div>
-          
+
           {selectedSheets.length === 0 && (
             <Alert variant="warning" className="mt-3 text-center">
               <ExclamationTriangleIcon className="me-2" />
@@ -644,9 +612,9 @@ const ImportTabPanel = () => {
             )}
           </div>
         )}
-        
-        <ImportWizard 
-          show={showWizard} 
+
+        <ImportWizard
+          show={showWizard}
           handleClose={() => setShowWizard(false)}
           selectedSheets={selectedSheets}
         />
@@ -685,7 +653,7 @@ const renderYearOptions = () => {
 
 const ExportsPage = () => {
   const { hasPermission } = usePermissions();
-  
+
   // Set default tab based on permissions
   const getDefaultTab = () => {
     if (hasPermission(PERMISSIONS.STUDENTS_VIEW)) return 'students';
@@ -696,7 +664,7 @@ const ExportsPage = () => {
     if (hasPermission(PERMISSIONS.USERS_CREATE)) return 'import';
     return 'students'; // fallback
   };
-  
+
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -732,7 +700,8 @@ const ExportsPage = () => {
       period = { startDate: customStartDate, endDate: customEndDate };
     } else {
       const firstTransaction = await window.electronAPI.getTransactions({ limit: 1 });
-      const startDate = firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
+      const startDate =
+        firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
       const endDate = new Date().toISOString().split('T')[0];
       period = { startDate, endDate };
     }
@@ -763,7 +732,11 @@ const ExportsPage = () => {
   const renderActivePanel = () => {
     switch (activeTab) {
       case 'import':
-        return hasPermission(PERMISSIONS.USERS_CREATE) ? <ImportTabPanel /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لاستيراد البيانات.</Alert>;
+        return hasPermission(PERMISSIONS.USERS_CREATE) ? (
+          <ImportTabPanel />
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لاستيراد البيانات.</Alert>
+        );
       case 'students':
         return hasPermission(PERMISSIONS.STUDENTS_VIEW) ? (
           <ExportTabPanel
@@ -771,11 +744,21 @@ const ExportsPage = () => {
             fields={arabicFieldDefinitions.students}
             kidFields={arabicFieldDefinitions.studentsKids}
           />
-        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات الطلاب.</Alert>;
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات الطلاب.</Alert>
+        );
       case 'teachers':
-        return hasPermission(PERMISSIONS.TEACHERS_VIEW) ? <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المعلمين.</Alert>;
+        return hasPermission(PERMISSIONS.TEACHERS_VIEW) ? (
+          <ExportTabPanel exportType="teachers" fields={arabicFieldDefinitions.teachers} />
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المعلمين.</Alert>
+        );
       case 'admins':
-        return hasPermission(PERMISSIONS.USERS_VIEW) ? <ExportTabPanel exportType="admins" fields={arabicFieldDefinitions.admins} /> : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المستخدمين.</Alert>;
+        return hasPermission(PERMISSIONS.USERS_VIEW) ? (
+          <ExportTabPanel exportType="admins" fields={arabicFieldDefinitions.admins} />
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير بيانات المستخدمين.</Alert>
+        );
       case 'attendance':
         return hasPermission(PERMISSIONS.ATTENDANCE_VIEW) ? (
           <ExportTabPanel
@@ -783,14 +766,16 @@ const ExportsPage = () => {
             fields={arabicFieldDefinitions.attendance}
             isAttendance={true}
           />
-        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير سجل الحضور.</Alert>;
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير سجل الحضور.</Alert>
+        );
       case 'financials':
         return hasPermission(PERMISSIONS.FINANCIALS_VIEW) ? (
           <Card className="mt-3">
             <Card.Body>
               <Card.Title>تصدير التقارير المالية</Card.Title>
               <p>اختر نوع التقرير والفترة الزمنية للتصدير.</p>
-              
+
               <Form>
                 <Row className="mb-4">
                   <Col md={12}>
@@ -916,9 +901,9 @@ const ExportsPage = () => {
                   )}
                 </Row>
               </Form>
-              
+
               {message.text && <Alert variant={message.type}>{message.text}</Alert>}
-              
+
               <div className="d-flex justify-content-end">
                 <Button variant="success" size="lg" onClick={handleFinancialExport}>
                   📄 تصدير التقرير
@@ -926,7 +911,9 @@ const ExportsPage = () => {
               </div>
             </Card.Body>
           </Card>
-        ) : <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير التقارير المالية.</Alert>;
+        ) : (
+          <Alert variant="warning">ليس لديك الصلاحيات اللازمة لتصدير التقارير المالية.</Alert>
+        );
       default:
         return <Alert variant="info">اختر قسماً من الأعلى لبدء التصدير.</Alert>;
     }

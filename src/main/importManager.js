@@ -19,29 +19,31 @@ const {
 const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./matriculeService');
 const { setDbSalt } = require('./keyManager');
-const { getSheetsForStep, getStepInfo } = require('./importConstants');
+const { getAvailableSheets, getSheetInfo } = require('./importConstants');
 
 const mainStore = new Store();
 
 async function executeSqlScriptSafely(sqlScript) {
   // Get current database tables
   const tables = await allQuery(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
   );
-  const existingTables = new Set(tables.map(t => t.name));
-  
+  const existingTables = new Set(tables.map((t) => t.name));
+
   // Split SQL script into individual statements
   const statements = sqlScript
     .split(';')
-    .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0);
-  
+    .map((stmt) => stmt.trim())
+    .filter((stmt) => stmt.length > 0);
+
   const validStatements = [];
   const skippedTables = new Set();
-  
+
   for (const statement of statements) {
     // Extract table name from REPLACE INTO or INSERT statements
-    const match = statement.match(/(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"']+)["']?/i);
+    const match = statement.match(
+      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"']+)["']?/i,
+    );
     if (match) {
       const tableName = match[1];
       if (existingTables.has(tableName)) {
@@ -54,11 +56,11 @@ async function executeSqlScriptSafely(sqlScript) {
       validStatements.push(statement);
     }
   }
-  
+
   if (skippedTables.size > 0) {
     logWarn(`Skipped data for non-existent tables: ${Array.from(skippedTables).join(', ')}`);
   }
-  
+
   // Execute valid statements
   const finalScript = validStatements.join(';\n');
   if (finalScript.trim()) {
@@ -73,7 +75,7 @@ async function validateDatabaseFile(filePath) {
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json'); // Legacy: 'config.json'
     if (!configFile) {
-        configFile = zip.file('config.json');
+      configFile = zip.file('config.json');
     }
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
@@ -162,13 +164,10 @@ const REQUIRED_COLUMNS = {
   المعلمون: ['الاسم واللقب'],
   المستخدمون: ['اسم المستخدم', 'الاسم الأول', 'اللقب', 'الدور', 'نوع التوظيف'],
   الفصول: ['اسم الفصل', 'معرف المعلم'],
-  'الرسوم الدراسية': ['الرقم التعريفي للطالب', 'المبلغ', 'تاريخ الدفع'],
-  الرواتب: ['الرقم التعريفي للموظف', 'المبلغ', 'تاريخ الدفع'],
-  التبرعات: ['اسم المتبرع', 'نوع التبرع', 'تاريخ التبرع'],
-  المصاريف: ['الفئة', 'المبلغ', 'تاريخ الصرف'],
+  'العمليات المالية': ['النوع', 'الفئة', 'المبلغ', 'التاريخ', 'طريقة الدفع'],
   الحضور: ['الرقم التعريفي للطالب', 'اسم الفصل', 'التاريخ', 'الحالة'],
   المجموعات: ['اسم المجموعة', 'الفئة'],
-  المخزون: ['اسم العنصر', 'الفئة', 'الكمية'],
+  المخزون: ['اسم العنصر', 'الفئة', 'الكمية', 'قيمة الوحدة'],
 };
 
 const getColumnIndex = (headerRow, headerText) => {
@@ -191,10 +190,7 @@ async function importExcelData(filePath, selectedSheets) {
     المعلمون: processTeacherRow,
     المستخدمون: processUserRow,
     الفصول: processClassRow,
-    'الرسوم الدراسية': processPaymentRow,
-    الرواتب: processSalaryRow,
-    التبرعات: processDonationRow,
-    المصاريف: processExpenseRow,
+    'العمليات المالية': processTransactionRow,
     الحضور: processAttendanceRow,
     المجموعات: processGroupRow,
     المخزون: processInventoryRow,
@@ -208,7 +204,9 @@ async function importExcelData(filePath, selectedSheets) {
 
     const worksheet = workbook.getWorksheet(sheetName);
     if (!worksheet) {
-      logWarn(`Sheet "${sheetName}" selected for import but not found in the Excel file.`);
+      if (selectedSheets && selectedSheets.includes(sheetName)) {
+        logWarn(`Sheet "${sheetName}" selected for import but not found in the Excel file.`);
+      }
       continue;
     }
 
@@ -252,11 +250,13 @@ async function importExcelData(filePath, selectedSheets) {
 async function processStudentRow(row, headerRow) {
   const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
   if (genderAr) {
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+    row.getCell(getColumnIndex(headerRow, 'الجنس')).value =
+      GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
   }
   const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
   if (statusAr) {
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value = STATUS_MAP_AR_TO_EN[statusAr] || statusAr;
+    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
+      STATUS_MAP_AR_TO_EN[statusAr] || statusAr;
   }
 
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
@@ -386,11 +386,25 @@ async function processTeacherRow(row, headerRow) {
 async function processUserRow(row, headerRow) {
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
 
+  // Get the role from the template (might be in English)
+  const roleValue = row.getCell(getColumnIndex(headerRow, 'الدور'))?.value;
+  // Map common role names to database format if needed
+  const roleMappings = {
+    Superadmin: 'Superadmin',
+    Administrator: 'Administrator',
+    FinanceManager: 'FinanceManager',
+    SessionSupervisor: 'SessionSupervisor',
+    Manager: 'Administrator', // Fallback mapping for template
+    مدير: 'Administrator',
+    محاسب: 'FinanceManager',
+  };
+
+  const mappedRole = roleMappings[roleValue] || roleValue;
+
   const data = {
     username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
     first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
     last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-    role: row.getCell(getColumnIndex(headerRow, 'الدور')).value,
     employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
   };
 
@@ -398,7 +412,7 @@ async function processUserRow(row, headerRow) {
     !data.username ||
     !data.first_name ||
     !data.last_name ||
-    !data.role ||
+    !mappedRole ||
     !data.employment_type
   ) {
     return {
@@ -407,24 +421,44 @@ async function processUserRow(row, headerRow) {
     };
   }
 
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-
   if (matricule) {
-    // Update existing record
+    // Update existing record - need to handle user roles
     const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
     if (!existingUser) {
       return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
     }
 
-    if (fields.length === 0) {
-      return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
-    }
+    await runQuery('BEGIN TRANSACTION');
 
-    const setClauses = fields.map((field) => `${field} = ?`).join(', ');
-    const values = [...fields.map((k) => data[k]), matricule];
-    await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
-    return { success: true };
+    try {
+      // Update basic user data
+      const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
+      if (fields.length > 0) {
+        const setClauses = fields.map((field) => `${field} = ?`).join(', ');
+        const values = [...fields.map((k) => data[k]), matricule];
+        await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
+      }
+
+      // Update roles - remove existing and add new
+      await runQuery('DELETE FROM user_roles WHERE user_id = ?', [existingUser.id]);
+
+      // Get role ID and assign
+      const roleRecord = await getQuery('SELECT id FROM roles WHERE name = ?', [mappedRole]);
+      if (roleRecord) {
+        await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+          existingUser.id,
+          roleRecord.id,
+        ]);
+      }
+
+      await runQuery('COMMIT');
+      return { success: true };
+    } catch (error) {
+      await runQuery('ROLLBACK');
+      throw error;
+    }
   }
+
   // Insert new record
   const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
   if (existingUser) {
@@ -433,26 +467,43 @@ async function processUserRow(row, headerRow) {
 
   const password = Math.random().toString(36).slice(-8);
   const newMatricule = await generateMatricule('user');
-  const allData = {
-    ...data,
-    matricule: newMatricule,
-    password: bcrypt.hashSync(password, 10),
-  };
 
-  const allFields = Object.keys(allData).filter(
-    (k) => allData[k] !== null && allData[k] !== undefined,
-  );
-  const placeholders = allFields.map(() => '?').join(', ');
-  const values = allFields.map((k) => allData[k]);
+  await runQuery('BEGIN TRANSACTION');
 
-  await runQuery(`INSERT INTO users (${allFields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true, newUser: { username: data.username, password } };
+  try {
+    // Insert main user record
+    const allFields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
+    const userFields = [...allFields, 'matricule', 'password'];
+    const placeholders = userFields.map(() => '?').join(', ');
+    const values = [...allFields.map((k) => data[k]), newMatricule, bcrypt.hashSync(password, 10)];
+
+    const result = await runQuery(
+      `INSERT INTO users (${userFields.join(', ')}) VALUES (${placeholders})`,
+      values,
+    );
+
+    // Assign role
+    const roleRecord = await getQuery('SELECT id FROM roles WHERE name = ?', [mappedRole]);
+    if (roleRecord) {
+      await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+        result.id,
+        roleRecord.id,
+      ]);
+    }
+
+    await runQuery('COMMIT');
+    return { success: true, newUser: { username: data.username, password } };
+  } catch (error) {
+    await runQuery('ROLLBACK');
+    throw error;
+  }
 }
 
 async function processClassRow(row, headerRow) {
   const teacherMatriculeIndex = getColumnIndex(headerRow, 'معرف المعلم');
-  if (teacherMatriculeIndex === -1) return { success: false, message: 'عمود معرف المعلم غير موجود.' };
-  
+  if (teacherMatriculeIndex === -1)
+    return { success: false, message: 'عمود معرف المعلم غير موجود.' };
+
   const teacherMatricule = row.getCell(teacherMatriculeIndex)?.value;
   if (!teacherMatricule) return { success: false, message: 'معرف المعلم مطلوب.' };
   const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
@@ -481,127 +532,173 @@ async function processClassRow(row, headerRow) {
   return { success: true };
 }
 
-async function processPaymentRow(row, headerRow) {
-  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
-  if (!studentMatricule) return { success: false, message: 'الرقم التعريفي للطالب مطلوب.' };
-  const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [studentMatricule]);
-  if (!student) {
+async function processTransactionRow(row, headerRow) {
+  // Arabic translations for transaction types and payment methods
+  const TRANSACTION_TYPE_MAP = {
+    مدخول: 'INCOME',
+    مصروف: 'EXPENSE',
+    إيراد: 'INCOME',
+    مصاريف: 'EXPENSE',
+  };
+
+  const PAYMENT_METHOD_MAP = {
+    نقدي: 'CASH',
+    شيك: 'CHECK',
+    تحويل: 'TRANSFER',
+    'تحويل بنكي': 'TRANSFER',
+  };
+
+  // Map old category names to new ones
+  const CATEGORY_MAP = {
+    'رواتب المعلمين': 'منح ومرتبات',
+    'رواتب الإداريين': 'منح ومرتبات',
+    'الإيجار': 'كراء وفواتير',
+    'الكهرباء والماء': 'كراء وفواتير',
+    'القرطاسية': 'لوازم مكتبية وصيانة',
+    'الصيانة': 'لوازم مكتبية وصيانة',
+    'مصاريف أخرى': 'نفقات متنوعة',
+  };
+
+  // Get data
+  const rawType = row.getCell(getColumnIndex(headerRow, 'النوع')).value;
+  const rawCategory = row.getCell(getColumnIndex(headerRow, 'الفئة')).value;
+  const rawPaymentMethod = row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value;
+
+  const data = {
+    type: TRANSACTION_TYPE_MAP[rawType] || rawType,
+    category: CATEGORY_MAP[rawCategory] || rawCategory,
+    receipt_type: row.getCell(getColumnIndex(headerRow, 'نوع الوصل')).value,
+    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
+    transaction_date: row.getCell(getColumnIndex(headerRow, 'التاريخ')).value,
+    description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
+    payment_method: PAYMENT_METHOD_MAP[rawPaymentMethod] || rawPaymentMethod,
+    check_number: row.getCell(getColumnIndex(headerRow, 'رقم الشيك')).value,
+    voucher_number: row.getCell(getColumnIndex(headerRow, 'رقم الوصل')).value,
+    related_person_name: row.getCell(getColumnIndex(headerRow, 'اسم الشخص')).value,
+  };
+
+  // Validation
+  if (
+    !data.type ||
+    !data.category ||
+    !data.amount ||
+    !data.transaction_date ||
+    !data.payment_method
+  )
+    return { success: false, message: 'النوع، الفئة، المبلغ، التاريخ، وطريقة الدفع مطلوبة.' };
+
+  // Validate transaction type
+  if (!['INCOME', 'EXPENSE'].includes(data.type)) {
     return {
       success: false,
-      message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
+      message: 'النوع يجب أن يكون مدخول أو مصروف (أو إيراد أو مصاريف)',
     };
   }
-  const data = {
-    student_id: student.id,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع')).value,
-    payment_method: row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
-  if (!data.amount || !data.payment_date)
-    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO payments (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
 
-async function processSalaryRow(row, headerRow) {
-  const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للموظف'))?.value;
-  if (!matricule) return { success: false, message: 'الرقم التعريفي للموظف مطلوب.' };
+  // Validate category exists in database
+  const validCategories = await allQuery(
+    'SELECT name FROM categories WHERE type = ? AND is_active = 1',
+    [data.type === 'INCOME' ? 'INCOME' : 'EXPENSE'],
+  );
+  const categoryNames = validCategories.map((cat) => cat.name);
 
-  let person = null;
-  let personType = null;
-
-  // Try finding in users table first
-  const user = await getQuery('SELECT id, employment_type FROM users WHERE matricule = ?', [
-    matricule,
-  ]);
-  if (user) {
-    person = user;
-    personType = user.employment_type;
-  } else {
-    // If not found in users, try finding in teachers table
-    const teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [matricule]);
-    if (teacher) {
-      person = teacher;
-      personType = 'teacher';
-    }
-  }
-
-  if (!person) {
+  if (!categoryNames.includes(data.category)) {
     return {
       success: false,
-      message: `لم يتم العثور على موظف أو معلم بالرقم التعريفي "${matricule}".`,
+      message: `الفئة "${data.category}" غير موجودة في قاعدة البيانات. الفئات الصالحة: ${categoryNames.join(', ')}`,
     };
   }
 
-  const data = {
-    user_id: person.id,
-    user_type: personType,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    payment_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الدفع')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
+  // Validate receipt type for cash donations
+  const VALID_RECEIPT_TYPES = ['تبرع', 'هبة', 'صدقة', 'زكاة'];
 
-  if (!data.amount || !data.payment_date) {
-    return { success: false, message: 'المبلغ وتاريخ الدفع مطلوبان.' };
+  if (data.category === 'التبرعات النقدية' && !data.receipt_type) {
+    return { success: false, message: 'نوع الوصل مطلوب للتبرعات النقدية.' };
   }
 
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO salaries (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
+  if (data.receipt_type && !VALID_RECEIPT_TYPES.includes(data.receipt_type)) {
+    return {
+      success: false,
+      message: `نوع الوصل غير صالح. الأنواع الصالحة: ${VALID_RECEIPT_TYPES.join(', ')}`,
+    };
+  }
 
-async function processDonationRow(row, headerRow) {
-  const donationTypeAr = row.getCell(getColumnIndex(headerRow, 'نوع التبرع'))?.value;
-  const donationTypeEn = { نقدي: 'Cash', عيني: 'In-kind' }[donationTypeAr] || donationTypeAr;
+  // Validate payment method
+  if (!['CASH', 'CHECK', 'TRANSFER'].includes(data.payment_method)) {
+    return {
+      success: false,
+      message: 'طريقة الدفع يجب أن تكون نقدي، شيك، أو تحويل (بنكي)',
+    };
+  }
 
-  const data = {
-    donor_name: row.getCell(getColumnIndex(headerRow, 'اسم المتبرع')).value,
-    donation_type: donationTypeEn,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
-    donation_date: row.getCell(getColumnIndex(headerRow, 'تاريخ التبرع')).value,
-    notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-  };
-  if (!data.donor_name || !data.donation_type || !data.donation_date)
-    return { success: false, message: 'اسم المتبرع، نوع التبرع، وتاريخ التبرع هي حقول مطلوبة.' };
-  if (data.donation_type === 'Cash' && !data.amount)
-    return { success: false, message: 'المبلغ مطلوب للتبرعات النقدية.' };
-  if (data.donation_type === 'In-kind' && !data.description)
-    return { success: false, message: 'الوصف مطلوب للتبرعات العينية.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO donations (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
-}
+  // 500 TND rule - Arabic translation
+  if (data.amount > 500 && data.payment_method === 'CASH')
+    return {
+      success: false,
+      message: 'المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي.',
+    };
 
-async function processExpenseRow(row, headerRow) {
-  const data = {
-    category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
-    amount: row.getCell(getColumnIndex(headerRow, 'المبلغ')).value,
-    expense_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الصرف')).value,
-    responsible_person: row.getCell(getColumnIndex(headerRow, 'المسؤول')).value,
-    description: row.getCell(getColumnIndex(headerRow, 'الوصف')).value,
-  };
-  if (!data.category || !data.amount || !data.expense_date)
-    return { success: false, message: 'الفئة، المبلغ، وتاريخ الصرف هي حقول مطلوبة.' };
-  const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
-  const placeholders = fields.map(() => '?').join(', ');
-  const values = fields.map((k) => data[k]);
-  await runQuery(`INSERT INTO expenses (${fields.join(', ')}) VALUES (${placeholders})`, values);
-  return { success: true };
+  // Generate matricule
+  const year = new Date(data.transaction_date).getFullYear();
+  const prefix = data.type === 'INCOME' ? 'I' : 'E';
+  const lastTransaction = await getQuery(
+    `SELECT matricule FROM transactions WHERE type = ? AND matricule LIKE ? ORDER BY id DESC LIMIT 1`,
+    [data.type, `${prefix}-${year}-%`],
+  );
+  let sequence = 1;
+  if (lastTransaction?.matricule) {
+    const lastSeq = parseInt(lastTransaction.matricule.split('-')[2]);
+    sequence = lastSeq + 1;
+  }
+  const matricule = `${prefix}-${year}-${sequence.toString().padStart(3, '0')}`;
+
+  // Generate voucher number ONLY if not provided (user's request)
+  if (!data.voucher_number) {
+    const { generateVoucherNumber } = require('./voucherService');
+    data.voucher_number = await generateVoucherNumber();
+  }
+
+  await runQuery('BEGIN TRANSACTION;');
+  try {
+    const sql = `INSERT INTO transactions (
+      matricule, type, category, receipt_type, amount, transaction_date, description,
+      payment_method, check_number, voucher_number, account_id, related_person_name,
+      requires_dual_signature
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`;
+
+    await runQuery(sql, [
+      matricule,
+      data.type,
+      data.category,
+      data.receipt_type || null,
+      data.amount,
+      data.transaction_date,
+      data.description || null,
+      data.payment_method,
+      data.check_number || null,
+      data.voucher_number,
+      data.related_person_name || null,
+      data.amount > 500 ? 1 : 0,
+    ]);
+
+    const adjustment = data.type === 'INCOME' ? data.amount : -data.amount;
+    await runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = 1', [
+      adjustment,
+    ]);
+
+    await runQuery('COMMIT;');
+    return { success: true };
+  } catch (error) {
+    await runQuery('ROLLBACK;');
+    throw error;
+  }
 }
 
 async function processAttendanceRow(row, headerRow) {
   const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
   if (statusAr) {
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value = ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
+    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
+      ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
   }
 
   const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
@@ -692,6 +789,13 @@ async function processGroupRow(row, headerRow) {
 }
 
 async function processInventoryRow(row, headerRow) {
+  const conditionMap = {
+    جديد: 'New',
+    جيد: 'Good',
+    مقبول: 'Fair',
+    رديء: 'Poor',
+  };
+
   const data = {
     item_name: row.getCell(getColumnIndex(headerRow, 'اسم العنصر')).value,
     category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
@@ -700,22 +804,48 @@ async function processInventoryRow(row, headerRow) {
     acquisition_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الاقتناء')).value,
     acquisition_source: row.getCell(getColumnIndex(headerRow, 'مصدر الاقتناء')).value,
     condition_status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
-    location: row.getCell(getColumnIndex(headerRow, 'الموقع')).value,
+    location: row.getCell(getColumnIndex(headerRow, 'موقع التخزين')).value,
     notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
   };
 
-  if (!data.item_name || !data.category || data.quantity === null || data.quantity === undefined) {
-    return { success: false, message: 'اسم العنصر والفئة والكمية هي حقول مطلوبة.' };
+  if (
+    !data.item_name ||
+    !data.category ||
+    data.quantity === null ||
+    data.quantity === undefined ||
+    !data.unit_value
+  ) {
+    return { success: false, message: 'اسم العنصر، الفئة، الكمية، وقيمة الوحدة مطلوبة.' };
   }
 
+  // Check if item already exists
+  const existingItem = await getQuery(
+    'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE',
+    [data.item_name],
+  );
+  if (existingItem) {
+    return { success: false, message: `العنصر "${data.item_name}" موجود بالفعل في المخزون.` };
+  }
+
+  if (data.condition_status && conditionMap[data.condition_status]) {
+    data.condition_status = conditionMap[data.condition_status];
+  }
+
+  const total_value = data.quantity * data.unit_value;
   const newMatricule = await generateMatricule('inventory');
-  const allData = { ...data, matricule: newMatricule };
+
+  const allData = {
+    ...data,
+    matricule: newMatricule,
+    total_value,
+  };
 
   const allFields = Object.keys(allData).filter(
     (k) => allData[k] !== null && allData[k] !== undefined,
   );
   const placeholders = allFields.map(() => '?').join(', ');
   const values = allFields.map((k) => allData[k]);
+
   await runQuery(
     `INSERT INTO inventory_items (${allFields.join(', ')}) VALUES (${placeholders})`,
     values,
@@ -732,25 +862,8 @@ const ATTENDANCE_MAP_AR_TO_EN = {
   معذور: 'excused',
 };
 
-/**
- * Import Excel data for a specific step in sequential import process
- * @param {string} filePath - Path to Excel file
- * @param {string} stepId - Step identifier (step1, step2)
- * @returns {Promise<Object>} Import results
- */
-async function importExcelDataSequential(filePath, stepId) {
-  const stepInfo = getStepInfo(stepId);
-  if (!stepInfo) {
-    throw new Error(`خطوة الاستيراد غير صالحة: ${stepId}`);
-  }
-
-  const stepSheets = getSheetsForStep(stepId);
-  return await importExcelData(filePath, stepSheets);
-}
-
 module.exports = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
-  importExcelDataSequential,
 };
