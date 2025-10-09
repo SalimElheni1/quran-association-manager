@@ -1,248 +1,224 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, ProgressBar, Alert } from 'react-bootstrap';
-import ImportStep from './ImportStep';
+import React, { useState } from 'react';
+import { Modal, Button, Alert, Spinner, Form, InputGroup } from 'react-bootstrap';
 
 function ImportWizard({ show, handleClose, selectedSheets = [] }) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [steps, setSteps] = useState([]);
-  const [stepResults, setStepResults] = useState({});
+  const [filePath, setFilePath] = useState('');
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [currentStep, setCurrentStep] = useState('select'); // 'select' | 'import'
 
-  useEffect(() => {
-    if (show) {
-      loadSteps();
-    }
-  }, [show]);
-
-  const loadSteps = async () => {
+  const handleFileSelect = async () => {
     try {
-      const result = await window.electronAPI.getImportSteps();
-      if (result.success) {
-        // Filter and create dynamic steps based on selected sheets
-        const dynamicSteps = createDynamicSteps(result.data, selectedSheets);
-        setSteps(dynamicSteps);
+      const result = await window.electronAPI.openFileDialog({
+        title: 'اختر ملف Excel للاستيراد',
+        filters: [
+          { name: 'ملفات Excel', extensions: ['xlsx', 'xls'] },
+          { name: 'جميع الملفات', extensions: ['*'] },
+        ],
+      });
+
+      if (result && !result.canceled && result.filePaths && result.filePaths.length > 0) {
+        setFilePath(result.filePaths[0]);
+        // Automatically start import after file selection
+        setTimeout(() => handleImport(result.filePaths[0]), 500);
+      } else {
+        console.log('File selection cancelled or no file selected:', result);
       }
-    } catch (error) {
-      console.error('Failed to load import steps:', error);
+    } catch (err) {
+      setError('خطأ في اختيار الملف: ' + err.message);
     }
   };
 
-  const createDynamicSteps = (allSteps, selectedSheets) => {
-    if (!selectedSheets || selectedSheets.length === 0) {
-      return allSteps; // Return all steps if no selection
+  const handleImport = async (importFilePath = null) => {
+    const pathToUse = importFilePath || filePath;
+    if (!pathToUse || selectedSheets.length === 0) {
+      console.log(
+        'Import cancelled: filePath=',
+        pathToUse,
+        'selectedSheets length=',
+        selectedSheets.length,
+      );
+      return;
     }
 
-    const dynamicSteps = [];
-    let stepOrder = 1;
+    console.log('Starting import with path:', pathToUse, 'and sheets:', selectedSheets);
 
-    // Step 1: Basic Data (if any basic sheets are selected)
-    const basicSheets = ['الطلاب', 'المعلمون', 'المستخدمون', 'المجموعات', 'المخزون'];
-    const selectedBasicSheets = selectedSheets.filter(sheet => basicSheets.includes(sheet));
-    
-    if (selectedBasicSheets.length > 0) {
-      dynamicSteps.push({
-        id: 'step1',
-        name: 'البيانات الأساسية',
-        description: `استيراد ${selectedBasicSheets.join('، ')}`,
-        sheets: selectedBasicSheets,
-        order: stepOrder++,
-        icon: 'fas fa-users'
-      });
-    }
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setCurrentStep('import');
 
-    // Step 2: Financial Data (if any financial sheets are selected)
-    const financialSheets = ['التبرعات', 'المصاريف'];
-    const selectedFinancialSheets = selectedSheets.filter(sheet => financialSheets.includes(sheet));
-    
-    if (selectedFinancialSheets.length > 0) {
-      dynamicSteps.push({
-        id: 'step2',
-        name: 'البيانات المالية',
-        description: `استيراد ${selectedFinancialSheets.join('، ')}`,
-        sheets: selectedFinancialSheets,
-        order: stepOrder++,
-        icon: 'fas fa-coins',
-        dependencies: selectedBasicSheets.length > 0 ? ['step1'] : []
-      });
-    }
+    try {
+      console.log('Calling API...');
+      const response = await window.electronAPI.importExcel(pathToUse, selectedSheets);
+      console.log('API response:', response);
 
-    return dynamicSteps;
-  };
-
-  const handleStepComplete = (stepId, result) => {
-    setStepResults(prev => ({ ...prev, [stepId]: result }));
-    
-    // Move to next step if successful
-    if (result.success && currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+      if (response.success) {
+        setResult(response.data);
+      } else {
+        setError(response.message || 'فشل في عملية الاستيراد');
+      }
+    } catch (err) {
+      console.error('Import error:', err);
+      setError('حدث خطأ أثناء الاستيراد: ' + (err.message || 'خطأ غير معروف'));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleFinish = () => {
-    setCurrentStep(1);
-    setStepResults({});
+  const handleCloseModal = () => {
+    setFilePath('');
+    setResult(null);
+    setError(null);
+    setLoading(false);
+    setCurrentStep('select');
     handleClose();
   };
 
-  const getCurrentStepData = () => {
-    return steps.find(step => step.order === currentStep);
-  };
-
-  const isStepCompleted = (stepOrder) => {
-    const step = steps.find(s => s.order === stepOrder);
-    return step && stepResults[step.id]?.success;
-  };
-
-  const canProceedToNext = () => {
-    return isStepCompleted(currentStep);
-  };
-
-  const isLastStep = () => {
-    return currentStep === steps.length;
-  };
-
-  const allStepsCompleted = () => {
-    return steps.every(step => stepResults[step.id]?.success);
+  const handleReset = () => {
+    setResult(null);
+    setError(null);
+    setFilePath('');
+    setCurrentStep('select');
   };
 
   return (
-    <Modal show={show} onHide={handleClose} size="lg" backdrop="static">
-      <Modal.Header closeButton>
+    <Modal show={show} onHide={handleCloseModal} size="lg" backdrop="static">
+      <Modal.Header closeButton={!loading}>
         <Modal.Title>
-          <i className="fas fa-magic me-2"></i>
-          معالج استيراد البيانات
+          <i className="fas fa-file-excel me-2"></i>
+          استيراد البيانات من Excel
           {selectedSheets.length > 0 && (
             <span className="badge bg-primary ms-2">{selectedSheets.length} ورقة</span>
           )}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {steps.length > 0 && (
-          <>
-            {/* Progress Bar */}
+        {/* File Selection Step */}
+        {currentStep === 'select' && (
+          <div className="text-center py-4">
+            <h5>اختر ملف Excel للاستيراد</h5>
+            <p className="text-muted">سيتم استيراد بيانات الورقات المحددة من الملف المختار</p>
+
             <div className="mb-4">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                {steps.map((step, index) => (
-                  <div key={step.id} className="text-center flex-fill">
-                    <div className="d-flex align-items-center justify-content-center">
-                      <div 
-                        className={`rounded-circle d-inline-flex align-items-center justify-content-center border-2 ${
-                          step.order === currentStep 
-                            ? 'bg-primary text-white border-primary' 
-                            : isStepCompleted(step.order)
-                            ? 'bg-success text-white border-success'
-                            : 'bg-white text-muted border-light'
-                        }`}
-                        style={{ width: '50px', height: '50px', fontSize: '1.2rem' }}
-                      >
-                        {isStepCompleted(step.order) ? (
-                          <i className="fas fa-check"></i>
-                        ) : (
-                          <i className={step.icon || 'fas fa-file-excel'}></i>
-                        )}
-                      </div>
-                      {index < steps.length - 1 && (
-                        <div 
-                          className={`flex-fill mx-2 ${
-                            isStepCompleted(step.order) ? 'border-success' : 'border-light'
-                          }`}
-                          style={{ height: '2px', borderTop: '2px solid' }}
-                        ></div>
-                      )}
-                    </div>
-                    <div className={`small mt-2 fw-medium ${
-                      step.order === currentStep ? 'text-primary' : 
-                      isStepCompleted(step.order) ? 'text-success' : 'text-muted'
-                    }`}>
-                      {step.name}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <ProgressBar 
-                now={(Object.keys(stepResults).length / steps.length) * 100} 
-                variant={allStepsCompleted() ? 'success' : 'primary'}
-                style={{ height: '8px' }}
-              />
+              <Button variant="primary" onClick={handleFileSelect} className="px-4">
+                <i className="fas fa-folder-open me-2"></i>
+                تصفح الملفات
+              </Button>
             </div>
 
-            {/* Current Step */}
-            {getCurrentStepData() && (
-              <ImportStep
-                step={getCurrentStepData()}
-                onComplete={handleStepComplete}
-                result={stepResults[getCurrentStepData().id]}
-                disabled={loading}
-              />
+            {selectedSheets.length > 0 && (
+              <Alert variant="info">
+                <strong>الورقات المراد استيرادها:</strong>
+                <div className="mt-2">
+                  {selectedSheets.map((sheet, index) => (
+                    <span key={sheet} className="badge bg-secondary me-2">
+                      {sheet}
+                    </span>
+                  ))}
+                </div>
+              </Alert>
             )}
 
-            {/* Results Summary */}
-            {Object.keys(stepResults).length > 0 && (
+            <small className="text-muted">يرجى التأكد من أن الملف يحتوي على الورقات المطلوبة</small>
+          </div>
+        )}
+
+        {/* Import Progress Step */}
+        {currentStep === 'import' && loading && (
+          <div className="text-center py-4">
+            <Spinner animation="border" variant="primary" className="mb-3" />
+            <h5>جاري استيراد البيانات...</h5>
+            <p className="text-muted">الرجاء الانتظار حتى انتهاء عملية الاستيراد</p>
+            {filePath && (
+              <small className="text-muted d-block">الملف: {filePath.split('\\').pop()}</small>
+            )}
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="danger">
+            <i className="fas fa-exclamation-triangle me-2"></i>
+            {error}
+          </Alert>
+        )}
+
+        {/* Success Results */}
+        {result && (
+          <div>
+            <div className="row text-center mb-4">
+              <div className="col">
+                <h4 className="text-success">
+                  <i className="fas fa-check-circle me-2"></i>
+                  تم الاستيراد بنجاح
+                </h4>
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="col-md-6">
+                <div className="card border-success">
+                  <div className="card-body text-center">
+                    <div className="display-4 text-success fw-bold">{result.successCount}</div>
+                    <div className="text-muted">سجل ناجح</div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-6">
+                {result.errorCount > 0 ? (
+                  <div className="card border-warning">
+                    <div className="card-body text-center">
+                      <div className="display-4 text-warning fw-bold">{result.errorCount}</div>
+                      <div className="text-muted">خطأ</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card border-success">
+                    <div className="card-body text-center">
+                      <div className="display-4 text-success fw-bold">0</div>
+                      <div className="text-muted">خطأ</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {result.newUsers && result.newUsers.length > 0 && (
               <div className="mt-4">
-                <h6>ملخص النتائج:</h6>
-                {steps.map(step => {
-                  const result = stepResults[step.id];
-                  if (!result) return null;
-                  
-                  return (
-                    <Alert 
-                      key={step.id}
-                      variant={result.success ? 'success' : 'danger'}
-                      className="py-2"
-                    >
-                      <strong>{step.name}:</strong> {' '}
-                      {result.success 
-                        ? `تم بنجاح - ${result.data?.successCount || 0} سجل`
-                        : `فشل - ${result.message}`
-                      }
-                    </Alert>
-                  );
-                })}
+                <h6>المستخدمون الجدد:</h6>
+                <Alert variant="info">
+                  {result.newUsers.map((user, index) => (
+                    <div key={index} className="mb-2">
+                      <strong>{user.username}</strong> - كلمة المرور: <code>{user.password}</code>
+                    </div>
+                  ))}
+                  <small className="text-muted">احفظ كلمات المرور هذه بأمان</small>
+                </Alert>
               </div>
             )}
-          </>
+
+            {result.errors && result.errors.length > 0 && (
+              <div className="mt-4">
+                <h6>تفاصيل الأخطاء:</h6>
+                {result.errors.map((error, index) => (
+                  <Alert key={index} variant="warning" className="py-2 small">
+                    {error}
+                  </Alert>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button 
-          variant="secondary" 
-          onClick={handlePrevious}
-          disabled={currentStep === 1 || loading}
-        >
-          السابق
-        </Button>
-        
-        {!isLastStep() ? (
-          <Button 
-            variant="primary" 
-            onClick={handleNext}
-            disabled={!canProceedToNext() || loading}
-          >
-            التالي
-          </Button>
-        ) : (
-          <Button 
-            variant="success" 
-            onClick={handleFinish}
-            disabled={!allStepsCompleted()}
-          >
-            إنهاء
+        {result && (
+          <Button variant="outline-primary" onClick={handleReset} className="me-auto">
+            استيراد ملف آخر
           </Button>
         )}
-        
-        <Button variant="outline-secondary" onClick={handleClose}>
+        <Button variant="secondary" onClick={handleCloseModal} disabled={loading}>
           إغلاق
         </Button>
       </Modal.Footer>

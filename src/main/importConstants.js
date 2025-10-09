@@ -1,70 +1,83 @@
-/**
- * @fileoverview Import step definitions for sequential Excel import
- * Defines which sheets belong to each import step to resolve dependencies
- */
+// @fileoverview Import configuration for Excel data import
+// Only contains sheet definitions - no step logic since we use single-step import
 
-const IMPORT_STEPS = {
-  STEP_1: {
-    id: 'step1',
-    name: 'البيانات الأساسية',
-    description: 'استيراد المستخدمين والمعلمين والطلاب والمجموعات والمخزون',
-    sheets: ['المستخدمون', 'المعلمون', 'الطلاب', 'المجموعات', 'المخزون'],
-    order: 1,
-    icon: 'users'
+/**
+ * Available sheets for Excel import
+ * Users can select any combination of these sheets
+ */
+const AVAILABLE_SHEETS = [
+  {
+    name: 'المستخدمون', // Users
+    requiredColumns: ['اسم المستخدم', 'الاسم الأول', 'اللقب', 'الدور', 'نوع التوظيف'],
   },
-  STEP_2: {
-    id: 'step2', 
-    name: 'البيانات المالية',
-    description: 'استيراد التبرعات والمصاريف',
-    sheets: ['التبرعات', 'المصاريف'],
-    order: 2,
-    dependencies: ['step1'],
-    icon: 'coins'
-  }
-};
+  {
+    name: 'المعلمون', // Teachers
+    requiredColumns: ['الاسم واللقب'],
+  },
+  {
+    name: 'الطلاب', // Students
+    requiredColumns: ['الاسم واللقب'],
+  },
+  {
+    name: 'الفصول', // Classes
+    requiredColumns: ['اسم الفصل', 'معرف المعلم'],
+  },
+  {
+    name: 'العمليات المالية', // Financial Transactions
+    requiredColumns: ['النوع', 'الفئة', 'المبلغ', 'التاريخ', 'طريقة الدفع'],
+  },
+  {
+    name: 'الحضور', // Attendance
+    requiredColumns: ['الرقم التعريفي للطالب', 'اسم الفصل', 'التاريخ', 'الحالة'],
+  },
+  {
+    name: 'المجموعات', // Groups
+    requiredColumns: ['اسم المجموعة', 'الفئة'],
+  },
+  {
+    name: 'المخزون', // Inventory
+    requiredColumns: ['اسم العنصر', 'الفئة', 'الكمية', 'قيمة الوحدة'],
+  },
+];
 
 /**
- * Get all sheets for a specific step
- * @param {string} stepId - Step identifier (step1, step2)
- * @returns {string[]} Array of sheet names for the step
+ * Get all available sheet names for import
+ * @returns {string[]} Array of all available sheet names
  */
-function getSheetsForStep(stepId) {
-  const step = Object.values(IMPORT_STEPS).find(s => s.id === stepId);
-  return step ? step.sheets : [];
+function getAvailableSheets() {
+  return AVAILABLE_SHEETS.map((sheet) => sheet.name);
 }
 
 /**
- * Get step information by step ID
- * @param {string} stepId - Step identifier
- * @returns {Object|null} Step configuration object
- */
-function getStepInfo(stepId) {
-  return Object.values(IMPORT_STEPS).find(s => s.id === stepId) || null;
-}
-
-/**
- * Get all available steps in order
- * @returns {Object[]} Array of step objects ordered by sequence
- */
-function getAllSteps() {
-  return Object.values(IMPORT_STEPS).sort((a, b) => a.order - b.order);
-}
-
-/**
- * Check if a sheet belongs to a specific step
+ * Get sheet configuration by name
  * @param {string} sheetName - Name of the sheet
- * @param {string} stepId - Step identifier
- * @returns {boolean} True if sheet belongs to step
+ * @returns {Object|null} Sheet configuration object with required columns
  */
-function isSheetInStep(sheetName, stepId) {
-  const sheets = getSheetsForStep(stepId);
-  return sheets.includes(sheetName);
+function getSheetInfo(sheetName) {
+  return AVAILABLE_SHEETS.find((sheet) => sheet.name === sheetName) || null;
+}
+
+/**
+ * Check if a sheet is available for import
+ * @param {string} sheetName - Name of the sheet
+ * @returns {boolean} True if sheet is available
+ */
+function isSheetAvailable(sheetName) {
+  return AVAILABLE_SHEETS.some((sheet) => sheet.name === sheetName);
+}
+
+/**
+ * Get all available sheets with their configuration
+ * @returns {Object[]} Array of all sheet objects
+ */
+function getAllSheets() {
+  return AVAILABLE_SHEETS;
 }
 
 module.exports = {
-  IMPORT_STEPS,
-  getSheetsForStep,
-  getStepInfo,
-  getAllSteps,
-  isSheetInStep
+  AVAILABLE_SHEETS,
+  getAvailableSheets,
+  getSheetInfo,
+  getAllSheets,
+  isSheetAvailable,
 };

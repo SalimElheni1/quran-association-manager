@@ -1,63 +1,50 @@
 const { ipcMain } = require('electron');
-const { importExcelDataSequential } = require('../importManager');
-const { getAllSteps, getStepInfo, getSheetsForStep } = require('../importConstants');
+const { importExcelData } = require('../importManager');
+const { getAllSheets, getSheetInfo } = require('../importConstants');
 const { error: logError } = require('../logger');
 
 /**
- * Register sequential import IPC handlers
+ * Register Excel import IPC handlers
  */
 function registerImportHandlers() {
   /**
-   * Import Excel data for a specific step
+   * Import Excel data - single step
    */
-  ipcMain.handle('import:excel-sequential', async (_event, filePath, stepId) => {
+  ipcMain.handle('import:excel', async (_event, filePath, selectedSheets) => {
     try {
-      const result = await importExcelDataSequential(filePath, stepId);
+      const result = await importExcelData(filePath, selectedSheets);
       return { success: true, data: result };
     } catch (error) {
-      logError('Error in sequential import:', error);
+      logError('Error in Excel import:', error);
       return { success: false, message: error.message };
     }
   });
 
   /**
-   * Get information about all import steps
+   * Get information about all available sheets
    */
-  ipcMain.handle('import:get-steps', async () => {
+  ipcMain.handle('import:get-sheets', async () => {
     try {
-      const steps = getAllSteps();
-      return { success: true, data: steps };
-    } catch (error) {
-      logError('Error getting import steps:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  /**
-   * Get information about a specific step
-   */
-  ipcMain.handle('import:get-step-info', async (_event, stepId) => {
-    try {
-      const stepInfo = getStepInfo(stepId);
-      if (!stepInfo) {
-        return { success: false, message: `خطوة الاستيراد غير موجودة: ${stepId}` };
-      }
-      return { success: true, data: stepInfo };
-    } catch (error) {
-      logError('Error getting step info:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  /**
-   * Get sheets for a specific step
-   */
-  ipcMain.handle('import:get-step-sheets', async (_event, stepId) => {
-    try {
-      const sheets = getSheetsForStep(stepId);
+      const sheets = getAllSheets();
       return { success: true, data: sheets };
     } catch (error) {
-      logError('Error getting step sheets:', error);
+      logError('Error getting sheets info:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  /**
+   * Get information about a specific sheet
+   */
+  ipcMain.handle('import:get-sheet-info', async (_event, sheetName) => {
+    try {
+      const sheetInfo = getSheetInfo(sheetName);
+      if (!sheetInfo) {
+        return { success: false, message: `ورقة البيانات غير موجودة: ${sheetName}` };
+      }
+      return { success: true, data: sheetInfo };
+    } catch (error) {
+      logError('Error getting sheet info:', error);
       return { success: false, message: error.message };
     }
   });
