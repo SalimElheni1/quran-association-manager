@@ -5,7 +5,7 @@ import TransactionTable from '@renderer/components/financial/TransactionTable';
 import TransactionFilters from '@renderer/components/financial/TransactionFilters';
 import TransactionModal from '@renderer/components/financial/TransactionModal';
 import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { useTransactions } from '@renderer/hooks/useTransactions';
 import { error as logError } from '@renderer/utils/logger';
 
