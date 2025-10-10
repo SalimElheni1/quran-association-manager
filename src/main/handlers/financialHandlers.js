@@ -7,7 +7,7 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { transactionValidationSchema } = require('../validationSchemas');
-const { generateVoucherNumber } = require('../voucherService');
+const { generateVoucherNumber } = require('../services/voucherService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 
@@ -598,12 +598,6 @@ async function handleExportFinancialReportExcel(event, data) {
 }
 
 // ============================================
-// KEEP LEGACY HANDLERS (Inventory, etc.)
-// ============================================
-
-const legacyHandlers = require('./financialHandlers.legacy');
-
-// ============================================
 // REGISTER HANDLERS
 // ============================================
 
@@ -629,9 +623,6 @@ function registerFinancialHandlers() {
   ipcMain.handle('in-kind-categories:add', requireRoles(['Superadmin', 'Administrator'])(handleAddInKindCategory));
   ipcMain.handle('in-kind-categories:update', requireRoles(['Superadmin', 'Administrator'])(handleUpdateInKindCategory));
   ipcMain.handle('in-kind-categories:delete', requireRoles(['Superadmin', 'Administrator'])(handleDeleteInKindCategory));
-
-  // Keep legacy handlers for backward compatibility
-  legacyHandlers.registerFinancialHandlers();
 }
 
 module.exports = {

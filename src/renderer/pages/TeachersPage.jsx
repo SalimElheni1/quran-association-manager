@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import TeacherFormModal from '@renderer/components/TeacherFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import TeacherDetailsModal from '@renderer/components/TeacherDetailsModal';
 // We can reuse the same page styles from the students page
 import '@renderer/styles/StudentsPage.css';
