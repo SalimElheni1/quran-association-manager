@@ -60,6 +60,8 @@ const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
 const { registerImportHandlers } = require('./handlers/importHandlers');
 const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
+const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
+const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
@@ -305,6 +307,8 @@ const initializeApp = async () => {
     registerSystemHandlers();
     registerImportHandlers();
     registerReceiptHandlers();
+    registerInventoryHandlers();
+    registerLegacyFinancialHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
