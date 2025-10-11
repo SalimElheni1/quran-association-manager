@@ -17,7 +17,7 @@ const {
   allQuery,
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('./matriculeService');
+const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
 const { getAvailableSheets, getSheetInfo } = require('./importConstants');
 
@@ -654,7 +654,7 @@ async function processTransactionRow(row, headerRow) {
 
   // Generate voucher number ONLY if not provided (user's request)
   if (!data.voucher_number) {
-    const { generateVoucherNumber } = require('./voucherService');
+    const { generateVoucherNumber } = require('./services/voucherService');
     data.voucher_number = await generateVoucherNumber();
   }
 

@@ -4,8 +4,8 @@
  * @version 2.0.0
  */
 
-const db = require('../db/db');
-const { error: logError } = require('./logger');
+const db = require('../../db/db');
+const { error: logError } = require('../logger');
 
 /**
  * Generates a unique voucher number for financial transactions

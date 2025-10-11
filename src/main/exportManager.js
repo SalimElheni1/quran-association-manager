@@ -25,14 +25,6 @@ function calculateAge(dob) {
   }
   return age;
 }
-const {
-  handleGetFinancialSummary,
-  handleGetPayments,
-  handleGetSalaries,
-  handleGetDonations,
-  handleGetExpenses,
-  handleGetInventoryItems,
-} = require('./handlers/financialHandlers.legacy');
 
 // --- Header Data ---
 async function getExportHeaderData() {
@@ -61,19 +53,19 @@ async function getExportHeaderData() {
 
 // --- Data Fetching ---
 async function fetchFinancialData(period) {
-  // handleGetFinancialSummary now takes a year. If a period is provided,
-  // we can extract the year from the startDate. If not, it will default to the current year.
-  const summaryYear = period ? new Date(period.startDate).getFullYear() : null;
+  const { handleGetTransactions, handleGetFinancialSummary } = require('./handlers/financialHandlers');
 
-  const [summary, payments, salaries, donations, expenses] = await Promise.all([
-    handleGetFinancialSummary(null, summaryYear),
-    handleGetPayments(null, period),
-    handleGetSalaries(null, period),
-    handleGetDonations(null, period),
-    handleGetExpenses(null, period),
-  ]);
-  // include inventory items for the financial export
-  const inventory = await handleGetInventoryItems();
+  const transactions = await handleGetTransactions(null, period);
+  const summary = await handleGetFinancialSummary(null, period);
+
+  const payments = transactions.filter(t => t.type === 'INCOME' && t.category === 'رسوم الطلاب');
+  const salaries = transactions.filter(t => t.type === 'EXPENSE' && t.category === 'رواتب المعلمين');
+  const donations = transactions.filter(t => t.type === 'INCOME' && t.category.includes('تبرع'));
+  const expenses = transactions.filter(t => t.type === 'EXPENSE' && !t.category.includes('راتب'));
+
+  // Inventory is not a financial transaction and should be fetched separately
+  const inventory = await allQuery('SELECT * FROM inventory_items ORDER BY item_name ASC');
+
   return { summary, payments, salaries, donations, expenses, inventory };
 }
 
