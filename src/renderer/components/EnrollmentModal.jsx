@@ -177,19 +177,25 @@ function EnrollmentModal({ show, handleClose, classData }) {
               </ListGroup>
             </Col>
             <Col md={4}>
-              <h5>المجموعات المتاحة</h5>
+              <h5>المجموعات المتاحة ({eligibleGroups.length})</h5>
               <ListGroup className="enrollment-list">
-                {eligibleGroups.map((group) => (
-                  <ListGroup.Item key={group.id}>
-                    <Form.Check
-                      type="checkbox"
-                      id={`group-${group.id}`}
-                      label={`${group.name} (${group.category === 'Kids' ? 'أطفال' : group.category === 'Women' ? 'نساء' : group.category === 'Men' ? 'رجال' : ''})`} /**'Kids': 'أطفال', 'Women': 'نساء', 'Men': 'رجال' */
-                      checked={selectedGroupIds.has(group.id)}
-                      onChange={() => handleGroupSelectionChange(group.id)}
-                    />
+                {eligibleGroups.length > 0 ? (
+                  eligibleGroups.map((group) => (
+                    <ListGroup.Item key={group.id}>
+                      <Form.Check
+                        type="checkbox"
+                        id={`group-${group.id}`}
+                        label={`${group.name} (${group.category === 'Kids' ? 'أطفال' : group.category === 'Women' ? 'نساء' : group.category === 'Men' ? 'رجال' : group.category})`}
+                        checked={selectedGroupIds.has(group.id)}
+                        onChange={() => handleGroupSelectionChange(group.id)}
+                      />
+                    </ListGroup.Item>
+                  ))
+                ) : (
+                  <ListGroup.Item className="text-center text-muted">
+                    لا توجد مجموعات متاحة لهذا الفصل
                   </ListGroup.Item>
-                ))}
+                )}
               </ListGroup>
               <Button
                 variant="primary"

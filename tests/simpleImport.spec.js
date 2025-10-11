@@ -4,12 +4,12 @@
 jest.mock('exceljs');
 jest.mock('../src/main/logger');
 jest.mock('../src/db/db');
-jest.mock('../src/main/matriculeService');
+jest.mock('../src/main/services/matriculeService');
 
 
 const ExcelJS = require('exceljs');
 const { runQuery, getQuery } = require('../src/db/db');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 const { importExcelData } = require('../src/main/importManager');
 
 

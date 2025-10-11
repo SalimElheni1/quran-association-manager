@@ -15,7 +15,7 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
-const { generateMatricule } = require('../matriculeService');
+const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 
