@@ -3,6 +3,16 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import UsersPage from '@renderer/pages/UsersPage';
 import '@testing-library/jest-dom';
 
+// Mock AuthContext
+jest.mock('@renderer/contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => ({ isAuthenticated: true, user: { id: 1, role: 'Admin' } })),
+}));
+
+// Mock usePermissions hook
+jest.mock('@renderer/hooks/usePermissions', () => ({
+  usePermissions: jest.fn(() => ({ hasPermission: jest.fn(() => true) })),
+}));
+
 // Mock react-bootstrap
 jest.mock('react-bootstrap', () => ({
     Table: ({ children }) => <table>{children}</table>,
@@ -24,7 +34,7 @@ jest.mock('@renderer/components/UserFormModal', () => ({ show, handleClose, onSa
     );
   });
 
-jest.mock('@renderer/components/ConfirmationModal', () => ({ show, handleClose, handleConfirm, title, body }) => {
+jest.mock('@renderer/components/common/ConfirmationModal', () => ({ show, handleClose, handleConfirm, title, body }) => {
   if (!show) return null;
   return (
     <div data-testid="confirmation-modal">

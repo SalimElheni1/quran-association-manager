@@ -182,10 +182,10 @@ const transactionValidationSchema = Joi.object({
   }),
   check_number: Joi.string().when('payment_method', {
     is: 'CHECK',
-    then: Joi.required().messages({
+    then: Joi.string().required().messages({
       'any.required': 'رقم الشيك مطلوب',
     }),
-    otherwise: Joi.optional().allow(null, ''),
+    otherwise: Joi.string().allow(null, ''),
   }),
   account_id: Joi.number().integer().positive().required().messages({
     'number.base': 'الحساب غير صالح',

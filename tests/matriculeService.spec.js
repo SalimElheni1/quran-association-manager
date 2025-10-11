@@ -13,7 +13,7 @@ jest.mock('../src/main/logger', () => ({
 }));
 
 const { getQuery } = require('../src/db/db');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 const { error: logError } = require('../src/main/logger');
 
 describe('matriculeService › generateMatricule', () => {

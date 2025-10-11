@@ -8,7 +8,7 @@ jest.mock('electron');
 jest.mock('exceljs');
 jest.mock('docx');
 jest.mock('../src/main/settingsManager');
-jest.mock('../src/main/financialHandlers');
+jest.mock('../src/main/handlers/financialHandlers');
 jest.mock('../src/main/db/db');
 
 // This suite is skipped due to complex, persistent mocking issues.

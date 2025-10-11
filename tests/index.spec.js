@@ -16,7 +16,7 @@ jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('crypto');
 jest.mock('../src/main/settingsManager');
-jest.mock('../src/main/financialHandlers');
+jest.mock('../src/main/handlers/financialHandlers');
 jest.mock('../src/main/handlers/studentHandlers');
 jest.mock('../src/main/handlers/teacherHandlers');
 jest.mock('../src/main/handlers/classHandlers');

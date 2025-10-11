@@ -132,4 +132,5 @@ function registerInventoryHandlers() {
 
 module.exports = {
   registerInventoryHandlers,
+  handleGetInventoryItems,
 };
