@@ -1,5 +1,5 @@
-const { getQuery } = require('../db/db');
-const { error: logError } = require('./logger');
+const { getQuery } = require('../../db/db');
+const { error: logError } = require('../logger');
 
 /**
  * Generates a new, unique matricule for a given entity type.

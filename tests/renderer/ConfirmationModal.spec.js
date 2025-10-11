@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import '@testing-library/jest-dom';
 
 // Mock react-bootstrap

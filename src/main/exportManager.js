@@ -25,14 +25,6 @@ function calculateAge(dob) {
   }
   return age;
 }
-const {
-  handleGetFinancialSummary,
-  handleGetPayments,
-  handleGetSalaries,
-  handleGetDonations,
-  handleGetExpenses,
-  handleGetInventoryItems,
-} = require('./handlers/financialHandlers.legacy');
 
 // --- Header Data ---
 async function getExportHeaderData() {
@@ -61,6 +53,15 @@ async function getExportHeaderData() {
 
 // --- Data Fetching ---
 async function fetchFinancialData(period) {
+  const {
+    handleGetFinancialSummary,
+    handleGetPayments,
+    handleGetSalaries,
+    handleGetDonations,
+    handleGetExpenses,
+  } = require('./handlers/legacyFinancialHandlers');
+  const { handleGetInventoryItems } = require('./handlers/inventoryHandlers');
+
   // handleGetFinancialSummary now takes a year. If a period is provided,
   // we can extract the year from the startDate. If not, it will default to the current year.
   const summaryYear = period ? new Date(period.startDate).getFullYear() : null;

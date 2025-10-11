@@ -1,7 +1,6 @@
 const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
-const { generateMatricule } = require('../matriculeService');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -114,111 +113,6 @@ async function handleUpdateDonation(event, donation) {
 async function handleDeleteDonation(event, donationId) {
   await runQuery('DELETE FROM donations WHERE id = ?', [donationId]);
   return { id: donationId };
-}
-
-// --- Inventory Handlers ---
-async function handleGetInventoryItems() {
-  const query = 'SELECT * FROM inventory_items ORDER BY item_name ASC';
-  return allQuery(query);
-}
-
-async function handleCheckItemUniqueness(event, { itemName, currentId }) {
-  let sql = 'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE';
-  const params = [itemName];
-
-  if (currentId) {
-    sql += ' AND id != ?';
-    params.push(currentId);
-  }
-
-  const result = await getQuery(sql, params);
-  // If `result` is undefined (no item found), it's unique.
-  // If `result` is an object (item found), it's not unique.
-  return { isUnique: !result };
-}
-
-async function handleAddInventoryItem(event, item) {
-  const {
-    item_name,
-    category,
-    quantity,
-    unit_value,
-    acquisition_date,
-    acquisition_source,
-    condition_status,
-    location,
-    notes,
-  } = item;
-
-  const matricule = await generateMatricule('inventory');
-  const total_value = (Number(quantity) || 0) * (Number(unit_value) || 0);
-
-  const sql = `
-    INSERT INTO inventory_items (
-      matricule, item_name, category, quantity, unit_value, total_value,
-      acquisition_date, acquisition_source, condition_status, location, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  const result = await runQuery(sql, [
-    matricule,
-    item_name,
-    category,
-    quantity,
-    unit_value,
-    total_value,
-    acquisition_date,
-    acquisition_source,
-    condition_status,
-    location,
-    notes,
-  ]);
-
-  return getQuery('SELECT * FROM inventory_items WHERE id = ?', [result.id]);
-}
-
-async function handleUpdateInventoryItem(event, item) {
-  const {
-    id,
-    item_name,
-    category,
-    quantity,
-    unit_value,
-    acquisition_date,
-    acquisition_source,
-    condition_status,
-    location,
-    notes,
-  } = item;
-
-  const total_value = (Number(quantity) || 0) * (Number(unit_value) || 0);
-
-  const sql = `
-    UPDATE inventory_items SET
-      item_name = ?, category = ?, quantity = ?, unit_value = ?, total_value = ?,
-      acquisition_date = ?, acquisition_source = ?, condition_status = ?, location = ?,
-      notes = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
-  await runQuery(sql, [
-    item_name,
-    category,
-    quantity,
-    unit_value,
-    total_value,
-    acquisition_date,
-    acquisition_source,
-    condition_status,
-    location,
-    notes,
-    id,
-  ]);
-
-  return getQuery('SELECT * FROM inventory_items WHERE id = ?', [id]);
-}
-
-async function handleDeleteInventoryItem(event, itemId) {
-  await runQuery('DELETE FROM inventory_items WHERE id = ?', [itemId]);
-  return { id: itemId };
 }
 
 // --- Salary Handlers ---
@@ -476,15 +370,7 @@ async function handleGetFinancialSummary(event, year) {
   };
 }
 
-// --- PDF Report Generation (Disabled) ---
-// const FONT_REGULAR = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-regular.woff2');
-// const FONT_BOLD = path.join(app.getAppPath(), 'src/renderer/assets/fonts/cairo-v30-arabic_latin-700.woff2');
-// ... (rest of the PDF generation code is commented out)
-
-// --- Excel Report Generation (Disabled) ---
-// async function handleGenerateExcelReport() { ... }
-
-function registerFinancialHandlers() {
+function registerLegacyFinancialHandlers() {
   ipcMain.handle('get-expenses', createHandler(handleGetExpenses));
   ipcMain.handle('add-expense', createHandler(handleAddExpense));
   ipcMain.handle('update-expense', createHandler(handleUpdateExpense));
@@ -494,12 +380,6 @@ function registerFinancialHandlers() {
   ipcMain.handle('add-donation', createHandler(handleAddDonation));
   ipcMain.handle('update-donation', createHandler(handleUpdateDonation));
   ipcMain.handle('delete-donation', createHandler(handleDeleteDonation));
-
-  ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
-  ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
-  ipcMain.handle('inventory:add', createHandler(handleAddInventoryItem));
-  ipcMain.handle('inventory:update', createHandler(handleUpdateInventoryItem));
-  ipcMain.handle('inventory:delete', createHandler(handleDeleteInventoryItem));
 
   ipcMain.handle('get-salaries', createHandler(handleGetSalaries));
   ipcMain.handle('add-salary', createHandler(handleAddSalary));
@@ -514,12 +394,10 @@ function registerFinancialHandlers() {
   ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
   ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
   ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
-  // ipcMain.handle('generate-pdf-report', createHandler(handleGeneratePdfReport));
-  // ipcMain.handle('generate-excel-report', createHandler(handleGenerateExcelReport));
 }
 
 module.exports = {
-  registerFinancialHandlers,
+  registerLegacyFinancialHandlers,
   handleGetExpenses,
   handleAddExpense,
   handleUpdateExpense,
@@ -528,11 +406,6 @@ module.exports = {
   handleAddDonation,
   handleUpdateDonation,
   handleDeleteDonation,
-  handleGetInventoryItems,
-  handleCheckItemUniqueness,
-  handleAddInventoryItem,
-  handleUpdateInventoryItem,
-  handleDeleteInventoryItem,
   handleGetSalaries,
   handleAddSalary,
   handleUpdateSalary,
@@ -541,7 +414,7 @@ module.exports = {
   handleAddPayment,
   handleUpdatePayment,
   handleDeletePayment,
-  handleGetFinancialSummary,
-  handleGetMonthlySnapshot,
   handleGetStatementOfActivities,
+  handleGetMonthlySnapshot,
+  handleGetFinancialSummary,
 };

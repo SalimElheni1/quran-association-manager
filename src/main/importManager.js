@@ -17,7 +17,7 @@ const {
   allQuery,
 } = require('../db/db');
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('./matriculeService');
+const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
 const { getAvailableSheets, getSheetInfo } = require('./importConstants');
 
@@ -248,15 +248,14 @@ async function importExcelData(filePath, selectedSheets) {
 }
 
 async function processStudentRow(row, headerRow) {
-  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
-  if (genderAr) {
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value =
-      GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
+  const genderCell = row.getCell(getColumnIndex(headerRow, 'الجنس'));
+  if (genderCell && genderCell.value) {
+    genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
   }
-  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
-  if (statusAr) {
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
-      STATUS_MAP_AR_TO_EN[statusAr] || statusAr;
+
+  const statusCell = row.getCell(getColumnIndex(headerRow, 'الحالة'));
+  if (statusCell && statusCell.value) {
+    statusCell.value = STATUS_MAP_AR_TO_EN[statusCell.value] || statusCell.value;
   }
 
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
@@ -317,10 +316,9 @@ async function processStudentRow(row, headerRow) {
 }
 
 async function processTeacherRow(row, headerRow) {
-  const genderAr = row.getCell(getColumnIndex(headerRow, 'الجنس'))?.value;
-  if (genderAr) {
-    const mappedGender = GENDER_MAP_AR_TO_EN[genderAr] || genderAr;
-    row.getCell(getColumnIndex(headerRow, 'الجنس')).value = mappedGender;
+  const genderCell = row.getCell(getColumnIndex(headerRow, 'الجنس'));
+  if (genderCell && genderCell.value) {
+    genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
   }
 
   const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
@@ -484,12 +482,13 @@ async function processUserRow(row, headerRow) {
 
     // Assign role
     const roleRecord = await getQuery('SELECT id FROM roles WHERE name = ?', [mappedRole]);
-    if (roleRecord) {
-      await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-        result.id,
-        roleRecord.id,
-      ]);
+    if (!roleRecord) {
+      throw new Error(`Role "${mappedRole}" not found.`);
     }
+    await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+      result.id,
+      roleRecord.id,
+    ]);
 
     await runQuery('COMMIT');
     return { success: true, newUser: { username: data.username, password } };
@@ -611,8 +610,9 @@ async function processTransactionRow(row, headerRow) {
 
   // Validate receipt type for cash donations
   const VALID_RECEIPT_TYPES = ['تبرع', 'هبة', 'صدقة', 'زكاة'];
+  const receiptTypeIndex = getColumnIndex(headerRow, 'نوع الوصل');
 
-  if (data.category === 'التبرعات النقدية' && !data.receipt_type) {
+  if (data.category === 'التبرعات النقدية' && receiptTypeIndex !== -1 && !data.receipt_type) {
     return { success: false, message: 'نوع الوصل مطلوب للتبرعات النقدية.' };
   }
 
@@ -654,7 +654,7 @@ async function processTransactionRow(row, headerRow) {
 
   // Generate voucher number ONLY if not provided (user's request)
   if (!data.voucher_number) {
-    const { generateVoucherNumber } = require('./voucherService');
+    const { generateVoucherNumber } = require('./services/voucherService');
     data.voucher_number = await generateVoucherNumber();
   }
 
@@ -862,8 +862,22 @@ const ATTENDANCE_MAP_AR_TO_EN = {
   معذور: 'excused',
 };
 
-module.exports = {
+const exported = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
 };
+
+// Conditionally export internal functions for testing
+if (process.env.NODE_ENV === 'test') {
+  exported.processStudentRow = processStudentRow;
+  exported.processTeacherRow = processTeacherRow;
+  exported.processUserRow = processUserRow;
+  exported.processClassRow = processClassRow;
+  exported.processTransactionRow = processTransactionRow;
+  exported.processAttendanceRow = processAttendanceRow;
+  exported.processGroupRow = processGroupRow;
+  exported.processInventoryRow = processInventoryRow;
+}
+
+module.exports = exported;

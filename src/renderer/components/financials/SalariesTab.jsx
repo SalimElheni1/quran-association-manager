@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import SalaryFormModal from '@renderer/components/financials/SalaryFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 
 function SalariesTab() {

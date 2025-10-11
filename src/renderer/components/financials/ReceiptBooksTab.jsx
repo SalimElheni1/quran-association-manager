@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert, Badge } from 'react-bootstrap';
 import ReceiptBookFormModal from './ReceiptBookFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 
 const RECEIPT_TYPES = {

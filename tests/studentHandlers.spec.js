@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const { registerStudentHandlers } = require('../src/main/handlers/studentHandlers');
 const db = require('../src/db/db');
 const { studentValidationSchema } = require('../src/main/validationSchemas');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 
 // Mock dependencies
 jest.mock('../src/db/db');
@@ -11,7 +11,7 @@ jest.mock('../src/main/validationSchemas', () => ({
     validateAsync: jest.fn(),
   },
 }));
-jest.mock('../src/main/matriculeService');
+jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),

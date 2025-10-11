@@ -4,7 +4,7 @@ const {
   handleGetSalaries,
   handleGetPayments,
   handleGetFinancialSummary,
-} = require('../src/main/financialHandlers');
+} = require('../src/main/handlers/legacyFinancialHandlers');
 const db = require('../src/db/db');
 
 // Mock the electron app module

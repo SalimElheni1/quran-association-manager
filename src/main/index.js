@@ -47,7 +47,7 @@ const { log, error: logError } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { registerFinancialHandlers } = require('./handlers/financialHandlers');
-const { registerFinancialExportHandlers } = require('./handlers/financialExportHandlers');
+const { registerFinancialExportHandlers } = require('./services/financialExportService');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
 const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
 const { registerClassHandlers } = require('./handlers/classHandlers');
@@ -60,6 +60,8 @@ const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
 const { registerImportHandlers } = require('./handlers/importHandlers');
 const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
+const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
+const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 
 const store = new Store();
@@ -305,6 +307,8 @@ const initializeApp = async () => {
     registerSystemHandlers();
     registerImportHandlers();
     registerReceiptHandlers();
+    registerInventoryHandlers();
+    registerLegacyFinancialHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

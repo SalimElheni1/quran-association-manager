@@ -3,7 +3,7 @@ import { Table, Button, Spinner, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '@renderer/components/UserFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';

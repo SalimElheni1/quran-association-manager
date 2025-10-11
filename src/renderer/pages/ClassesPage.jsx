@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ClassFormModal from '@renderer/components/ClassFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ClassDetailsModal from '@renderer/components/ClassDetailsModal'; // We will create this next
 import EnrollmentModal from '@renderer/components/EnrollmentModal';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles

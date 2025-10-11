@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
-import { Form, Button, Container, Card, Alert, Row, Col } from 'react-bootstrap';
+import { Form, Button, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
 import InitialCredentialsBanner from '@renderer/components/InitialCredentialsBanner';
 import '@renderer/styles/LoginPage.css';
@@ -53,11 +53,8 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
 
   return (
     <div className="signin-container">
-      <Container>
-        <Row className="justify-content-center">
-          <InitialCredentialsBanner credentials={initialCredentials} onClose={onCloseBanner} />
-          <Col md={8} lg={6} xl={5}>
-            <Card className="signin-card mt-3">
+      <InitialCredentialsBanner credentials={initialCredentials} onClose={onCloseBanner} />
+      <Card className="signin-card">
               <Card.Body>
                 <div className="signin-header">
                   <img src={displayLogo} alt="Logo" className="signin-logo" />
@@ -90,10 +87,7 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
                   </Button>
                 </Form>
               </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+      </Card>
     </div>
   );
 }

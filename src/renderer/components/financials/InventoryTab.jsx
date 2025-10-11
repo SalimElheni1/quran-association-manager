@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
 import InventoryFormModal from './InventoryFormModal';
-import ConfirmationModal from '../ConfirmationModal';
+import ConfirmationModal from '../common/ConfirmationModal';
 import { toast } from 'react-toastify';
 
 function InventoryTab() {

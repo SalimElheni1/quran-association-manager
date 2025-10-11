@@ -1,11 +1,13 @@
 const { fetchFinancialData, generateFinancialXlsx } = require('../src/main/exportManager');
-const financialHandlers = require('../src/main/financialHandlers');
+const financialHandlers = require('../src/main/handlers/legacyFinancialHandlers');
+const inventoryHandlers = require('../src/main/handlers/inventoryHandlers');
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-jest.mock('../src/main/financialHandlers');
+jest.mock('../src/main/handlers/legacyFinancialHandlers');
+jest.mock('../src/main/handlers/inventoryHandlers');
 jest.mock('exceljs');
 jest.mock('../src/db/db', () => ({
   allQuery: jest.fn().mockResolvedValue([]),
@@ -29,6 +31,7 @@ describe('Financial Export', () => {
     financialHandlers.handleGetSalaries.mockResolvedValue([{ id: 1, amount: 50 }]);
     financialHandlers.handleGetDonations.mockResolvedValue([{ id: 1, amount: 200 }]);
     financialHandlers.handleGetExpenses.mockResolvedValue([{ id: 1, amount: 20 }]);
+    inventoryHandlers.handleGetInventoryItems.mockResolvedValue([{ id: 1, item_name: 'Book' }]);
 
     const data = await fetchFinancialData();
 
@@ -37,6 +40,7 @@ describe('Financial Export', () => {
     expect(data.salaries.length).toBe(1);
     expect(data.donations.length).toBe(1);
     expect(data.expenses.length).toBe(1);
+    expect(data.inventory.length).toBe(1);
   });
 
   it('should generate a multi-sheet excel file', async () => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Badge, Form, InputGroup, Tabs, Tab } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StudentFormModal from '@renderer/components/StudentFormModal';
-import ConfirmationModal from '@renderer/components/ConfirmationModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 // Placeholder for the new component
 import GroupsTabContent from '@renderer/components/GroupsTabContent';
