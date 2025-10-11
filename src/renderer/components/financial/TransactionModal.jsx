@@ -159,7 +159,7 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
                 ))}
               </Form.Select>
             </Form.Group>
-            
+
             {!isInKindDonation && (
               <Form.Group as={Col} md="4" className="mb-3">
                 <Form.Label>
@@ -193,7 +193,7 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
                   <option value="تبرع">تبرع</option>
                   <option value="انخراط">انخراط</option>
                   <option value="نشاط">نشاط</option>
-                  <option value="معلوم سنوي">معلوم سنوي</option>
+                  <option value="معلوم الترسيم">معلوم الترسيم</option>
                   <option value="معلوم شهري">معلوم شهري</option>
                 </Form.Select>
               </Form.Group>
