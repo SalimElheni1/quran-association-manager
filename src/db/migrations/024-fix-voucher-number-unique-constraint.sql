@@ -22,15 +22,29 @@ CREATE TABLE IF NOT EXISTS transactions_new (
   created_by_user_id INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME,
+  matricule TEXT,
   UNIQUE(voucher_number, type)
 );
 
--- Step 2: Copy data from old table
-INSERT INTO transactions_new 
-SELECT * FROM transactions;
+-- Step 2: Copy data from old table (explicit columns)
+INSERT INTO transactions_new (
+  id, transaction_date, type, category, amount, description,
+  payment_method, check_number, voucher_number, related_entity_type,
+  related_entity_id, related_person_name, account_id, requires_dual_signature,
+  receipt_type, created_by_user_id, created_at, updated_at, matricule
+)
+SELECT 
+  id, transaction_date, type, category, amount, description,
+  payment_method, check_number, voucher_number, related_entity_type,
+  related_entity_id, related_person_name, account_id, requires_dual_signature,
+  receipt_type, created_by_user_id, created_at, updated_at, matricule
+FROM transactions;
 
 -- Step 3: Drop old table
 DROP TABLE transactions;
 
 -- Step 4: Rename new table
 ALTER TABLE transactions_new RENAME TO transactions;
+
+-- Step 5: Recreate index
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_matricule ON transactions(matricule);

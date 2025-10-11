@@ -20,10 +20,19 @@ yarn-error.log*
 # Database files
 *.sqlite
 *.sqlite-journal
+*.db
+.db/
 out/
-docs/new-finacial-system
 
 # Test Coverage Reports
 coverage/
 lcov.info
 *.lcov
+
+# Build artifacts
+lib/
+*.deb
+*.bat
+
+# Analysis tools
+.codeboarding/
