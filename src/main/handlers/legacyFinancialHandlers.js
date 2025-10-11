@@ -398,4 +398,23 @@ function registerLegacyFinancialHandlers() {
 
 module.exports = {
   registerLegacyFinancialHandlers,
+  handleGetExpenses,
+  handleAddExpense,
+  handleUpdateExpense,
+  handleDeleteExpense,
+  handleGetDonations,
+  handleAddDonation,
+  handleUpdateDonation,
+  handleDeleteDonation,
+  handleGetSalaries,
+  handleAddSalary,
+  handleUpdateSalary,
+  handleDeleteSalary,
+  handleGetPayments,
+  handleAddPayment,
+  handleUpdatePayment,
+  handleDeletePayment,
+  handleGetStatementOfActivities,
+  handleGetMonthlySnapshot,
+  handleGetFinancialSummary,
 };

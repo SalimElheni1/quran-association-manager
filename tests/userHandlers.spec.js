@@ -5,7 +5,7 @@ jest.mock('electron', () => ({ ipcMain: { handle: jest.fn() } }));
 jest.mock('../src/db/db');
 jest.mock('bcryptjs');
 jest.mock('../src/main/validationSchemas');
-jest.mock('../src/main/matriculeService');
+jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
@@ -14,7 +14,7 @@ jest.mock('../src/main/authMiddleware', () => ({
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const { userValidationSchema, userUpdateValidationSchema } = require('../src/main/validationSchemas');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 
 describe('userHandlers', () => {
   let registerUserHandlers;

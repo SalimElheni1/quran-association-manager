@@ -15,7 +15,7 @@ jest.mock('exceljs');
 jest.mock('../src/main/logger');
 jest.mock('../src/db/db');
 jest.mock('bcryptjs');
-jest.mock('../src/main/matriculeService');
+jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/keyManager');
 
 const fs = require('fs').promises;
@@ -34,7 +34,7 @@ const {
   runQuery,
   getQuery,
 } = require('../src/db/db');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 const { setDbSalt } = require('../src/main/keyManager');
 const {
     validateDatabaseFile,

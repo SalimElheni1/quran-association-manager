@@ -16,7 +16,8 @@ jest.mock('exceljs');
 jest.mock('docx');
 jest.mock('../src/db/db');
 jest.mock('../src/main/settingsManager');
-jest.mock('../src/main/financialHandlers');
+jest.mock('../src/main/handlers/legacyFinancialHandlers');
+jest.mock('../src/main/handlers/inventoryHandlers');
 
 const { BrowserWindow } = require('electron');
 const ExcelJS = require('exceljs');
@@ -36,8 +37,8 @@ const {
   handleGetSalaries,
   handleGetDonations,
   handleGetExpenses,
-  handleGetInventoryItems,
-} = require('../src/main/financialHandlers');
+} = require('../src/main/handlers/legacyFinancialHandlers');
+const { handleGetInventoryItems } = require('../src/main/handlers/inventoryHandlers');
 
 describe('exportManager', () => {
   beforeEach(() => {

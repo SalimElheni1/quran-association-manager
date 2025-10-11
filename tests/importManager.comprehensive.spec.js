@@ -15,7 +15,7 @@ jest.mock('exceljs');
 jest.mock('../src/main/logger');
 jest.mock('../src/db/db');
 jest.mock('bcryptjs');
-jest.mock('../src/main/matriculeService');
+jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/keyManager');
 
 const fs = require('fs').promises;
@@ -35,7 +35,7 @@ const {
   getQuery,
 } = require('../src/db/db');
 const bcrypt = require('bcryptjs');
-const { generateMatricule } = require('../src/main/matriculeService');
+const { generateMatricule } = require('../src/main/services/matriculeService');
 
 describe('importManager - Comprehensive Tests', () => {
     let validateDatabaseFile, replaceDatabase, importExcelData;
