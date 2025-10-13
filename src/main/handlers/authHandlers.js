@@ -108,6 +108,7 @@ const updateProfileHandler = async (token, profileData) => {
     'current_password',
     'new_password',
     'confirm_new_password',
+    'roles',
   ];
   const fieldsToUpdate = Object.keys(validatedData).filter(
     (field) => !fieldsToExclude.includes(field) && validatedData[field] !== undefined,
