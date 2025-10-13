@@ -6,12 +6,10 @@ jest.mock('../src/main/logger');
 jest.mock('../src/db/db');
 jest.mock('../src/main/services/matriculeService');
 
-
 const ExcelJS = require('exceljs');
 const { runQuery, getQuery } = require('../src/db/db');
 const { generateMatricule } = require('../src/main/services/matriculeService');
 const { importExcelData } = require('../src/main/importManager');
-
 
 describe('Simple Excel Import', () => {
   let mockWorkbook, mockWorksheet, mockHeaderRow, mockDataRow;
@@ -29,14 +27,14 @@ describe('Simple Excel Import', () => {
     const mockGenderCell = { value: 'ذكر' };
     mockDataRow = {
       hasValues: true,
-      getCell: jest.fn(index => {
+      getCell: jest.fn((index) => {
         if (index === 1) return { value: 'أحمد محمد' };
         if (index === 2) return mockGenderCell;
         return { value: null };
       }),
     };
     mockWorksheet = {
-      getRow: jest.fn(rowNum => (rowNum === 2 ? mockHeaderRow : mockDataRow)),
+      getRow: jest.fn((rowNum) => (rowNum === 2 ? mockHeaderRow : mockDataRow)),
       rowCount: 3,
     };
     mockWorkbook = {
@@ -54,7 +52,7 @@ describe('Simple Excel Import', () => {
 
     expect(runQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO students'),
-      expect.arrayContaining(['أحمد محمد', 'Male', 'S-000001'])
+      expect.arrayContaining(['أحمد محمد', 'Male', 'S-000001']),
     );
   });
 });

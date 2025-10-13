@@ -36,17 +36,24 @@ async function handleGetReceiptBooks(event, filters = {}) {
 async function handleGetActiveReceiptBook(event, receiptType) {
   return getQuery(
     'SELECT * FROM receipt_books WHERE receipt_type = ? AND status = ? ORDER BY issued_date DESC LIMIT 1',
-    [receiptType, 'active']
+    [receiptType, 'active'],
   );
 }
 
 // Add new receipt book
 async function handleAddReceiptBook(event, book) {
-  const { book_number, start_receipt_number, end_receipt_number, receipt_type, issued_date, notes } = book;
-  
+  const {
+    book_number,
+    start_receipt_number,
+    end_receipt_number,
+    receipt_type,
+    issued_date,
+    notes,
+  } = book;
+
   const sql = `INSERT INTO receipt_books (book_number, start_receipt_number, end_receipt_number, current_receipt_number, receipt_type, issued_date, notes) 
                VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  
+
   const result = await runQuery(sql, [
     book_number,
     start_receipt_number,
@@ -54,7 +61,7 @@ async function handleAddReceiptBook(event, book) {
     start_receipt_number,
     receipt_type,
     issued_date,
-    notes
+    notes,
   ]);
 
   return getQuery('SELECT * FROM receipt_books WHERE id = ?', [result.id]);
@@ -62,13 +69,31 @@ async function handleAddReceiptBook(event, book) {
 
 // Update receipt book
 async function handleUpdateReceiptBook(event, book) {
-  const { id, book_number, start_receipt_number, end_receipt_number, receipt_type, issued_date, notes, status } = book;
-  
+  const {
+    id,
+    book_number,
+    start_receipt_number,
+    end_receipt_number,
+    receipt_type,
+    issued_date,
+    notes,
+    status,
+  } = book;
+
   const sql = `UPDATE receipt_books SET book_number = ?, start_receipt_number = ?, end_receipt_number = ?, 
                receipt_type = ?, issued_date = ?, notes = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?`;
-  
-  await runQuery(sql, [book_number, start_receipt_number, end_receipt_number, receipt_type, issued_date, notes, status, id]);
+
+  await runQuery(sql, [
+    book_number,
+    start_receipt_number,
+    end_receipt_number,
+    receipt_type,
+    issued_date,
+    notes,
+    status,
+    id,
+  ]);
   return getQuery('SELECT * FROM receipt_books WHERE id = ?', [id]);
 }
 
@@ -81,7 +106,7 @@ async function handleDeleteReceiptBook(event, bookId) {
 // Get next receipt number for a type
 async function handleGetNextReceiptNumber(event, receiptType) {
   const book = await handleGetActiveReceiptBook(event, receiptType);
-  
+
   if (!book) {
     return { error: 'No active receipt book found for this type' };
   }
@@ -91,11 +116,11 @@ async function handleGetNextReceiptNumber(event, receiptType) {
   }
 
   const nextNumber = book.current_receipt_number;
-  
+
   // Increment current receipt number
   await runQuery(
     'UPDATE receipt_books SET current_receipt_number = current_receipt_number + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [book.id]
+    [book.id],
   );
 
   // Check if book is now completed
@@ -106,7 +131,7 @@ async function handleGetNextReceiptNumber(event, receiptType) {
   return {
     receipt_number: `${book.book_number}-${nextNumber.toString().padStart(4, '0')}`,
     book_id: book.id,
-    book_number: book.book_number
+    book_number: book.book_number,
   };
 }
 
@@ -114,11 +139,20 @@ async function handleGetNextReceiptNumber(event, receiptType) {
 async function handleCheckReceiptExists(event, { receiptNumber, transactionType, excludeId }) {
   let table;
   switch (transactionType) {
-    case 'payment': table = 'payments'; break;
-    case 'donation': table = 'donations'; break;
-    case 'expense': table = 'expenses'; break;
-    case 'salary': table = 'salaries'; break;
-    default: return { exists: false };
+    case 'payment':
+      table = 'payments';
+      break;
+    case 'donation':
+      table = 'donations';
+      break;
+    case 'expense':
+      table = 'expenses';
+      break;
+    case 'salary':
+      table = 'salaries';
+      break;
+    default:
+      return { exists: false };
   }
 
   let sql = `SELECT id FROM ${table} WHERE receipt_number = ?`;
@@ -151,5 +185,5 @@ module.exports = {
   handleUpdateReceiptBook,
   handleDeleteReceiptBook,
   handleGetNextReceiptNumber,
-  handleCheckReceiptExists
+  handleCheckReceiptExists,
 };

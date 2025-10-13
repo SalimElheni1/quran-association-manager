@@ -13,6 +13,7 @@ jest.mock('@renderer/contexts/AuthContext', () => ({
 jest.mock('react-bootstrap', () => {
   const Alert = ({ children }) => <div>{children}</div>;
   Alert.Heading = ({ children }) => <h4>{children}</h4>;
+  Alert.Heading.displayName = 'AlertHeading';
   return { Alert };
 });
 
@@ -33,7 +34,7 @@ describe('ProtectedRoute', () => {
     render(
       <ProtectedRoute requiredPermissions={['some:permission']}>
         <div data-testid="protected-content">Protected Content</div>
-      </ProtectedRoute>
+      </ProtectedRoute>,
     );
 
     // Assert
@@ -52,7 +53,7 @@ describe('ProtectedRoute', () => {
     render(
       <ProtectedRoute requiredModule="students">
         <div data-testid="protected-content">Protected Content</div>
-      </ProtectedRoute>
+      </ProtectedRoute>,
     );
 
     // Assert
@@ -71,7 +72,7 @@ describe('ProtectedRoute', () => {
     render(
       <ProtectedRoute requiredPermissions={['some:permission']}>
         <div data-testid="protected-content">Protected Content</div>
-      </ProtectedRoute>
+      </ProtectedRoute>,
     );
 
     // Assert
@@ -90,7 +91,7 @@ describe('ProtectedRoute', () => {
     render(
       <ProtectedRoute requiredModule="students">
         <div data-testid="protected-content">Protected Content</div>
-      </ProtectedRoute>
+      </ProtectedRoute>,
     );
 
     // Assert

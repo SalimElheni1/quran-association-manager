@@ -11,7 +11,7 @@ const {
 describe('validationSchemas - Comprehensive Tests', () => {
   beforeEach(() => {
     // Provide a default successful validation implementation
-    Joi.object().validate.mockImplementation(value => ({ value, error: undefined }));
+    Joi.object().validate.mockImplementation((value) => ({ value, error: undefined }));
   });
 
   describe('studentValidationSchema - Advanced Cases', () => {
@@ -59,18 +59,20 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject student with invalid matricule format', () => {
       const invalidMatriculeFormats = [
-        'S-12345',    // Too short
-        'S-1234567',  // Too long
-        'T-123456',   // Wrong prefix
-        '123456',     // No prefix
-        'S123456',    // No dash
-        'S-12345A',   // Contains letter
-        'S-',         // Empty number
+        'S-12345', // Too short
+        'S-1234567', // Too long
+        'T-123456', // Wrong prefix
+        '123456', // No prefix
+        'S123456', // No dash
+        'S-12345A', // Contains letter
+        'S-', // Empty number
       ];
 
-      invalidMatriculeFormats.forEach(matricule => {
+      invalidMatriculeFormats.forEach((matricule) => {
         const student = { name: 'Test Student', matricule };
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: ['matricule'], message: 'الرقم التعريفي للطالب غير صالح' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: ['matricule'], message: 'الرقم التعريفي للطالب غير صالح' },
+        ]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = studentValidationSchema.validate(student);
@@ -82,13 +84,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject student with invalid name lengths', () => {
       const invalidNames = [
-        '',           // Empty
-        'أ',          // Too short (1 char)
-        'أح',         // Too short (2 chars)
+        '', // Empty
+        'أ', // Too short (1 char)
+        'أح', // Too short (2 chars)
         'أ'.repeat(101), // Too long (101 chars)
       ];
 
-      invalidNames.forEach(name => {
+      invalidNames.forEach((name) => {
         const student = { name };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['name'] }]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -102,7 +104,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate all allowed status values', () => {
       const validStatuses = ['active', 'inactive', 'graduated', 'on_leave'];
 
-      validStatuses.forEach(status => {
+      validStatuses.forEach((status) => {
         const student = { name: 'Test Student', status };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -112,7 +114,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid status values', () => {
       const invalidStatuses = ['pending', 'suspended', 'transferred', 'unknown'];
 
-      invalidStatuses.forEach(status => {
+      invalidStatuses.forEach((status) => {
         const student = { name: 'Test Student', status };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -124,13 +126,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
     });
 
     it('should validate various date formats for date_of_birth', () => {
-      const validDates = [
-        '2005-01-01',
-        '1990-12-31',
-        '2010-06-15',
-      ];
+      const validDates = ['2005-01-01', '1990-12-31', '2010-06-15'];
 
-      validDates.forEach(date_of_birth => {
+      validDates.forEach((date_of_birth) => {
         const student = { name: 'Test Student', date_of_birth };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -139,15 +137,15 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject invalid date formats', () => {
       const invalidDates = [
-        '01-01-2005',    // Wrong format
-        '2005/01/01',    // Wrong separator
-        '2005-13-01',    // Invalid month
-        '2005-01-32',    // Invalid day
-        'not-a-date',    // Not a date
-        '2005-1-1',      // Missing leading zeros
+        '01-01-2005', // Wrong format
+        '2005/01/01', // Wrong separator
+        '2005-13-01', // Invalid month
+        '2005-01-32', // Invalid day
+        'not-a-date', // Not a date
+        '2005-1-1', // Missing leading zeros
       ];
 
-      invalidDates.forEach(date_of_birth => {
+      invalidDates.forEach((date_of_birth) => {
         const student = { name: 'Test Student', date_of_birth };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['date_of_birth'] }]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -161,7 +159,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate both gender options', () => {
       const validGenders = ['Male', 'Female'];
 
-      validGenders.forEach(gender => {
+      validGenders.forEach((gender) => {
         const student = { name: 'Test Student', gender };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -177,7 +175,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
         '123@numbers.com',
       ];
 
-      validEmails.forEach(email => {
+      validEmails.forEach((email) => {
         const student = { name: 'Test Student', email };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -194,7 +192,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
         'user..double@domain.com',
       ];
 
-      invalidEmails.forEach(email => {
+      invalidEmails.forEach((email) => {
         const student = { name: 'Test Student', email };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['email'] }]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -206,13 +204,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
     });
 
     it('should validate Tunisian phone number format (8 digits)', () => {
-      const validPhoneNumbers = [
-        '12345678',
-        '98765432',
-        '20123456',
-      ];
+      const validPhoneNumbers = ['12345678', '98765432', '20123456'];
 
-      validPhoneNumbers.forEach(contact_info => {
+      validPhoneNumbers.forEach((contact_info) => {
         const student = { name: 'Test Student', contact_info };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -221,17 +215,19 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject invalid phone number formats', () => {
       const invalidPhoneNumbers = [
-        '1234567',     // Too short
-        '123456789',   // Too long
-        '1234567a',    // Contains letter
+        '1234567', // Too short
+        '123456789', // Too long
+        '1234567a', // Contains letter
         '+21612345678', // With country code
         '12 34 56 78', // With spaces
         '12-34-56-78', // With dashes
       ];
 
-      invalidPhoneNumbers.forEach(contact_info => {
+      invalidPhoneNumbers.forEach((contact_info) => {
         const student = { name: 'Test Student', contact_info };
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: ['contact_info'], message: '8 أرقام' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: ['contact_info'], message: '8 أرقام' },
+        ]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = studentValidationSchema.validate(student);
@@ -250,7 +246,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
         '+216-12-345-678',
       ];
 
-      validParentContacts.forEach(parent_contact => {
+      validParentContacts.forEach((parent_contact) => {
         const student = { name: 'Test Student', parent_contact };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -258,14 +254,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
     });
 
     it('should validate Tunisian national ID format (8 digits)', () => {
-      const validNationalIds = [
-        '12345678',
-        '98765432',
-        '00000000',
-        '99999999',
-      ];
+      const validNationalIds = ['12345678', '98765432', '00000000', '99999999'];
 
-      validNationalIds.forEach(national_id => {
+      validNationalIds.forEach((national_id) => {
         const student = { name: 'Test Student', national_id };
         const { error } = studentValidationSchema.validate(student);
         expect(error).toBeUndefined();
@@ -274,16 +265,18 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject invalid national ID formats', () => {
       const invalidNationalIds = [
-        '1234567',     // Too short
-        '123456789',   // Too long
-        '1234567a',    // Contains letter
+        '1234567', // Too short
+        '123456789', // Too long
+        '1234567a', // Contains letter
         '12-34-56-78', // With dashes
         '12 34 56 78', // With spaces
       ];
 
-      invalidNationalIds.forEach(national_id => {
+      invalidNationalIds.forEach((national_id) => {
         const student = { name: 'Test Student', national_id };
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: ['national_id'], message: '8 أرقام' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: ['national_id'], message: '8 أرقام' },
+        ]);
         studentValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = studentValidationSchema.validate(student);
@@ -354,16 +347,18 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject teacher with invalid matricule format', () => {
       const invalidMatricules = [
-        'S-123456',   // Wrong prefix
-        'T-12345',    // Too short
-        'T-1234567',  // Too long
-        'T123456',    // No dash
+        'S-123456', // Wrong prefix
+        'T-12345', // Too short
+        'T-1234567', // Too long
+        'T123456', // No dash
         'teacher-123456', // Wrong format
       ];
 
-      invalidMatricules.forEach(matricule => {
+      invalidMatricules.forEach((matricule) => {
         const teacher = { name: 'Test Teacher', contact_info: '12345678', matricule };
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: ['matricule'], message: 'الرقم التعريفي للمعلم غير صالح' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: ['matricule'], message: 'الرقم التعريفي للمعلم غير صالح' },
+        ]);
         teacherValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = teacherValidationSchema.validate(teacher);
@@ -378,7 +373,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
         name: 'Test Teacher',
         // contact_info missing
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['contact_info'], message: 'مطلوب' }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['contact_info'], message: 'مطلوب' },
+      ]);
       teacherValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = teacherValidationSchema.validate(teacherWithoutContact);
@@ -390,7 +387,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate contact_info with 8-digit format', () => {
       const validContacts = ['12345678', '98765432', '20123456'];
 
-      validContacts.forEach(contact_info => {
+      validContacts.forEach((contact_info) => {
         const teacher = { name: 'Test Teacher', contact_info };
         const { error } = teacherValidationSchema.validate(teacher);
         expect(error).toBeUndefined();
@@ -399,13 +396,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject invalid contact_info formats', () => {
       const invalidContacts = [
-        '1234567',     // Too short
-        '123456789',   // Too long
-        '1234567a',    // Contains letter
+        '1234567', // Too short
+        '123456789', // Too long
+        '1234567a', // Contains letter
         '12-34-56-78', // With dashes
       ];
 
-      invalidContacts.forEach(contact_info => {
+      invalidContacts.forEach((contact_info) => {
         const teacher = { name: 'Test Teacher', contact_info };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['contact_info'] }]);
         teacherValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -438,7 +435,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
         schedule: JSON.stringify({
           days: ['Sunday', 'Tuesday', 'Thursday'],
           time: '09:00-11:00',
-          room: 'القاعة الكبرى'
+          room: 'القاعة الكبرى',
         }),
         start_date: '2024-01-01',
         end_date: '2024-12-31',
@@ -463,7 +460,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate all status options', () => {
       const validStatuses = ['pending', 'active', 'completed'];
 
-      validStatuses.forEach(status => {
+      validStatuses.forEach((status) => {
         const classData = { name: 'Test Class', status };
         const { error } = classValidationSchema.validate(classData);
         expect(error).toBeUndefined();
@@ -473,7 +470,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid status values', () => {
       const invalidStatuses = ['inactive', 'cancelled', 'suspended'];
 
-      invalidStatuses.forEach(status => {
+      invalidStatuses.forEach((status) => {
         const classData = { name: 'Test Class', status };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
         classValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -487,7 +484,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate all gender options', () => {
       const validGenders = ['women', 'men', 'kids', 'all'];
 
-      validGenders.forEach(gender => {
+      validGenders.forEach((gender) => {
         const classData = { name: 'Test Class', gender };
         const { error } = classValidationSchema.validate(classData);
         expect(error).toBeUndefined();
@@ -499,7 +496,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
       // Mock the behavior of Joi setting a default value
       classValidationSchema.validate.mockReturnValue({
         error: undefined,
-        value: { ...classData, gender: 'all' }
+        value: { ...classData, gender: 'all' },
       });
 
       const { error, value } = classValidationSchema.validate(classData);
@@ -510,7 +507,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate positive capacity values', () => {
       const validCapacities = [1, 10, 50, 100];
 
-      validCapacities.forEach(capacity => {
+      validCapacities.forEach((capacity) => {
         const classData = { name: 'Test Class', capacity };
         const { error } = classValidationSchema.validate(classData);
         expect(error).toBeUndefined();
@@ -520,7 +517,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid capacity values', () => {
       const invalidCapacities = [0, -1, -10, 1.5];
 
-      invalidCapacities.forEach(capacity => {
+      invalidCapacities.forEach((capacity) => {
         const classData = { name: 'Test Class', capacity };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['capacity'] }]);
         classValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -534,7 +531,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate positive teacher_id values', () => {
       const validTeacherIds = [1, 5, 100];
 
-      validTeacherIds.forEach(teacher_id => {
+      validTeacherIds.forEach((teacher_id) => {
         const classData = { name: 'Test Class', teacher_id };
         const { error } = classValidationSchema.validate(classData);
         expect(error).toBeUndefined();
@@ -544,7 +541,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid teacher_id values', () => {
       const invalidTeacherIds = [0, -1, 1.5, 'not-a-number'];
 
-      invalidTeacherIds.forEach(teacher_id => {
+      invalidTeacherIds.forEach((teacher_id) => {
         const classData = { name: 'Test Class', teacher_id };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['teacher_id'] }]);
         classValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -558,7 +555,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate ISO date formats', () => {
       const validDates = ['2024-01-01', '2024-12-31', '2025-06-15'];
 
-      validDates.forEach(date => {
+      validDates.forEach((date) => {
         const classData = { name: 'Test Class', start_date: date, end_date: date };
         const { error } = classValidationSchema.validate(classData);
         expect(error).toBeUndefined();
@@ -622,13 +619,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate all role options', () => {
       const validRoles = ['Superadmin', 'Manager', 'FinanceManager', 'Admin', 'SessionSupervisor'];
 
-      validRoles.forEach(role => {
+      validRoles.forEach((role) => {
         const user = {
           username: 'testuser',
           password: 'password123',
           first_name: 'Test',
           last_name: 'User',
-          role
+          role,
         };
         const { error } = userValidationSchema.validate(user);
         expect(error).toBeUndefined();
@@ -638,13 +635,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid role values', () => {
       const invalidRoles = ['User', 'Guest', 'Moderator', 'Owner'];
 
-      invalidRoles.forEach(role => {
+      invalidRoles.forEach((role) => {
         const user = {
           username: 'testuser',
           password: 'password123',
           first_name: 'Test',
           last_name: 'User',
-          role
+          role,
         };
         const mockError = new Joi.ValidationError('ValidationError', [{ path: ['role'] }]);
         userValidationSchema.validate.mockReturnValue({ error: mockError });
@@ -658,13 +655,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate employment type options', () => {
       const validEmploymentTypes = ['volunteer', 'contract'];
 
-      validEmploymentTypes.forEach(employment_type => {
+      validEmploymentTypes.forEach((employment_type) => {
         const user = {
           username: 'testuser',
           password: 'password123',
           first_name: 'Test',
           last_name: 'User',
-          employment_type
+          employment_type,
         };
         const { error } = userValidationSchema.validate(user);
         expect(error).toBeUndefined();
@@ -674,13 +671,13 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate civil status options', () => {
       const validCivilStatuses = ['Single', 'Married', 'Divorced', 'Widowed'];
 
-      validCivilStatuses.forEach(civil_status => {
+      validCivilStatuses.forEach((civil_status) => {
         const user = {
           username: 'testuser',
           password: 'password123',
           first_name: 'Test',
           last_name: 'User',
-          civil_status
+          civil_status,
         };
         const { error } = userValidationSchema.validate(user);
         expect(error).toBeUndefined();
@@ -690,7 +687,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate username format (alphanumeric)', () => {
       const validUsernames = ['user123', 'admin', 'test123user', 'a1b2c3'];
 
-      validUsernames.forEach(username => {
+      validUsernames.forEach((username) => {
         const user = {
           username,
           password: 'password123',
@@ -704,15 +701,15 @@ describe('validationSchemas - Comprehensive Tests', () => {
 
     it('should reject invalid username formats', () => {
       const invalidUsernames = [
-        'user-name',    // Contains dash
-        'user.name',    // Contains dot
-        'user name',    // Contains space
-        'user@name',    // Contains special char
-        'us',           // Too short
+        'user-name', // Contains dash
+        'user.name', // Contains dot
+        'user name', // Contains space
+        'user@name', // Contains special char
+        'us', // Too short
         'a'.repeat(31), // Too long
       ];
 
-      invalidUsernames.forEach(username => {
+      invalidUsernames.forEach((username) => {
         const user = {
           username,
           password: 'password123',
@@ -731,7 +728,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate password length requirements', () => {
       const validPasswords = ['123456', 'password', 'verylongpassword123'];
 
-      validPasswords.forEach(password => {
+      validPasswords.forEach((password) => {
         const user = {
           username: 'testuser',
           password,
@@ -746,7 +743,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject short passwords', () => {
       const shortPasswords = ['', '1', '12', '123', '1234', '12345'];
 
-      shortPasswords.forEach(password => {
+      shortPasswords.forEach((password) => {
         const user = {
           username: 'testuser',
           password,
@@ -765,7 +762,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate name length requirements', () => {
       const validNames = ['أح', 'أحمد', 'محمد عبد الرحمن الطويل'];
 
-      validNames.forEach(name => {
+      validNames.forEach((name) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -780,7 +777,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid name lengths', () => {
       const invalidNames = ['', 'أ', 'a'.repeat(51)];
 
-      invalidNames.forEach(name => {
+      invalidNames.forEach((name) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -799,7 +796,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate need_guide as boolean or number', () => {
       const validNeedGuideValues = [true, false, 0, 1];
 
-      validNeedGuideValues.forEach(need_guide => {
+      validNeedGuideValues.forEach((need_guide) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -815,7 +812,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid need_guide values', () => {
       const invalidNeedGuideValues = [2, -1, 'true', 'false'];
 
-      invalidNeedGuideValues.forEach(need_guide => {
+      invalidNeedGuideValues.forEach((need_guide) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -835,7 +832,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate current_step as non-negative integer', () => {
       const validSteps = [0, 1, 5, 10];
 
-      validSteps.forEach(current_step => {
+      validSteps.forEach((current_step) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -851,7 +848,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid current_step values', () => {
       const invalidSteps = [-1, -5, 1.5, 'step'];
 
-      invalidSteps.forEach(current_step => {
+      invalidSteps.forEach((current_step) => {
         const user = {
           username: 'testuser',
           password: 'password123',
@@ -878,7 +875,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
       // Mock the behavior of Joi setting default values
       userValidationSchema.validate.mockReturnValue({
         error: undefined,
-        value: { ...user, need_guide: true, current_step: 0 }
+        value: { ...user, need_guide: true, current_step: 0 },
       });
 
       const { error, value } = userValidationSchema.validate(user);
@@ -920,7 +917,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate status options', () => {
       const validStatuses = ['active', 'inactive'];
 
-      validStatuses.forEach(status => {
+      validStatuses.forEach((status) => {
         const updateData = {
           username: 'testuser',
           first_name: 'Test',
@@ -935,7 +932,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject invalid status values', () => {
       const invalidStatuses = ['pending', 'suspended', 'deleted'];
 
-      invalidStatuses.forEach(status => {
+      invalidStatuses.forEach((status) => {
         const updateData = {
           username: 'testuser',
           first_name: 'Test',
@@ -996,7 +993,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should require all three password fields', () => {
       const requiredFields = ['current_password', 'new_password', 'confirm_new_password'];
 
-      requiredFields.forEach(missingField => {
+      requiredFields.forEach((missingField) => {
         const passwordUpdate = {
           current_password: 'oldpassword',
           new_password: 'newpassword123',
@@ -1004,7 +1001,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
         };
         delete passwordUpdate[missingField];
 
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: [missingField], message: 'مطلوب' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: [missingField], message: 'مطلوب' },
+        ]);
         passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
@@ -1017,7 +1016,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should validate new password length', () => {
       const validNewPasswords = ['123456', 'password', 'verylongpassword123'];
 
-      validNewPasswords.forEach(new_password => {
+      validNewPasswords.forEach((new_password) => {
         const passwordUpdate = {
           current_password: 'oldpassword',
           new_password,
@@ -1032,13 +1031,15 @@ describe('validationSchemas - Comprehensive Tests', () => {
     it('should reject short new passwords', () => {
       const shortPasswords = ['', '1', '12', '123', '1234', '12345'];
 
-      shortPasswords.forEach(new_password => {
+      shortPasswords.forEach((new_password) => {
         const passwordUpdate = {
           current_password: 'oldpassword',
           new_password,
           confirm_new_password: new_password,
         };
-        const mockError = new Joi.ValidationError('ValidationError', [{ path: ['new_password'], message: '6 أحرف على الأقل' }]);
+        const mockError = new Joi.ValidationError('ValidationError', [
+          { path: ['new_password'], message: '6 أحرف على الأقل' },
+        ]);
         passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
         const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
@@ -1054,7 +1055,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'differentpassword456',
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['confirm_new_password'], message: 'غير متطابقة' }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['confirm_new_password'], message: 'غير متطابقة' },
+      ]);
       passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
@@ -1069,7 +1072,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'newpassword123',
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['current_password'], message: 'مطلوبة' }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['current_password'], message: 'مطلوبة' },
+      ]);
       passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
@@ -1084,7 +1089,9 @@ describe('validationSchemas - Comprehensive Tests', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'newpassword123',
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['current_password'] }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['current_password'] },
+      ]);
       passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
@@ -1111,7 +1118,7 @@ describe('validationSchemas - Comprehensive Tests', () => {
         },
       ];
 
-      complexScenarios.forEach(passwordUpdate => {
+      complexScenarios.forEach((passwordUpdate) => {
         const { error } = passwordUpdateValidationSchema.validate(passwordUpdate);
         expect(error).toBeUndefined();
       });

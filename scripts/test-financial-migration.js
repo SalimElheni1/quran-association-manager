@@ -14,7 +14,7 @@ let db = null;
 // Simple DB wrapper for testing
 const runQuery = (sql, params = []) => {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
+    db.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve({ id: this.lastID, changes: this.changes });
     });
@@ -138,10 +138,14 @@ async function setupTestDatabase() {
   await runQuery("INSERT INTO students (id, name, matricule) VALUES (2, 'فاطمة علي', 'S-000002')");
 
   // Insert sample teachers
-  await runQuery("INSERT INTO teachers (id, name, matricule) VALUES (1, 'محمد الأستاذ', 'T-000001')");
+  await runQuery(
+    "INSERT INTO teachers (id, name, matricule) VALUES (1, 'محمد الأستاذ', 'T-000001')",
+  );
 
   // Insert sample users
-  await runQuery("INSERT INTO users (id, username, first_name, last_name) VALUES (1, 'admin', 'أحمد', 'الإداري')");
+  await runQuery(
+    "INSERT INTO users (id, username, first_name, last_name) VALUES (1, 'admin', 'أحمد', 'الإداري')",
+  );
 
   // Insert sample payments (3 payments)
   await runQuery(`
@@ -205,10 +209,18 @@ async function runMigrationTests() {
 
     // Get totals before migration
     console.log('\n📊 Pre-Migration Totals:');
-    const prePayments = await getQuery('SELECT COUNT(*) as count, SUM(amount) as total FROM payments');
-    const preExpenses = await getQuery('SELECT COUNT(*) as count, SUM(amount) as total FROM expenses');
-    const preSalaries = await getQuery('SELECT COUNT(*) as count, SUM(amount) as total FROM salaries');
-    const preDonations = await getQuery('SELECT COUNT(*) as count, SUM(amount) as total FROM donations WHERE donation_type = "Cash"');
+    const prePayments = await getQuery(
+      'SELECT COUNT(*) as count, SUM(amount) as total FROM payments',
+    );
+    const preExpenses = await getQuery(
+      'SELECT COUNT(*) as count, SUM(amount) as total FROM expenses',
+    );
+    const preSalaries = await getQuery(
+      'SELECT COUNT(*) as count, SUM(amount) as total FROM salaries',
+    );
+    const preDonations = await getQuery(
+      'SELECT COUNT(*) as count, SUM(amount) as total FROM donations WHERE donation_type = "Cash"',
+    );
 
     console.log(`  Payments: ${prePayments.count} records, ${prePayments.total} TND`);
     console.log(`  Expenses: ${preExpenses.count} records, ${preExpenses.total} TND`);
@@ -238,10 +250,14 @@ async function runMigrationTests() {
         updated_at DATETIME
       )
     `);
-    await runQuery('CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date)');
+    await runQuery(
+      'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date)',
+    );
     await runQuery('CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)');
-    await runQuery('CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)');
-    
+    await runQuery(
+      'CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)',
+    );
+
     await runQuery(`
       CREATE TABLE IF NOT EXISTS accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -254,7 +270,7 @@ async function runMigrationTests() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await runQuery(`
       CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -268,15 +284,31 @@ async function runMigrationTests() {
 
     // Run seed migration
     console.log('\n🌱 Seeding categories and accounts...');
-    await runQuery("INSERT OR IGNORE INTO accounts (id, name, type, initial_balance, current_balance) VALUES (1, 'الخزينة', 'CASH', 0.0, 0.0)");
-    
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رسوم الطلاب', 'INCOME', 'Student fees')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('التبرعات النقدية', 'INCOME', 'Cash donations')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رواتب المعلمين', 'EXPENSE', 'Teacher salaries')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رواتب الإداريين', 'EXPENSE', 'Admin salaries')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('الإيجار', 'EXPENSE', 'Rent')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('القرطاسية', 'EXPENSE', 'Stationery')");
-    await runQuery("INSERT OR IGNORE INTO categories (name, type, description) VALUES ('مصاريف أخرى', 'EXPENSE', 'Other expenses')");
+    await runQuery(
+      "INSERT OR IGNORE INTO accounts (id, name, type, initial_balance, current_balance) VALUES (1, 'الخزينة', 'CASH', 0.0, 0.0)",
+    );
+
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رسوم الطلاب', 'INCOME', 'Student fees')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('التبرعات النقدية', 'INCOME', 'Cash donations')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رواتب المعلمين', 'EXPENSE', 'Teacher salaries')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('رواتب الإداريين', 'EXPENSE', 'Admin salaries')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('الإيجار', 'EXPENSE', 'Rent')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('القرطاسية', 'EXPENSE', 'Stationery')",
+    );
+    await runQuery(
+      "INSERT OR IGNORE INTO categories (name, type, description) VALUES ('مصاريف أخرى', 'EXPENSE', 'Other expenses')",
+    );
     console.log('✅ Categories and accounts seeded');
 
     // Run data migration
@@ -298,7 +330,9 @@ async function runMigrationTests() {
     if (verificationResult.paymentsMatch) {
       console.log('✅ PASSED: Payment totals match');
     } else {
-      throw new Error(`❌ FAILED: Payment totals mismatch (Old: ${verificationResult.oldPaymentsTotal}, New: ${verificationResult.newPaymentsTotal})`);
+      throw new Error(
+        `❌ FAILED: Payment totals mismatch (Old: ${verificationResult.oldPaymentsTotal}, New: ${verificationResult.newPaymentsTotal})`,
+      );
     }
 
     // Additional verification tests
@@ -306,28 +340,40 @@ async function runMigrationTests() {
 
     // Test 1: Check transaction count
     const transactionCount = await getQuery('SELECT COUNT(*) as count FROM transactions');
-    const expectedCount = prePayments.count + preExpenses.count + preSalaries.count + preDonations.count;
+    const expectedCount =
+      prePayments.count + preExpenses.count + preSalaries.count + preDonations.count;
     if (transactionCount.count === expectedCount) {
       console.log(`✅ PASSED: Transaction count matches (${transactionCount.count})`);
     } else {
-      throw new Error(`❌ FAILED: Transaction count mismatch (Expected: ${expectedCount}, Got: ${transactionCount.count})`);
+      throw new Error(
+        `❌ FAILED: Transaction count mismatch (Expected: ${expectedCount}, Got: ${transactionCount.count})`,
+      );
     }
 
     // Test 2: Check voucher numbers (some may be null from legacy data)
-    const vouchersWithNumber = await getQuery('SELECT COUNT(*) as count FROM transactions WHERE voucher_number IS NOT NULL');
+    const vouchersWithNumber = await getQuery(
+      'SELECT COUNT(*) as count FROM transactions WHERE voucher_number IS NOT NULL',
+    );
     if (vouchersWithNumber.count >= 2) {
-      console.log(`✅ PASSED: ${vouchersWithNumber.count} transactions have voucher numbers (legacy data preserved)`);
+      console.log(
+        `✅ PASSED: ${vouchersWithNumber.count} transactions have voucher numbers (legacy data preserved)`,
+      );
     } else {
-      throw new Error(`❌ FAILED: Only ${vouchersWithNumber.count} transactions have voucher numbers`);
+      throw new Error(
+        `❌ FAILED: Only ${vouchersWithNumber.count} transactions have voucher numbers`,
+      );
     }
 
     // Test 3: Check account balance
     const account = await getQuery('SELECT current_balance FROM accounts WHERE id = 1');
-    const expectedBalance = (prePayments.total + preDonations.total) - (preExpenses.total + preSalaries.total);
+    const expectedBalance =
+      prePayments.total + preDonations.total - (preExpenses.total + preSalaries.total);
     if (Math.abs(account.current_balance - expectedBalance) < 0.01) {
       console.log(`✅ PASSED: Account balance is correct (${account.current_balance} TND)`);
     } else {
-      throw new Error(`❌ FAILED: Account balance mismatch (Expected: ${expectedBalance}, Got: ${account.current_balance})`);
+      throw new Error(
+        `❌ FAILED: Account balance mismatch (Expected: ${expectedBalance}, Got: ${account.current_balance})`,
+      );
     }
 
     // Test 4: Check categories exist
@@ -335,23 +381,30 @@ async function runMigrationTests() {
     if (categoryCount.count >= 7) {
       console.log(`✅ PASSED: Categories seeded (${categoryCount.count} categories)`);
     } else {
-      throw new Error(`❌ FAILED: Insufficient categories (Expected: 7+, Got: ${categoryCount.count})`);
+      throw new Error(
+        `❌ FAILED: Insufficient categories (Expected: 7+, Got: ${categoryCount.count})`,
+      );
     }
 
     // Test 5: Check transaction types
-    const incomeCount = await getQuery("SELECT COUNT(*) as count FROM transactions WHERE type = 'INCOME'");
-    const expenseCount = await getQuery("SELECT COUNT(*) as count FROM transactions WHERE type = 'EXPENSE'");
+    const incomeCount = await getQuery(
+      "SELECT COUNT(*) as count FROM transactions WHERE type = 'INCOME'",
+    );
+    const expenseCount = await getQuery(
+      "SELECT COUNT(*) as count FROM transactions WHERE type = 'EXPENSE'",
+    );
     const expectedIncome = prePayments.count + preDonations.count;
     const expectedExpense = preExpenses.count + preSalaries.count;
-    
+
     if (incomeCount.count === expectedIncome && expenseCount.count === expectedExpense) {
-      console.log(`✅ PASSED: Transaction types correct (Income: ${incomeCount.count}, Expense: ${expenseCount.count})`);
+      console.log(
+        `✅ PASSED: Transaction types correct (Income: ${incomeCount.count}, Expense: ${expenseCount.count})`,
+      );
     } else {
       throw new Error(`❌ FAILED: Transaction type mismatch`);
     }
 
     console.log('\n✅ All tests passed! Migration is successful.');
-
   } catch (error) {
     console.error('\n❌ Migration test FAILED:');
     console.error(error.message);
@@ -378,26 +431,52 @@ async function migrateToUnifiedTransactions() {
     // Migrate payments
     const payments = await allQuery('SELECT * FROM payments');
     for (const p of payments) {
-      await runQuery(`
+      await runQuery(
+        `
         INSERT INTO transactions (
           type, category, amount, transaction_date, description,
           payment_method, voucher_number, account_id, related_entity_type, related_entity_id, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['INCOME', 'رسوم الطلاب', p.amount, p.payment_date, p.notes || 'رسوم الطالب',
-          p.payment_method || 'CASH', p.receipt_number, accountId, 'Student', p.student_id, p.created_at]);
+      `,
+        [
+          'INCOME',
+          'رسوم الطلاب',
+          p.amount,
+          p.payment_date,
+          p.notes || 'رسوم الطالب',
+          p.payment_method || 'CASH',
+          p.receipt_number,
+          accountId,
+          'Student',
+          p.student_id,
+          p.created_at,
+        ],
+      );
       results.payments++;
     }
 
     // Migrate expenses
     const expenses = await allQuery('SELECT * FROM expenses');
     for (const e of expenses) {
-      await runQuery(`
+      await runQuery(
+        `
         INSERT INTO transactions (
           type, category, amount, transaction_date, description,
           payment_method, account_id, related_person_name, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['EXPENSE', e.category || 'مصاريف أخرى', e.amount, e.expense_date,
-          e.description || 'مصروف', 'CASH', accountId, e.responsible_person, e.created_at]);
+      `,
+        [
+          'EXPENSE',
+          e.category || 'مصاريف أخرى',
+          e.amount,
+          e.expense_date,
+          e.description || 'مصروف',
+          'CASH',
+          accountId,
+          e.responsible_person,
+          e.created_at,
+        ],
+      );
       results.expenses++;
     }
 
@@ -405,34 +484,63 @@ async function migrateToUnifiedTransactions() {
     const salaries = await allQuery('SELECT * FROM salaries');
     for (const s of salaries) {
       const category = s.user_type === 'teacher' ? 'رواتب المعلمين' : 'رواتب الإداريين';
-      await runQuery(`
+      await runQuery(
+        `
         INSERT INTO transactions (
           type, category, amount, transaction_date, description,
           payment_method, account_id, related_entity_type, related_entity_id, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['EXPENSE', category, s.amount, s.payment_date, `راتب موظف`, 'CASH', accountId,
-          s.user_type === 'teacher' ? 'Teacher' : 'User', s.user_id, s.created_at]);
+      `,
+        [
+          'EXPENSE',
+          category,
+          s.amount,
+          s.payment_date,
+          `راتب موظف`,
+          'CASH',
+          accountId,
+          s.user_type === 'teacher' ? 'Teacher' : 'User',
+          s.user_id,
+          s.created_at,
+        ],
+      );
       results.salaries++;
     }
 
     // Migrate donations
     const donations = await allQuery("SELECT * FROM donations WHERE donation_type = 'Cash'");
     for (const d of donations) {
-      await runQuery(`
+      await runQuery(
+        `
         INSERT INTO transactions (
           type, category, amount, transaction_date, description,
           payment_method, account_id, related_person_name, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['INCOME', 'التبرعات النقدية', d.amount, d.donation_date,
-          d.notes || 'تبرع نقدي', 'CASH', accountId, d.donor_name, d.created_at]);
+      `,
+        [
+          'INCOME',
+          'التبرعات النقدية',
+          d.amount,
+          d.donation_date,
+          d.notes || 'تبرع نقدي',
+          'CASH',
+          accountId,
+          d.donor_name,
+          d.created_at,
+        ],
+      );
       results.donations++;
     }
 
     // Calculate balance
-    const totalIncome = await getQuery("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'INCOME'");
-    const totalExpenses = await getQuery("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'EXPENSE'");
+    const totalIncome = await getQuery(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'INCOME'",
+    );
+    const totalExpenses = await getQuery(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'EXPENSE'",
+    );
     const balance = (totalIncome.total || 0) - (totalExpenses.total || 0);
-    
+
     await runQuery('UPDATE accounts SET current_balance = ? WHERE id = ?', [balance, accountId]);
     await runQuery('COMMIT;');
 
@@ -440,7 +548,7 @@ async function migrateToUnifiedTransactions() {
       success: true,
       ...results,
       totalMigrated: results.payments + results.expenses + results.salaries + results.donations,
-      finalBalance: balance
+      finalBalance: balance,
     };
   } catch (error) {
     await runQuery('ROLLBACK;');
@@ -450,10 +558,16 @@ async function migrateToUnifiedTransactions() {
 
 async function verifyMigration() {
   const oldPaymentsTotal = await getQuery('SELECT COALESCE(SUM(amount), 0) as total FROM payments');
-  const newPaymentsTotal = await getQuery("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE category = 'رسوم الطلاب'");
+  const newPaymentsTotal = await getQuery(
+    "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE category = 'رسوم الطلاب'",
+  );
   const paymentsMatch = Math.abs(oldPaymentsTotal.total - newPaymentsTotal.total) < 0.01;
-  
-  return { paymentsMatch, oldPaymentsTotal: oldPaymentsTotal.total, newPaymentsTotal: newPaymentsTotal.total };
+
+  return {
+    paymentsMatch,
+    oldPaymentsTotal: oldPaymentsTotal.total,
+    newPaymentsTotal: newPaymentsTotal.total,
+  };
 }
 
 // Run tests

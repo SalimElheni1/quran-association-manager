@@ -24,7 +24,7 @@ jest.mock('react-toastify', () => ({
 jest.mock('react-router-dom', () => {
   const Navigate = ({ to }) => <div data-testid="navigate" data-to={to} />;
   Navigate.displayName = 'Navigate';
-  
+
   return {
     ...jest.requireActual('react-router-dom'),
     useNavigate: () => jest.fn(),
@@ -92,42 +92,42 @@ jest.mock('react-bootstrap', () => {
     </button>
   );
   Button.displayName = 'Button';
-  
+
   const Container = ({ children, ...props }) => (
     <div data-testid="container" {...props}>
       {children}
     </div>
   );
   Container.displayName = 'Container';
-  
+
   const Alert = ({ children, ...props }) => (
     <div data-testid="alert" {...props}>
       {children}
     </div>
   );
   Alert.displayName = 'Alert';
-  
+
   const Row = ({ children, ...props }) => (
     <div data-testid="row" {...props}>
       {children}
     </div>
   );
   Row.displayName = 'Row';
-  
+
   const Col = ({ children, ...props }) => (
     <div data-testid="col" {...props}>
       {children}
     </div>
   );
   Col.displayName = 'Col';
-  
+
   const InputGroup = ({ children, ...props }) => (
     <div data-testid="input-group" {...props}>
       {children}
     </div>
   );
   InputGroup.displayName = 'InputGroup';
-  
+
   const Spinner = ({ ...props }) => <div data-testid="spinner" {...props} />;
   Spinner.displayName = 'Spinner';
 

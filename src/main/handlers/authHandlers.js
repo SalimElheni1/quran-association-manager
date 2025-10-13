@@ -54,9 +54,9 @@ const getProfileHandler = async (token) => {
 
   const roles = await db.allQuery(
     'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-    [userId]
+    [userId],
   );
-  userProfile.roles = roles.map(r => r.name);
+  userProfile.roles = roles.map((r) => r.name);
 
   // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
   try {
@@ -171,9 +171,9 @@ function registerAuthHandlers() {
 
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [user.id]
+        [user.id],
       );
-      const userRoles = roles.map(r => r.name);
+      const userRoles = roles.map((r) => r.name);
 
       await refreshSettings();
 

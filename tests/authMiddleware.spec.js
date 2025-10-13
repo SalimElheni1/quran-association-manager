@@ -33,7 +33,7 @@ describe('Auth Middleware', () => {
       expect(db.getQuery).toHaveBeenCalledWith('SELECT id, username FROM users WHERE id = ?', [1]);
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [1]
+        [1],
       );
       expect(result).toEqual({
         id: 1,
@@ -44,7 +44,9 @@ describe('Auth Middleware', () => {
 
     it('should throw error when token is not provided', async () => {
       await expect(getUserFromToken(null)).rejects.toThrow('Authentication token not provided.');
-      await expect(getUserFromToken(undefined)).rejects.toThrow('Authentication token not provided.');
+      await expect(getUserFromToken(undefined)).rejects.toThrow(
+        'Authentication token not provided.',
+      );
       await expect(getUserFromToken('')).rejects.toThrow('Authentication token not provided.');
     });
 
@@ -53,14 +55,18 @@ describe('Auth Middleware', () => {
         throw new Error('Invalid token');
       });
 
-      await expect(getUserFromToken('invalid.token')).rejects.toThrow('Invalid or expired authentication token.');
+      await expect(getUserFromToken('invalid.token')).rejects.toThrow(
+        'Invalid or expired authentication token.',
+      );
     });
 
     it('should throw error when user is not found', async () => {
       jwt.verify.mockReturnValue({ id: 999 });
       db.getQuery.mockResolvedValue(null);
 
-      await expect(getUserFromToken(mockToken)).rejects.toThrow('Invalid or expired authentication token.');
+      await expect(getUserFromToken(mockToken)).rejects.toThrow(
+        'Invalid or expired authentication token.',
+      );
     });
 
     it('should handle user with no roles', async () => {
@@ -152,7 +158,9 @@ describe('Auth Middleware', () => {
 
       const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
 
-      await expect(wrappedHandler(mockEvent)).rejects.toThrow('Invalid or expired authentication token.');
+      await expect(wrappedHandler(mockEvent)).rejects.toThrow(
+        'Invalid or expired authentication token.',
+      );
       expect(mockHandler).not.toHaveBeenCalled();
     });
 

@@ -3,9 +3,21 @@ import { render, screen } from '@testing-library/react';
 import StatCard from '../../src/renderer/components/StatCard';
 
 // Mock the icon components used by StatCard
-jest.mock('../../src/renderer/components/icons/UserGraduateIcon', () => () => <svg data-testid="user-graduate-icon" />);
-jest.mock('../../src/renderer/components/icons/TeacherIcon', () => () => <svg data-testid="teacher-icon" />);
-jest.mock('../../src/renderer/components/icons/ClassesIcon', () => () => <svg data-testid="classes-icon" />);
+jest.mock('../../src/renderer/components/icons/UserGraduateIcon', () => {
+  const UserGraduateIcon = () => <svg data-testid="user-graduate-icon" />;
+  UserGraduateIcon.displayName = 'UserGraduateIcon';
+  return UserGraduateIcon;
+});
+jest.mock('../../src/renderer/components/icons/TeacherIcon', () => {
+  const TeacherIcon = () => <svg data-testid="teacher-icon" />;
+  TeacherIcon.displayName = 'TeacherIcon';
+  return TeacherIcon;
+});
+jest.mock('../../src/renderer/components/icons/ClassesIcon', () => {
+  const ClassesIcon = () => <svg data-testid="classes-icon" />;
+  ClassesIcon.displayName = 'ClassesIcon';
+  return ClassesIcon;
+});
 
 describe('StatCard', () => {
   const defaultProps = {

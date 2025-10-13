@@ -101,7 +101,10 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch dashboard stats:', expect.any(Error));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch dashboard stats:',
+        expect.any(Error),
+      );
     });
 
     // Should still show loading state

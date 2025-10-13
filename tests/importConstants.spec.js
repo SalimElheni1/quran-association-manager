@@ -10,7 +10,7 @@ describe('Import Constants', () => {
   describe('AVAILABLE_SHEETS', () => {
     it('should contain all expected sheets', () => {
       expect(AVAILABLE_SHEETS).toHaveLength(8);
-      const sheetNames = AVAILABLE_SHEETS.map(s => s.name);
+      const sheetNames = AVAILABLE_SHEETS.map((s) => s.name);
       expect(sheetNames).toContain('المستخدمون');
       expect(sheetNames).toContain('المعلمون');
       expect(sheetNames).toContain('الطلاب');
@@ -22,7 +22,7 @@ describe('Import Constants', () => {
     });
 
     it('should have required columns for each sheet', () => {
-      AVAILABLE_SHEETS.forEach(sheet => {
+      AVAILABLE_SHEETS.forEach((sheet) => {
         expect(sheet).toHaveProperty('name');
         expect(sheet).toHaveProperty('requiredColumns');
         expect(Array.isArray(sheet.requiredColumns)).toBe(true);
@@ -42,7 +42,7 @@ describe('Import Constants', () => {
 
     it('should return only names without other properties', () => {
       const result = getAvailableSheets();
-      result.forEach(name => {
+      result.forEach((name) => {
         expect(typeof name).toBe('string');
       });
     });
@@ -119,7 +119,7 @@ describe('Import Constants', () => {
 
     it('should return sheets with complete structure', () => {
       const result = getAllSheets();
-      result.forEach(sheet => {
+      result.forEach((sheet) => {
         expect(sheet).toHaveProperty('name');
         expect(sheet).toHaveProperty('requiredColumns');
         expect(typeof sheet.name).toBe('string');

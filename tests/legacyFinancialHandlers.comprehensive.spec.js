@@ -38,7 +38,7 @@ describe('Legacy Financial Handlers - Comprehensive', () => {
 
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT * FROM expenses ORDER BY expense_date DESC',
-        []
+        [],
       );
       expect(result).toHaveLength(1);
     });
@@ -50,7 +50,7 @@ describe('Legacy Financial Handlers - Comprehensive', () => {
 
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT * FROM expenses WHERE expense_date BETWEEN ? AND ? ORDER BY expense_date DESC',
-        ['2024-01-01', '2024-01-31']
+        ['2024-01-01', '2024-01-31'],
       );
     });
 
@@ -100,7 +100,7 @@ describe('Legacy Financial Handlers - Comprehensive', () => {
 
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT * FROM donations ORDER BY donation_date DESC',
-        []
+        [],
       );
       expect(result).toHaveLength(1);
     });
@@ -112,7 +112,7 @@ describe('Legacy Financial Handlers - Comprehensive', () => {
 
       expect(db.allQuery).toHaveBeenCalledWith(
         'SELECT * FROM donations WHERE donation_date BETWEEN ? AND ? ORDER BY donation_date DESC',
-        ['2024-01-01', '2024-01-31']
+        ['2024-01-01', '2024-01-31'],
       );
     });
 

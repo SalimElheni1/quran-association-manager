@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
 const { log, error: logError } = require('../logger');
-const { requireRoles } = require('../authMiddleware');
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({
@@ -106,7 +105,6 @@ const internalUpdateSettingsHandler = async (settingsData) => {
       const primaryDbKey = Object.prototype.hasOwnProperty.call(dbKeyMap, key)
         ? dbKeyMap[key]
         : key;
-      const altKey = primaryDbKey === key ? camelToSnake(key) : key; // alternate form to try
       const dbValue = value === null || value === undefined ? '' : String(value);
 
       // Use INSERT OR REPLACE to ensure the setting is always saved

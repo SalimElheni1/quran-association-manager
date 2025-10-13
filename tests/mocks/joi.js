@@ -1,4 +1,4 @@
-const joi = require('joi');
+
 
 // This is a comprehensive mock for Joi that supports chaining.
 // By default, validate/validateAsync are plain jest.fn(), allowing tests

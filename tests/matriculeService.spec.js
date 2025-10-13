@@ -133,6 +133,6 @@ describe('matriculeService › generateMatricule', () => {
     await expect(generateMatricule('student')).rejects.toThrow('فشل في إنشاء الرقم التعريفي.');
 
     // Ensure the original error was logged
-    expect(logError).toHaveBeenCalledWith("Failed to generate matricule for student:", dbError);
+    expect(logError).toHaveBeenCalledWith('Failed to generate matricule for student:', dbError);
   });
 });

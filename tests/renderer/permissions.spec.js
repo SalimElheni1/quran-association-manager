@@ -1,4 +1,10 @@
-import { hasPermission, hasAnyPermission, canAccessModule, PERMISSIONS, ROLE_PERMISSIONS } from '@renderer/utils/permissions';
+import {
+  hasPermission,
+  hasAnyPermission,
+  canAccessModule,
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+} from '@renderer/utils/permissions';
 
 describe('Permissions Utility', () => {
   describe('hasPermission', () => {
@@ -62,17 +68,26 @@ describe('Permissions Utility', () => {
 
   describe('hasAnyPermission', () => {
     it('should return true when user has at least one of the permissions', () => {
-      const result = hasAnyPermission(['Administrator'], [PERMISSIONS.STUDENTS_VIEW, PERMISSIONS.USERS_CREATE]);
+      const result = hasAnyPermission(
+        ['Administrator'],
+        [PERMISSIONS.STUDENTS_VIEW, PERMISSIONS.USERS_CREATE],
+      );
       expect(result).toBe(true);
     });
 
     it('should return false when user has none of the permissions', () => {
-      const result = hasAnyPermission(['SessionSupervisor'], [PERMISSIONS.USERS_CREATE, PERMISSIONS.SETTINGS_EDIT]);
+      const result = hasAnyPermission(
+        ['SessionSupervisor'],
+        [PERMISSIONS.USERS_CREATE, PERMISSIONS.SETTINGS_EDIT],
+      );
       expect(result).toBe(false);
     });
 
     it('should return true when user has all of the permissions', () => {
-      const result = hasAnyPermission(['Superadmin'], [PERMISSIONS.STUDENTS_VIEW, PERMISSIONS.USERS_CREATE]);
+      const result = hasAnyPermission(
+        ['Superadmin'],
+        [PERMISSIONS.STUDENTS_VIEW, PERMISSIONS.USERS_CREATE],
+      );
       expect(result).toBe(true);
     });
 
@@ -84,7 +99,7 @@ describe('Permissions Utility', () => {
     it('should handle multiple roles checking multiple permissions', () => {
       const result = hasAnyPermission(
         ['FinanceManager', 'SessionSupervisor'],
-        [PERMISSIONS.FINANCIALS_VIEW, PERMISSIONS.ATTENDANCE_VIEW]
+        [PERMISSIONS.FINANCIALS_VIEW, PERMISSIONS.ATTENDANCE_VIEW],
       );
       expect(result).toBe(true);
     });

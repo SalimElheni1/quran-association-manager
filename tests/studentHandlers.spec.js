@@ -41,7 +41,7 @@ describe('Student Handlers', () => {
       // The test should check the SQL query and the parameters
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ?'),
-        expect.arrayContaining(['%Ali%', '%Ali%', 'Male'])
+        expect.arrayContaining(['%Ali%', '%Ali%', 'Male']),
       );
     });
 
@@ -60,8 +60,10 @@ describe('Student Handlers', () => {
 
       // We expect the filter to happen in JS, so the SQL query should be simple
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students'),
-        []
+        expect.stringContaining(
+          'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students',
+        ),
+        [],
       );
 
       // Restore original Date object
@@ -94,9 +96,18 @@ describe('Student Handlers', () => {
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(generateMatricule).toHaveBeenCalledWith('student');
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO students'), expect.any(Array));
-      expect(db.runQuery).toHaveBeenCalledWith('INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)', [studentId, 1]);
-      expect(db.runQuery).toHaveBeenCalledWith('INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)', [studentId, 2]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO students'),
+        expect.any(Array),
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)',
+        [studentId, 1],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)',
+        [studentId, 2],
+      );
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
     });
@@ -107,7 +118,9 @@ describe('Student Handlers', () => {
       error.details = [{ message: 'Invalid name' }];
       studentValidationSchema.validateAsync.mockRejectedValue(error);
 
-      await expect(ipcMain.invoke('students:add', {})).rejects.toThrow('بيانات غير صالحة: Invalid name');
+      await expect(ipcMain.invoke('students:add', {})).rejects.toThrow(
+        'بيانات غير صالحة: Invalid name',
+      );
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
@@ -126,9 +139,17 @@ describe('Student Handlers', () => {
       await ipcMain.invoke('students:update', studentId, studentData);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE students SET'), ['Updated Student', studentId]);
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM student_groups WHERE student_id = ?', [studentId]);
-      expect(db.runQuery).toHaveBeenCalledWith('INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)', [studentId, 3]);
+      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE students SET'), [
+        'Updated Student',
+        studentId,
+      ]);
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM student_groups WHERE student_id = ?', [
+        studentId,
+      ]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)',
+        [studentId, 3],
+      );
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
     });
@@ -142,9 +163,7 @@ describe('Student Handlers', () => {
     });
 
     it('should throw an error for invalid ID', async () => {
-      await expect(ipcMain.invoke('students:delete', null)).rejects.toThrow(
-        'فشل حذف الطالب.'
-      );
+      await expect(ipcMain.invoke('students:delete', null)).rejects.toThrow('فشل حذف الطالب.');
     });
   });
 });

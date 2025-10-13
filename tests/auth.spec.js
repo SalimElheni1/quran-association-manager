@@ -9,16 +9,15 @@ jest.mock('../src/main/logger');
 // This mock is complex because the module under test builds a schema at the top level.
 // We need to provide a mock that can be chained.
 const mockSchema = {
-    validateAsync: jest.fn(),
-    keys: jest.fn().mockReturnThis(),
-    with: jest.fn().mockReturnThis(),
+  validateAsync: jest.fn(),
+  keys: jest.fn().mockReturnThis(),
+  with: jest.fn().mockReturnThis(),
 };
 jest.mock('../src/main/validationSchemas', () => ({
-    profileUpdateValidationSchema: mockSchema,
-    userUpdateValidationSchema: mockSchema,
-    passwordUpdateValidationSchema: mockSchema,
+  profileUpdateValidationSchema: mockSchema,
+  userUpdateValidationSchema: mockSchema,
+  passwordUpdateValidationSchema: mockSchema,
 }));
-
 
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
@@ -29,16 +28,16 @@ const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
 process.env.JWT_SECRET = 'test-secret';
 
 describe('Authentication Handlers', () => {
-    let handlers = {};
+  let handlers = {};
 
-    beforeEach(() => {
-        jest.clearAllMocks();
-        handlers = {};
-        ipcMain.handle.mockImplementation((channel, handler) => {
-            handlers[channel] = handler;
-        });
-        registerAuthHandlers();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    handlers = {};
+    ipcMain.handle.mockImplementation((channel, handler) => {
+      handlers[channel] = handler;
     });
+    registerAuthHandlers();
+  });
 
   describe('auth:login', () => {
     it('should login successfully with correct credentials', async () => {
@@ -48,7 +47,10 @@ describe('Authentication Handlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       jwt.sign.mockReturnValue('mock-token');
 
-      const result = await handlers['auth:login'](null, { username: 'testuser', password: 'password123' });
+      const result = await handlers['auth:login'](null, {
+        username: 'testuser',
+        password: 'password123',
+      });
 
       expect(result.success).toBe(true);
     });
@@ -61,7 +63,7 @@ describe('Authentication Handlers', () => {
 
     beforeEach(() => {
       jwt.verify.mockReturnValue({ id: mockUserId });
-      mockSchema.validateAsync.mockImplementation(data => Promise.resolve(data));
+      mockSchema.validateAsync.mockImplementation((data) => Promise.resolve(data));
     });
 
     it('should update profile successfully', async () => {

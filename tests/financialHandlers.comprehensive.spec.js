@@ -6,66 +6,65 @@ jest.mock('../src/db/db');
 jest.mock('../src/main/services/matriculeService');
 jest.mock('electron');
 
-
 describe('financialHandlers - Comprehensive Tests', () => {
-    let financialHandlers;
-    let db;
-    let ipcMain;
+  let financialHandlers;
+  let db;
+  let ipcMain;
 
-    beforeEach(() => {
-        jest.clearAllMocks();
-        financialHandlers = require('../src/main/handlers/legacyFinancialHandlers');
-        db = require('../src/db/db');
-        ipcMain = require('electron').ipcMain;
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    financialHandlers = require('../src/main/handlers/legacyFinancialHandlers');
+    db = require('../src/db/db');
+    ipcMain = require('electron').ipcMain;
+  });
 
   describe.skip('registerFinancialHandlers', () => {
     it('should register all IPC handlers', () => {
       financialHandlers.registerFinancialHandlers();
       expect(ipcMain.handle).toHaveBeenCalled();
-      const registeredChannels = ipcMain.handle.mock.calls.map(call => call[0]);
+      const registeredChannels = ipcMain.handle.mock.calls.map((call) => call[0]);
       expect(registeredChannels).toContain('get-expenses');
     });
   });
 
   describe('Financial Reporting - Advanced Cases', () => {
     describe('handleGetStatementOfActivities', () => {
-        it('should handle null values in database results', async () => {
-            db.getQuery.mockResolvedValue(null);
-            db.allQuery.mockResolvedValue([]);
+      it('should handle null values in database results', async () => {
+        db.getQuery.mockResolvedValue(null);
+        db.allQuery.mockResolvedValue([]);
 
-            const result = await financialHandlers.handleGetStatementOfActivities(null, {
-              startDate: '2024-01-01',
-              endDate: '2024-01-31'
-            });
-
-            expect(result).toEqual({
-              studentFees: 0,
-              cashDonations: 0,
-              salaries: 0,
-              expensesByCategory: [],
-              recentTransactions: [],
-            });
+        const result = await financialHandlers.handleGetStatementOfActivities(null, {
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
         });
 
-        it('should include complex recent transactions query', async () => {
-            db.getQuery.mockResolvedValue({ total: 0 });
-            db.allQuery.mockResolvedValue([]);
+        expect(result).toEqual({
+          studentFees: 0,
+          cashDonations: 0,
+          salaries: 0,
+          expensesByCategory: [],
+          recentTransactions: [],
+        });
+      });
 
-            await financialHandlers.handleGetStatementOfActivities();
+      it('should include complex recent transactions query', async () => {
+        db.getQuery.mockResolvedValue({ total: 0 });
+        db.allQuery.mockResolvedValue([]);
 
-            // The second call to allQuery is the one for recent transactions
-            const recentTransactionsCall = db.allQuery.mock.calls[1];
-            expect(recentTransactionsCall[0]).toContain('UNION ALL');
-          });
+        await financialHandlers.handleGetStatementOfActivities();
+
+        // The second call to allQuery is the one for recent transactions
+        const recentTransactionsCall = db.allQuery.mock.calls[1];
+        expect(recentTransactionsCall[0]).toContain('UNION ALL');
+      });
     });
 
     describe('handleGetFinancialSummary', () => {
-        it('should use current year when no year specified', async () => {
-            db.allQuery.mockResolvedValue([]);
-            await financialHandlers.handleGetFinancialSummary();
-            expect(db.allQuery).toHaveBeenCalled();
-          });
+      it('should use current year when no year specified', async () => {
+        db.allQuery.mockResolvedValue([]);
+        await financialHandlers.handleGetFinancialSummary();
+        expect(db.allQuery).toHaveBeenCalled();
+      });
     });
   });
 
@@ -74,8 +73,9 @@ describe('financialHandlers - Comprehensive Tests', () => {
       const dbError = new Error('Database connection failed');
       db.runQuery.mockRejectedValue(dbError);
 
-      await expect(financialHandlers.handleAddExpense(null, {}))
-        .rejects.toThrow('Database connection failed');
+      await expect(financialHandlers.handleAddExpense(null, {})).rejects.toThrow(
+        'Database connection failed',
+      );
     });
   });
 });

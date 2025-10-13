@@ -23,7 +23,7 @@ const fsSync = require('fs');
 const PizZip = require('pizzip');
 const { app } = require('electron');
 const ExcelJS = require('exceljs');
-const { log, error: logError, warn: logWarn } = require('../src/main/logger');
+const { error: logError } = require('../src/main/logger');
 const {
   getDatabasePath,
   isDbOpen,
@@ -37,14 +37,12 @@ const {
 const { generateMatricule } = require('../src/main/services/matriculeService');
 const { setDbSalt } = require('../src/main/keyManager');
 const {
-    validateDatabaseFile,
-    replaceDatabase,
-    importExcelData,
+  validateDatabaseFile,
+  replaceDatabase,
+  importExcelData,
 } = require('../src/main/importManager');
 
-
 describe('importManager', () => {
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -55,9 +53,7 @@ describe('importManager', () => {
       const mockSqlFile = { asText: () => 'SELECT * FROM students;' };
       const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "test-salt"}') };
       const mockZip = {
-        file: jest.fn()
-          .mockReturnValueOnce(mockSqlFile)
-          .mockReturnValueOnce(mockConfigFile),
+        file: jest.fn().mockReturnValueOnce(mockSqlFile).mockReturnValueOnce(mockConfigFile),
       };
 
       fs.readFile.mockResolvedValue(mockZipContent);
@@ -85,8 +81,7 @@ describe('importManager', () => {
       app.relaunch = jest.fn();
       app.quit = jest.fn();
       // Ensure getDb returns a simple object, as dbExec is mocked anyway
-      getDb.mockReturnValue({}
-);
+      getDb.mockReturnValue({});
 
       const result = await replaceDatabase('/path/to/backup.zip', 'password123');
 
@@ -94,7 +89,10 @@ describe('importManager', () => {
       expect(setDbSalt).toHaveBeenCalledWith('new-test-salt');
       expect(fs.unlink).toHaveBeenCalledWith('/path/to/current.db');
       expect(initializeDatabase).toHaveBeenCalledWith('password123');
-      expect(dbExec).toHaveBeenCalledWith(expect.any(Object), 'CREATE TABLE students (id INTEGER);');
+      expect(dbExec).toHaveBeenCalledWith(
+        expect.any(Object),
+        'CREATE TABLE students (id INTEGER);',
+      );
       expect(app.relaunch).toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(logError).not.toHaveBeenCalled();
@@ -103,42 +101,42 @@ describe('importManager', () => {
 
   describe('importExcelData', () => {
     it('should successfully import student data with translation', async () => {
-        const mockGenderCell = { value: 'ذكر' };
-        const mockHeaderRow = {
-            hasValues: true,
-            eachCell: jest.fn(cb => {
-                cb({ value: 'الاسم واللقب' }, 1);
-                cb({ value: 'الجنس' }, 2);
-            }),
-        };
-        const mockDataRow = {
-            hasValues: true,
-            getCell: jest.fn(index => {
-                if (index === 1) return { value: 'أحمد محمد' };
-                if (index === 2) return mockGenderCell;
-                return { value: null };
-            }),
-        };
-        const mockWorksheet = {
-            getRow: jest.fn(num => (num === 2 ? mockHeaderRow : mockDataRow)),
-            rowCount: 3,
-        };
-        const mockWorkbook = {
-            xlsx: { readFile: jest.fn().mockResolvedValue() },
-            getWorksheet: jest.fn(() => mockWorksheet),
-        };
-        ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
+      const mockGenderCell = { value: 'ذكر' };
+      const mockHeaderRow = {
+        hasValues: true,
+        eachCell: jest.fn((cb) => {
+          cb({ value: 'الاسم واللقب' }, 1);
+          cb({ value: 'الجنس' }, 2);
+        }),
+      };
+      const mockDataRow = {
+        hasValues: true,
+        getCell: jest.fn((index) => {
+          if (index === 1) return { value: 'أحمد محمد' };
+          if (index === 2) return mockGenderCell;
+          return { value: null };
+        }),
+      };
+      const mockWorksheet = {
+        getRow: jest.fn((num) => (num === 2 ? mockHeaderRow : mockDataRow)),
+        rowCount: 3,
+      };
+      const mockWorkbook = {
+        xlsx: { readFile: jest.fn().mockResolvedValue() },
+        getWorksheet: jest.fn(() => mockWorksheet),
+      };
+      ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
 
-        getQuery.mockResolvedValue(null);
-        generateMatricule.mockResolvedValue('S-000001');
+      getQuery.mockResolvedValue(null);
+      generateMatricule.mockResolvedValue('S-000001');
 
-        const result = await importExcelData('/path/to/data.xlsx', ['الطلاب']);
+      const result = await importExcelData('/path/to/data.xlsx', ['الطلاب']);
 
-        expect(runQuery).toHaveBeenCalledWith(
-            expect.stringContaining('INSERT INTO students'),
-            expect.arrayContaining(['أحمد محمد', 'Male', 'S-000001'])
-        );
-        expect(result.successCount).toBe(1);
+      expect(runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO students'),
+        expect.arrayContaining(['أحمد محمد', 'Male', 'S-000001']),
+      );
+      expect(result.successCount).toBe(1);
     });
   });
 });

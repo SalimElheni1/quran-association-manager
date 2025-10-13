@@ -17,17 +17,17 @@ jest.mock('@renderer/contexts/AuthContext', () => ({
 }));
 
 jest.mock('@renderer/components/PasswordInput', () => {
-    return function MockPasswordInput({ value, onChange, ...props }) {
-      return (
-        <input
-          data-testid="password-input"
-          type="password"
-          value={value}
-          onChange={onChange}
-          {...props}
-        />
-      );
-    };
+  return function MockPasswordInput({ value, onChange, ...props }) {
+    return (
+      <input
+        data-testid="password-input"
+        type="password"
+        value={value}
+        onChange={onChange}
+        {...props}
+      />
+    );
+  };
 });
 
 const mockNavigate = jest.fn();
@@ -52,13 +52,13 @@ describe('LoginPage', () => {
     return render(
       <MemoryRouter>
         <LoginPage {...props} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
   };
 
   it.skip('should show an error message for empty fields', async () => {
     await act(async () => {
-        renderLoginPage();
+      renderLoginPage();
     });
 
     // Ensure initial useEffect has completed
@@ -67,7 +67,7 @@ describe('LoginPage', () => {
     const submitButton = screen.getByRole('button', { name: 'تسجيل الدخول' });
 
     await act(async () => {
-        fireEvent.click(submitButton);
+      fireEvent.click(submitButton);
     });
 
     const alert = await screen.findByText('اسم المستخدم وكلمة المرور مطلوبان.');

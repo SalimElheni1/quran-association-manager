@@ -1,4 +1,7 @@
-const { registerSystemHandlers, handleGetBackupReminderStatus } = require('../src/main/handlers/systemHandlers');
+const {
+  registerSystemHandlers,
+  handleGetBackupReminderStatus,
+} = require('../src/main/handlers/systemHandlers');
 
 // Mock dependencies
 jest.mock('electron', () => ({
@@ -40,7 +43,7 @@ describe('systemHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Capture registered handlers
     ipcMain.handle.mockImplementation((channel, handler) => {
       handlers[channel] = handler;
@@ -50,7 +53,7 @@ describe('systemHandlers', () => {
       get: jest.fn(),
     };
     Store.mockImplementation(() => mockStore);
-    
+
     registerSystemHandlers();
   });
 
@@ -71,7 +74,7 @@ describe('systemHandlers', () => {
         exportType: 'students',
         format: 'pdf',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
       const mockHeaderData = { nationalAssociationName: 'Test Org' };
       const mockData = [{ name: 'John Doe' }];
@@ -86,23 +89,23 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save students Export',
         defaultPath: expect.stringContaining('students-export-'),
-        filters: [{ name: 'PDF Documents', extensions: ['pdf'] }]
+        filters: [{ name: 'PDF Documents', extensions: ['pdf'] }],
       });
       expect(exportManager.fetchExportData).toHaveBeenCalledWith({
         type: 'students',
         fields: ['name'],
-        options: {}
+        options: {},
       });
       expect(exportManager.generatePdf).toHaveBeenCalledWith(
         'Students Report',
         exportParams.columns,
         mockData,
         '/path/to/export.pdf',
-        mockHeaderData
+        mockHeaderData,
       );
       expect(result).toEqual({
         success: true,
-        message: 'Export saved to /path/to/export.pdf'
+        message: 'Export saved to /path/to/export.pdf',
       });
     });
 
@@ -111,7 +114,7 @@ describe('systemHandlers', () => {
         exportType: 'teachers',
         format: 'xlsx',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
       const mockData = [{ name: 'Jane Smith' }];
 
@@ -125,7 +128,7 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save teachers Export',
         defaultPath: expect.stringContaining('teachers-export-'),
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }]
+        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
       });
       expect(exportManager.generateXlsx).toHaveBeenCalled();
       expect(result.success).toBe(true);
@@ -136,7 +139,7 @@ describe('systemHandlers', () => {
         exportType: 'admins',
         format: 'docx',
         columns: [{ key: 'username', header: 'Username' }],
-        options: {}
+        options: {},
       };
       const mockData = [{ username: 'admin' }];
 
@@ -150,7 +153,7 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save admins Export',
         defaultPath: expect.stringContaining('admins-export-'),
-        filters: [{ name: 'Word Documents', extensions: ['docx'] }]
+        filters: [{ name: 'Word Documents', extensions: ['docx'] }],
       });
       expect(exportManager.generateDocx).toHaveBeenCalled();
       expect(result.success).toBe(true);
@@ -161,7 +164,7 @@ describe('systemHandlers', () => {
         exportType: 'financial-report',
         format: 'xlsx',
         columns: [],
-        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } }
+        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } },
       };
       const mockData = { summary: {}, payments: [] };
 
@@ -173,7 +176,10 @@ describe('systemHandlers', () => {
       const result = await handlers['export:generate'](null, exportParams);
 
       expect(exportManager.fetchFinancialData).toHaveBeenCalledWith(exportParams.options.period);
-      expect(exportManager.generateFinancialXlsx).toHaveBeenCalledWith(mockData, '/path/to/financial.xlsx');
+      expect(exportManager.generateFinancialXlsx).toHaveBeenCalledWith(
+        mockData,
+        '/path/to/financial.xlsx',
+      );
       expect(result.success).toBe(true);
     });
 
@@ -182,7 +188,7 @@ describe('systemHandlers', () => {
         exportType: 'students',
         format: 'pdf',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
 
       dialog.showSaveDialog.mockResolvedValue({ filePath: undefined });
@@ -191,7 +197,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'Export canceled by user.'
+        message: 'Export canceled by user.',
       });
     });
 
@@ -200,7 +206,7 @@ describe('systemHandlers', () => {
         exportType: 'students',
         format: 'pdf',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
 
       dialog.showSaveDialog.mockResolvedValue({ filePath: '/path/to/export.pdf' });
@@ -211,7 +217,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'No data available for the selected criteria.'
+        message: 'No data available for the selected criteria.',
       });
     });
 
@@ -220,7 +226,7 @@ describe('systemHandlers', () => {
         exportType: 'students',
         format: 'unsupported',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
       const mockData = [{ name: 'John' }];
 
@@ -239,7 +245,7 @@ describe('systemHandlers', () => {
         exportType: 'students',
         format: 'pdf',
         columns: [{ key: 'name', header: 'Name' }],
-        options: {}
+        options: {},
       };
       const error = new Error('Export failed');
 
@@ -251,7 +257,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error during export (students, pdf):', error);
       expect(result).toEqual({
         success: false,
-        message: 'Export failed: Export failed'
+        message: 'Export failed: Export failed',
       });
     });
   });
@@ -266,12 +272,12 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save Import Template',
         defaultPath: expect.stringContaining('import-template-'),
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }]
+        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
       });
       expect(exportManager.generateExcelTemplate).toHaveBeenCalledWith('/path/to/template.xlsx');
       expect(result).toEqual({
         success: true,
-        message: 'Template saved to /path/to/template.xlsx'
+        message: 'Template saved to /path/to/template.xlsx',
       });
     });
 
@@ -282,7 +288,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'Template generation canceled by user.'
+        message: 'Template generation canceled by user.',
       });
     });
 
@@ -296,7 +302,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error during template generation:', error);
       expect(result).toEqual({
         success: false,
-        message: 'Template generation failed: Template generation failed'
+        message: 'Template generation failed: Template generation failed',
       });
     });
   });
@@ -308,7 +314,7 @@ describe('systemHandlers', () => {
 
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/import.xlsx']
+        filePaths: ['/path/to/import.xlsx'],
       });
       importManager.importExcelData.mockResolvedValue(mockResults);
 
@@ -317,12 +323,15 @@ describe('systemHandlers', () => {
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
         title: 'Select Excel File to Import',
         properties: ['openFile'],
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }]
+        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
       });
-      expect(importManager.importExcelData).toHaveBeenCalledWith('/path/to/import.xlsx', selectedSheets);
+      expect(importManager.importExcelData).toHaveBeenCalledWith(
+        '/path/to/import.xlsx',
+        selectedSheets,
+      );
       expect(result).toEqual({
         success: true,
-        ...mockResults
+        ...mockResults,
       });
     });
 
@@ -333,21 +342,21 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'Import canceled by user.'
+        message: 'Import canceled by user.',
       });
     });
 
     it('should handle no file selected', async () => {
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: []
+        filePaths: [],
       });
 
       const result = await handlers['import:execute'](null, { selectedSheets: [] });
 
       expect(result).toEqual({
         success: false,
-        message: 'Import canceled by user.'
+        message: 'Import canceled by user.',
       });
     });
 
@@ -355,7 +364,7 @@ describe('systemHandlers', () => {
       const error = new Error('Import failed');
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/import.xlsx']
+        filePaths: ['/path/to/import.xlsx'],
       });
       importManager.importExcelData.mockRejectedValue(error);
 
@@ -364,7 +373,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error during import execution:', error);
       expect(result).toEqual({
         success: false,
-        message: 'Import failed: Import failed'
+        message: 'Import failed: Import failed',
       });
     });
   });
@@ -373,17 +382,17 @@ describe('systemHandlers', () => {
     it('should open directory dialog successfully', async () => {
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/directory']
+        filePaths: ['/path/to/directory'],
       });
 
       const result = await handlers['dialog:openDirectory']();
 
       expect(dialog.showOpenDialog).toHaveBeenCalledWith({
-        properties: ['openDirectory']
+        properties: ['openDirectory'],
       });
       expect(result).toEqual({
         success: true,
-        path: '/path/to/directory'
+        path: '/path/to/directory',
       });
     });
 
@@ -403,7 +412,7 @@ describe('systemHandlers', () => {
 
       dialog.showSaveDialog.mockResolvedValue({
         canceled: false,
-        filePath: '/path/to/backup.qdb'
+        filePath: '/path/to/backup.qdb',
       });
       backupManager.runBackup.mockResolvedValue(mockResult);
 
@@ -412,7 +421,7 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save Database Backup',
         defaultPath: expect.stringContaining('backup-'),
-        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }]
+        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
       });
       expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/path/to/backup.qdb');
       expect(result).toBe(mockResult);
@@ -426,7 +435,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'Backup canceled by user.'
+        message: 'Backup canceled by user.',
       });
     });
 
@@ -443,7 +452,7 @@ describe('systemHandlers', () => {
 
       dialog.showSaveDialog.mockResolvedValue({
         canceled: false,
-        filePath: '/path/to/backup.qdb'
+        filePath: '/path/to/backup.qdb',
       });
       backupManager.runBackup.mockRejectedValue(error);
 
@@ -452,7 +461,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error in backup:run IPC wrapper:', error);
       expect(result).toEqual({
         success: false,
-        message: 'Backup failed'
+        message: 'Backup failed',
       });
     });
   });
@@ -462,7 +471,7 @@ describe('systemHandlers', () => {
       const mockStatus = {
         success: true,
         timestamp: '2024-01-01T00:00:00.000Z',
-        message: 'Backup completed'
+        message: 'Backup completed',
       };
       mockStore.get.mockReturnValue(mockStatus);
 
@@ -471,7 +480,7 @@ describe('systemHandlers', () => {
       expect(mockStore.get).toHaveBeenCalledWith('last_backup_status');
       expect(result).toEqual({
         success: true,
-        status: mockStatus
+        status: mockStatus,
       });
     });
 
@@ -486,7 +495,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error in backup:getStatus IPC wrapper:', error);
       expect(result).toEqual({
         success: false,
-        message: 'Could not retrieve backup status.'
+        message: 'Could not retrieve backup status.',
       });
     });
   });
@@ -503,7 +512,7 @@ describe('systemHandlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/backup.qdb']
+        filePaths: ['/path/to/backup.qdb'],
       });
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
       importManager.replaceDatabase.mockResolvedValue(mockImportResult);
@@ -522,7 +531,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'بيانات المصادقة غير كاملة.'
+        message: 'بيانات المصادقة غير كاملة.',
       });
     });
 
@@ -533,7 +542,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'المستخدم الحالي غير موجود.'
+        message: 'المستخدم الحالي غير موجود.',
       });
     });
 
@@ -546,7 +555,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.'
+        message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.',
       });
     });
 
@@ -560,7 +569,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'لم يتم تحديد أي ملف.'
+        message: 'لم يتم تحديد أي ملف.',
       });
     });
 
@@ -572,7 +581,7 @@ describe('systemHandlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/invalid.qdb']
+        filePaths: ['/path/to/invalid.qdb'],
       });
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
 
@@ -580,7 +589,7 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         success: false,
-        message: 'Invalid file'
+        message: 'Invalid file',
       });
     });
 
@@ -592,7 +601,7 @@ describe('systemHandlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       dialog.showOpenDialog.mockResolvedValue({
         canceled: false,
-        filePaths: ['/path/to/backup.qdb']
+        filePaths: ['/path/to/backup.qdb'],
       });
       importManager.validateDatabaseFile.mockRejectedValue(error);
 
@@ -623,17 +632,17 @@ describe('systemHandlers', () => {
 
       expect(result).toEqual({
         showReminder: true,
-        daysSinceLastBackup: Infinity
+        daysSinceLastBackup: Infinity,
       });
     });
 
     it('should return reminder when backup is overdue', async () => {
       const mockSettings = {
         backup_reminder_enabled: true,
-        backup_reminder_frequency_days: 7
+        backup_reminder_frequency_days: 7,
       };
       const oldBackup = {
-        timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days ago
+        timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
       };
 
       internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
@@ -648,10 +657,10 @@ describe('systemHandlers', () => {
     it('should return no reminder when backup is recent', async () => {
       const mockSettings = {
         backup_reminder_enabled: true,
-        backup_reminder_frequency_days: 7
+        backup_reminder_frequency_days: 7,
       };
       const recentBackup = {
-        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days ago
+        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
       };
 
       internalGetSettingsHandler.mockResolvedValue({ settings: mockSettings });
@@ -671,7 +680,7 @@ describe('systemHandlers', () => {
       expect(logError).toHaveBeenCalledWith('Error checking backup reminder status:', error);
       expect(result).toEqual({
         showReminder: false,
-        error: 'Could not check backup status.'
+        error: 'Could not check backup status.',
       });
     });
   });

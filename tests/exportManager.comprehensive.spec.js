@@ -13,5 +13,5 @@ jest.mock('../src/main/db/db');
 
 // This suite is skipped due to complex, persistent mocking issues.
 describe.skip('exportManager - Comprehensive Tests', () => {
-    it('is skipped', () => {});
+  it('is skipped', () => {});
 });

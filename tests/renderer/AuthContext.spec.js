@@ -15,8 +15,12 @@ const TestComponent = () => {
       <div data-testid="user">{user ? JSON.stringify(user) : 'null'}</div>
       <div data-testid="token">{token || 'null'}</div>
       <div data-testid="isAuthenticated">{isAuthenticated.toString()}</div>
-      <button data-testid="login-btn" onClick={() => login('test', 'pass')}>Login</button>
-      <button data-testid="logout-btn" onClick={logout}>Logout</button>
+      <button data-testid="login-btn" onClick={() => login('test', 'pass')}>
+        Login
+      </button>
+      <button data-testid="logout-btn" onClick={logout}>
+        Logout
+      </button>
     </div>
   );
 };
@@ -42,7 +46,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     expect(screen.getByTestId('user')).toHaveTextContent('null');
@@ -62,7 +66,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await act(async () => {
@@ -87,7 +91,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     await act(async () => {
@@ -115,7 +119,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     // Login first
@@ -151,7 +155,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     // Simulate force logout
@@ -173,7 +177,7 @@ describe('AuthContext', () => {
     const { unmount } = render(
       <AuthProvider>
         <TestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     );
 
     unmount();

@@ -2,7 +2,7 @@
  * @fileoverview Main Electron process entry point for Quran Branch Manager.
  * Handles application lifecycle, window management, auto-updates, database initialization,
  * and IPC handler registration.
- * 
+ *
  * This file serves as the central coordinator for the desktop application, managing:
  * - Application startup and shutdown
  * - Main window creation and management
@@ -10,7 +10,7 @@
  * - Auto-update functionality
  * - IPC handler registration
  * - Security protocols and crash handling
- * 
+ *
  * @author Quran Branch Manager Team
  * @version 1.0.2-beta
  * @requires electron - Desktop application framework
@@ -137,7 +137,9 @@ const initializeApp = async () => {
     }
 
     if (!jwtSecret) {
-      throw new Error('FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.');
+      throw new Error(
+        'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
+      );
     }
     process.env.JWT_SECRET = jwtSecret;
     // =================================================================================

@@ -52,22 +52,24 @@ describe('settingsHandlers', () => {
       const result = await internalGetSettingsHandler();
 
       expect(result.success).toBe(true);
-      expect(result.settings).toEqual(expect.objectContaining({
-        national_association_name: 'Custom National',
-        backup_enabled: true,
-        adultAgeThreshold: 21,
-        backup_frequency: 'daily', // from default
-      }));
+      expect(result.settings).toEqual(
+        expect.objectContaining({
+          national_association_name: 'Custom National',
+          backup_enabled: true,
+          adultAgeThreshold: 21,
+          backup_frequency: 'daily', // from default
+        }),
+      );
     });
 
     it('should handle legacy snake_case keys correctly', async () => {
-        const mockDbResults = [{ key: 'adult_age_threshold', value: '19' }];
-        db.allQuery.mockResolvedValue(mockDbResults);
+      const mockDbResults = [{ key: 'adult_age_threshold', value: '19' }];
+      db.allQuery.mockResolvedValue(mockDbResults);
 
-        const result = await internalGetSettingsHandler();
+      const result = await internalGetSettingsHandler();
 
-        expect(result.settings.adultAgeThreshold).toBe(19);
-        expect(result.settings).not.toHaveProperty('adult_age_threshold');
+      expect(result.settings.adultAgeThreshold).toBe(19);
+      expect(result.settings).not.toHaveProperty('adult_age_threshold');
     });
   });
 
@@ -90,10 +92,13 @@ describe('settingsHandlers', () => {
     it('should rollback on database error', async () => {
       const dbError = new Error('Database error');
       Joi.object().validateAsync.mockResolvedValue({ name: 'test' });
-      db.runQuery.mockResolvedValueOnce() // BEGIN
-                 .mockRejectedValueOnce(dbError); // First UPDATE fails
+      db.runQuery
+        .mockResolvedValueOnce() // BEGIN
+        .mockRejectedValueOnce(dbError); // First UPDATE fails
 
-      await expect(internalUpdateSettingsHandler({ name: 'test' })).rejects.toThrow('فشل تحديث الإعدادات.');
+      await expect(internalUpdateSettingsHandler({ name: 'test' })).rejects.toThrow(
+        'فشل تحديث الإعدادات.',
+      );
 
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
       expect(logError).toHaveBeenCalledWith('Failed to update settings:', dbError);
@@ -126,7 +131,8 @@ describe('settingsHandlers', () => {
       // Mock the dependencies of the entire flow
       Joi.object().validateAsync.mockResolvedValue(settingsData);
       db.runQuery.mockResolvedValue({ changes: 1 }); // for the update
-      db.allQuery.mockResolvedValue([ // for the get settings call after update
+      db.allQuery.mockResolvedValue([
+        // for the get settings call after update
         { key: 'backup_enabled', value: 'true' },
         { key: 'backup_frequency', value: 'daily' },
       ]);
@@ -134,42 +140,44 @@ describe('settingsHandlers', () => {
       await handlers['settings:update'](null, settingsData);
 
       expect(log).toHaveBeenCalledWith('Settings updated, restarting backup scheduler...');
-      expect(backupManager.startScheduler).toHaveBeenCalledWith(expect.objectContaining(mockNewSettings));
+      expect(backupManager.startScheduler).toHaveBeenCalledWith(
+        expect.objectContaining(mockNewSettings),
+      );
       expect(mockRefreshSettings).toHaveBeenCalled();
     });
   });
 
   describe('settings:uploadLogo', () => {
     it('should create logos directory if it does not exist and copy file', async () => {
-        const mockTempPath = '/temp/logo.png';
-        const mockUserDataPath = '/user/data';
-        const mockDestDir = path.join(mockUserDataPath, 'assets', 'logos');
-        const mockDestFile = path.join(mockDestDir, 'logo.png');
+      const mockTempPath = '/temp/logo.png';
+      const mockUserDataPath = '/user/data';
+      const mockDestDir = path.join(mockUserDataPath, 'assets', 'logos');
+      const mockDestFile = path.join(mockDestDir, 'logo.png');
 
-        dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockTempPath] });
-        app.getPath.mockReturnValue(mockUserDataPath);
-        // Make existsSync specific: return false only for the directory we want to create
-        fs.existsSync.mockImplementation(p => p !== mockDestDir);
+      dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockTempPath] });
+      app.getPath.mockReturnValue(mockUserDataPath);
+      // Make existsSync specific: return false only for the directory we want to create
+      fs.existsSync.mockImplementation((p) => p !== mockDestDir);
 
-        await handlers['settings:uploadLogo']();
+      await handlers['settings:uploadLogo']();
 
-        expect(fs.mkdirSync).toHaveBeenCalledWith(mockDestDir, { recursive: true });
-        expect(fs.copyFileSync).toHaveBeenCalledWith(mockTempPath, mockDestFile);
+      expect(fs.mkdirSync).toHaveBeenCalledWith(mockDestDir, { recursive: true });
+      expect(fs.copyFileSync).toHaveBeenCalledWith(mockTempPath, mockDestFile);
     });
 
     it('should return success and relative path on successful upload', async () => {
-        dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/logo.png'] });
-        app.getPath.mockReturnValue('/user/data');
-        fs.existsSync.mockReturnValue(true);
-        // Spy on path.basename for this test since we are using the real path module
-        const basenameSpy = jest.spyOn(path, 'basename').mockReturnValue('logo.png');
+      dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/logo.png'] });
+      app.getPath.mockReturnValue('/user/data');
+      fs.existsSync.mockReturnValue(true);
+      // Spy on path.basename for this test since we are using the real path module
+      const basenameSpy = jest.spyOn(path, 'basename').mockReturnValue('logo.png');
 
-        const result = await handlers['settings:uploadLogo']();
+      const result = await handlers['settings:uploadLogo']();
 
-        expect(result.success).toBe(true);
-        expect(result.path).toBe('assets/logos/logo.png');
+      expect(result.success).toBe(true);
+      expect(result.path).toBe('assets/logos/logo.png');
 
-        basenameSpy.mockRestore();
+      basenameSpy.mockRestore();
     });
   });
 });

@@ -6,11 +6,11 @@ const mockWorksheet = {
   getRow: jest.fn(() => ({ font: {} })),
   insertRow: jest.fn(),
   mergeCells: jest.fn(),
-  getCell: jest.fn(() => ({ 
-    alignment: {}, 
+  getCell: jest.fn(() => ({
+    alignment: {},
     font: {},
     note: '',
-    dataValidation: {}
+    dataValidation: {},
   })),
   spliceRows: jest.fn(),
 };

@@ -29,6 +29,6 @@ export function useAccounts() {
   return {
     accounts,
     loading,
-    refresh: fetchAccounts
+    refresh: fetchAccounts,
   };
 }

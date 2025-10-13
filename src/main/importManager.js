@@ -19,7 +19,7 @@ const {
 const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
-const { getAvailableSheets, getSheetInfo } = require('./importConstants');
+
 
 const mainStore = new Store();
 
@@ -551,10 +551,10 @@ async function processTransactionRow(row, headerRow) {
   const CATEGORY_MAP = {
     'رواتب المعلمين': 'منح ومرتبات',
     'رواتب الإداريين': 'منح ومرتبات',
-    'الإيجار': 'كراء وفواتير',
+    الإيجار: 'كراء وفواتير',
     'الكهرباء والماء': 'كراء وفواتير',
-    'القرطاسية': 'لوازم مكتبية وصيانة',
-    'الصيانة': 'لوازم مكتبية وصيانة',
+    القرطاسية: 'لوازم مكتبية وصيانة',
+    الصيانة: 'لوازم مكتبية وصيانة',
     'مصاريف أخرى': 'نفقات متنوعة',
   };
 

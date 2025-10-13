@@ -1,10 +1,10 @@
 /**
  * @fileoverview Database connection and management module for Quran Branch Manager.
  * Handles SQLCipher encrypted database operations, migrations, and initialization.
- * 
+ *
  * This module provides a secure, encrypted SQLite database using SQLCipher with
  * automatic key management, schema migrations, and connection pooling.
- * 
+ *
  * @author Quran Branch Manager Team
  * @version 1.0.2-beta
  * @requires @journeyapps/sqlcipher - SQLCipher database driver
@@ -43,7 +43,7 @@ let db = null;
  * Determines the appropriate database file path based on the runtime environment.
  * In Electron, uses app.getPath('userData') for persistent storage.
  * In Node.js scripts, uses a local .db directory in the project root.
- * 
+ *
  * @returns {string} The absolute path to the database file
  * @throws {Error} If unable to create the database directory
  */
@@ -82,7 +82,7 @@ function getDatabasePath() {
  * Seeds the database with a default superadmin user if none exists.
  * This function is called during initial database setup to ensure
  * there's always at least one admin user who can access the system.
- * 
+ *
  * @returns {Promise<Object|null>} Temporary credentials object if a new admin was created,
  *                                 null if an admin already exists
  * @returns {string} returns.username - The created username
@@ -101,13 +101,18 @@ async function seedSuperadmin() {
 
     if (!existingAdmin) {
       // Check if there's a superadmin user without roles (from old system)
-      const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', ['superadmin']);
-      
+      const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [
+        'superadmin',
+      ]);
+
       if (existingUser) {
         log('Found existing superadmin user without roles. Assigning Superadmin role...');
         const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
         if (roleResult) {
-          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [existingUser.id, roleResult.id]);
+          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+            existingUser.id,
+            roleResult.id,
+          ]);
           log('Superadmin role assigned to existing user.');
         }
         return null;
@@ -135,10 +140,13 @@ async function seedSuperadmin() {
       if (result.id) {
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
-        
+
         const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
         if (roleResult) {
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, roleResult.id]);
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+            result.id,
+            roleResult.id,
+          ]);
         }
       }
 
@@ -160,7 +168,7 @@ async function seedSuperadmin() {
  * Checks if a database file is encrypted by examining its header.
  * SQLite databases start with 'SQLite format 3\0', while encrypted
  * databases have different headers due to encryption.
- * 
+ *
  * @param {string} filePath - Path to the database file to check
  * @returns {boolean} True if the file is encrypted or does not exist (new DB will be encrypted)
  * @throws {Error} If unable to read the database file
@@ -169,7 +177,7 @@ function isDbEncrypted(filePath) {
   if (!fs.existsSync(filePath)) {
     return true; // A new DB will be created as encrypted
   }
-  
+
   // A plaintext SQLite DB starts with 'SQLite format 3\0'. An encrypted one will not.
   const buffer = Buffer.alloc(16);
   const fd = fs.openSync(filePath, 'r');
@@ -182,13 +190,13 @@ function isDbEncrypted(filePath) {
  * Migrates a plaintext SQLite database to an encrypted SQLCipher database.
  * This function is called when an existing plaintext database is detected
  * and needs to be converted to encrypted format for security.
- * 
+ *
  * The process involves:
  * 1. Backing up the original plaintext database
  * 2. Creating a new encrypted database
  * 3. Copying all data from plaintext to encrypted format
  * 4. Removing the plaintext backup
- * 
+ *
  * @param {string} dbPath - The path to the database file to migrate
  * @param {string} key - The encryption key to use for the new encrypted database
  * @returns {Promise<void>} Resolves when migration is complete
@@ -337,13 +345,18 @@ async function initializeDatabase() {
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       if (wasMigrated) {
-        log('[DB_LOG] Plaintext-to-encrypted migration detected. Applying schema to ensure all tables exist...');
+        log(
+          '[DB_LOG] Plaintext-to-encrypted migration detected. Applying schema to ensure all tables exist...',
+        );
         await dbExec(db, schema);
         log('[DB_LOG] Schema applied post-migration.');
       }
-      
+
       // Ensure the migrations table exists before running migrations
-      await dbExec(db, 'CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+      await dbExec(
+        db,
+        'CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
+      );
 
       await runMigrations();
     }
