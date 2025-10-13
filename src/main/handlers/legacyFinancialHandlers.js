@@ -205,18 +205,60 @@ async function handleGetPayments(event, period) {
   return allQuery(sql, params);
 }
 async function handleAddPayment(event, payment) {
-  const { student_id, amount, payment_date, payment_method, notes, receipt_number, receipt_book_id, receipt_issued_by, receipt_issued_date } = payment;
+  const {
+    student_id,
+    amount,
+    payment_date,
+    payment_method,
+    notes,
+    receipt_number,
+    receipt_book_id,
+    receipt_issued_by,
+    receipt_issued_date,
+  } = payment;
   const sql = `INSERT INTO payments (student_id, amount, payment_date, payment_method, notes, receipt_number, receipt_book_id, receipt_issued_by, receipt_issued_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const result = await runQuery(sql, [student_id, amount, payment_date, payment_method, notes, receipt_number, receipt_book_id, receipt_issued_by, receipt_issued_date]);
+  const result = await runQuery(sql, [
+    student_id,
+    amount,
+    payment_date,
+    payment_method,
+    notes,
+    receipt_number,
+    receipt_book_id,
+    receipt_issued_by,
+    receipt_issued_date,
+  ]);
   return getQuery(
     'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes, p.receipt_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
     [result.id],
   );
 }
 async function handleUpdatePayment(event, payment) {
-  const { id, student_id, amount, payment_date, payment_method, notes, receipt_number, receipt_book_id, receipt_issued_by, receipt_issued_date } = payment;
+  const {
+    id,
+    student_id,
+    amount,
+    payment_date,
+    payment_method,
+    notes,
+    receipt_number,
+    receipt_book_id,
+    receipt_issued_by,
+    receipt_issued_date,
+  } = payment;
   const sql = `UPDATE payments SET student_id = ?, amount = ?, payment_date = ?, payment_method = ?, notes = ?, receipt_number = ?, receipt_book_id = ?, receipt_issued_by = ?, receipt_issued_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-  await runQuery(sql, [student_id, amount, payment_date, payment_method, notes, receipt_number, receipt_book_id, receipt_issued_by, receipt_issued_date, id]);
+  await runQuery(sql, [
+    student_id,
+    amount,
+    payment_date,
+    payment_method,
+    notes,
+    receipt_number,
+    receipt_book_id,
+    receipt_issued_by,
+    receipt_issued_date,
+    id,
+  ]);
   return getQuery(
     'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes, p.receipt_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
     [id],

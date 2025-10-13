@@ -12,7 +12,7 @@ let db;
 
 const runQuery = (sql, params = []) => {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
+    db.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve({ id: this.lastID, changes: this.changes });
     });
@@ -39,12 +39,13 @@ const allQuery = (sql, params = []) => {
 
 async function setupDatabase() {
   if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
-  
+
   db = new sqlite3.Database(TEST_DB);
   await runQuery(`PRAGMA key = '${KEY}'`);
 
   await new Promise((resolve, reject) => {
-    db.exec(`
+    db.exec(
+      `
       CREATE TABLE accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -78,7 +79,9 @@ async function setupDatabase() {
       INSERT INTO categories (name, type) VALUES ('التبرعات النقدية', 'INCOME');
       INSERT INTO categories (name, type) VALUES ('رواتب المعلمين', 'EXPENSE');
       INSERT INTO categories (name, type) VALUES ('الإيجار', 'EXPENSE');
-    `, (err) => err ? reject(err) : resolve());
+    `,
+      (err) => (err ? reject(err) : resolve()),
+    );
   });
 }
 
@@ -90,17 +93,22 @@ async function testCompleteWorkflow() {
   const incomes = [
     { date: '2024-01-05', category: 'رسوم الطلاب', amount: 200, desc: 'رسوم طالب 1' },
     { date: '2024-01-10', category: 'رسوم الطلاب', amount: 150, desc: 'رسوم طالب 2' },
-    { date: '2024-01-15', category: 'التبرعات النقدية', amount: 300, desc: 'تبرع 1' }
+    { date: '2024-01-15', category: 'التبرعات النقدية', amount: 300, desc: 'تبرع 1' },
   ];
 
   for (let i = 0; i < incomes.length; i++) {
     const inc = incomes[i];
     await runQuery('BEGIN TRANSACTION;');
-    await runQuery(`
+    await runQuery(
+      `
       INSERT INTO transactions (transaction_date, type, category, amount, description, payment_method, voucher_number, account_id)
       VALUES (?, 'INCOME', ?, ?, ?, 'CASH', ?, 1)
-    `, [inc.date, inc.category, inc.amount, inc.desc, `R-2024-${String(i + 1).padStart(4, '0')}`]);
-    await runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = 1', [inc.amount]);
+    `,
+      [inc.date, inc.category, inc.amount, inc.desc, `R-2024-${String(i + 1).padStart(4, '0')}`],
+    );
+    await runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = 1', [
+      inc.amount,
+    ]);
     await runQuery('COMMIT;');
   }
   console.log('   ✅ Added 3 income transactions\n');
@@ -109,17 +117,22 @@ async function testCompleteWorkflow() {
   console.log('📤 Step 2: Adding expense transactions...');
   const expenses = [
     { date: '2024-01-20', category: 'رواتب المعلمين', amount: 400, desc: 'راتب معلم 1' },
-    { date: '2024-01-25', category: 'الإيجار', amount: 250, desc: 'إيجار شهر 1' }
+    { date: '2024-01-25', category: 'الإيجار', amount: 250, desc: 'إيجار شهر 1' },
   ];
 
   for (let i = 0; i < expenses.length; i++) {
     const exp = expenses[i];
     await runQuery('BEGIN TRANSACTION;');
-    await runQuery(`
+    await runQuery(
+      `
       INSERT INTO transactions (transaction_date, type, category, amount, description, payment_method, voucher_number, account_id)
       VALUES (?, 'EXPENSE', ?, ?, ?, 'CHECK', ?, 1)
-    `, [exp.date, exp.category, exp.amount, exp.desc, `P-2024-${String(i + 1).padStart(4, '0')}`]);
-    await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [exp.amount]);
+    `,
+      [exp.date, exp.category, exp.amount, exp.desc, `P-2024-${String(i + 1).padStart(4, '0')}`],
+    );
+    await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [
+      exp.amount,
+    ]);
     await runQuery('COMMIT;');
   }
   console.log('   ✅ Added 2 expense transactions\n');
@@ -127,9 +140,11 @@ async function testCompleteWorkflow() {
   // Step 3: Verify account balance
   console.log('💰 Step 3: Verifying account balance...');
   const account = await getQuery('SELECT current_balance FROM accounts WHERE id = 1');
-  const expectedBalance = (200 + 150 + 300) - (400 + 250);
+  const expectedBalance = 200 + 150 + 300 - (400 + 250);
   if (account.current_balance === expectedBalance) {
-    console.log(`   ✅ Balance correct: ${account.current_balance} TND (expected: ${expectedBalance})\n`);
+    console.log(
+      `   ✅ Balance correct: ${account.current_balance} TND (expected: ${expectedBalance})\n`,
+    );
   } else {
     throw new Error(`Balance mismatch: ${account.current_balance} vs ${expectedBalance}`);
   }
@@ -147,8 +162,8 @@ async function testCompleteWorkflow() {
     GROUP BY type, category
   `);
 
-  const income = summary.filter(r => r.type === 'INCOME');
-  const expense = summary.filter(r => r.type === 'EXPENSE');
+  const income = summary.filter((r) => r.type === 'INCOME');
+  const expense = summary.filter((r) => r.type === 'EXPENSE');
   const totalIncome = income.reduce((sum, r) => sum + r.total, 0);
   const totalExpenses = expense.reduce((sum, r) => sum + r.total, 0);
 
@@ -173,7 +188,9 @@ async function testCompleteWorkflow() {
   console.log('✏️ Step 6: Testing transaction update...');
   const firstTransaction = await getQuery('SELECT * FROM transactions WHERE id = 1');
   await runQuery('BEGIN TRANSACTION;');
-  await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [firstTransaction.amount]);
+  await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [
+    firstTransaction.amount,
+  ]);
   await runQuery('UPDATE transactions SET amount = 250 WHERE id = 1');
   await runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = 1', [250]);
   await runQuery('COMMIT;');
@@ -185,7 +202,9 @@ async function testCompleteWorkflow() {
   console.log('🗑️ Step 7: Testing transaction delete...');
   const toDelete = await getQuery('SELECT * FROM transactions WHERE id = 2');
   await runQuery('BEGIN TRANSACTION;');
-  await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [toDelete.amount]);
+  await runQuery('UPDATE accounts SET current_balance = current_balance - ? WHERE id = 1', [
+    toDelete.amount,
+  ]);
   await runQuery('DELETE FROM transactions WHERE id = 2');
   await runQuery('COMMIT;');
   const finalAccount = await getQuery('SELECT current_balance FROM accounts WHERE id = 1');
@@ -199,7 +218,7 @@ async function testCompleteWorkflow() {
     return sum + (t.type === 'INCOME' ? t.amount : -t.amount);
   }, 0);
   const dbBalance = finalAccount.current_balance;
-  
+
   if (Math.abs(manualBalance - dbBalance) < 0.01) {
     console.log(`   ✅ Data integrity verified (${dbBalance} TND)\n`);
   } else {
@@ -211,7 +230,7 @@ async function testCompleteWorkflow() {
 
 async function runTests() {
   console.log('🚀 Starting Financial Integration Tests...\n');
-  
+
   try {
     await setupDatabase();
     console.log('✅ Test database created');

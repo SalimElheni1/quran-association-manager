@@ -5,20 +5,40 @@ import App from '@renderer/App';
 import '@testing-library/jest-dom';
 
 // Mock dependencies
-jest.mock('@renderer/pages/DashboardPage', () => () => <div data-testid="dashboard-page">Dashboard</div>);
-jest.mock('@renderer/pages/LoginPage', () => ({ initialCredentials, onCloseBanner }) => (
-  <div data-testid="login-page">
-    Login Page
-    {initialCredentials && <div data-testid="credentials-banner">{JSON.stringify(initialCredentials)}</div>}
-    <button onClick={onCloseBanner}>Close Banner</button>
-  </div>
-));
+jest.mock('@renderer/pages/DashboardPage', () => {
+  const DashboardPage = () => <div data-testid="dashboard-page">Dashboard</div>;
+  DashboardPage.displayName = 'DashboardPage';
+  return DashboardPage;
+});
+jest.mock('@renderer/pages/LoginPage', () => {
+  const LoginPage = ({ initialCredentials, onCloseBanner }) => (
+    <div data-testid="login-page">
+      Login Page
+      {initialCredentials && (
+        <div data-testid="credentials-banner">{JSON.stringify(initialCredentials)}</div>
+      )}
+      <button onClick={onCloseBanner}>Close Banner</button>
+    </div>
+  );
+  LoginPage.displayName = 'LoginPage';
+  return LoginPage;
+});
 jest.mock('@renderer/layouts/MainLayout', () => {
-    const { Outlet } = require('react-router-dom');
-    return () => <div data-testid="main-layout"><Outlet /></div>;
+  const { Outlet } = require('react-router-dom');
+  const MainLayout = () => (
+    <div data-testid="main-layout">
+      <Outlet />
+    </div>
+  );
+  MainLayout.displayName = 'MainLayout';
+  return MainLayout;
 });
 // The ProtectedRoute mock needs to be adjusted to not rely on useAuth, as App.jsx doesn't provide the AuthProvider itself
-jest.mock('@renderer/components/ProtectedRoute', () => ({ children }) => <div data-testid="protected-route">{children}</div>);
+jest.mock('@renderer/components/ProtectedRoute', () => {
+  const ProtectedRoute = ({ children }) => <div data-testid="protected-route">{children}</div>;
+  ProtectedRoute.displayName = 'ProtectedRoute';
+  return ProtectedRoute;
+});
 
 describe('App Routing and Initialization', () => {
   let mockElectronAPI;
@@ -38,7 +58,7 @@ describe('App Routing and Initialization', () => {
     return render(
       <MemoryRouter initialEntries={initialEntries}>
         <App />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
   };
 
@@ -65,7 +85,7 @@ describe('App Routing and Initialization', () => {
 
   it('should render the login page for the /login route', async () => {
     await act(async () => {
-        renderApp(['/login']);
+      renderApp(['/login']);
     });
     expect(screen.getByTestId('login-page')).toBeInTheDocument();
     expect(screen.queryByTestId('protected-route')).not.toBeInTheDocument();
@@ -73,7 +93,7 @@ describe('App Routing and Initialization', () => {
 
   it('should render protected content for the root path', async () => {
     await act(async () => {
-        renderApp(['/']);
+      renderApp(['/']);
     });
     expect(screen.getByTestId('protected-route')).toBeInTheDocument();
     expect(screen.getByTestId('main-layout')).toBeInTheDocument();

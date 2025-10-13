@@ -29,7 +29,7 @@ export function useFinancialSummary(period) {
         transactionCount: 0,
         incomeByCategory: [],
         expensesByCategory: [],
-        recentTransactions: []
+        recentTransactions: [],
       });
     } finally {
       setLoading(false);
@@ -43,6 +43,6 @@ export function useFinancialSummary(period) {
   return {
     summary,
     loading,
-    refresh: fetchSummary
+    refresh: fetchSummary,
   };
 }

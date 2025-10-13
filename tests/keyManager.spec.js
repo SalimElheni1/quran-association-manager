@@ -54,7 +54,7 @@ describe('keyManager', () => {
     it('should generate and store new key if none exists', () => {
       const newKeyBuffer = Buffer.from('new-key-bytes');
       const newKeyHex = 'new-key-hex';
-      
+
       mockKeyStore.get.mockReturnValue(null);
       crypto.randomBytes.mockReturnValue(newKeyBuffer);
       newKeyBuffer.toString = jest.fn().mockReturnValue(newKeyHex);
@@ -73,7 +73,7 @@ describe('keyManager', () => {
     it('should generate and store new key if empty string exists', () => {
       const newKeyBuffer = Buffer.from('new-key-bytes');
       const newKeyHex = 'new-key-hex';
-      
+
       mockKeyStore.get.mockReturnValue('');
       crypto.randomBytes.mockReturnValue(newKeyBuffer);
       newKeyBuffer.toString = jest.fn().mockReturnValue(newKeyHex);
@@ -103,7 +103,7 @@ describe('keyManager', () => {
     it('should generate and store new salt if none exists', () => {
       const newSaltBuffer = Buffer.from('new-salt-bytes');
       const newSaltHex = 'new-salt-hex';
-      
+
       mockSaltStore.get.mockReturnValue(null);
       crypto.randomBytes.mockReturnValue(newSaltBuffer);
       newSaltBuffer.toString = jest.fn().mockReturnValue(newSaltHex);
@@ -122,7 +122,7 @@ describe('keyManager', () => {
     it('should generate and store new salt if empty string exists', () => {
       const newSaltBuffer = Buffer.from('new-salt-bytes');
       const newSaltHex = 'new-salt-hex';
-      
+
       mockSaltStore.get.mockReturnValue('');
       crypto.randomBytes.mockReturnValue(newSaltBuffer);
       newSaltBuffer.toString = jest.fn().mockReturnValue(newSaltHex);

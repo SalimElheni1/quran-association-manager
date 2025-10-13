@@ -1,4 +1,3 @@
-
 const { ipcMain } = require('electron');
 const { registerClassHandlers } = require('../src/main/handlers/classHandlers');
 const db = require('../src/db/db');
@@ -31,10 +30,13 @@ describe('Class Handlers', () => {
 
       await ipcMain.invoke('classes:add', classData);
 
-      expect(classValidationSchema.validateAsync).toHaveBeenCalledWith(classData, expect.any(Object));
+      expect(classValidationSchema.validateAsync).toHaveBeenCalledWith(
+        classData,
+        expect.any(Object),
+      );
       expect(db.runQuery).toHaveBeenCalledWith(
         'INSERT INTO classes (name, class_type) VALUES (?, ?)',
-        ['New Class', 'Hifdh']
+        ['New Class', 'Hifdh'],
       );
     });
 
@@ -45,7 +47,7 @@ describe('Class Handlers', () => {
       classValidationSchema.validateAsync.mockRejectedValue(error);
 
       await expect(ipcMain.invoke('classes:add', {})).rejects.toThrow(
-        'بيانات غير صالحة: Invalid name'
+        'بيانات غير صالحة: Invalid name',
       );
     });
   });
@@ -61,18 +63,18 @@ describe('Class Handlers', () => {
 
       expect(db.runQuery).toHaveBeenCalledWith(
         'UPDATE classes SET name = ?, status = ? WHERE id = ?',
-        ['Updated Class', 'active', classId]
+        ['Updated Class', 'active', classId],
       );
     });
 
-     it('should throw a validation error for invalid data on update', async () => {
+    it('should throw a validation error for invalid data on update', async () => {
       const error = new Error('Validation failed');
       error.isJoi = true;
       error.details = [{ message: 'Invalid status' }];
       classValidationSchema.validateAsync.mockRejectedValue(error);
 
       await expect(ipcMain.invoke('classes:update', 1, {})).rejects.toThrow(
-        'بيانات غير صالحة: Invalid status'
+        'بيانات غير صالحة: Invalid status',
       );
     });
   });
@@ -89,7 +91,7 @@ describe('Class Handlers', () => {
 
     it('should throw an error if no ID is provided', async () => {
       await expect(ipcMain.invoke('classes:delete', null)).rejects.toThrow(
-        'A valid class ID is required for deletion.'
+        'A valid class ID is required for deletion.',
       );
     });
   });
@@ -107,7 +109,7 @@ describe('Class Handlers', () => {
       await ipcMain.invoke('classes:get', { searchTerm: 'Math', status: 'active' });
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining('c.name LIKE ? AND c.status = ?'),
-        ['%Math%', 'active']
+        ['%Math%', 'active'],
       );
     });
   });
@@ -120,53 +122,61 @@ describe('Class Handlers', () => {
 
       const result = await ipcMain.invoke('classes:getById', classId);
 
-      expect(db.getQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE c.id = ?'), [classId]);
+      expect(db.getQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE c.id = ?'), [
+        classId,
+      ]);
       expect(result).toEqual(mockClass);
     });
   });
 
   describe('classes:getEnrollmentData', () => {
     it('should fetch enrollment data for a "kids" class', async () => {
-        db.getQuery.mockResolvedValue({ value: '16' }); // adult_age_threshold
-        db.allQuery.mockResolvedValue([]); // enrolled and notEnrolled
+      db.getQuery.mockResolvedValue({ value: '16' }); // adult_age_threshold
+      db.allQuery.mockResolvedValue([]); // enrolled and notEnrolled
 
-        await ipcMain.invoke('classes:getEnrollmentData', { classId: 1, classGender: 'kids' });
+      await ipcMain.invoke('classes:getEnrollmentData', { classId: 1, classGender: 'kids' });
 
-        const notEnrolledCall = db.allQuery.mock.calls.find(call => call[0].includes('s.date_of_birth > ?'));
-        expect(notEnrolledCall).toBeDefined();
+      const notEnrolledCall = db.allQuery.mock.calls.find((call) =>
+        call[0].includes('s.date_of_birth > ?'),
+      );
+      expect(notEnrolledCall).toBeDefined();
     });
   });
 
   describe('classes:updateEnrollments', () => {
     it('should correctly update enrollments within a transaction', async () => {
-        const classId = 1;
-        const studentIds = [10, 11];
-        db.runQuery.mockResolvedValue(undefined); // For transaction statements
+      const classId = 1;
+      const studentIds = [10, 11];
+      db.runQuery.mockResolvedValue(undefined); // For transaction statements
 
-        await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds });
+      await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds });
 
-        expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-        expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM class_students WHERE class_id = ?', [classId]);
-        expect(db.runQuery).toHaveBeenCalledWith(
-            'INSERT INTO class_students (class_id, student_id) VALUES (?, ?), (?, ?)',
-            [1, 10, 1, 11]
-        );
-        expect(db.runQuery).toHaveBeenCalledWith('COMMIT');
-        expect(log).toHaveBeenCalledWith('Enrollments updated successfully');
+      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM class_students WHERE class_id = ?', [
+        classId,
+      ]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT INTO class_students (class_id, student_id) VALUES (?, ?), (?, ?)',
+        [1, 10, 1, 11],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith('COMMIT');
+      expect(log).toHaveBeenCalledWith('Enrollments updated successfully');
     });
 
     it('should rollback transaction on error', async () => {
-        const error = new Error('DB Error');
-        db.runQuery
-            .mockResolvedValueOnce(undefined) // BEGIN
-            .mockResolvedValueOnce(undefined) // DELETE
-            .mockRejectedValueOnce(error); // INSERT fails
+      const error = new Error('DB Error');
+      db.runQuery
+        .mockResolvedValueOnce(undefined) // BEGIN
+        .mockResolvedValueOnce(undefined) // DELETE
+        .mockRejectedValueOnce(error); // INSERT fails
 
-        await expect(ipcMain.invoke('classes:updateEnrollments', { classId: 1, studentIds: [10] })).rejects.toThrow('DB Error');
+      await expect(
+        ipcMain.invoke('classes:updateEnrollments', { classId: 1, studentIds: [10] }),
+      ).rejects.toThrow('DB Error');
 
-        expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-        expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK');
-        expect(logError).toHaveBeenCalledWith('Error updating enrollments:', error);
+      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
+      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK');
+      expect(logError).toHaveBeenCalledWith('Error updating enrollments:', error);
     });
   });
 });

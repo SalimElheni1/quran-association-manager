@@ -32,7 +32,10 @@ jest.mock('../src/main/validationSchemas', () => {
 describe('Auth Handlers - Comprehensive', () => {
   let handlers = {};
   const mockStore = { set: jest.fn(), delete: jest.fn() };
-  const { userUpdateValidationSchema, passwordUpdateValidationSchema } = require('../src/main/validationSchemas');
+  const {
+    userUpdateValidationSchema,
+    passwordUpdateValidationSchema,
+  } = require('../src/main/validationSchemas');
 
   beforeAll(() => {
     process.env.JWT_SECRET = 'test-secret';
@@ -46,7 +49,9 @@ describe('Auth Handlers - Comprehensive', () => {
     });
     Store.mockImplementation(() => mockStore);
     userUpdateValidationSchema.validateAsync.mockImplementation((data) => Promise.resolve(data));
-    passwordUpdateValidationSchema.validateAsync.mockImplementation((data) => Promise.resolve(data));
+    passwordUpdateValidationSchema.validateAsync.mockImplementation((data) =>
+      Promise.resolve(data),
+    );
     registerAuthHandlers();
   });
 
@@ -87,7 +92,10 @@ describe('Auth Handlers - Comprehensive', () => {
       db.isDbOpen.mockReturnValue(true);
       db.getQuery.mockResolvedValue(null);
 
-      const result = await handlers['auth:login'](null, { username: 'nonexistent', password: 'pass' });
+      const result = await handlers['auth:login'](null, {
+        username: 'nonexistent',
+        password: 'pass',
+      });
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('اسم المستخدم أو كلمة المرور غير صحيحة');
@@ -285,10 +293,6 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.success).toBe(true);
     });
 
-
-
-
-
     it('should return message when no fields to update', async () => {
       userUpdateValidationSchema.validateAsync.mockResolvedValue({});
 
@@ -321,10 +325,6 @@ describe('Auth Handlers - Comprehensive', () => {
     beforeEach(() => {
       jwt.verify.mockReturnValue({ id: 1 });
     });
-
-
-
-
 
     it('should return error when user not found', async () => {
       db.getQuery.mockResolvedValue(null);

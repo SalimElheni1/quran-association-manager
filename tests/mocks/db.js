@@ -13,7 +13,7 @@ const getQuery = jest.fn((sql, params) => {
   return Promise.resolve(null);
 });
 
-const allQuery = jest.fn((sql, params) => {
+const allQuery = jest.fn((sql, _params) => {
   // Mock the role lookup for the auth middleware
   if (sql.includes('SELECT r.name FROM roles r JOIN user_roles ur')) {
     return Promise.resolve(mockAdminRoles);
@@ -23,24 +23,24 @@ const allQuery = jest.fn((sql, params) => {
 });
 
 module.exports = {
-    initializeDatabase: jest.fn(() => {
-        isOpen = true;
-        return Promise.resolve();
-    }),
-    initializeTestDatabase: jest.fn(() => {
-        isOpen = true;
-        return Promise.resolve(db);
-    }),
-    closeDatabase: jest.fn(() => {
-        isOpen = false;
-        return Promise.resolve();
-    }),
-    isDbOpen: jest.fn(() => isOpen),
-    getQuery,
-    allQuery,
-    runQuery: jest.fn(() => Promise.resolve({ id: 1, changes: 1 })),
-    dbExec: jest.fn(() => Promise.resolve()),
-    getDb: jest.fn(() => db),
-    getDatabasePath: jest.fn(),
-    dbClose: jest.fn(() => Promise.resolve()),
+  initializeDatabase: jest.fn(() => {
+    isOpen = true;
+    return Promise.resolve();
+  }),
+  initializeTestDatabase: jest.fn(() => {
+    isOpen = true;
+    return Promise.resolve(db);
+  }),
+  closeDatabase: jest.fn(() => {
+    isOpen = false;
+    return Promise.resolve();
+  }),
+  isDbOpen: jest.fn(() => isOpen),
+  getQuery,
+  allQuery,
+  runQuery: jest.fn(() => Promise.resolve({ id: 1, changes: 1 })),
+  dbExec: jest.fn(() => Promise.resolve()),
+  getDb: jest.fn(() => db),
+  getDatabasePath: jest.fn(),
+  dbClose: jest.fn(() => Promise.resolve()),
 };

@@ -12,14 +12,13 @@ const KEY = getDbKey();
 
 async function runQuery(db, sql, params = []) {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
+    db.run(sql, params, function (err) {
       if (err) {
         console.error('SQL Error:', err.message);
         console.error('SQL:', sql);
         console.error('Params:', params);
         reject(err);
-      }
-      else resolve({ id: this.lastID, changes: this.changes });
+      } else resolve({ id: this.lastID, changes: this.changes });
     });
   });
 }
@@ -34,13 +33,15 @@ async function initializeTables() {
   }
 
   const db = new sqlite3.Database(DB_PATH);
-  
+
   try {
     await runQuery(db, `PRAGMA key = '${KEY}'`);
-    
+
     // Create accounts table
     console.log('📦 Creating accounts table...');
-    await runQuery(db, `
+    await runQuery(
+      db,
+      `
       CREATE TABLE IF NOT EXISTS accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -51,12 +52,15 @@ async function initializeTables() {
         is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    `,
+    );
     console.log('✅ Accounts table created\n');
 
     // Create categories table
     console.log('📦 Creating categories table...');
-    await runQuery(db, `
+    await runQuery(
+      db,
+      `
       CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -64,12 +68,15 @@ async function initializeTables() {
         description TEXT,
         is_active INTEGER DEFAULT 1
       )
-    `);
+    `,
+    );
     console.log('✅ Categories table created\n');
 
     // Create transactions table
     console.log('📦 Creating transactions table...');
-    await runQuery(db, `
+    await runQuery(
+      db,
+      `
       CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         transaction_date DATE NOT NULL,
@@ -89,15 +96,19 @@ async function initializeTables() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME
       )
-    `);
+    `,
+    );
     console.log('✅ Transactions table created\n');
 
     // Seed default account
     console.log('🌱 Seeding default account...');
-    await runQuery(db, `
+    await runQuery(
+      db,
+      `
       INSERT OR IGNORE INTO accounts (id, name, type, initial_balance, current_balance)
       VALUES (1, 'الخزينة', 'CASH', 0.0, 0.0)
-    `);
+    `,
+    );
     console.log('✅ Default account seeded\n');
 
     // Seed categories
@@ -114,14 +125,18 @@ async function initializeTables() {
       ['الكهرباء والماء', 'EXPENSE', 'Utilities'],
       ['القرطاسية', 'EXPENSE', 'Stationery'],
       ['الصيانة', 'EXPENSE', 'Maintenance'],
-      ['مصاريف أخرى', 'EXPENSE', 'Other expenses']
+      ['مصاريف أخرى', 'EXPENSE', 'Other expenses'],
     ];
 
     for (const [name, type, description] of categories) {
-      await runQuery(db, `
+      await runQuery(
+        db,
+        `
         INSERT OR IGNORE INTO categories (name, type, description, is_active)
         VALUES (?, ?, ?, 1)
-      `, [name, type, description]);
+      `,
+        [name, type, description],
+      );
     }
     console.log('✅ Categories seeded\n');
 
@@ -133,17 +148,16 @@ async function initializeTables() {
         else resolve(rows);
       });
     });
-    
+
     const insertedCategories = await verifyQuery;
     console.log(`Found ${insertedCategories.length} categories in database:`);
-    insertedCategories.forEach(cat => {
+    insertedCategories.forEach((cat) => {
       console.log(`  - ${cat.name} (${cat.type})`);
     });
 
     console.log('\n✅ Financial tables initialized successfully!\n');
     console.log('You can now use the financial system.');
     console.log('\n⚠️  IMPORTANT: Restart the application for changes to take effect.');
-
   } catch (error) {
     console.error('❌ Error:', error.message);
     process.exit(1);

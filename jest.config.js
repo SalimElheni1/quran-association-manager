@@ -16,7 +16,7 @@ module.exports = {
         exceljs: '<rootDir>/tests/mocks/exceljs.js',
         '^fs$': '<rootDir>/tests/mocks/fs.js',
         '^joi$': '<rootDir>/tests/mocks/joi.js',
-        'jsonwebtoken': '<rootDir>/tests/mocks/jsonwebtoken.js',
+        jsonwebtoken: '<rootDir>/tests/mocks/jsonwebtoken.js',
       },
     },
     {
@@ -28,9 +28,7 @@ module.exports = {
         '^@renderer/(.*)$': '<rootDir>/src/renderer/$1',
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
       },
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-bootstrap)/)',
-      ],
+      transformIgnorePatterns: ['node_modules/(?!(react-bootstrap)/)'],
       transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
         '\\.(css|less|scss|sass)$': 'jest-transform-stub',

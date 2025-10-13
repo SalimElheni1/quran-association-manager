@@ -5,34 +5,41 @@ import '@testing-library/jest-dom';
 
 // Mock react-bootstrap
 jest.mock('react-bootstrap', () => {
-    const React = require('react');
-    const Modal = ({ show, children, onHide }) => {
-      if (!show) return null;
-      // Pass onHide to children so Modal.Header can use it
-      const childrenWithProps = React.Children.map(children, child => {
-        if (React.isValidElement(child) && child.type.displayName === 'ModalHeader') {
-          return React.cloneElement(child, { onHide });
-        }
-        return child;
-      });
-      return <div role="dialog">{childrenWithProps}</div>;
-    };
-  
-    const ModalHeader = ({ children, closeButton, onHide }) => (
-      <div>
-        {children}
-        {closeButton && <button onClick={onHide}>Close</button>}
-      </div>
-    );
-    ModalHeader.displayName = 'ModalHeader';
-    Modal.Header = ModalHeader;
+  const React = require('react');
+  const Modal = ({ show, children, onHide }) => {
+    if (!show) return null;
+    // Pass onHide to children so Modal.Header can use it
+    const childrenWithProps = React.Children.map(children, (child) => {
+      if (React.isValidElement(child) && child.type.displayName === 'ModalHeader') {
+        return React.cloneElement(child, { onHide });
+      }
+      return child;
+    });
+    return <div role="dialog">{childrenWithProps}</div>;
+  };
 
-    Modal.Title = ({ children }) => <h4>{children}</h4>;
-    Modal.Body = ({ children }) => <div>{children}</div>;
-    Modal.Footer = ({ children }) => <div>{children}</div>;
-    const Button = ({ children, onClick, variant }) => <button onClick={onClick} className={`btn-${variant}`}>{children}</button>;
-    return { Modal, Button };
-  });
+  const ModalHeader = ({ children, closeButton, onHide }) => (
+    <div>
+      {children}
+      {closeButton && <button onClick={onHide}>Close</button>}
+    </div>
+  );
+  ModalHeader.displayName = 'ModalHeader';
+  Modal.Header = ModalHeader;
+
+  Modal.Title = ({ children }) => <h4>{children}</h4>;
+  Modal.Title.displayName = 'ModalTitle';
+  Modal.Body = ({ children }) => <div>{children}</div>;
+  Modal.Body.displayName = 'ModalBody';
+  Modal.Footer = ({ children }) => <div>{children}</div>;
+  Modal.Footer.displayName = 'ModalFooter';
+  const Button = ({ children, onClick, variant }) => (
+    <button onClick={onClick} className={`btn-${variant}`}>
+      {children}
+    </button>
+  );
+  return { Modal, Button };
+});
 
 describe('ConfirmationModal', () => {
   const mockHandleClose = jest.fn();

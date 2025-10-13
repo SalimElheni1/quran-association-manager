@@ -6,9 +6,14 @@ import '@testing-library/jest-dom';
 
 // Mock react-bootstrap
 jest.mock('react-bootstrap', () => {
-  const Alert = ({ children, ...props }) => <div role="alert" {...props}>{children}</div>;
+  const Alert = ({ children, ...props }) => (
+    <div role="alert" {...props}>
+      {children}
+    </div>
+  );
   const Button = ({ children, ...props }) => <button {...props}>{children}</button>;
   Alert.Heading = ({ children, ...props }) => <div {...props}>{children}</div>;
+  Alert.Heading.displayName = 'AlertHeading';
   return { Alert, Button };
 });
 
@@ -55,7 +60,7 @@ describe('InitialCredentialsBanner', () => {
     fireEvent.click(button);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      `Username: ${credentials.username}\nPassword: ${credentials.password}`
+      `Username: ${credentials.username}\nPassword: ${credentials.password}`,
     );
     expect(toast.success).toHaveBeenCalledWith('تم نسخ البيانات بنجاح!');
     expect(mockOnClose).toHaveBeenCalledTimes(1);

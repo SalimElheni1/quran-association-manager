@@ -11,7 +11,7 @@ const {
 describe('validationSchemas', () => {
   beforeEach(() => {
     // Provide a default successful validation implementation
-    Joi.object().validate.mockImplementation(value => ({ value, error: undefined }));
+    Joi.object().validate.mockImplementation((value) => ({ value, error: undefined }));
   });
 
   describe('studentValidationSchema', () => {
@@ -37,12 +37,14 @@ describe('validationSchemas', () => {
         gender: 'Male',
       };
 
-      const mockError = new Joi.ValidationError('ValidationError', [{
-        message: '"name" is required',
-        path: ['name'],
-        type: 'any.required',
-        context: { label: 'name', key: 'name' },
-      }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        {
+          message: '"name" is required',
+          path: ['name'],
+          type: 'any.required',
+          context: { label: 'name', key: 'name' },
+        },
+      ]);
       studentValidationSchema.validate.mockReturnValue({ error: mockError, value: invalidStudent });
 
       const { error } = studentValidationSchema.validate(invalidStudent);
@@ -310,7 +312,9 @@ describe('validationSchemas', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'newpassword123',
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['current_password'] }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['current_password'] },
+      ]);
       passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
@@ -338,7 +342,9 @@ describe('validationSchemas', () => {
         new_password: 'newpassword123',
         confirm_new_password: 'differentpassword',
       };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['confirm_new_password'] }]);
+      const mockError = new Joi.ValidationError('ValidationError', [
+        { path: ['confirm_new_password'] },
+      ]);
       passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
 
       const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);

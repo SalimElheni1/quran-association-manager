@@ -101,7 +101,10 @@ const userValidationSchema = Joi.object({
     'any.required': 'اللقب مطلوب',
   }),
   employment_type: Joi.string().valid('volunteer', 'contract'),
-  roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1).required(),
+  roles: Joi.array()
+    .items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'))
+    .min(1)
+    .required(),
   date_of_birth: Joi.date().iso().allow(null, ''),
   national_id: Joi.string()
     .pattern(/^\d{8}$/)
@@ -138,7 +141,9 @@ const userUpdateValidationSchema = userValidationSchema.keys({
     'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
   }),
   status: Joi.string().valid('active', 'inactive').required(),
-  roles: Joi.array().items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')).min(1),
+  roles: Joi.array()
+    .items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'))
+    .min(1),
 });
 
 const passwordUpdateValidationSchema = Joi.object({
@@ -192,7 +197,9 @@ const transactionValidationSchema = Joi.object({
     'any.required': 'الحساب مطلوب',
   }),
   related_person_name: Joi.string().allow(null, ''),
-  related_entity_type: Joi.string().valid('Student', 'Teacher', 'Donor', 'Supplier').allow(null, ''),
+  related_entity_type: Joi.string()
+    .valid('Student', 'Teacher', 'Donor', 'Supplier')
+    .allow(null, ''),
   related_entity_id: Joi.number().integer().positive().allow(null),
 }).unknown(true);
 

@@ -19,8 +19,8 @@ const chainable = {
   optional: jest.fn().mockReturnThis(),
   // The most important functions to mock for validation itself.
   // By default, we simulate successful validation.
-  validateAsync: jest.fn().mockImplementation(value => Promise.resolve(value)),
-  validate: jest.fn().mockImplementation(value => ({ value, error: undefined })),
+  validateAsync: jest.fn().mockImplementation((value) => Promise.resolve(value)),
+  validate: jest.fn().mockImplementation((value) => ({ value, error: undefined })),
 };
 
 jest.mock('joi', () => ({

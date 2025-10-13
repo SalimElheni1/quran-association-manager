@@ -85,7 +85,6 @@ async function fetchExportData({ type, fields, options = {} }) {
   const fieldSelection = fields.join(', ');
   let query = '';
   let params = [];
-  let whereClauses = ['1=1'];
 
   switch (type) {
     case 'students': {
@@ -1072,41 +1071,6 @@ async function generateDevExcelTemplate(outputPath) {
       role: 'SessionSupervisor',
       employment_type: 'volunteer',
     },
-  ];
-
-  const classData = [
-    {
-      name: 'حلقة التجويد للمبتدئين',
-      teacher_matricule: 'T-000001',
-      gender: 'all',
-      capacity: 15,
-      status: 'active',
-    },
-    {
-      name: 'دورة الحفظ المكثفة',
-      teacher_matricule: 'T-000002',
-      gender: 'men',
-      capacity: 10,
-      status: 'pending',
-    },
-    {
-      name: 'فصل الصغار',
-      teacher_matricule: 'T-000001',
-      gender: 'kids',
-      capacity: 20,
-      status: 'active',
-    },
-  ];
-
-  const paymentData = [
-    { student_matricule: 'S-000001', amount: 50, payment_date: '2024-09-01' },
-    { student_matricule: 'S-000002', amount: 50, payment_date: '2024-09-02' },
-    { student_matricule: 'S-000004', amount: 75, payment_date: '2024-09-03' },
-  ];
-
-  const salaryData = [
-    { user_matricule: 'T-000001', amount: 1200, payment_date: '2024-09-05' },
-    { user_matricule: 'T-000002', amount: 1350, payment_date: '2024-09-05' },
   ];
 
   // Legacy donation/expense data not used in unified dev template

@@ -101,48 +101,53 @@ function registerStudentHandlers() {
    * @returns {Promise<Array>} Array of student objects with basic information
    * @throws {Error} If database query fails
    */
-  ipcMain.handle('students:get', requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(async (_event, filters) => {
-    try {
-      // Apply fast SQL filters (search and gender)
-      let sql =
-        'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
-      const params = [];
+  ipcMain.handle(
+    'students:get',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(
+      async (_event, filters) => {
+        try {
+          // Apply fast SQL filters (search and gender)
+          let sql =
+            'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
+          const params = [];
 
-      if (filters?.searchTerm) {
-        sql += ' AND (name LIKE ? OR matricule LIKE ?)';
-        params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
-      }
+          if (filters?.searchTerm) {
+            sql += ' AND (name LIKE ? OR matricule LIKE ?)';
+            params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+          }
 
-      if (filters?.genderFilter && filters.genderFilter !== 'all') {
-        sql += ' AND gender = ?';
-        params.push(filters.genderFilter);
-      }
+          if (filters?.genderFilter && filters.genderFilter !== 'all') {
+            sql += ' AND gender = ?';
+            params.push(filters.genderFilter);
+          }
 
-      sql += ' ORDER BY name ASC';
-      let students = await db.allQuery(sql, params);
+          sql += ' ORDER BY name ASC';
+          let students = await db.allQuery(sql, params);
 
-      // Apply age filtering in JavaScript for accuracy
-      if (filters?.minAgeFilter || filters?.maxAgeFilter) {
-        const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
-        const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
+          // Apply age filtering in JavaScript for accuracy
+          if (filters?.minAgeFilter || filters?.maxAgeFilter) {
+            const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
+            const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
 
-        students = students.filter((student) => {
-          const age = calculateAge(student.date_of_birth);
-          if (age === null) return false; // Exclude students without valid birth date
+            students = students.filter((student) => {
+              const age = calculateAge(student.date_of_birth);
+              if (age === null) return false; // Exclude students without valid birth date
 
-          if (minAge !== null && age < minAge) return false;
-          if (maxAge !== null && age > maxAge) return false;
+              if (minAge !== null && age < minAge) return false;
+              if (maxAge !== null && age > maxAge) return false;
 
-          return true;
-        });
-      }
+              return true;
+            });
+          }
 
-      return students;
-    } catch (error) {
-      logError('Error in students:get handler:', error);
-      throw new Error('فشل في جلب بيانات الطلاب.');
-    }
-  }));
+          return students;
+        } catch (error) {
+          logError('Error in students:get handler:', error);
+          throw new Error('فشل في جلب بيانات الطلاب.');
+        }
+      },
+    ),
+  );
 
   /**
    * Retrieves a specific student by their ID.
@@ -177,102 +182,111 @@ function registerStudentHandlers() {
    * @returns {Promise<Object>} Database result with new student ID
    * @throws {Error} If validation fails or database operation fails
    */
-  ipcMain.handle('students:add', requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
-    const { groupIds, ...restOfStudentData } = studentData;
-    try {
-      await db.runQuery('BEGIN TRANSACTION;');
+  ipcMain.handle(
+    'students:add',
+    requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
+      const { groupIds, ...restOfStudentData } = studentData;
+      try {
+        await db.runQuery('BEGIN TRANSACTION;');
 
-      const matricule = await generateMatricule('student');
-      const dataWithMatricule = { ...restOfStudentData, matricule };
+        const matricule = await generateMatricule('student');
+        const dataWithMatricule = { ...restOfStudentData, matricule };
 
-      const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
-        abortEarly: false,
-        stripUnknown: false,
-      });
+        const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
+          abortEarly: false,
+          stripUnknown: false,
+        });
 
-      const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
-      if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+        const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
+        if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
 
-      const placeholders = fieldsToInsert.map(() => '?').join(', ');
-      const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
-      const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+        const placeholders = fieldsToInsert.map(() => '?').join(', ');
+        const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+        const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
 
-      const result = await db.runQuery(sql, params);
-      const studentId = result.id;
+        const result = await db.runQuery(sql, params);
+        const studentId = result.id;
 
-      if (studentId && groupIds && groupIds.length > 0) {
-        const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
-        for (const groupId of groupIds) {
-          await db.runQuery(insertGroupSql, [studentId, groupId]);
+        if (studentId && groupIds && groupIds.length > 0) {
+          const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+          for (const groupId of groupIds) {
+            await db.runQuery(insertGroupSql, [studentId, groupId]);
+          }
         }
+
+        await db.runQuery('COMMIT;');
+        return result;
+      } catch (error) {
+        await db.runQuery('ROLLBACK;');
+        if (error.isJoi)
+          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        logError('Error in students:add handler:', error);
+        throw new Error('حدث خطأ غير متوقع في الخادم.');
       }
+    }),
+  );
 
-      await db.runQuery('COMMIT;');
-      return result;
-    } catch (error) {
-      await db.runQuery('ROLLBACK;');
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      logError('Error in students:add handler:', error);
-      throw new Error('حدث خطأ غير متوقع في الخادم.');
-    }
-  }));
+  ipcMain.handle(
+    'students:update',
+    requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
+      const { groupIds, ...restOfStudentData } = studentData;
+      try {
+        await db.runQuery('BEGIN TRANSACTION;');
 
-  ipcMain.handle('students:update', requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
-    const { groupIds, ...restOfStudentData } = studentData;
-    try {
-      await db.runQuery('BEGIN TRANSACTION;');
+        const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
+          abortEarly: false,
+          stripUnknown: false,
+        });
 
-      const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
-        abortEarly: false,
-        stripUnknown: false,
-      });
+        // Ensure matricule is not updatable
+        const fieldsToUpdate = studentFields.filter(
+          (field) => field !== 'matricule' && validatedData[field] !== undefined,
+        );
 
-      // Ensure matricule is not updatable
-      const fieldsToUpdate = studentFields.filter(
-        (field) => field !== 'matricule' && validatedData[field] !== undefined,
-      );
+        const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+        const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+        const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
 
-      const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
-      const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
-      const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
+        const result = await db.runQuery(sql, params);
 
-      const result = await db.runQuery(sql, params);
+        // Update student groups
+        // 1. Delete existing group assignments
+        await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
 
-      // Update student groups
-      // 1. Delete existing group assignments
-      await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
-
-      // 2. Add new group assignments
-      if (groupIds && groupIds.length > 0) {
-        const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
-        for (const groupId of groupIds) {
-          await db.runQuery(insertGroupSql, [id, groupId]);
+        // 2. Add new group assignments
+        if (groupIds && groupIds.length > 0) {
+          const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+          for (const groupId of groupIds) {
+            await db.runQuery(insertGroupSql, [id, groupId]);
+          }
         }
+
+        await db.runQuery('COMMIT;');
+        return result;
+      } catch (error) {
+        await db.runQuery('ROLLBACK;');
+        if (error.isJoi)
+          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        logError('Error in students:update handler:', error);
+        throw new Error('حدث خطأ غير متوقع في الخادم.');
       }
+    }),
+  );
 
-      await db.runQuery('COMMIT;');
-      return result;
-    } catch (error) {
-      await db.runQuery('ROLLBACK;');
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
-      logError('Error in students:update handler:', error);
-      throw new Error('حدث خطأ غير متوقع في الخادم.');
-    }
-  }));
-
-  ipcMain.handle('students:delete', requireRoles(['Superadmin', 'Administrator'])(async (_event, id) => {
-    try {
-      if (!id || typeof id !== 'number')
-        throw new Error('A valid student ID is required for deletion.');
-      const sql = 'DELETE FROM students WHERE id = ?';
-      return await db.runQuery(sql, [id]);
-    } catch (error) {
-      logError(`Error deleting student ${id}:`, error);
-      throw new Error('فشل حذف الطالب.');
-    }
-  }));
+  ipcMain.handle(
+    'students:delete',
+    requireRoles(['Superadmin', 'Administrator'])(async (_event, id) => {
+      try {
+        if (!id || typeof id !== 'number')
+          throw new Error('A valid student ID is required for deletion.');
+        const sql = 'DELETE FROM students WHERE id = ?';
+        return await db.runQuery(sql, [id]);
+      } catch (error) {
+        logError(`Error deleting student ${id}:`, error);
+        throw new Error('فشل حذف الطالب.');
+      }
+    }),
+  );
 }
 
 module.exports = { registerStudentHandlers };

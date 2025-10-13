@@ -1,4 +1,9 @@
-import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../../src/renderer/utils/toast';
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+  showWarningToast,
+} from '../../src/renderer/utils/toast';
 
 // Mock react-toastify
 jest.mock('react-toastify', () => ({
@@ -13,35 +18,41 @@ jest.mock('react-toastify', () => ({
 // Mock the logger module directly
 jest.mock('../../src/renderer/utils/logger', () => {
   let isPackaged = true;
-  
+
   const mockElectronAPI = {
-    isPackaged: jest.fn().mockResolvedValue(true)
+    isPackaged: jest.fn().mockResolvedValue(true),
   };
-  
+
   global.window = global.window || {};
   global.window.electronAPI = mockElectronAPI;
-  
+
   const log = jest.fn((...args) => {
     if (!isPackaged) {
       console.log(...args);
     }
   });
-  
+
   const warn = jest.fn((...args) => {
     if (!isPackaged) {
       console.warn(...args);
     }
   });
-  
+
   const error = jest.fn((...args) => {
     console.error(...args);
   });
-  
+
   // Expose method to control isPackaged for testing
-  log._setPackaged = (value) => { isPackaged = value; };
-  warn._setPackaged = (value) => { isPackaged = value; };
-  error._setPackaged = (value) => { isPackaged = value; };
-  
+  log._setPackaged = (value) => {
+    isPackaged = value;
+  };
+  warn._setPackaged = (value) => {
+    isPackaged = value;
+  };
+  error._setPackaged = (value) => {
+    isPackaged = value;
+  };
+
   return { log, warn, error };
 });
 

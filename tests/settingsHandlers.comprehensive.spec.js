@@ -2,8 +2,6 @@
 
 const {
   registerSettingsHandlers,
-  internalGetSettingsHandler,
-  internalUpdateSettingsHandler,
 } = require('../src/main/handlers/settingsHandlers');
 
 // Mock dependencies
@@ -28,7 +26,7 @@ describe('settingsHandlers - Comprehensive Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     handlers = {};
     ipcMain.handle.mockImplementation((channel, handler) => {
       handlers[channel] = handler;
@@ -39,7 +37,7 @@ describe('settingsHandlers - Comprehensive Tests', () => {
 
     // Default mock implementations
     app.getPath.mockReturnValue('/mock/userData');
-    Joi.object().validateAsync.mockImplementation(data => Promise.resolve(data));
+    Joi.object().validateAsync.mockImplementation((data) => Promise.resolve(data));
     db.runQuery.mockResolvedValue({ changes: 1 });
   });
 
@@ -49,43 +47,51 @@ describe('settingsHandlers - Comprehensive Tests', () => {
     it('should create directory and upload logo when directory does not exist', async () => {
       const mockFilePath = '/temp/new-logo.jpg';
       const expectedDir = path.join('/mock/userData', 'assets', 'logos');
-      
+
       dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockFilePath] });
-      
+
       // Make existsSync specific: return true for source file, false for destination dir
-      fs.existsSync.mockImplementation(p => {
+      fs.existsSync.mockImplementation((p) => {
         if (p === mockFilePath) return true;
         if (p === expectedDir) return false;
         return false;
       });
-      
+
       const result = await handlers['settings:uploadLogo']();
 
       expect(fs.mkdirSync).toHaveBeenCalledWith(expectedDir, { recursive: true });
-      expect(fs.copyFileSync).toHaveBeenCalledWith(mockFilePath, path.join(expectedDir, 'new-logo.jpg'));
+      expect(fs.copyFileSync).toHaveBeenCalledWith(
+        mockFilePath,
+        path.join(expectedDir, 'new-logo.jpg'),
+      );
       expect(result.path).toBe('assets/logos/new-logo.jpg');
     });
 
     it('should handle directory creation failure', async () => {
-        const mockFilePath = '/temp/logo.png';
-        const expectedDir = path.join('/mock/userData', 'assets', 'logos');
-        const dirError = new Error('Permission denied');
+      const mockFilePath = '/temp/logo.png';
+      const expectedDir = path.join('/mock/userData', 'assets', 'logos');
+      const dirError = new Error('Permission denied');
 
-        dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockFilePath] });
-        
-        // Make existsSync specific: return true for source file, false for destination dir
-        fs.existsSync.mockImplementation(p => {
-            if (p === mockFilePath) return true;
-            if (p === expectedDir) return false;
-            return false;
-        });
+      dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [mockFilePath] });
 
-        fs.mkdirSync.mockImplementation(() => { throw dirError; });
-
-        const result = await handlers['settings:uploadLogo']();
-
-        expect(logError).toHaveBeenCalledWith('Failed to upload logo:', dirError);
-        expect(result).toEqual({ success: false, message: `Error uploading logo: ${dirError.message}` });
+      // Make existsSync specific: return true for source file, false for destination dir
+      fs.existsSync.mockImplementation((p) => {
+        if (p === mockFilePath) return true;
+        if (p === expectedDir) return false;
+        return false;
       });
+
+      fs.mkdirSync.mockImplementation(() => {
+        throw dirError;
+      });
+
+      const result = await handlers['settings:uploadLogo']();
+
+      expect(logError).toHaveBeenCalledWith('Failed to upload logo:', dirError);
+      expect(result).toEqual({
+        success: false,
+        message: `Error uploading logo: ${dirError.message}`,
+      });
+    });
   });
 });

@@ -21,7 +21,14 @@ export function useTransactions(filters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters.type, filters.category, filters.startDate, filters.endDate, filters.accountId, filters.searchTerm]);
+  }, [
+    filters.type,
+    filters.category,
+    filters.startDate,
+    filters.endDate,
+    filters.accountId,
+    filters.searchTerm,
+  ]);
 
   useEffect(() => {
     fetchTransactions();
@@ -30,6 +37,6 @@ export function useTransactions(filters = {}) {
   return {
     transactions,
     loading,
-    refresh: fetchTransactions
+    refresh: fetchTransactions,
   };
 }

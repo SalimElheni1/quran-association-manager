@@ -60,7 +60,10 @@ describe('usePermissions Hook', () => {
     const { result } = renderHook(() => usePermissions());
     const hasAny = result.current.hasAnyPermission(['students:view', 'financials:view']);
 
-    expect(permissions.hasAnyPermission).toHaveBeenCalledWith(['FinanceManager'], ['students:view', 'financials:view']);
+    expect(permissions.hasAnyPermission).toHaveBeenCalledWith(
+      ['FinanceManager'],
+      ['students:view', 'financials:view'],
+    );
     expect(hasAny).toBe(true);
   });
 

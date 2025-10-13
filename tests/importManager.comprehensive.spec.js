@@ -19,34 +19,24 @@ jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/keyManager');
 
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const PizZip = require('pizzip');
-const { app } = require('electron');
 const ExcelJS = require('exceljs');
-const { log, error: logError, warn: logWarn } = require('../src/main/logger');
 const {
-  getDatabasePath,
-  isDbOpen,
-  closeDatabase,
-  initializeDatabase,
-  getDb,
-  dbExec,
   runQuery,
   getQuery,
 } = require('../src/db/db');
-const bcrypt = require('bcryptjs');
+
 const { generateMatricule } = require('../src/main/services/matriculeService');
 
 describe('importManager - Comprehensive Tests', () => {
-    let validateDatabaseFile, replaceDatabase, importExcelData;
+  let validateDatabaseFile, importExcelData;
 
-    beforeEach(() => {
-        jest.clearAllMocks();
-        const manager = require('../src/main/importManager');
-        validateDatabaseFile = manager.validateDatabaseFile;
-        replaceDatabase = manager.replaceDatabase;
-        importExcelData = manager.importExcelData;
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const manager = require('../src/main/importManager');
+    validateDatabaseFile = manager.validateDatabaseFile;
+    importExcelData = manager.importExcelData;
+  });
 
   describe('validateDatabaseFile - Edge Cases', () => {
     it('should handle legacy config.json file', async () => {
@@ -76,45 +66,45 @@ describe('importManager - Comprehensive Tests', () => {
 
   describe('importExcelData - Complex Scenarios', () => {
     it('should handle student with Arabic gender and status localization', async () => {
-        const mockGenderCell = { value: 'أنثى' };
-        const mockStatusCell = { value: 'نشط' };
-        const mockHeaderRow = {
-            hasValues: true,
-            eachCell: jest.fn(cb => {
-                cb({ value: 'الاسم واللقب' }, 2);
-                cb({ value: 'الجنس' }, 3);
-                cb({ value: 'الحالة' }, 4);
-            }),
-        };
-        const mockDataRow = {
-            hasValues: true,
-            getCell: jest.fn(index => {
-              if (index === 2) return { value: 'فاطمة أحمد' };
-              if (index === 3) return mockGenderCell;
-              if (index === 4) return mockStatusCell;
-              return { value: null };
-            }),
-        };
-        const mockWorksheet = {
-            getRow: jest.fn(num => (num === 2 ? mockHeaderRow : mockDataRow)),
-            rowCount: 3,
-        };
-        const mockWorkbook = {
-            xlsx: { readFile: jest.fn().mockResolvedValue() },
-            getWorksheet: jest.fn(() => mockWorksheet),
-        };
-        ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
+      const mockGenderCell = { value: 'أنثى' };
+      const mockStatusCell = { value: 'نشط' };
+      const mockHeaderRow = {
+        hasValues: true,
+        eachCell: jest.fn((cb) => {
+          cb({ value: 'الاسم واللقب' }, 2);
+          cb({ value: 'الجنس' }, 3);
+          cb({ value: 'الحالة' }, 4);
+        }),
+      };
+      const mockDataRow = {
+        hasValues: true,
+        getCell: jest.fn((index) => {
+          if (index === 2) return { value: 'فاطمة أحمد' };
+          if (index === 3) return mockGenderCell;
+          if (index === 4) return mockStatusCell;
+          return { value: null };
+        }),
+      };
+      const mockWorksheet = {
+        getRow: jest.fn((num) => (num === 2 ? mockHeaderRow : mockDataRow)),
+        rowCount: 3,
+      };
+      const mockWorkbook = {
+        xlsx: { readFile: jest.fn().mockResolvedValue() },
+        getWorksheet: jest.fn(() => mockWorksheet),
+      };
+      ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
 
-        getQuery.mockResolvedValue(null);
-        generateMatricule.mockResolvedValue('S-000002');
+      getQuery.mockResolvedValue(null);
+      generateMatricule.mockResolvedValue('S-000002');
 
-        const result = await importExcelData('/path/to/data.xlsx', ['الطلاب']);
+      const result = await importExcelData('/path/to/data.xlsx', ['الطلاب']);
 
-        expect(runQuery).toHaveBeenCalledWith(
-          expect.stringContaining('INSERT INTO students'),
-          expect.arrayContaining(['فاطمة أحمد', 'Female', 'active', 'S-000002'])
-        );
-        expect(result.successCount).toBe(1);
-      });
+      expect(runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO students'),
+        expect.arrayContaining(['فاطمة أحمد', 'Female', 'active', 'S-000002']),
+      );
+      expect(result.successCount).toBe(1);
     });
+  });
 });

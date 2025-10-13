@@ -113,7 +113,10 @@ describe.skip('Main Process (index.js)', () => {
 
     await initializeApp();
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Fatal error during application startup:', dbError);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Fatal error during application startup:',
+      dbError,
+    );
     expect(mockApp.quit).toHaveBeenCalled();
   });
 
@@ -126,8 +129,8 @@ describe.skip('Main Process (index.js)', () => {
     await initializeApp();
 
     expect(mockLogger.error).toHaveBeenCalledWith(
-        'Fatal error during application startup:',
-        expect.any(Error)
+      'Fatal error during application startup:',
+      expect.any(Error),
     );
     expect(mockApp.quit).toHaveBeenCalled();
   });

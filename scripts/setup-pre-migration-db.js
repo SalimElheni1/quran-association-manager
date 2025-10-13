@@ -111,18 +111,26 @@ db.serialize(() => {
 
     console.log('Inserting pre-migration users...');
     const stmt = db.prepare(
-      'INSERT INTO users (username, password, role, first_name, last_name, email) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO users (username, password, role, first_name, last_name, email) VALUES (?, ?, ?, ?, ?, ?)',
     );
 
     for (const user of PRE_MIGRATION_USERS) {
       const hashedPassword = bcrypt.hashSync(user.password, 10);
-      stmt.run(user.username, hashedPassword, user.role, user.first_name, user.last_name, user.email, (err) => {
-        if (err) {
-          console.error(`Error inserting user ${user.username}:`, err);
-        } else {
-          console.log(`Inserted user: ${user.username}`);
-        }
-      });
+      stmt.run(
+        user.username,
+        hashedPassword,
+        user.role,
+        user.first_name,
+        user.last_name,
+        user.email,
+        (err) => {
+          if (err) {
+            console.error(`Error inserting user ${user.username}:`, err);
+          } else {
+            console.log(`Inserted user: ${user.username}`);
+          }
+        },
+      );
     }
 
     stmt.finalize((err) => {

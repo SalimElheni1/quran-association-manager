@@ -1,6 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+
 
 // Mock dependencies
 jest.mock('fs');
@@ -19,7 +17,7 @@ jest.mock('../src/main/settingsManager');
 jest.mock('../src/main/handlers/legacyFinancialHandlers');
 jest.mock('../src/main/handlers/inventoryHandlers');
 
-const { BrowserWindow } = require('electron');
+
 const ExcelJS = require('exceljs');
 const {
   getExportHeaderData,
@@ -126,7 +124,7 @@ describe('exportManager', () => {
   describe('fetchExportData', () => {
     it('should throw error when no fields provided', async () => {
       await expect(fetchExportData({ type: 'students', fields: [] })).rejects.toThrow(
-        'No fields selected for export.'
+        'No fields selected for export.',
       );
     });
 
@@ -142,13 +140,13 @@ describe('exportManager', () => {
       const result = await fetchExportData({
         type: 'students',
         fields: ['name', 'gender', 'date_of_birth'],
-        options: { gender: 'men' }
+        options: { gender: 'men' },
       });
 
       // The SQL query should be simple, without gender/age filters
       expect(allQuery).toHaveBeenCalledWith(
         'SELECT name, gender, date_of_birth FROM students WHERE 1=1 ORDER BY name',
-        []
+        [],
       );
 
       // The result should be filtered in JS
@@ -161,13 +159,10 @@ describe('exportManager', () => {
 
       const result = await fetchExportData({
         type: 'teachers',
-        fields: ['name', 'email']
+        fields: ['name', 'email'],
       });
 
-      expect(allQuery).toHaveBeenCalledWith(
-        'SELECT name, email FROM teachers ORDER BY name',
-        []
-      );
+      expect(allQuery).toHaveBeenCalledWith('SELECT name, email FROM teachers ORDER BY name', []);
       expect(result).toEqual(mockData);
     });
 
@@ -177,21 +172,23 @@ describe('exportManager', () => {
 
       const result = await fetchExportData({
         type: 'admins',
-        fields: ['username', 'role']
+        fields: ['username', 'role'],
       });
 
       expect(allQuery).toHaveBeenCalledWith(
         "SELECT username, role FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username",
-        []
+        [],
       );
       expect(result).toEqual(mockData);
     });
 
     it('should throw error for invalid export type', async () => {
-      await expect(fetchExportData({
-        type: 'invalid',
-        fields: ['name']
-      })).rejects.toThrow('Invalid export type: invalid');
+      await expect(
+        fetchExportData({
+          type: 'invalid',
+          fields: ['name'],
+        }),
+      ).rejects.toThrow('Invalid export type: invalid');
     });
   });
 
@@ -199,55 +196,51 @@ describe('exportManager', () => {
     it('should localize gender values', () => {
       const data = [
         { name: 'John', gender: 'Male' },
-        { name: 'Jane', gender: 'Female' }
+        { name: 'Jane', gender: 'Female' },
       ];
 
       const result = localizeData(data);
 
       expect(result).toEqual([
         { name: 'John', gender: 'ذكر' },
-        { name: 'Jane', gender: 'أنثى' }
+        { name: 'Jane', gender: 'أنثى' },
       ]);
     });
 
     it('should localize status values', () => {
       const data = [
         { name: 'Student 1', status: 'active' },
-        { name: 'Student 2', status: 'inactive' }
+        { name: 'Student 2', status: 'inactive' },
       ];
 
       const result = localizeData(data);
 
       expect(result).toEqual([
         { name: 'Student 1', status: 'نشط' },
-        { name: 'Student 2', status: 'غير نشط' }
+        { name: 'Student 2', status: 'غير نشط' },
       ]);
     });
 
     it('should localize payment methods', () => {
       const data = [
         { amount: 100, payment_method: 'Cash' },
-        { amount: 200, payment_method: 'Bank Transfer' }
+        { amount: 200, payment_method: 'Bank Transfer' },
       ];
 
       const result = localizeData(data);
 
       expect(result).toEqual([
         { amount: 100, payment_method: 'نقداً' },
-        { amount: 200, payment_method: 'تحويل بنكي' }
+        { amount: 200, payment_method: 'تحويل بنكي' },
       ]);
     });
 
     it('should not modify unmapped values', () => {
-      const data = [
-        { name: 'Test', custom_field: 'unchanged' }
-      ];
+      const data = [{ name: 'Test', custom_field: 'unchanged' }];
 
       const result = localizeData(data);
 
-      expect(result).toEqual([
-        { name: 'Test', custom_field: 'unchanged' }
-      ]);
+      expect(result).toEqual([{ name: 'Test', custom_field: 'unchanged' }]);
     });
   });
 
@@ -278,11 +271,11 @@ describe('exportManager', () => {
     it('should generate XLSX file with localized data', async () => {
       const columns = [
         { header: 'Name', key: 'name' },
-        { header: 'Gender', key: 'gender' }
+        { header: 'Gender', key: 'gender' },
       ];
       const data = [
         { name: 'John', gender: 'Male' },
-        { name: 'Jane', gender: 'Female' }
+        { name: 'Jane', gender: 'Female' },
       ];
       const outputPath = '/mock/output.xlsx';
 
@@ -290,12 +283,10 @@ describe('exportManager', () => {
 
       expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('Exported Data');
       expect(mockWorksheet.views).toEqual([{ rightToLeft: true }]);
-      expect(mockWorksheet.columns).toEqual(
-        columns.map(col => ({ ...col, width: 25 }))
-      );
+      expect(mockWorksheet.columns).toEqual(columns.map((col) => ({ ...col, width: 25 })));
       expect(mockWorksheet.addRows).toHaveBeenCalledWith([
         { name: 'John', gender: 'ذكر' },
-        { name: 'Jane', gender: 'أنثى' }
+        { name: 'Jane', gender: 'أنثى' },
       ]);
       expect(mockWorkbook.xlsx.writeFile).toHaveBeenCalledWith(outputPath);
     });

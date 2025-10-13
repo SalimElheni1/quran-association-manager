@@ -1,5 +1,8 @@
 const { ipcMain } = require('electron');
-const { registerInventoryHandlers, handleGetInventoryItems } = require('../src/main/handlers/inventoryHandlers');
+const {
+  registerInventoryHandlers,
+  handleGetInventoryItems,
+} = require('../src/main/handlers/inventoryHandlers');
 const db = require('../src/db/db');
 const { generateMatricule } = require('../src/main/services/matriculeService');
 
@@ -29,7 +32,9 @@ describe('Inventory Handlers', () => {
 
       const result = await ipcMain.invoke('inventory:get');
 
-      expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM inventory_items ORDER BY item_name ASC');
+      expect(db.allQuery).toHaveBeenCalledWith(
+        'SELECT * FROM inventory_items ORDER BY item_name ASC',
+      );
       expect(result).toEqual(mockItems);
     });
 
@@ -48,7 +53,7 @@ describe('Inventory Handlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith(
         'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE',
-        ['New Item']
+        ['New Item'],
       );
       expect(result).toEqual({ isUnique: true });
     });
@@ -56,7 +61,9 @@ describe('Inventory Handlers', () => {
     it('should return isUnique false when item name exists', async () => {
       db.getQuery.mockResolvedValue({ id: 1 });
 
-      const result = await ipcMain.invoke('inventory:check-uniqueness', { itemName: 'Existing Item' });
+      const result = await ipcMain.invoke('inventory:check-uniqueness', {
+        itemName: 'Existing Item',
+      });
 
       expect(result).toEqual({ isUnique: false });
     });
@@ -68,7 +75,7 @@ describe('Inventory Handlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith(
         'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE AND id != ?',
-        ['Item', 5]
+        ['Item', 5],
       );
     });
   });
@@ -108,7 +115,7 @@ describe('Inventory Handlers', () => {
           'Good',
           'Storage A',
           'Test notes',
-        ]
+        ],
       );
       expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM inventory_items WHERE id = ?', [1]);
       expect(result).toHaveProperty('matricule', 'INV-2024-001');
@@ -130,7 +137,7 @@ describe('Inventory Handlers', () => {
 
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO inventory_items'),
-        expect.arrayContaining([0]) // total_value should be 0
+        expect.arrayContaining([0]), // total_value should be 0
       );
     });
   });
@@ -169,7 +176,7 @@ describe('Inventory Handlers', () => {
           'Storage B',
           'Updated notes',
           1,
-        ]
+        ],
       );
       expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM inventory_items WHERE id = ?', [1]);
       expect(result).toEqual(itemData);
@@ -191,7 +198,7 @@ describe('Inventory Handlers', () => {
 
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE inventory_items SET'),
-        expect.arrayContaining([0]) // total_value should be 0 when quantity/unit_value are null/undefined
+        expect.arrayContaining([0]), // total_value should be 0 when quantity/unit_value are null/undefined
       );
     });
   });

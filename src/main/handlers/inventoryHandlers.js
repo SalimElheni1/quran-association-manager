@@ -125,9 +125,18 @@ async function handleDeleteInventoryItem(event, itemId) {
 function registerInventoryHandlers() {
   ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
   ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
-  ipcMain.handle('inventory:add', requireRoles(['Superadmin', 'Administrator'])(createHandler(handleAddInventoryItem)));
-  ipcMain.handle('inventory:update', requireRoles(['Superadmin', 'Administrator'])(createHandler(handleUpdateInventoryItem)));
-  ipcMain.handle('inventory:delete', requireRoles(['Superadmin', 'Administrator'])(createHandler(handleDeleteInventoryItem)));
+  ipcMain.handle(
+    'inventory:add',
+    requireRoles(['Superadmin', 'Administrator'])(createHandler(handleAddInventoryItem)),
+  );
+  ipcMain.handle(
+    'inventory:update',
+    requireRoles(['Superadmin', 'Administrator'])(createHandler(handleUpdateInventoryItem)),
+  );
+  ipcMain.handle(
+    'inventory:delete',
+    requireRoles(['Superadmin', 'Administrator'])(createHandler(handleDeleteInventoryItem)),
+  );
 }
 
 module.exports = {
