@@ -24,11 +24,18 @@ const { setDbSalt } = require('./keyManager');
 const mainStore = new Store();
 
 async function executeSqlScriptSafely(sqlScript) {
-  // Get current database tables
+  // Get current database tables and their columns
   const tables = await allQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
   );
   const existingTables = new Set(tables.map((t) => t.name));
+
+  // Get column info for each table
+  const tableColumns = {};
+  for (const table of tables) {
+    const columns = await allQuery(`PRAGMA table_info("${table.name}")`);
+    tableColumns[table.name] = new Set(columns.map((c) => c.name));
+  }
 
   // Split SQL script into individual statements
   const statements = sqlScript
@@ -38,19 +45,43 @@ async function executeSqlScriptSafely(sqlScript) {
 
   const validStatements = [];
   const skippedTables = new Set();
+  const fixedStatements = [];
 
   for (const statement of statements) {
     // Extract table name from REPLACE INTO or INSERT statements
     const match = statement.match(
-      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"']+)["']?/i,
+      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(]+)["']?\s*\(/i,
     );
     if (match) {
       const tableName = match[1];
-      if (existingTables.has(tableName)) {
-        validStatements.push(statement);
-      } else {
+      if (!existingTables.has(tableName)) {
         skippedTables.add(tableName);
+        continue;
       }
+
+      // Extract columns from the statement
+      const columnsMatch = statement.match(/\(([^)]+)\)\s*VALUES/i);
+      if (columnsMatch) {
+        const columns = columnsMatch[1]
+          .split(',')
+          .map((col) => col.trim().replace(/["\']/g, ''));
+        const currentColumns = tableColumns[tableName];
+        
+        // Check if all columns exist
+        const invalidColumns = columns.filter((col) => !currentColumns.has(col));
+        
+        if (invalidColumns.length > 0) {
+          // Fix the statement by removing invalid columns
+          const fixed = fixStatementColumns(statement, columns, invalidColumns);
+          if (fixed) {
+            validStatements.push(fixed);
+            fixedStatements.push(`${tableName}: removed columns [${invalidColumns.join(', ')}]`);
+          }
+          continue;
+        }
+      }
+      
+      validStatements.push(statement);
     } else {
       // Non-INSERT/REPLACE statements (like CREATE, etc.) - execute as-is
       validStatements.push(statement);
@@ -60,11 +91,47 @@ async function executeSqlScriptSafely(sqlScript) {
   if (skippedTables.size > 0) {
     logWarn(`Skipped data for non-existent tables: ${Array.from(skippedTables).join(', ')}`);
   }
+  if (fixedStatements.length > 0) {
+    log(`Fixed column mismatches: ${fixedStatements.join('; ')}`);
+  }
 
   // Execute valid statements
   const finalScript = validStatements.join(';\n');
   if (finalScript.trim()) {
     await dbExec(getDb(), finalScript);
+  }
+}
+
+function fixStatementColumns(statement, columns, invalidColumns) {
+  try {
+    // Find the VALUES part
+    const valuesMatch = statement.match(/VALUES\s*\(([^)]+)\)/i);
+    if (!valuesMatch) return null;
+
+    const values = valuesMatch[1].split(',').map((v) => v.trim());
+    
+    // Remove invalid columns and their corresponding values
+    const validIndices = [];
+    const validColumns = [];
+    
+    columns.forEach((col, idx) => {
+      if (!invalidColumns.includes(col)) {
+        validIndices.push(idx);
+        validColumns.push(`"${col}"`);
+      }
+    });
+    
+    const validValues = validIndices.map((idx) => values[idx]);
+    
+    // Reconstruct the statement
+    const tableMatch = statement.match(/(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(]+)["']?/i);
+    const tableName = tableMatch[1];
+    const command = statement.match(/^(REPLACE|INSERT(?:\s+OR\s+REPLACE)?)/i)[0];
+    
+    return `${command} INTO "${tableName}" (${validColumns.join(', ')}) VALUES (${validValues.join(', ')})`;
+  } catch (error) {
+    logError('Failed to fix statement:', error);
+    return null;
   }
 }
 
@@ -145,6 +212,30 @@ async function replaceDatabase(importedDbPath, password) {
     log('Processing SQL script to import data...');
     await executeSqlScriptSafely(sqlScript);
     log('Data import completed successfully.');
+    
+    // Migrate users without roles to user_roles table (for old backups)
+    log('Checking for users without role assignments...');
+    const usersWithoutRoles = await allQuery(`
+      SELECT u.id, u.username 
+      FROM users u 
+      WHERE NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)
+    `);
+    
+    if (usersWithoutRoles.length > 0) {
+      log(`Found ${usersWithoutRoles.length} users without roles. Assigning default roles...`);
+      for (const user of usersWithoutRoles) {
+        // Assign Administrator role as default for imported users
+        const roleId = await getQuery('SELECT id FROM roles WHERE name = ?', ['Administrator']);
+        if (roleId) {
+          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+            user.id,
+            roleId.id,
+          ]);
+          log(`Assigned Administrator role to user: ${user.username}`);
+        }
+      }
+    }
+    
     mainStore.set('force-relogin-after-restart', true);
     log('Database import successful. The app will now restart.');
     app.relaunch();
