@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
 import UserCircleIcon from './icons/UserCircleIcon';
+import { surahs } from '../utils/quran_data';
 
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
   if (!value) return null;
@@ -23,6 +24,12 @@ function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' 
 
 function StudentDetailsModal({ show, handleClose, student }) {
   if (!student) return null;
+
+  const getSurahNameById = (id) => {
+    if (!id) return null;
+    const surah = surahs.find((s) => s.id === parseInt(id, 10));
+    return surah ? surah.name : null;
+  };
 
   const calculateAge = (dob) => {
     if (!dob) return null;
@@ -106,7 +113,11 @@ function StudentDetailsModal({ show, handleClose, student }) {
             label="تاريخ التسجيل"
             value={new Date(student.enrollment_date).toLocaleDateString('en-GB')}
           />
-          <DetailItem label="مستوى الحفظ" value={student.memorization_level} />
+          <DetailItem
+            label="مستوى الحفظ (السورة)"
+            value={getSurahNameById(student.memorization_surah_id)}
+          />
+          <DetailItem label="مستوى الحفظ (الجزء)" value={student.memorization_juz_id} />
           <DetailItem label="ملاحظات" value={student.notes} />
           <DetailItem label="ملاحظات مالية" value={student.financial_assistance_notes} />
         </Row>

@@ -55,6 +55,8 @@ const studentFields = [
   'email', // Email address
   'status', // Active/inactive status
   'memorization_level', // Current Quran memorization level
+  'memorization_surah_id',
+  'memorization_juz_id',
   'notes', // Additional notes
   'parent_name', // Parent/guardian name
   'guardian_relation', // Relationship to guardian
@@ -108,7 +110,7 @@ function registerStudentHandlers() {
         try {
           // Apply fast SQL filters (search and gender)
           let sql =
-            'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
+            'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender, memorization_surah_id, memorization_juz_id FROM students WHERE 1=1';
           const params = [];
 
           if (filters?.searchTerm) {

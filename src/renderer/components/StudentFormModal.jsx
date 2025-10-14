@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import { surahs, juz } from '../utils/quran_data';
 
 function StudentFormModal({ show, handleClose, onSave, student }) {
   const [formData, setFormData] = useState({});
@@ -20,7 +21,8 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       contact_info: '',
       email: '',
       status: 'active',
-      memorization_level: '',
+      memorization_surah_id: '',
+      memorization_juz_id: '',
       notes: '',
       parent_name: '',
       guardian_relation: '',
@@ -440,15 +442,35 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                 <option value="inactive">غير نشط</option>
               </Form.Select>
             </Form.Group>
-            <Form.Group as={Col} md="6" className="mb-3" controlId="formMemorizationLevel">
-              <Form.Label>مستوى الحفظ</Form.Label>
-              <Form.Control
-                type="text"
-                name="memorization_level"
-                value={formData.memorization_level || ''}
+            <Form.Group as={Col} md="6" className="mb-3" controlId="formMemorizationSurah">
+              <Form.Label>مستوى الحفظ (السورة)</Form.Label>
+              <Form.Select
+                name="memorization_surah_id"
+                value={formData.memorization_surah_id || ''}
                 onChange={handleChange}
-                placeholder="مثال: جزء عم، سورة البقرة"
-              />
+              >
+                <option value="">اختر السورة</option>
+                {surahs.map((surah) => (
+                  <option key={surah.id} value={surah.id}>
+                    {surah.name}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group as={Col} md="6" className="mb-3" controlId="formMemorizationJuz">
+              <Form.Label>مستوى الحفظ (الجزء)</Form.Label>
+              <Form.Select
+                name="memorization_juz_id"
+                value={formData.memorization_juz_id || ''}
+                onChange={handleChange}
+              >
+                <option value="">اختر الجزء</option>
+                {juz.map((j) => (
+                  <option key={j} value={j}>
+                    {`الجزء ${j}`}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
           </Row>
           <Row>

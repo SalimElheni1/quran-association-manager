@@ -61,7 +61,7 @@ describe('Student Handlers', () => {
       // We expect the filter to happen in JS, so the SQL query should be simple
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining(
-          'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students',
+          'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender, memorization_surah_id, memorization_juz_id FROM students',
         ),
         [],
       );
