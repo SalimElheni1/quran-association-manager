@@ -5,17 +5,25 @@ const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
 const { log, error: logError } = require('./logger');
 const { getDbSalt } = require('./keyManager');
+const schema = require('../db/schema');
 
 const store = new Store();
 
 /**
- * Generates a SQL script of REPLACE statements for all data in the database.
+ * Generates a complete SQL script including schema and data.
  * Using REPLACE (or INSERT OR REPLACE) handles conflicts with pre-existing data
  * (e.g., default settings) during the import process.
- * @returns {Promise<string>} A string containing the full SQL dump.
+ * @returns {Promise<string>} A string containing the full SQL dump with schema and data.
  */
 async function generateSqlReplaceStatements() {
-  const replaceStatements = [];
+  const sqlParts = [];
+  
+  // Add schema first
+  sqlParts.push('-- Database Schema');
+  sqlParts.push(schema);
+  sqlParts.push('');
+  sqlParts.push('-- Database Data');
+  
   // Get all user-defined tables, excluding the migrations tracking table
   const tables = await allQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'",
@@ -40,10 +48,10 @@ async function generateSqlReplaceStatements() {
         })
         .join(', ');
       // Use REPLACE INTO to avoid UNIQUE constraint errors on import
-      replaceStatements.push(`REPLACE INTO "${tableName}" (${columnNames}) VALUES (${values});`);
+      sqlParts.push(`REPLACE INTO "${tableName}" (${columnNames}) VALUES (${values});`);
     }
   }
-  return replaceStatements.join('\n');
+  return sqlParts.join('\n');
 }
 
 /**

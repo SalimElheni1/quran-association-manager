@@ -77,9 +77,9 @@ function UsersPage() {
   };
 
   const roleTranslations = {
-    Manager: 'الهيئة المديرة',
+    Superadmin: 'مدير النظام',
+    Administrator: 'الهيئة المديرة',
     FinanceManager: 'الهيئة المديرة - المالية',
-    Admin: 'إداري',
     SessionSupervisor: 'مشرف حصص',
   };
 
@@ -126,7 +126,15 @@ function UsersPage() {
                   <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
                   <td>{user.username}</td>
                   <td>
-                    <Badge bg="info">{roleTranslations[user.role] || user.role}</Badge>
+                    {user.roles && user.roles.length > 0 ? (
+                      user.roles.map((role, idx) => (
+                        <Badge key={idx} bg="info" className="me-1">
+                          {roleTranslations[role] || role}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted">لا يوجد دور</span>
+                    )}
                   </td>
                   <td>
                     <Badge bg={statusVariants[user.status]}>
