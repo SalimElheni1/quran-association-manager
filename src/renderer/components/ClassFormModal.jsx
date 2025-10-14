@@ -41,7 +41,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     const initialData = {
       name: '',
       teacher_id: '',
-      schedule: [{ day: '', time: '' }], // Start with one empty schedule row
+      schedule: [{ day: '', startTime: '', endTime: '' }], // Use start and end times
       start_date: '',
       end_date: '',
       status: 'pending',
@@ -68,7 +68,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
         schedule:
           classData.schedule && classData.schedule !== '[]'
             ? JSON.parse(classData.schedule)
-            : [{ day: '', time: '' }],
+            : [{ day: '', startTime: '', endTime: '' }],
       });
     } else {
       setFormData(initialData);
@@ -87,7 +87,10 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
   };
 
   const addScheduleRow = () => {
-    setFormData((prev) => ({ ...prev, schedule: [...prev.schedule, { day: '', time: '' }] }));
+    setFormData((prev) => ({
+      ...prev,
+      schedule: [...prev.schedule, { day: '', startTime: '', endTime: '' }],
+    }));
   };
 
   const removeScheduleRow = (index) => {
@@ -106,7 +109,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     }
 
     // Filter out empty schedule rows and serialize the array to a JSON string before saving
-    const filteredSchedule = dataToSave.schedule.filter((s) => s.day && s.time);
+    const filteredSchedule = dataToSave.schedule.filter((s) => s.day && s.startTime && s.endTime);
     onSave(
       { ...dataToSave, schedule: JSON.stringify(filteredSchedule) },
       classData ? classData.id : null,
@@ -198,10 +201,15 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                 ))}
               </Form.Select>
               <Form.Control
-                type="text"
-                value={item.time}
-                onChange={(e) => handleScheduleChange(index, 'time', e.target.value)}
-                placeholder="الوقت (مثال: بعد العصر)"
+                type="time"
+                value={item.startTime}
+                onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
+              />
+              <span className="time-separator">-</span>
+              <Form.Control
+                type="time"
+                value={item.endTime}
+                onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
               />
               {formData.schedule.length > 1 && (
                 <Button variant="outline-danger" size="sm" onClick={() => removeScheduleRow(index)}>

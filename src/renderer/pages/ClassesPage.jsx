@@ -142,7 +142,14 @@ function ClassesPage() {
       };
 
       return scheduleArray
-        .map((item) => `${dayTranslations[item.day] || item.day}: ${item.time}`)
+        .map((item) => {
+          const day = dayTranslations[item.day] || item.day;
+          // Handle both old (time) and new (startTime, endTime) formats
+          const time = item.startTime
+            ? `${item.startTime} - ${item.endTime}`
+            : item.time || 'غير محدد';
+          return `${day}: ${time}`;
+        })
         .join(' | ');
     } catch (e) {
       return 'جدول غير صالح';
