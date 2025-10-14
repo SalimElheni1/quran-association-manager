@@ -27,11 +27,7 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
       CHECK: 'شيك',
       TRANSFER: 'تحويل',
     };
-    return (
-      <Badge bg={variants[method] || 'secondary'}>
-        {labels[method] || method}
-      </Badge>
-    );
+    return <Badge bg={variants[method] || 'secondary'}>{labels[method] || method}</Badge>;
   };
 
   if (loading) {
@@ -43,11 +39,7 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
   }
 
   if (transactions.length === 0) {
-    return (
-      <div className="text-center p-4 text-muted">
-        لا توجد عمليات مالية
-      </div>
-    );
+    return <div className="text-center p-4 text-muted">لا توجد عمليات مالية</div>;
   }
 
   return (
@@ -69,7 +61,11 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
         {transactions.map((transaction, index) => (
           <tr key={transaction.id}>
             <td>{index + 1}</td>
-            {!compact && <td><small className="text-muted">{transaction.matricule || '-'}</small></td>}
+            {!compact && (
+              <td>
+                <small className="text-muted">{transaction.matricule || '-'}</small>
+              </td>
+            )}
             <td>{formatDate(transaction.transaction_date)}</td>
             {!compact && <td>{transaction.voucher_number || '-'}</td>}
             <td>{transaction.category}</td>
@@ -87,7 +83,7 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
                     onClick={() => onEdit(transaction)}
                     className="me-2"
                   >
-                    <EditIcon /> تعديل
+                    <EditIcon />
                   </Button>
                 )}
                 {onDelete && (
@@ -97,15 +93,11 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
                     onClick={() => onDelete(transaction)}
                     className="me-2"
                   >
-                    <TrashIcon /> حذف
+                    <TrashIcon />
                   </Button>
                 )}
                 {onPrint && (
-                  <Button
-                    variant="outline-info"
-                    size="sm"
-                    onClick={() => onPrint(transaction)}
-                  >
+                  <Button variant="outline-info" size="sm" onClick={() => onPrint(transaction)}>
                     🖨️ طباعة
                   </Button>
                 )}

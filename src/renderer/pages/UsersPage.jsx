@@ -7,6 +7,8 @@ import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
+import EditIcon from '@renderer/components/icons/EditIcon';
 
 function UsersPage() {
   const { hasPermission } = usePermissions();
@@ -148,7 +150,7 @@ function UsersPage() {
                         size="sm"
                         onClick={() => handleEditUser(user)}
                       >
-                        <i className="fas fa-edit"></i> تعديل
+                        <EditIcon />
                       </Button>
                     )}
                     {hasPermission(PERMISSIONS.USERS_DELETE) && (
@@ -157,7 +159,7 @@ function UsersPage() {
                         size="sm"
                         onClick={() => handleDeleteRequest(user)}
                       >
-                        <i className="fas fa-trash"></i> حذف
+                        <TrashIcon />
                       </Button>
                     )}
                   </td>

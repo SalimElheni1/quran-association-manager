@@ -307,7 +307,7 @@ function StudentsPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(student)}
                     >
-                      <EyeIcon /> عرض التفاصيل
+                      <EyeIcon />
                     </Button>
                     {hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
                       <Button
@@ -315,7 +315,7 @@ function StudentsPage() {
                         size="sm"
                         onClick={() => handleShowEditModal(student)}
                       >
-                        <EditIcon /> تعديل
+                        <EditIcon />
                       </Button>
                     )}
                     {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
@@ -324,7 +324,7 @@ function StudentsPage() {
                         size="sm"
                         onClick={() => handleDeleteRequest(student)}
                       >
-                        <TrashIcon /> حذف
+                        <TrashIcon />
                       </Button>
                     )}
                   </td>
