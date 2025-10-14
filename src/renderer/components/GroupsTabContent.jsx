@@ -65,7 +65,9 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
       </div>
 
       {loading ? (
-        <div className="text-center"><Spinner animation="border" /></div>
+        <div className="text-center">
+          <Spinner animation="border" />
+        </div>
       ) : (
         <Table striped bordered hover responsive className="groups-table">
           <thead>
@@ -82,16 +84,23 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
                 <tr key={group.id}>
                   <td>{index + 1}</td>
                   <td>{group.name}</td>
-                  <td>{{'Kids': 'أطفال', 'Women': 'نساء', 'Men': 'رجال'}[group.category] || group.category}</td>
+                  <td>
+                    {{ Kids: 'أطفال', Women: 'نساء', Men: 'رجال' }[group.category] ||
+                      group.category}
+                  </td>
                   <td className="table-actions d-flex gap-2">
-                    <Button variant="outline-primary" size="sm" onClick={() => handleShowAssignmentModal(group)}>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => handleShowAssignmentModal(group)}
+                    >
                       <UsersIcon /> إدارة الطلاب
                     </Button>
                     <Button variant="outline-success" size="sm" onClick={() => onEditGroup(group)}>
-                      <EditIcon /> تعديل
+                      <EditIcon />
                     </Button>
                     <Button variant="outline-danger" size="sm" onClick={() => onDeleteGroup(group)}>
-                      <TrashIcon /> حذف
+                      <TrashIcon />
                     </Button>
                   </td>
                 </tr>
@@ -99,7 +108,9 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
             ) : (
               <tr>
                 <td colSpan="4" className="text-center">
-                  {searchTerm ? 'لا توجد نتائج تطابق معايير البحث.' : 'لا يوجد مجموعات معرفة حالياً.'}
+                  {searchTerm
+                    ? 'لا توجد نتائج تطابق معايير البحث.'
+                    : 'لا يوجد مجموعات معرفة حالياً.'}
                 </td>
               </tr>
             )}

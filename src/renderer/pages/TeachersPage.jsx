@@ -190,21 +190,21 @@ function TeachersPage() {
                       size="sm"
                       onClick={() => handleShowDetailsModal(teacher)}
                     >
-                      <EyeIcon /> عرض التفاصيل
+                      <EyeIcon />
                     </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
                       onClick={() => handleShowEditModal(teacher)}
                     >
-                      <EditIcon /> تعديل
+                      <EditIcon />
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDeleteRequest(teacher)}
                     >
-                      <TrashIcon /> حذف
+                      <TrashIcon />
                     </Button>
                   </td>
                 </tr>

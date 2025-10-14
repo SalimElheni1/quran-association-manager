@@ -230,28 +230,28 @@ function ClassesPage() {
                       size="sm"
                       onClick={() => handleShowEnrollmentModal(cls)}
                     >
-                      <UserPlusIcon /> الطلاب المسجلون
+                      <UserPlusIcon />
                     </Button>
                     <Button
                       variant="outline-info"
                       size="sm"
                       onClick={() => handleShowDetailsModal(cls)}
                     >
-                      <EyeIcon /> عرض التفاصيل
+                      <EyeIcon />
                     </Button>
                     <Button
                       variant="outline-success"
                       size="sm"
                       onClick={() => handleShowEditModal(cls)}
                     >
-                      <EditIcon /> تعديل
+                      <EditIcon />
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDeleteRequest(cls)}
                     >
-                      <TrashIcon /> حذف
+                      <TrashIcon />
                     </Button>
                   </td>
                 </tr>
