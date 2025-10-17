@@ -62,7 +62,7 @@ function TransactionTable({
           <th>التاريخ</th>
           {!compact && <th>رقم الوصل</th>}
           <th>الفئة</th>
-          {!compact && <th>الوصف</th>}
+          {!compact && <th>نوع المدخول</th>}
           <th>المبلغ</th>
           {!compact && <th>طريقة الدفع</th>}
           {!compact && <th>إجراءات</th>}
@@ -80,7 +80,7 @@ function TransactionTable({
             <td>{formatDate(transaction.transaction_date)}</td>
             {!compact && <td>{transaction.voucher_number || '-'}</td>}
             <td>{transaction.category}</td>
-            {!compact && <td>{transaction.description}</td>}
+            {!compact && <td>{transaction.receipt_type || '-'}</td>}
             <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
               {formatCurrency(transaction.amount)}
             </td>
