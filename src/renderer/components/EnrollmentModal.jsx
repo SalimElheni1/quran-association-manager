@@ -13,6 +13,10 @@ function EnrollmentModal({ show, handleClose, classData }) {
   const [eligibleGroups, setEligibleGroups] = useState([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState(new Set());
 
+  // Multi-selection states for students
+  const [selectedEnrolledIds, setSelectedEnrolledIds] = useState(new Set());
+  const [selectedNotEnrolledIds, setSelectedNotEnrolledIds] = useState(new Set());
+
   useEffect(() => {
     const fetchEnrollmentData = async () => {
       if (!classData) {
@@ -77,6 +81,55 @@ function EnrollmentModal({ show, handleClose, classData }) {
     setSelectedGroupIds(newSelection);
   };
 
+  // Multi-selection handlers for student batch operations
+  const handleEnrolledStudentSelection = (studentId) => {
+    const newSelection = new Set(selectedEnrolledIds);
+    if (newSelection.has(studentId)) {
+      newSelection.delete(studentId);
+    } else {
+      newSelection.add(studentId);
+    }
+    setSelectedEnrolledIds(newSelection);
+  };
+
+  const handleNotEnrolledStudentSelection = (studentId) => {
+    const newSelection = new Set(selectedNotEnrolledIds);
+    if (newSelection.has(studentId)) {
+      newSelection.delete(studentId);
+    } else {
+      newSelection.add(studentId);
+    }
+    setSelectedNotEnrolledIds(newSelection);
+  };
+
+  const handleBatchEnrollStudents = () => {
+    if (selectedNotEnrolledIds.size === 0) return;
+
+    const studentsToEnroll = notEnrolled.filter((s) => selectedNotEnrolledIds.has(s.id));
+    const enrolledIds = new Set(enrolled.map((s) => s.id));
+    const newStudents = studentsToEnroll.filter((s) => !enrolledIds.has(s.id));
+
+    setEnrolled((prev) => [...prev, ...newStudents].sort((a, b) => a.name.localeCompare(b.name)));
+    setNotEnrolled((prev) => prev.filter((s) => !selectedNotEnrolledIds.has(s.id)));
+    setSelectedNotEnrolledIds(new Set());
+
+    toast.success(`تم تسجيل ${newStudents.length} طالب بنجاح.`);
+  };
+
+  const handleBatchUnenrollStudents = () => {
+    if (selectedEnrolledIds.size === 0) return;
+
+    const studentsToUnenroll = enrolled.filter((s) => selectedEnrolledIds.has(s.id));
+
+    setNotEnrolled((prev) =>
+      [...prev, ...studentsToUnenroll].sort((a, b) => a.name.localeCompare(b.name)),
+    );
+    setEnrolled((prev) => prev.filter((s) => !selectedEnrolledIds.has(s.id)));
+    setSelectedEnrolledIds(new Set());
+
+    toast.success(`تم إلغاء تسجيل ${studentsToUnenroll.length} طالب بنجاح.`);
+  };
+
   const handleEnrollGroups = async () => {
     if (selectedGroupIds.size === 0) return;
     setLoading(true);
@@ -136,13 +189,31 @@ function EnrollmentModal({ show, handleClose, classData }) {
           <Row>
             <Col md={4}>
               <h5>الطلاب المسجلون ({enrolled.length})</h5>
+              <div className="d-flex gap-1 mb-2">
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  disabled={selectedEnrolledIds.size === 0}
+                  onClick={handleBatchUnenrollStudents}
+                >
+                  إلغاء التسجيل ({selectedEnrolledIds.size})
+                </Button>
+              </div>
               <ListGroup className="enrollment-list">
                 {enrolled.map((student) => (
                   <ListGroup.Item
                     key={student.id}
                     className="d-flex justify-content-between align-items-center"
                   >
-                    {student.name}
+                    <div className="d-flex align-items-center">
+                      <Form.Check
+                        type="checkbox"
+                        checked={selectedEnrolledIds.has(student.id)}
+                        onChange={() => handleEnrolledStudentSelection(student.id)}
+                        className="me-2"
+                      />
+                      {student.name}
+                    </div>
                     <Button
                       variant="link"
                       size="sm"
@@ -157,12 +228,31 @@ function EnrollmentModal({ show, handleClose, classData }) {
             </Col>
             <Col md={4}>
               <h5>الطلاب المتاحون ({notEnrolled.length})</h5>
+              <div className="d-flex gap-1 mb-2">
+                <Button
+                  variant="outline-success"
+                  size="sm"
+                  disabled={selectedNotEnrolledIds.size === 0}
+                  onClick={handleBatchEnrollStudents}
+                >
+                  تسجيل ({selectedNotEnrolledIds.size})
+                </Button>
+              </div>
               <ListGroup className="enrollment-list">
                 {notEnrolled.map((student) => (
                   <ListGroup.Item
                     key={student.id}
                     className="d-flex justify-content-between align-items-center"
                   >
+                    <div className="d-flex align-items-center">
+                      <Form.Check
+                        type="checkbox"
+                        checked={selectedNotEnrolledIds.has(student.id)}
+                        onChange={() => handleNotEnrolledStudentSelection(student.id)}
+                        className="me-2"
+                      />
+                      {student.name}
+                    </div>
                     <Button
                       variant="link"
                       size="sm"
@@ -171,7 +261,6 @@ function EnrollmentModal({ show, handleClose, classData }) {
                     >
                       <PlusCircleIcon />
                     </Button>
-                    {student.name}
                   </ListGroup.Item>
                 ))}
               </ListGroup>
@@ -185,7 +274,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
                       <Form.Check
                         type="checkbox"
                         id={`group-${group.id}`}
-                        label={`${group.name} (${group.category === 'Kids' ? 'أطفال' : group.category === 'Women' ? 'نساء' : group.category === 'Men' ? 'رجال' : group.category})`}
+                        label={`${group.name} (${group.studentCount || 0} طالب)`}
                         checked={selectedGroupIds.has(group.id)}
                         onChange={() => handleGroupSelectionChange(group.id)}
                       />

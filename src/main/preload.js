@@ -141,6 +141,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   deleteStudent: (id) => ipcRenderer.invoke('students:delete', id),
 
+  /**
+   * Retrieves all surahs in the Quran.
+   * @returns {Promise<Array>} Array of surah objects
+   */
+  getSurahs: () => ipcRenderer.invoke('surahs:get'),
+
+  /**
+   * Retrieves all hizbs in the Quran.
+   * @returns {Promise<Array>} Array of hizb objects
+   */
+  getHizbs: () => ipcRenderer.invoke('hizbs:get'),
+
   // Teachers API
   getTeachers: (filters) => ipcRenderer.invoke('teachers:get', filters),
   getTeacherById: (id) => ipcRenderer.invoke('teachers:getById', id),
@@ -173,6 +185,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateGroupStudents: (data) => ipcRenderer.invoke('groups:updateGroupStudents', data),
   getEligibleGroupsForClass: (classId) =>
     ipcRenderer.invoke('groups:getEligibleGroupsForClass', classId),
+  getEligibleStudentsForGroup: (groupCategory) =>
+    ipcRenderer.invoke('groups:getEligibleStudentsForGroup', groupCategory),
 
   // Settings API
   getSettings: () => ipcRenderer.invoke('settings:get'),

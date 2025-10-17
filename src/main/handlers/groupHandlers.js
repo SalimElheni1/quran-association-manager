@@ -1,21 +1,51 @@
 const { ipcMain } = require('electron');
 const { runQuery, getQuery, allQuery } = require('../../db/db');
 
+/**
+ * Calculates age from date of birth.
+ * Uses the same logic as the frontend calculateAge function.
+ *
+ * @param {string} birthDateString - Date of birth in YYYY-MM-DD format
+ * @returns {number|null} Age in years or null if invalid date
+ */
+function calculateAge(birthDateString) {
+  if (!birthDateString) return null;
+
+  const birthDate = new Date(birthDateString);
+  if (isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  // Adjust age if birthday hasn't occurred this year yet
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age--;
+  }
+
+  return age;
+}
+
 function registerGroupHandlers() {
   // Groups Management
   ipcMain.handle('groups:get', async (event, filters = {}) => {
     try {
-      let query = 'SELECT * FROM groups';
+      let query = `
+        SELECT g.*,
+               (SELECT COUNT(*) FROM student_groups sg WHERE sg.group_id = g.id) AS studentCount
+        FROM groups g
+      `;
       const params = [];
       const conditions = [];
 
       if (filters.name) {
-        conditions.push('name LIKE ?');
+        conditions.push('g.name LIKE ?');
         params.push(`%${filters.name}%`);
       }
 
       if (filters.category) {
-        conditions.push('category = ?');
+        conditions.push('g.category = ?');
         params.push(filters.category);
       }
 
@@ -23,7 +53,7 @@ function registerGroupHandlers() {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      query += ' ORDER BY name ASC';
+      query += ' ORDER BY g.name ASC';
 
       const groups = await allQuery(query, params);
       return { success: true, data: groups };
@@ -35,12 +65,21 @@ function registerGroupHandlers() {
 
   ipcMain.handle('groups:add', async (event, groupData) => {
     try {
-      const { name, description, category } = groupData;
+      const { name, description, category, studentIds } = groupData;
       const query = `
         INSERT INTO groups (name, description, category)
         VALUES (?, ?, ?)
       `;
       const result = await runQuery(query, [name, description, category]);
+
+      // If students were selected, assign them to the new group
+      if (studentIds && studentIds.length > 0) {
+        const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+        for (const studentId of studentIds) {
+          await runQuery(insertGroupSql, [studentId, result.id]);
+        }
+      }
+
       return { success: true, data: { id: result.id, ...groupData } };
     } catch (error) {
       console.error('Error adding group:', error);
@@ -53,13 +92,28 @@ function registerGroupHandlers() {
 
   ipcMain.handle('groups:update', async (event, id, groupData) => {
     try {
-      const { name, description, category } = groupData;
+      const { name, description, category, studentIds } = groupData;
       const query = `
         UPDATE groups
         SET name = ?, description = ?, category = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `;
       await runQuery(query, [name, description, category, id]);
+
+      // Update student assignments if provided
+      if (studentIds !== undefined) {
+        // Remove all existing assignments
+        await runQuery('DELETE FROM student_groups WHERE group_id = ?', [id]);
+
+        // Add new assignments
+        if (studentIds && studentIds.length > 0) {
+          const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+          for (const studentId of studentIds) {
+            await runQuery(insertGroupSql, [studentId, id]);
+          }
+        }
+      }
+
       return { success: true };
     } catch (error) {
       console.error(`Error updating group ${id}:`, error);
@@ -148,38 +202,41 @@ function registerGroupHandlers() {
         return { success: false, message: 'Group not found.' };
       }
 
+      // Get all active students first
       let sql = `
-        SELECT s.id, s.name, s.matricule,
+        SELECT s.id, s.name, s.matricule, s.date_of_birth, s.gender,
                CASE WHEN sg.student_id IS NOT NULL THEN 1 ELSE 0 END as isMember
         FROM students s
         LEFT JOIN student_groups sg ON s.id = sg.student_id AND sg.group_id = ?
-        WHERE s.status = 'active'
+        WHERE s.status = 'active' AND s.date_of_birth IS NOT NULL
       `;
-      const params = [groupId];
+      let params = [groupId];
 
+      let students = await allQuery(sql, params);
+
+      // Filter students by age and gender on the JavaScript side for accuracy
       const ageThresholdSetting = await getQuery(
         "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
       );
       const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
-      const thresholdDate = new Date();
-      thresholdDate.setFullYear(thresholdDate.getFullYear() - adultAgeThreshold);
-      const adultOrKidBirthDate = thresholdDate.toISOString().split('T')[0];
+      students = students.filter(student => {
+        const age = calculateAge(student.date_of_birth);
 
-      if (group.category === 'Men') {
-        sql += ' AND s.gender = ? AND s.date_of_birth <= ?';
-        params.push('Male', adultOrKidBirthDate);
-      } else if (group.category === 'Women') {
-        sql += ' AND s.gender = ? AND s.date_of_birth <= ?';
-        params.push('Female', adultOrKidBirthDate);
-      } else if (group.category === 'Kids') {
-        sql += ' AND s.date_of_birth > ?';
-        params.push(adultOrKidBirthDate);
-      }
+        if (group.category === 'Men') {
+          return student.gender === 'Male' && age >= adultAgeThreshold;
+        } else if (group.category === 'Women') {
+          return student.gender === 'Female' && age >= adultAgeThreshold;
+        } else if (group.category === 'Kids') {
+          return age < adultAgeThreshold;
+        }
 
-      sql += ' ORDER BY s.name ASC';
+        return false; // Unknown category
+      });
 
-      const students = await allQuery(sql, params);
+      // Sort by name
+      students.sort((a, b) => a.name.localeCompare(b.name));
+
       return { success: true, data: students };
     } catch (error) {
       console.error(`Error fetching assignment data for group ${groupId}:`, error);
@@ -226,18 +283,22 @@ function registerGroupHandlers() {
       // class.gender can be 'men', 'women', 'kids', 'all'
       // group.category can be 'Men', 'Women', 'Kids'
       if (classData.gender === 'men') {
-        categoryCondition = 'WHERE category = ?';
+        categoryCondition = 'WHERE g.category = ?';
         params.push('Men');
       } else if (classData.gender === 'women') {
-        categoryCondition = 'WHERE category = ?';
+        categoryCondition = 'WHERE g.category = ?';
         params.push('Women');
       } else if (classData.gender === 'kids') {
-        categoryCondition = 'WHERE category = ?';
+        categoryCondition = 'WHERE g.category = ?';
         params.push('Kids');
       }
       // If classData.gender is 'all', no condition is added, so all groups are fetched.
 
-      const query = `SELECT * FROM groups ${categoryCondition} ORDER BY name ASC`;
+      const query = `
+        SELECT g.*,
+               (SELECT COUNT(*) FROM student_groups sg WHERE sg.group_id = g.id) AS studentCount
+        FROM groups g ${categoryCondition} ORDER BY g.name ASC
+      `;
       const groups = await allQuery(query, params);
 
       return { success: true, data: groups };
@@ -247,5 +308,46 @@ function registerGroupHandlers() {
     }
   });
 }
+
+  ipcMain.handle('groups:getEligibleStudentsForGroup', async (event, groupCategory) => {
+    try {
+      // Get all active students first
+      let sql = `
+        SELECT s.id, s.name, s.matricule, s.date_of_birth, s.gender
+        FROM students s
+        WHERE s.status = 'active' AND s.date_of_birth IS NOT NULL
+      `;
+
+      let students = await allQuery(sql);
+
+      // Filter students by age and gender on the JavaScript side for accuracy
+      const ageThresholdSetting = await getQuery(
+        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
+      );
+      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
+
+      students = students.filter(student => {
+        const age = calculateAge(student.date_of_birth);
+
+        if (groupCategory === 'Men') {
+          return student.gender === 'Male' && age >= adultAgeThreshold;
+        } else if (groupCategory === 'Women') {
+          return student.gender === 'Female' && age >= adultAgeThreshold;
+        } else if (groupCategory === 'Kids') {
+          return age < adultAgeThreshold;
+        }
+
+        return false; // Unknown category
+      });
+
+      // Sort by name
+      students.sort((a, b) => a.name.localeCompare(b.name));
+
+      return { success: true, data: students };
+    } catch (error) {
+      console.error(`Error fetching students for group category ${groupCategory}:`, error);
+      return { success: false, message: 'Failed to fetch students for group.' };
+    }
+  });
 
 module.exports = { registerGroupHandlers };

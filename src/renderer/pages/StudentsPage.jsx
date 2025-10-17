@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import StudentFormModal from '@renderer/components/StudentFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
+import SelectionModal from '@renderer/components/SelectionModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 // Placeholder for the new component
 import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
@@ -30,10 +32,73 @@ function StudentsPage() {
   const [genderFilter, setGenderFilter] = useState('all');
   const [minAgeFilter, setMinAgeFilter] = useState('');
   const [maxAgeFilter, setMaxAgeFilter] = useState('');
+  const [surahFilter, setSurahFilter] = useState([]);
+  const [hizbFilter, setHizbFilter] = useState([]);
+  const [allSurahs, setAllSurahs] = useState([]);
+  const [allHizbs, setAllHizbs] = useState([]);
+  const [pendingSurahFilter, setPendingSurahFilter] = useState([]);
+  const [pendingHizbFilter, setPendingHizbFilter] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [studentToView, setStudentToView] = useState(null);
+
+  // Filter modal states
+  const [showSurahFilterModal, setShowSurahFilterModal] = useState(false);
+  const [showHizbFilterModal, setShowHizbFilterModal] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter, surahFilter, hizbFilter]);
+
+  // Initialize pending filters with current active filters when modal opens
+  useEffect(() => {
+    if (showSurahFilterModal) {
+      setPendingSurahFilter([...surahFilter]);
+    }
+  }, [showSurahFilterModal, surahFilter]);
+
+  useEffect(() => {
+    if (showHizbFilterModal) {
+      setPendingHizbFilter([...hizbFilter]);
+    }
+  }, [showHizbFilterModal, hizbFilter]);
+
+  // Filter modal handlers
+  const handleSurahFilterChange = (selectedSurahs) => {
+    setPendingSurahFilter(selectedSurahs);
+  };
+
+  const handleHizbFilterChange = (selectedHizbs) => {
+    setPendingHizbFilter(selectedHizbs);
+  };
+
+  const handleSurahFilterSave = () => {
+    setSurahFilter(pendingSurahFilter);
+    setShowSurahFilterModal(false);
+  };
+
+  const handleHizbFilterSave = () => {
+    setHizbFilter(pendingHizbFilter);
+    setShowHizbFilterModal(false);
+  };
+
+  const handleSurahFilterCancel = () => {
+    setPendingSurahFilter(surahFilter);
+    setShowSurahFilterModal(false);
+  };
+
+  const handleHizbFilterCancel = () => {
+    setPendingHizbFilter(hizbFilter);
+    setShowHizbFilterModal(false);
+  };
 
   // State for Group Modals
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -45,22 +110,62 @@ function StudentsPage() {
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const filters = { searchTerm, genderFilter, minAgeFilter, maxAgeFilter };
-      const fetchedStudents = await window.electronAPI.getStudents(filters);
-      setStudents(fetchedStudents);
+      const filters = {
+        searchTerm,
+        genderFilter,
+        minAgeFilter,
+        maxAgeFilter,
+        surahIds: Array.isArray(surahFilter) ? surahFilter : surahFilter ? [surahFilter] : [],
+        hizbIds: Array.isArray(hizbFilter) ? hizbFilter : hizbFilter ? [hizbFilter] : [],
+        page: currentPage,
+        limit: pageSize,
+      };
+      const result = await window.electronAPI.getStudents(filters);
+      if (result && result.students) {
+        setStudents(result.students);
+        setTotalStudents(result.total);
+        setTotalPages(result.totalPages);
+      } else {
+        // Fallback for old API response format
+        setStudents(result);
+        setTotalStudents(result.length);
+        setTotalPages(1);
+      }
     } catch (err) {
       logError('Error fetching students:', err);
       toast.error('فشل تحميل بيانات الطلاب. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter]);
+  }, [
+    searchTerm,
+    genderFilter,
+    minAgeFilter,
+    maxAgeFilter,
+    surahFilter,
+    hizbFilter,
+    currentPage,
+    pageSize,
+  ]);
 
   useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        const surahsData = await window.electronAPI.getSurahs();
+        setAllSurahs(surahsData);
+
+        const hizbsData = await window.electronAPI.getHizbs();
+        setAllHizbs(hizbsData);
+      } catch (err) {
+        console.error('Error loading filter data:', err);
+        toast.error('فشل تحميل بيانات التصفية.');
+      }
+    };
+
     if (activeTab === 'students') {
       fetchStudents();
+      fetchFilterData();
     }
-    // Add logic for fetching groups when that tab is active
   }, [activeTab, fetchStudents]);
 
   const handleShowAddModal = () => {
@@ -272,6 +377,44 @@ function StudentsPage() {
             onChange={(e) => setMaxAgeFilter(e.target.value)}
             className="age-filter-input"
           />
+          <div style={{ marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <Form.Label style={{ fontSize: '14px', fontWeight: 'bold', margin: '0' }}>
+              تصفية حسب السور
+            </Form.Label>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => setShowSurahFilterModal(true)}
+              style={{
+                fontSize: '12px',
+                padding: '5px 10px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {surahFilter.length > 0 ? `${surahFilter.length} سورة محددة` : 'اختر السور...'}
+            </Button>
+          </div>
+          <div style={{ marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <Form.Label style={{ fontSize: '14px', fontWeight: 'bold', margin: '0' }}>
+              تصفية حسب الحزب
+            </Form.Label>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => setShowHizbFilterModal(true)}
+              style={{
+                fontSize: '12px',
+                padding: '5px 10px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {hizbFilter.length > 0 ? `${hizbFilter.length} حزب محدد` : 'اختر الأحزاب...'}
+            </Button>
+          </div>
         </div>
       </div>
       {loading ? (
@@ -279,68 +422,82 @@ function StudentsPage() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table striped bordered hover responsive className="students-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الرقم التعريفي</th>
-              <th>الاسم واللقب</th>
-              <th>العمر</th>
-              <th>تاريخ التسجيل</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.length > 0 ? (
-              students.map((student, index) => (
-                <tr key={student.id}>
-                  <td>{index + 1}</td>
-                  <td>{student.matricule}</td>
-                  <td>{student.name}</td>
-                  <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
-                  <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
-                  <td>{renderStatusBadge(student.status)}</td>
-                  <td className="table-actions d-flex gap-2">
-                    <Button
-                      variant="outline-info"
-                      size="sm"
-                      onClick={() => handleShowDetailsModal(student)}
-                    >
-                      <EyeIcon />
-                    </Button>
-                    {hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
+        <div>
+          <Table striped bordered hover responsive className="students-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الرقم التعريفي</th>
+                <th>الاسم واللقب</th>
+                <th>العمر</th>
+                <th>تاريخ التسجيل</th>
+                <th>الحالة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.length > 0 ? (
+                students.map((student, index) => (
+                  <tr key={student.id}>
+                    <td>{(currentPage - 1) * pageSize + index + 1}</td>
+                    <td>{student.matricule}</td>
+                    <td>{student.name}</td>
+                    <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
+                    <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
+                    <td>{renderStatusBadge(student.status)}</td>
+                    <td className="table-actions d-flex gap-2">
                       <Button
-                        variant="outline-success"
+                        variant="outline-info"
                         size="sm"
-                        onClick={() => handleShowEditModal(student)}
+                        onClick={() => handleShowDetailsModal(student)}
                       >
-                        <EditIcon />
+                        <EyeIcon />
                       </Button>
-                    )}
-                    {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDeleteRequest(student)}
-                      >
-                        <TrashIcon />
-                      </Button>
-                    )}
+                      {hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
+                        <Button
+                          variant="outline-success"
+                          size="sm"
+                          onClick={() => handleShowEditModal(student)}
+                        >
+                          <EditIcon />
+                        </Button>
+                      )}
+                      {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => handleDeleteRequest(student)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="text-center">
+                    {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
+                      ? 'لا توجد نتائج تطابق معايير البحث.'
+                      : 'لا يوجد طلاب مسجلون حالياً.'}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="text-center">
-                  {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
-                    ? 'لا توجد نتائج تطابق معايير البحث.'
-                    : 'لا يوجد طلاب مسجلون حالياً.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalStudents}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newPageSize, newPage) => {
+              setPageSize(newPageSize);
+              setCurrentPage(newPage);
+            }}
+          />
+        </div>
       )}
     </>
   );
@@ -417,6 +574,30 @@ function StudentsPage() {
         body={`هل أنت متأكد من رغبتك في حذف المجموعة "${groupToDelete?.name}"؟ سيتم أيضًا إزالة جميع الطلاب من هذه المجموعة.`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
+      />
+
+      {/* Filter Modals */}
+      <SelectionModal
+        show={showSurahFilterModal}
+        handleClose={handleSurahFilterCancel}
+        title="اختر السور"
+        items={allSurahs.map((surah) => ({
+          value: surah.id,
+          label: `${surah.id} - ${surah.name_ar}`,
+        }))}
+        selectedItems={pendingSurahFilter}
+        onSelectionChange={handleSurahFilterChange}
+        onSave={handleSurahFilterSave}
+      />
+
+      <SelectionModal
+        show={showHizbFilterModal}
+        handleClose={handleHizbFilterCancel}
+        title="اختر الأحزاب"
+        items={allHizbs.map((hizb) => ({ value: hizb.id, label: `الحزب ${hizb.hizb_number}` }))}
+        selectedItems={pendingHizbFilter}
+        onSelectionChange={handleHizbFilterChange}
+        onSave={handleHizbFilterSave}
       />
     </div>
   );

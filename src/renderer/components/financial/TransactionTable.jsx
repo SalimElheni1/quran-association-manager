@@ -1,9 +1,20 @@
 import React from 'react';
 import { Table, Button, Spinner, Badge } from 'react-bootstrap';
+import TablePagination from '@renderer/components/common/TablePagination';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 
-function TransactionTable({ transactions, loading, compact = false, onEdit, onDelete, onPrint }) {
+function TransactionTable({
+  transactions,
+  loading,
+  compact = false,
+  onEdit,
+  onDelete,
+  onPrint,
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+}) {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('ar-TN', {
       style: 'currency',
@@ -42,7 +53,7 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
     return <div className="text-center p-4 text-muted">لا توجد عمليات مالية</div>;
   }
 
-  return (
+  const tableComponent = (
     <Table striped bordered hover responsive className="transactions-table">
       <thead>
         <tr>
@@ -107,6 +118,28 @@ function TransactionTable({ transactions, loading, compact = false, onEdit, onDe
         ))}
       </tbody>
     </Table>
+  );
+
+  return (
+    <>
+      {tableComponent}
+
+      {/* Show pagination only if pagination data is provided and there are more than 0 total items */}
+      {pagination && pagination.total > 0 && (
+        <TablePagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          pageSize={pagination.limit}
+          onPageChange={onPageChange}
+          onPageSizeChange={(newPageSize, newPage) => {
+            if (onPageSizeChange) {
+              onPageSizeChange(newPageSize, newPage);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 

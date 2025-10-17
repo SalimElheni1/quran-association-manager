@@ -10,14 +10,14 @@ import { useTransactions } from '@renderer/hooks/useTransactions';
 import { error as logError } from '@renderer/utils/logger';
 
 function IncomePage() {
-  const [filters, setFilters] = useState({ type: 'INCOME' });
+  const [filters, setFilters] = useState({ type: 'INCOME', page: 1, limit: 25 });
   const [showModal, setShowModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
-  
-  const { transactions, loading, refresh } = useTransactions(filters);
+
+  const { transactions, pagination, loading, refresh } = useTransactions(filters);
 
   const handleAdd = () => {
     setSelectedTransaction(null);
@@ -54,7 +54,7 @@ function IncomePage() {
 
   const confirmDelete = async () => {
     if (!transactionToDelete) return;
-    
+
     try {
       await window.electronAPI.deleteTransaction(transactionToDelete.id || transactionToDelete);
       toast.success('✅ تم حذف المدخول بنجاح');
@@ -85,18 +85,19 @@ function IncomePage() {
 
       <Card>
         <Card.Body>
-          <TransactionFilters
-            type="INCOME"
-            filters={filters}
-            onChange={setFilters}
-          />
-          
+          <TransactionFilters type="INCOME" filters={filters} onChange={setFilters} />
+
           <TransactionTable
             transactions={transactions}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onPrint={handlePrint}
+            pagination={pagination}
+            onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+            onPageSizeChange={(pageSize, page) =>
+              setFilters((prev) => ({ ...prev, limit: pageSize, page }))
+            }
           />
         </Card.Body>
       </Card>

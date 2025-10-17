@@ -54,7 +54,7 @@ const studentFields = [
   'contact_info', // Phone number or other contact
   'email', // Email address
   'status', // Active/inactive status
-  'memorization_level', // Current Quran memorization level
+  'is_full_memorizer', // Is the student a full Quran memorizer?
   'notes', // Additional notes
   'parent_name', // Parent/guardian name
   'guardian_relation', // Relationship to guardian
@@ -106,22 +106,105 @@ function registerStudentHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(
       async (_event, filters) => {
         try {
-          // Apply fast SQL filters (search and gender)
-          let sql =
-            'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students WHERE 1=1';
-          const params = [];
+          let params = [];
+          let havingClauses = [];
+
+          let sql = `
+        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender
+        FROM students s
+      `;
+
+          if (filters?.surahIds?.length > 0) {
+            sql += `
+          LEFT JOIN student_surahs ss ON s.id = ss.student_id
+        `;
+            const placeholders = filters.surahIds.map(() => '?').join(',');
+            havingClauses.push(`SUM(CASE WHEN ss.surah_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.surahIds.length}`);
+            params.push(...filters.surahIds);
+          }
+
+          if (filters?.hizbIds?.length > 0) {
+            sql += `
+          LEFT JOIN student_hizbs sh ON s.id = sh.student_id
+        `;
+            const placeholders = filters.hizbIds.map(() => '?').join(',');
+            havingClauses.push(`SUM(CASE WHEN sh.hizb_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.hizbIds.length}`);
+            params.push(...filters.hizbIds);
+          }
+
+          sql += ' WHERE 1=1';
 
           if (filters?.searchTerm) {
-            sql += ' AND (name LIKE ? OR matricule LIKE ?)';
+            sql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
             params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
           }
 
           if (filters?.genderFilter && filters.genderFilter !== 'all') {
-            sql += ' AND gender = ?';
+            sql += ' AND s.gender = ?';
             params.push(filters.genderFilter);
           }
 
-          sql += ' ORDER BY name ASC';
+          sql += ' GROUP BY s.id';
+
+          if (havingClauses.length > 0) {
+            sql += ` HAVING ${havingClauses.join(' AND ')}`;
+          }
+
+          sql += ' ORDER BY s.name ASC';
+
+          // First, get the total count without pagination
+          let countSql = `
+            SELECT COUNT(*) as total
+            FROM (
+              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender', 'SELECT COUNT(*) as cnt')}
+            ) as filtered_students
+          `;
+
+          let totalCount = 0;
+          if (havingClauses.length > 0) {
+            // For HAVING clauses, we need a different approach to count
+            const countParams = [...params];
+            let baseSql = `
+              SELECT COUNT(*) as cnt
+              FROM students s
+            `;
+
+            if (filters?.surahIds?.length > 0) {
+              baseSql += `
+                LEFT JOIN student_surahs ss ON s.id = ss.student_id
+              `;
+            }
+
+            if (filters?.hizbIds?.length > 0) {
+              baseSql += `
+                LEFT JOIN student_hizbs sh ON s.id = sh.student_id
+              `;
+            }
+
+            baseSql += ' WHERE 1=1';
+
+            if (filters?.searchTerm) {
+              baseSql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
+              countParams.push(...params.slice(params.length - 2)); // Last 2 params are search terms
+            }
+
+            if (filters?.genderFilter && filters.genderFilter !== 'all') {
+              baseSql += ' AND s.gender = ?';
+              countParams.push(filters.genderFilter);
+            }
+
+            if (havingClauses.length > 0) {
+              baseSql += ` GROUP BY s.id HAVING ${havingClauses.join(' AND ')}`;
+              baseSql = `SELECT COUNT(*) as total FROM (${baseSql}) as filtered`;
+            }
+
+            const countResult = await db.getQuery(baseSql, countParams);
+            totalCount = countResult?.total || countResult?.cnt || 0;
+          } else {
+            const countResult = await db.getQuery(countSql, params);
+            totalCount = countResult?.total || 0;
+          }
+
           let students = await db.allQuery(sql, params);
 
           // Apply age filtering in JavaScript for accuracy
@@ -129,6 +212,7 @@ function registerStudentHandlers() {
             const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
             const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
 
+            const originalCount = students.length;
             students = students.filter((student) => {
               const age = calculateAge(student.date_of_birth);
               if (age === null) return false; // Exclude students without valid birth date
@@ -138,9 +222,26 @@ function registerStudentHandlers() {
 
               return true;
             });
+
+            // Adjust total count if age filtering was applied
+            if (originalCount !== students.length) {
+              totalCount = students.length; // Approximation - perfect count would be complex
+            }
           }
 
-          return students;
+          // Apply pagination
+          const page = parseInt(filters?.page) || 1;
+          const limit = parseInt(filters?.limit) || 25;
+          const offset = (page - 1) * limit;
+          const paginatedStudents = students.slice(offset, offset + limit);
+
+          return {
+            students: paginatedStudents,
+            total: totalCount,
+            page,
+            limit,
+            totalPages: Math.ceil(totalCount / limit),
+          };
         } catch (error) {
           logError('Error in students:get handler:', error);
           throw new Error('فشل في جلب بيانات الطلاب.');
@@ -160,7 +261,27 @@ function registerStudentHandlers() {
    */
   ipcMain.handle('students:getById', async (_event, id) => {
     try {
-      return await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
+      const student = await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
+      if (!student) return null;
+
+      const surahs = await db.allQuery(
+        `SELECT s.id, s.name_ar, s.name_en FROM surahs s
+         JOIN student_surahs ss ON s.id = ss.surah_id
+         WHERE ss.student_id = ?`,
+        [id],
+      );
+
+      const hizbs = await db.allQuery(
+        `SELECT h.id, h.hizb_number FROM hizbs h
+         JOIN student_hizbs sh ON h.id = sh.hizb_id
+         WHERE sh.student_id = ?`,
+        [id],
+      );
+
+      student.surahs = surahs;
+      student.hizbs = hizbs;
+
+      return student;
     } catch (error) {
       logError(`Error fetching student by id ${id}:`, error);
       throw new Error('فشل في جلب بيانات الطالب.');
@@ -185,7 +306,7 @@ function registerStudentHandlers() {
   ipcMain.handle(
     'students:add',
     requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
-      const { groupIds, ...restOfStudentData } = studentData;
+      const { groupIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
@@ -214,6 +335,20 @@ function registerStudentHandlers() {
           }
         }
 
+        if (studentId && surahIds && surahIds.length > 0) {
+          const insertSurahSql = 'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
+          for (const surahId of surahIds) {
+            await db.runQuery(insertSurahSql, [studentId, surahId]);
+          }
+        }
+
+        if (studentId && hizbIds && hizbIds.length > 0) {
+          const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
+          for (const hizbId of hizbIds) {
+            await db.runQuery(insertHizbSql, [studentId, hizbId]);
+          }
+        }
+
         await db.runQuery('COMMIT;');
         return result;
       } catch (error) {
@@ -229,7 +364,7 @@ function registerStudentHandlers() {
   ipcMain.handle(
     'students:update',
     requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
-      const { groupIds, ...restOfStudentData } = studentData;
+      const { groupIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
@@ -250,14 +385,28 @@ function registerStudentHandlers() {
         const result = await db.runQuery(sql, params);
 
         // Update student groups
-        // 1. Delete existing group assignments
         await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
-
-        // 2. Add new group assignments
         if (groupIds && groupIds.length > 0) {
           const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
           for (const groupId of groupIds) {
             await db.runQuery(insertGroupSql, [id, groupId]);
+          }
+        }
+
+        // Update memorization records
+        await db.runQuery('DELETE FROM student_surahs WHERE student_id = ?', [id]);
+        if (surahIds && surahIds.length > 0) {
+          const insertSurahSql = 'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
+          for (const surahId of surahIds) {
+            await db.runQuery(insertSurahSql, [id, surahId]);
+          }
+        }
+
+        await db.runQuery('DELETE FROM student_hizbs WHERE student_id = ?', [id]);
+        if (hizbIds && hizbIds.length > 0) {
+          const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
+          for (const hizbId of hizbIds) {
+            await db.runQuery(insertHizbSql, [id, hizbId]);
           }
         }
 
@@ -287,6 +436,26 @@ function registerStudentHandlers() {
       }
     }),
   );
+
+  ipcMain.handle('surahs:get', async () => {
+    try {
+      const result = await db.allQuery('SELECT id, name_ar, name_en FROM surahs ORDER BY id');
+      return result;
+    } catch (error) {
+      logError('Error fetching surahs:', error);
+      throw new Error('فشل في جلب بيانات السور.');
+    }
+  });
+
+  ipcMain.handle('hizbs:get', async () => {
+    try {
+      const result = await db.allQuery('SELECT id, hizb_number FROM hizbs ORDER BY id');
+      return result;
+    } catch (error) {
+      logError('Error fetching hizbs:', error);
+      throw new Error('فشل في جلب بيانات الأحزاب.');
+    }
+  });
 }
 
 module.exports = { registerStudentHandlers };

@@ -41,6 +41,11 @@ function StudentDetailsModal({ show, handleClose, student }) {
     inactive: 'غير نشط',
   };
 
+  const genderTranslations = {
+    Male: 'ذكر',
+    Female: 'أنثى',
+  };
+
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
@@ -63,7 +68,7 @@ function StudentDetailsModal({ show, handleClose, student }) {
             }
           />
           <DetailItem label="العمر" value={calculateAge(student.date_of_birth)} />
-          <DetailItem label="الجنس" value={student.gender} />
+          <DetailItem label="الجنس" value={genderTranslations[student.gender] || student.gender} />
           <DetailItem label="رقم الهوية" value={student.national_id} />
           <DetailItem label="العنوان" value={student.address} />
           <DetailItem label="رقم الهاتف" value={student.contact_info} />
@@ -106,7 +111,41 @@ function StudentDetailsModal({ show, handleClose, student }) {
             label="تاريخ التسجيل"
             value={new Date(student.enrollment_date).toLocaleDateString('en-GB')}
           />
-          <DetailItem label="مستوى الحفظ" value={student.memorization_level} />
+          <Col md={12}>
+            <div className="detail-item mb-3">
+              <strong className="detail-label">مستوى الحفظ:</strong>
+              {student.surahs && student.surahs.length > 0 && (
+                <div className="mt-2">
+                  <div className="mb-2">
+                    <strong style={{ fontSize: '14px', color: '#495057' }}>السور المحفوظة: </strong>
+                    <span className="detail-value">
+                      {(student.surahs || [])
+                        .filter((s) => s.name_ar)
+                        .map((s) => `سورة ${s.name_ar}`)
+                        .join('، ') || 'لا توجد سور محفوظة'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {student.hizbs && student.hizbs.length > 0 && (
+                <div className="mb-2">
+                  <strong style={{ fontSize: '14px', color: '#495057' }}>الأحزاب المحفوظة: </strong>
+                  <span className="detail-value">
+                    {(student.hizbs || [])
+                      .filter((h) => h.hizb_number)
+                      .map((h) => `حزب ${h.hizb_number}`)
+                      .join('، ') || 'لا توجد أحزاب محفوظة'}
+                  </span>
+                </div>
+              )}
+              {!student.surahs && !student.hizbs && student.memorization_level && (
+                <span className="detail-value">{student.memorization_level}</span>
+              )}
+              {!student.surahs && !student.hizbs && !student.memorization_level && (
+                <span className="detail-value">لا يوجد</span>
+              )}
+            </div>
+          </Col>
           <DetailItem label="ملاحظات" value={student.notes} />
           <DetailItem label="ملاحظات مالية" value={student.financial_assistance_notes} />
         </Row>

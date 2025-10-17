@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Badge } from 'react-bootstrap';
+import { Table, Button, Spinner, Badge, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '@renderer/components/UserFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import { error as logError } from '@renderer/utils/logger';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
+import SearchIcon from '@renderer/components/icons/SearchIcon';
 
 function UsersPage() {
   const { hasPermission } = usePermissions();
@@ -19,18 +21,48 @@ function UsersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Pagination states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, roleFilter]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const fetchedUsers = await window.electronAPI.getUsers();
-      setUsers(fetchedUsers);
+      const filters = {
+        searchTerm,
+        statusFilter,
+        roleFilter,
+        page: currentPage,
+        limit: pageSize,
+      };
+      const result = await window.electronAPI.getUsers(filters);
+      if (result && result.users) {
+        setUsers(result.users);
+        setTotalUsers(result.total);
+        setTotalPages(result.totalPages);
+      } else {
+        // Fallback for old API response format
+        setUsers(result);
+        setTotalUsers(result.length);
+        setTotalPages(1);
+      }
     } catch (err) {
       logError('Error fetching users:', err);
       toast.error('فشل في تحميل بيانات المستخدمين.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm, statusFilter, roleFilter, currentPage, pageSize]);
 
   useEffect(() => {
     fetchUsers();
@@ -102,78 +134,131 @@ function UsersPage() {
         )}
       </div>
 
+      {/* Filters */}
+      <div className="filter-bar">
+        <InputGroup className="search-input-group">
+          <InputGroup.Text>
+            <SearchIcon />
+          </InputGroup.Text>
+          <Form.Control
+            type="search"
+            placeholder="البحث بالاسم أو الرقم التعريفي..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </InputGroup>
+        <div className="filter-controls">
+          <Form.Select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">الحالة (الكل)</option>
+            <option value="active">نشط</option>
+            <option value="inactive">غير نشط</option>
+          </Form.Select>
+          <Form.Select
+            aria-label="Filter by role"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">الدور (الكل)</option>
+            <option value="Superadmin">مدير النظام</option>
+            <option value="Administrator">الهيئة المديرة</option>
+            <option value="FinanceManager">الهيئة المديرة - المالية</option>
+            <option value="SessionSupervisor">مشرف حصص</option>
+          </Form.Select>
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الرقم التعريفي</th>
-              <th>الاسم الكامل</th>
-              <th>اسم المستخدم</th>
-              <th>الدور</th>
-              <th>الحالة</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.length > 0 ? (
-              users.map((user, index) => (
-                <tr key={user.id}>
-                  <td>{index + 1}</td>
-                  <td>{user.matricule}</td>
-                  <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
-                  <td>{user.username}</td>
-                  <td>
-                    {user.roles && user.roles.length > 0 ? (
-                      user.roles.map((role, idx) => (
-                        <Badge key={idx} bg="info" className="me-1">
-                          {roleTranslations[role] || role}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-muted">لا يوجد دور</span>
-                    )}
-                  </td>
-                  <td>
-                    <Badge bg={statusVariants[user.status]}>
-                      {statusTranslations[user.status]}
-                    </Badge>
-                  </td>
-                  <td className="table-actions d-flex gap-2">
-                    {hasPermission(PERMISSIONS.USERS_EDIT) && (
-                      <Button
-                        variant="outline-success"
-                        size="sm"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <EditIcon />
-                      </Button>
-                    )}
-                    {hasPermission(PERMISSIONS.USERS_DELETE) && (
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDeleteRequest(user)}
-                      >
-                        <TrashIcon />
-                      </Button>
-                    )}
+        <div>
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الرقم التعريفي</th>
+                <th>الاسم الكامل</th>
+                <th>اسم المستخدم</th>
+                <th>الدور</th>
+                <th>الحالة</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length > 0 ? (
+                users.map((user, index) => (
+                  <tr key={user.id}>
+                    <td>{(currentPage - 1) * pageSize + index + 1}</td>
+                    <td>{user.matricule}</td>
+                    <td>{`${user.first_name || ''} ${user.last_name || ''}`}</td>
+                    <td>{user.username}</td>
+                    <td>
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map((role, idx) => (
+                          <Badge key={idx} bg="info" className="me-1">
+                            {roleTranslations[role] || role}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted">لا يوجد دور</span>
+                      )}
+                    </td>
+                    <td>
+                      <Badge bg={statusVariants[user.status]}>
+                        {statusTranslations[user.status]}
+                      </Badge>
+                    </td>
+                    <td className="table-actions d-flex gap-2">
+                      {hasPermission(PERMISSIONS.USERS_EDIT) && (
+                        <Button
+                          variant="outline-success"
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                        >
+                          <EditIcon />
+                        </Button>
+                      )}
+                      {hasPermission(PERMISSIONS.USERS_DELETE) && (
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => handleDeleteRequest(user)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="text-center">
+                    لم يتم العثور على مستخدمين.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="text-center">
-                  لم يتم العثور على مستخدمين.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalUsers}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newPageSize, newPage) => {
+              setPageSize(newPageSize);
+              setCurrentPage(newPage);
+            }}
+          />
+        </div>
       )}
       <UserFormModal
         show={showUserModal}

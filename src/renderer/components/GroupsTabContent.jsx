@@ -8,7 +8,7 @@ import UsersIcon from './icons/UsersIcon';
 import EditIcon from './icons/EditIcon';
 import TrashIcon from './icons/TrashIcon';
 
-function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
+function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDependency }) {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +75,7 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
               <th>#</th>
               <th>اسم المجموعة</th>
               <th>الفئة</th>
+              <th>عدد الطلاب</th>
               <th>الإجراءات</th>
             </tr>
           </thead>
@@ -87,6 +88,11 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
                   <td>
                     {{ Kids: 'أطفال', Women: 'نساء', Men: 'رجال' }[group.category] ||
                       group.category}
+                  </td>
+                  <td>
+                    <span className="badge bg-info text-dark badge-pill">
+                      {group.studentCount || 0} طالب
+                    </span>
                   </td>
                   <td className="table-actions d-flex gap-2">
                     <Button
@@ -107,7 +113,7 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="text-center">
+                <td colSpan="5" className="text-center">
                   {searchTerm
                     ? 'لا توجد نتائج تطابق معايير البحث.'
                     : 'لا يوجد مجموعات معرفة حالياً.'}

@@ -18,9 +18,55 @@ function createHandler(handler) {
 }
 
 // --- Inventory Handlers ---
-async function handleGetInventoryItems() {
-  const query = 'SELECT * FROM inventory_items ORDER BY item_name ASC';
-  return allQuery(query);
+async function handleGetInventoryItems(event, filters = {}) {
+  const { search, category, page, limit } = filters;
+
+  let sql = 'SELECT * FROM inventory_items WHERE 1=1';
+  const params = [];
+
+  if (search) {
+    sql += ' AND (item_name LIKE ? OR category LIKE ? OR location LIKE ? OR matricule LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  if (category && category !== 'الكل') {
+    sql += ' AND category = ?';
+    params.push(category);
+  }
+
+  // Check if pagination is requested
+  const hasPagination = page !== undefined && limit !== undefined;
+
+  if (hasPagination) {
+    // Get total count for pagination
+    const countSql = `SELECT COUNT(*) as total FROM (${sql}) as filtered_inventory`;
+    const countResult = await getQuery(countSql, params);
+    const totalCount = countResult?.total || 0;
+
+    sql += ' ORDER BY item_name ASC';
+
+    // Apply pagination
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 25;
+    const offset = (pageNum - 1) * limitNum;
+
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limitNum, offset);
+
+    const items = await allQuery(sql, params);
+
+    return {
+      items,
+      total: totalCount,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalCount / limitNum),
+    };
+  } else {
+    // Return direct array for backwards compatibility
+    sql += ' ORDER BY item_name ASC';
+    return allQuery(sql, params);
+  }
 }
 
 async function handleCheckItemUniqueness(event, { itemName, currentId }) {
