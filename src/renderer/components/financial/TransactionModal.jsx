@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { useCategories } from '@renderer/hooks/useCategories';
+import { useStudents } from '@renderer/hooks/useStudents';
+import { useClasses } from '@renderer/hooks/useClasses';
+import SearchableStudentSelect from '@renderer/components/SearchableStudentSelect';
 
 function TransactionModal({ show, onHide, onSave, transaction, type }) {
   const [formData, setFormData] = useState({});
   const [amountWarning, setAmountWarning] = useState('');
   const [inKindCategories, setInKindCategories] = useState([]);
+  const [selectedStudentDetails, setSelectedStudentDetails] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
   const isEditMode = !!transaction;
 
   const { categories } = useCategories(type);
+  const { students, searchStudents } = useStudents(); // Use searchable students hook
+  const { classes } = useClasses({}); // For monthly fees
 
   // Fetch in-kind categories
   useEffect(() => {
@@ -56,6 +63,8 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
 
   const isInKindDonation = formData.category === 'التبرعات العينية';
   const isCashDonation = formData.category === 'التبرعات النقدية';
+  const isStudentFee =
+    formData.receipt_type === 'معلوم الترسيم' || formData.receipt_type === 'معلوم شهري';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -79,6 +88,18 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
 
     // Validate receipt_type for cash donations
     if (isCashDonation && !formData.receipt_type) {
+      return;
+    }
+
+    // Validate that student fees are linked to a student
+    if (isStudentFee && !formData.related_entity_id) {
+      alert('يجب اختيار طالب لدفع رسوم الطلاب');
+      return;
+    }
+
+    // Validate that monthly fees require a class selection
+    if (formData.receipt_type === 'معلوم شهري' && !formData.class_id) {
+      alert('يجب اختيار الفصل لدفع الرسوم الشهرية');
       return;
     }
 
@@ -341,29 +362,144 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
             </Row>
           )}
 
-          <Row>
-            <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>{type === 'INCOME' ? 'اسم المتبرع' : 'المستفيد / الجهة'}</Form.Label>
-              <Form.Control
-                type="text"
-                name="related_person_name"
-                value={formData.related_person_name || ''}
-                onChange={handleChange}
-                placeholder={type === 'INCOME' ? 'اسم المتبرع' : 'مثال: STEG, محمد العربي...'}
-              />
-            </Form.Group>
-            <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>رقم بطاقة التعريف الوطنية</Form.Label>
-              <Form.Control
-                type="text"
-                name="donor_cin"
-                value={formData.donor_cin || ''}
-                onChange={handleChange}
-                placeholder="CIN (اختياري)"
-                maxLength="8"
-              />
-            </Form.Group>
-          </Row>
+          {formData.receipt_type === 'معلوم شهري' && type === 'INCOME' ? (
+            <Row>
+              <Col md="6" className="mb-3">
+                <Form.Group>
+                  <Form.Label>
+                    اختر الفصل <span className="text-danger">*</span>
+                  </Form.Label>
+                  <Form.Select
+                    name="class_id"
+                    value={selectedClass || ''}
+                    onChange={(e) => {
+                      const classId = e.target.value;
+                      setSelectedClass(classId);
+                      setFormData((prev) => ({
+                        ...prev,
+                        class_id: classId,
+                      }));
+                    }}
+                    required
+                  >
+                    <option value="">اختر الفصل</option>
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md="6" className="mb-3">
+                <Form.Group>
+                  <Form.Label>
+                    اختر الطالب <span className="text-danger">*</span>
+                  </Form.Label>
+                  <SearchableStudentSelect
+                    value={selectedStudentDetails || formData.related_entity_id}
+                    onChange={(studentId) => {
+                      if (studentId) {
+                        // Update form data with student information
+                        setFormData((prev) => ({
+                          ...prev,
+                          related_entity_id: studentId,
+                          related_entity_type: 'Student',
+                          related_person_name:
+                            selectedStudentDetails?.name || prev.related_person_name,
+                          donor_cin: selectedStudentDetails?.national_id || prev.donor_cin,
+                        }));
+                      } else {
+                        // Clear student selection
+                        setFormData((prev) => ({
+                          ...prev,
+                          related_entity_id: null,
+                          related_entity_type: null,
+                          related_person_name: '',
+                          donor_cin: '',
+                        }));
+                        setSelectedStudentDetails(null);
+                      }
+                    }}
+                    onStudentChange={(student) => setSelectedStudentDetails(student)}
+                    placeholder="اكتب اسم الطالب أو رقمه..."
+                    required
+                  />
+                  {!formData.related_entity_id && (
+                    <Form.Text className="text-muted">
+                      ابحث عن الطالب بكتابة اسمه أو رقمه (حد أدنى حرفين)
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
+            </Row>
+          ) : isStudentFee && type === 'INCOME' ? (
+            <Row>
+              <Form.Group as={Col} className="mb-3">
+                <Form.Label>
+                  اختر الطالب <span className="text-danger">*</span>
+                </Form.Label>
+                <SearchableStudentSelect
+                  value={selectedStudentDetails || formData.related_entity_id}
+                  onChange={(studentId) => {
+                    if (studentId) {
+                      // Update form data with student information
+                      setFormData((prev) => ({
+                        ...prev,
+                        related_entity_id: studentId,
+                        related_entity_type: 'Student',
+                        related_person_name:
+                          selectedStudentDetails?.name || prev.related_person_name,
+                        donor_cin: selectedStudentDetails?.national_id || prev.donor_cin,
+                      }));
+                    } else {
+                      // Clear student selection
+                      setFormData((prev) => ({
+                        ...prev,
+                        related_entity_id: null,
+                        related_entity_type: null,
+                        related_person_name: '',
+                        donor_cin: '',
+                      }));
+                      setSelectedStudentDetails(null);
+                    }
+                  }}
+                  onStudentChange={(student) => setSelectedStudentDetails(student)}
+                  placeholder="اكتب اسم الطالب أو رقمه..."
+                  required
+                />
+                {!formData.related_entity_id && (
+                  <Form.Text className="text-muted">
+                    ابحث عن الطالب بكتابة اسمه أو رقمه (حد أدنى حرفين)
+                  </Form.Text>
+                )}
+              </Form.Group>
+            </Row>
+          ) : (
+            <Row>
+              <Form.Group as={Col} md="6" className="mb-3">
+                <Form.Label>{type === 'INCOME' ? 'اسم المتبرع' : 'المستفيد / الجهة'}</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="related_person_name"
+                  value={formData.related_person_name || ''}
+                  onChange={handleChange}
+                  placeholder={type === 'INCOME' ? 'اسم المتبرع' : 'مثال: STEG, محمد العربي...'}
+                />
+              </Form.Group>
+              <Form.Group as={Col} md="6" className="mb-3">
+                <Form.Label>رقم بطاقة التعريف الوطنية</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="donor_cin"
+                  value={formData.donor_cin || ''}
+                  onChange={handleChange}
+                  placeholder="CIN (اختياري)"
+                  maxLength="8"
+                />
+              </Form.Group>
+            </Row>
+          )}
         </Modal.Body>
 
         <Modal.Footer>
