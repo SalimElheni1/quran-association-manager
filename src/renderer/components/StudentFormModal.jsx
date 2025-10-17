@@ -68,19 +68,12 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
 
     const fetchMemorizationData = async () => {
       try {
-        console.log('FormModal: Fetching surahs data...');
         const surahsData = await window.electronAPI.getSurahs();
-        console.log('FormModal: Surahs data:', surahsData);
         setAllSurahs(surahsData.map((s) => ({ value: s.id, label: `${s.id} - ${s.name_ar}` })));
 
-        console.log('FormModal: Fetching hizbs data...');
         const hizbsData = await window.electronAPI.getHizbs();
-        console.log('FormModal: Hizbs data:', hizbsData);
         setAllHizbs(hizbsData.map((h) => ({ value: h.id, label: `الحزب ${h.hizb_number}` })));
-
-        console.log('FormModal: Memorization data loaded successfully');
       } catch (error) {
-        console.error('FormModal: Error loading memorization data:', error);
         toast.error('فشل تحميل بيانات الحفظ.');
       }
     };

@@ -190,6 +190,8 @@ function registerClassHandlers() {
           return student.gender === 'Male' && age >= adultAgeThreshold;
         } else if (classGender === 'women') {
           return student.gender === 'Female' && age >= adultAgeThreshold;
+        } else if (classGender === 'all') {
+          return true; // Include all genders for "all" category
         }
 
         return false; // Unknown class gender
