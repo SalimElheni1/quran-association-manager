@@ -63,13 +63,33 @@ function registerUserHandlers() {
         params.push(filters.roleFilter);
       }
 
+      // First, get the total count without pagination
+      let countSql = `SELECT COUNT(*) as total FROM (${sql.replace('GROUP BY u.id ORDER BY u.username ASC', 'GROUP BY u.id')}) as filtered_users`;
+      const countResult = await db.getQuery(countSql, params);
+      const totalCount = countResult?.total || 0;
+
       sql += ' GROUP BY u.id ORDER BY u.username ASC';
+
+      // Apply pagination
+      const page = parseInt(filters?.page) || 1;
+      const limit = parseInt(filters?.limit) || 25;
+      const offset = (page - 1) * limit;
+
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
       const users = await db.allQuery(sql, params);
 
-      return users.map((user) => ({
-        ...user,
-        roles: user.roles ? user.roles.split(',') : [],
-      }));
+      return {
+        users: users.map((user) => ({
+          ...user,
+          roles: user.roles ? user.roles.split(',') : [],
+        })),
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      };
     }),
   );
 

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
+import TablePagination from '../common/TablePagination';
 import InventoryFormModal from './InventoryFormModal';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { toast } from 'react-toastify';
 
 function InventoryTab() {
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [filters, setFilters] = useState({ page: 1, limit: 25 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -16,8 +19,30 @@ function InventoryTab() {
   const fetchItems = useCallback(async () => {
     try {
       setIsLoading(true);
-      const inventoryItems = await window.electronAPI.getInventoryItems();
-      setItems(inventoryItems);
+      const result = await window.electronAPI.getInventoryItems(filters);
+
+      // Check if pagination is enabled
+      if (result && typeof result === 'object' && result.items) {
+        setItems(result.items);
+        setPagination({
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        });
+      } else {
+        // Fallback for simple array response (backwards compatibility)
+        const itemsArray = Array.isArray(result) ? result : [];
+        setItems(itemsArray);
+
+        // Initialize pagination even for backwards compatibility
+        setPagination({
+          total: itemsArray.length,
+          page: 1,
+          limit: filters.limit || 25,
+          totalPages: Math.ceil(itemsArray.length / (filters.limit || 25)),
+        });
+      }
       setError(null);
     } catch (err) {
       setError('فشل في تحميل بيانات المخزون. الرجاء المحاولة مرة أخرى.');
@@ -26,7 +51,7 @@ function InventoryTab() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchItems();
@@ -79,7 +104,6 @@ function InventoryTab() {
     }
   };
 
-
   const renderTableBody = () => {
     if (items.length === 0) {
       return (
@@ -101,7 +125,12 @@ function InventoryTab() {
         <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.location || 'غير محدد'}</td>
         <td>
-          <Button variant="outline-primary" size="sm" onClick={() => handleEditItem(item)} className="me-2">
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() => handleEditItem(item)}
+            className="me-2"
+          >
             تعديل
           </Button>
           <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(item)}>
@@ -122,7 +151,11 @@ function InventoryTab() {
           </Button>
         </Card.Header>
         <Card.Body>
-          {isLoading && <div className="text-center"><Spinner animation="border" /></div>}
+          {isLoading && (
+            <div className="text-center">
+              <Spinner animation="border" />
+            </div>
+          )}
           {error && <Alert variant="danger">{error}</Alert>}
           {!isLoading && !error && (
             <Table striped bordered hover responsive>
@@ -143,6 +176,20 @@ function InventoryTab() {
           )}
         </Card.Body>
       </Card>
+
+      {/* Show pagination for inventory management */}
+      {pagination && (
+        <TablePagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          pageSize={pagination.limit}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+          onPageSizeChange={(pageSize, page) =>
+            setFilters((prev) => ({ ...prev, limit: pageSize, page }))
+          }
+        />
+      )}
 
       <InventoryFormModal
         show={showFormModal}

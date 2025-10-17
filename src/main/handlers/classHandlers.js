@@ -3,6 +3,32 @@ const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
 
+/**
+ * Calculates age from date of birth.
+ * Uses the same logic as the frontend calculateAge function.
+ *
+ * @param {string} birthDateString - Date of birth in YYYY-MM-DD format
+ * @returns {number|null} Age in years or null if invalid date
+ */
+function calculateAge(birthDateString) {
+  if (!birthDateString) return null;
+
+  const birthDate = new Date(birthDateString);
+  if (isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  // Adjust age if birthday hasn't occurred this year yet
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age--;
+  }
+
+  return age;
+}
+
 const classFields = [
   'name',
   'class_type',
@@ -79,8 +105,40 @@ function registerClassHandlers() {
       sql += ' AND c.status = ?';
       params.push(filters.status);
     }
-    sql += ' ORDER BY c.name ASC';
-    return db.allQuery(sql, params);
+
+    // Check if pagination parameters are provided
+    const hasPagination = filters?.page !== undefined || filters?.limit !== undefined;
+
+    if (hasPagination) {
+      // Get total count without pagination
+      const countSql = `SELECT COUNT(*) as total FROM (${sql}) as filtered_classes`;
+      const countResult = await db.getQuery(countSql, params);
+      const totalCount = countResult?.total || 0;
+
+      sql += ' ORDER BY c.name ASC';
+
+      // Apply pagination
+      const page = parseInt(filters?.page) || 1;
+      const limit = parseInt(filters?.limit) || 25;
+      const offset = (page - 1) * limit;
+
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
+      const classes = await db.allQuery(sql, params);
+
+      return {
+        classes,
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      };
+    } else {
+      // Return array directly for backwards compatibility (e.g., AttendancePage)
+      sql += ' ORDER BY c.name ASC';
+      return db.allQuery(sql, params);
+    }
   });
 
   ipcMain.handle('classes:getById', (_event, id) => {
@@ -103,39 +161,39 @@ function registerClassHandlers() {
         ORDER BY s.name ASC
       `;
 
+      // Get all active, non-enrolled students first (no age/gender filtering in SQL)
       let notEnrolledSql = `
-        SELECT s.id, s.name
+        SELECT s.id, s.name, s.date_of_birth, s.gender
         FROM students s
         LEFT JOIN class_students cs ON s.id = cs.student_id AND cs.class_id = ?
-        WHERE s.status = 'active' AND cs.student_id IS NULL
+        WHERE s.status = 'active' AND cs.student_id IS NULL AND s.date_of_birth IS NOT NULL
+        ORDER BY s.name ASC
       `;
-      const notEnrolledParams = [classId];
 
+      let [enrolledStudents, notEnrolledStudents] = await Promise.all([
+        db.allQuery(enrolledSql, [classId]),
+        db.allQuery(notEnrolledSql, [classId]),
+      ]);
+
+      // Apply accurate age and gender filtering in JavaScript
       const ageThresholdSetting = await db.getQuery(
         "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
       );
       const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
-      const thresholdDate = new Date();
-      thresholdDate.setFullYear(thresholdDate.getFullYear() - adultAgeThreshold);
-      const adultOrKidBirthDate = thresholdDate.toISOString().split('T')[0];
+      notEnrolledStudents = notEnrolledStudents.filter(student => {
+        const age = calculateAge(student.date_of_birth);
 
-      if (classGender === 'kids') {
-        notEnrolledSql += ` AND s.date_of_birth > ?`;
-        notEnrolledParams.push(adultOrKidBirthDate);
-      } else if (classGender === 'men') {
-        notEnrolledSql += ` AND s.gender = 'Male' AND s.date_of_birth <= ?`;
-        notEnrolledParams.push(adultOrKidBirthDate);
-      } else if (classGender === 'women') {
-        notEnrolledSql += ` AND s.gender = 'Female' AND s.date_of_birth <= ?`;
-        notEnrolledParams.push(adultOrKidBirthDate);
-      }
-      notEnrolledSql += ' ORDER BY s.name ASC';
+        if (classGender === 'kids') {
+          return age < adultAgeThreshold;
+        } else if (classGender === 'men') {
+          return student.gender === 'Male' && age >= adultAgeThreshold;
+        } else if (classGender === 'women') {
+          return student.gender === 'Female' && age >= adultAgeThreshold;
+        }
 
-      const [enrolledStudents, notEnrolledStudents] = await Promise.all([
-        db.allQuery(enrolledSql, [classId]),
-        db.allQuery(notEnrolledSql, notEnrolledParams),
-      ]);
+        return false; // Unknown class gender
+      });
 
       return { enrolledStudents, notEnrolledStudents };
     } catch (error) {

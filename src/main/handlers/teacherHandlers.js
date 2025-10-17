@@ -94,10 +94,31 @@ function registerTeacherHandlers() {
         sql += ' AND specialization LIKE ?';
         params.push(`%${filters.specializationFilter}%`);
       }
-      sql += ' ORDER BY name ASC';
-      const result = await db.allQuery(sql, params);
 
-      return result;
+      // First, get the total count without pagination
+      let countSql = `SELECT COUNT(*) as total FROM (${sql}) as filtered_teachers`;
+      const countResult = await db.getQuery(countSql, params);
+      const totalCount = countResult?.total || 0;
+
+      sql += ' ORDER BY name ASC';
+
+      // Apply pagination
+      const page = parseInt(filters?.page) || 1;
+      const limit = parseInt(filters?.limit) || 25;
+      const offset = (page - 1) * limit;
+
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
+      const teachers = await db.allQuery(sql, params);
+
+      return {
+        teachers,
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      };
     } catch (error) {
       logError('Error in teachers:get handler:', error);
       throw new Error('فشل في جلب بيانات المعلمين.');

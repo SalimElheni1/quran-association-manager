@@ -312,7 +312,7 @@ const studentsAdultFields = [
   { key: 'email', label: 'البريد الإلكتروني' },
   { key: 'enrollment_date', label: 'تاريخ التسجيل' },
   { key: 'status', label: 'الحالة' },
-  { key: 'memorization_level', label: 'مستوى الحفظ' },
+  { key: 'memorization_level', label: 'مستوى الحفظ (السور والأحزاب)' },
   { key: 'notes', label: 'ملاحظات' },
 ];
 

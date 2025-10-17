@@ -5,6 +5,7 @@ import ClassFormModal from '@renderer/components/ClassFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ClassDetailsModal from '@renderer/components/ClassDetailsModal'; // We will create this next
 import EnrollmentModal from '@renderer/components/EnrollmentModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import { error as logError } from '@renderer/utils/logger';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
@@ -27,19 +28,43 @@ function ClassesPage() {
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
   const [classToEnroll, setClassToEnroll] = useState(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalClasses, setTotalClasses] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const fetchClasses = useCallback(async () => {
     setLoading(true);
     try {
-      const filters = { searchTerm };
-      const fetchedClasses = await window.electronAPI.getClasses(filters);
-      setClasses(fetchedClasses);
+      const filters = {
+        searchTerm,
+        page: currentPage,
+        limit: pageSize,
+      };
+      const result = await window.electronAPI.getClasses(filters);
+      if (result && result.classes) {
+        setClasses(result.classes);
+        setTotalClasses(result.total);
+        setTotalPages(result.totalPages);
+      } else {
+        // Fallback for old API response format
+        setClasses(result);
+        setTotalClasses(result.length);
+        setTotalPages(1);
+      }
     } catch (err) {
       logError('Error fetching classes:', err);
       toast.error('فشل تحميل بيانات الفصول الدراسية.');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, currentPage, pageSize]);
 
   useEffect(() => {
     fetchClasses();
@@ -200,73 +225,87 @@ function ClassesPage() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>اسم الفصل</th>
-              <th>النوع</th>
-              <th>المعلم المسؤول</th>
-              <th>الجدول الزمني</th>
-              <th>الجنس</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {classes.length > 0 ? (
-              classes.map((cls, index) => (
-                <tr key={cls.id}>
-                  <td>{index + 1}</td>
-                  <td>{cls.name}</td>
-                  <td>{cls.class_type || '-'}</td>
-                  <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
-                  <td>{formatSchedule(cls.schedule)}</td>
-                  <td>{genderTranslations[cls.gender] || cls.gender}</td>
-                  <td>{renderStatusBadge(cls.status)}</td>
-                  <td className="table-actions d-flex gap-2" style={{ minWidth: '260px' }}>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={() => handleShowEnrollmentModal(cls)}
-                    >
-                      <UserPlusIcon />
-                    </Button>
-                    <Button
-                      variant="outline-info"
-                      size="sm"
-                      onClick={() => handleShowDetailsModal(cls)}
-                    >
-                      <EyeIcon />
-                    </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => handleShowEditModal(cls)}
-                    >
-                      <EditIcon />
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRequest(cls)}
-                    >
-                      <TrashIcon />
-                    </Button>
+        <div>
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>اسم الفصل</th>
+                <th>النوع</th>
+                <th>المعلم المسؤول</th>
+                <th>الجدول الزمني</th>
+                <th>الجنس</th>
+                <th>الحالة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classes.length > 0 ? (
+                classes.map((cls, index) => (
+                  <tr key={cls.id}>
+                    <td>{(currentPage - 1) * pageSize + index + 1}</td>
+                    <td>{cls.name}</td>
+                    <td>{cls.class_type || '-'}</td>
+                    <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
+                    <td>{formatSchedule(cls.schedule)}</td>
+                    <td>{genderTranslations[cls.gender] || cls.gender}</td>
+                    <td>{renderStatusBadge(cls.status)}</td>
+                    <td className="table-actions d-flex gap-2" style={{ minWidth: '260px' }}>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => handleShowEnrollmentModal(cls)}
+                      >
+                        <UserPlusIcon />
+                      </Button>
+                      <Button
+                        variant="outline-info"
+                        size="sm"
+                        onClick={() => handleShowDetailsModal(cls)}
+                      >
+                        <EyeIcon />
+                      </Button>
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={() => handleShowEditModal(cls)}
+                      >
+                        <EditIcon />
+                      </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteRequest(cls)}
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="text-center">
+                    {searchTerm
+                      ? 'لا توجد نتائج تطابق معايير البحث.'
+                      : 'لا توجد فصول دراسية مسجلة حالياً.'}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="8" className="text-center">
-                  {searchTerm
-                    ? 'لا توجد نتائج تطابق معايير البحث.'
-                    : 'لا توجد فصول دراسية مسجلة حالياً.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalClasses}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newPageSize, newPage) => {
+              setPageSize(newPageSize);
+              setCurrentPage(newPage);
+            }}
+          />
+        </div>
       )}
       <ClassFormModal
         show={showModal}

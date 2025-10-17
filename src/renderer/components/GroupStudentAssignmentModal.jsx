@@ -11,8 +11,8 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
   const [nonMembers, setNonMembers] = useState([]);
 
   const [nonMembersSearch, setNonMembersSearch] = useState('');
-  const [selectedNonMembers, setSelectedNonMembers] = useState(new Set());
-  const [selectedMembers, setSelectedMembers] = useState(new Set());
+  const [selectedNonMembers, setSelectedNonMembers] = useState([]);
+  const [selectedMembers, setSelectedMembers] = useState([]);
 
   useEffect(() => {
     const fetchAssignmentData = async () => {
@@ -22,8 +22,11 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
           const result = await window.electronAPI.getAssignmentData(group.id);
           if (result.success) {
             const allStudents = result.data;
-            setMembers(allStudents.filter(s => s.isMember));
-            setNonMembers(allStudents.filter(s => !s.isMember));
+            setMembers(allStudents.filter((s) => s.isMember));
+            setNonMembers(allStudents.filter((s) => !s.isMember));
+            // Reset selections when modal opens with new data
+            setSelectedNonMembers([]);
+            setSelectedMembers([]);
           } else {
             toast.error(result.message);
           }
@@ -40,48 +43,81 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
 
   const filteredNonMembers = useMemo(() => {
     if (!nonMembersSearch) return nonMembers;
-    return nonMembers.filter(s => s.name.toLowerCase().includes(nonMembersSearch.toLowerCase()));
+    return nonMembers.filter((s) => s.name.toLowerCase().includes(nonMembersSearch.toLowerCase()));
   }, [nonMembers, nonMembersSearch]);
 
-  const handleNonMemberSelect = (studentId) => {
-    const newSelection = new Set(selectedNonMembers);
-    if (newSelection.has(studentId)) {
-      newSelection.delete(studentId);
+  const handleNonMemberSelect = (studentId, event) => {
+    let newSelection = [...selectedNonMembers];
+    if (event.ctrlKey || event.metaKey) {
+      // Multi-selection
+      const index = newSelection.indexOf(studentId);
+      if (index > -1) {
+        newSelection.splice(index, 1);
+      } else {
+        newSelection.push(studentId);
+      }
     } else {
-      newSelection.add(studentId);
+      // Single selection - deselect all others
+      newSelection = [studentId];
     }
     setSelectedNonMembers(newSelection);
   };
 
-  const handleMemberSelect = (studentId) => {
-    const newSelection = new Set(selectedMembers);
-    if (newSelection.has(studentId)) {
-      newSelection.delete(studentId);
+  const handleMemberSelect = (studentId, event) => {
+    let newSelection = [...selectedMembers];
+    if (event.ctrlKey || event.metaKey) {
+      // Multi-selection
+      const index = newSelection.indexOf(studentId);
+      if (index > -1) {
+        newSelection.splice(index, 1);
+      } else {
+        newSelection.push(studentId);
+      }
     } else {
-      newSelection.add(studentId);
+      // Single selection - deselect all others
+      newSelection = [studentId];
     }
     setSelectedMembers(newSelection);
   };
 
   const handleAddStudents = () => {
-    const toAdd = nonMembers.filter(s => selectedNonMembers.has(s.id));
-    setMembers(prev => [...prev, ...toAdd].sort((a, b) => a.name.localeCompare(b.name)));
-    setNonMembers(prev => prev.filter(s => !selectedNonMembers.has(s.id)));
-    setSelectedNonMembers(new Set());
+    if (selectedNonMembers.length === 0) return;
+
+    const toAdd = nonMembers.filter((s) => selectedNonMembers.includes(s.id));
+    const addedCount = toAdd.length;
+
+    setMembers((prev) => [...prev, ...toAdd].sort((a, b) => a.name.localeCompare(b.name)));
+    setNonMembers((prev) => prev.filter((s) => !selectedNonMembers.includes(s.id)));
+    setSelectedNonMembers([]);
+
+    if (addedCount > 0) {
+      toast.success(`تمت إضافة ${addedCount} طالب بنجاح إلى المجموعة.`);
+    }
   };
 
   const handleRemoveStudents = () => {
-    const toRemove = members.filter(s => selectedMembers.has(s.id));
-    setNonMembers(prev => [...prev, ...toRemove].sort((a, b) => a.name.localeCompare(b.name)));
-    setMembers(prev => prev.filter(s => !selectedMembers.has(s.id)));
-    setSelectedMembers(new Set());
+    if (selectedMembers.length === 0) return;
+
+    const toRemove = members.filter((s) => selectedMembers.includes(s.id));
+    const removedCount = toRemove.length;
+
+    setNonMembers((prev) => [...prev, ...toRemove].sort((a, b) => a.name.localeCompare(b.name)));
+    setMembers((prev) => prev.filter((s) => !selectedMembers.includes(s.id)));
+    setSelectedMembers([]);
+
+    if (removedCount > 0) {
+      toast.success(`تمت إزالة ${removedCount} طالب من المجموعة.`);
+    }
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const memberIds = members.map(m => m.id);
-      const result = await window.electronAPI.updateGroupStudents({ groupId: group.id, studentIds: memberIds });
+      const memberIds = members.map((m) => m.id);
+      const result = await window.electronAPI.updateGroupStudents({
+        groupId: group.id,
+        studentIds: memberIds,
+      });
       if (result.success) {
         toast.success('تم تحديث قائمة الطلاب في المجموعة بنجاح.');
         if (onAssignmentSave) onAssignmentSave();
@@ -99,12 +135,13 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
 
   const renderStudentList = (students, selected, onSelect) => (
     <ListGroup style={{ maxHeight: '300px', overflowY: 'auto' }}>
-      {students.map(s => (
+      {students.map((s) => (
         <ListGroup.Item
           key={s.id}
           action
-          active={selected.has(s.id)}
-          onClick={() => onSelect(s.id)}
+          active={selected.includes(s.id)}
+          onClick={(event) => onSelect(s.id, event)}
+          style={{ cursor: 'pointer' }}
         >
           {s.name} ({s.matricule})
         </ListGroup.Item>
@@ -115,11 +152,15 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
   return (
     <Modal show={show} onHide={handleClose} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>إدارة الطلاب في مجموعة: {group?.name}</Modal.Title>
+        <Modal.Title>
+          إدارة الطلاب في مجموعة: {group?.name} ({members.length} طالب حالياً)
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {loading && !members.length ? (
-          <div className="text-center"><Spinner animation="border" /></div>
+          <div className="text-center">
+            <Spinner animation="border" />
+          </div>
         ) : (
           <Row>
             <Col md={5}>
@@ -128,17 +169,28 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
                 <Form.Control
                   placeholder="بحث..."
                   value={nonMembersSearch}
-                  onChange={e => setNonMembersSearch(e.target.value)}
+                  onChange={(e) => setNonMembersSearch(e.target.value)}
                 />
               </InputGroup>
               {renderStudentList(filteredNonMembers, selectedNonMembers, handleNonMemberSelect)}
             </Col>
-            <Col md={2} className="d-flex flex-column align-items-center justify-content-center gap-2">
-              <Button variant="outline-secondary" onClick={handleAddStudents} disabled={selectedNonMembers.size === 0}>
-                <ArrowLeftIcon /> إضافة
+            <Col
+              md={2}
+              className="d-flex flex-column align-items-center justify-content-center gap-2"
+            >
+              <Button
+                variant="outline-secondary"
+                onClick={handleAddStudents}
+                disabled={selectedNonMembers.length === 0}
+              >
+                <ArrowLeftIcon /> إضافة ({selectedNonMembers.length})
               </Button>
-              <Button variant="outline-secondary" onClick={handleRemoveStudents} disabled={selectedMembers.size === 0}>
-                إزالة <ArrowRightIcon />
+              <Button
+                variant="outline-secondary"
+                onClick={handleRemoveStudents}
+                disabled={selectedMembers.length === 0}
+              >
+                حذف ({selectedMembers.length}) <ArrowRightIcon />
               </Button>
             </Col>
             <Col md={5}>
@@ -149,7 +201,9 @@ function GroupStudentAssignmentModal({ show, handleClose, group, onAssignmentSav
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>إلغاء</Button>
+        <Button variant="secondary" onClick={handleClose}>
+          إلغاء
+        </Button>
         <Button variant="primary" onClick={handleSave} disabled={loading}>
           {loading ? <Spinner as="span" animation="border" size="sm" /> : 'حفظ التغييرات'}
         </Button>

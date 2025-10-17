@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import TeacherFormModal from '@renderer/components/TeacherFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import TeacherDetailsModal from '@renderer/components/TeacherDetailsModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 // We can reuse the same page styles from the students page
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
@@ -26,19 +27,45 @@ function TeachersPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [teacherToView, setTeacherToView] = useState(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalTeachers, setTotalTeachers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, genderFilter, specializationFilter]);
+
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
     try {
-      const filters = { searchTerm, genderFilter, specializationFilter };
-      const fetchedTeachers = await window.electronAPI.getTeachers(filters);
-      setTeachers(fetchedTeachers);
+      const filters = {
+        searchTerm,
+        genderFilter,
+        specializationFilter,
+        page: currentPage,
+        limit: pageSize,
+      };
+      const result = await window.electronAPI.getTeachers(filters);
+      if (result && result.teachers) {
+        setTeachers(result.teachers);
+        setTotalTeachers(result.total);
+        setTotalPages(result.totalPages);
+      } else {
+        // Fallback for old API response format
+        setTeachers(result);
+        setTotalTeachers(result.length);
+        setTotalPages(1);
+      }
     } catch (err) {
       logError('Error fetching teachers:', err);
       toast.error('فشل تحميل بيانات المعلمين.');
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, genderFilter, specializationFilter]);
+  }, [searchTerm, genderFilter, specializationFilter, currentPage, pageSize]);
 
   useEffect(() => {
     fetchTeachers();
@@ -164,62 +191,76 @@ function TeachersPage() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الرقم التعريفي</th>
-              <th>الاسم واللقب</th>
-              <th>رقم الهاتف</th>
-              <th>التخصص</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.length > 0 ? (
-              teachers.map((teacher, index) => (
-                <tr key={teacher.id}>
-                  <td>{index + 1}</td>
-                  <td>{teacher.matricule}</td>
-                  <td>{teacher.name}</td>
-                  <td>{teacher.contact_info || '-'}</td>
-                  <td>{teacher.specialization || '-'}</td>
-                  <td className="table-actions d-flex gap-2">
-                    <Button
-                      variant="outline-info"
-                      size="sm"
-                      onClick={() => handleShowDetailsModal(teacher)}
-                    >
-                      <EyeIcon />
-                    </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => handleShowEditModal(teacher)}
-                    >
-                      <EditIcon />
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDeleteRequest(teacher)}
-                    >
-                      <TrashIcon />
-                    </Button>
+        <div>
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الرقم التعريفي</th>
+                <th>الاسم واللقب</th>
+                <th>رقم الهاتف</th>
+                <th>التخصص</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teachers.length > 0 ? (
+                teachers.map((teacher, index) => (
+                  <tr key={teacher.id}>
+                    <td>{(currentPage - 1) * pageSize + index + 1}</td>
+                    <td>{teacher.matricule}</td>
+                    <td>{teacher.name}</td>
+                    <td>{teacher.contact_info || '-'}</td>
+                    <td>{teacher.specialization || '-'}</td>
+                    <td className="table-actions d-flex gap-2">
+                      <Button
+                        variant="outline-info"
+                        size="sm"
+                        onClick={() => handleShowDetailsModal(teacher)}
+                      >
+                        <EyeIcon />
+                      </Button>
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={() => handleShowEditModal(teacher)}
+                      >
+                        <EditIcon />
+                      </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteRequest(teacher)}
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center">
+                    {searchTerm || genderFilter !== 'all' || specializationFilter
+                      ? 'لا توجد نتائج تطابق معايير البحث.'
+                      : 'لا يوجد معلمون مسجلون حالياً.'}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="text-center">
-                  {searchTerm || genderFilter !== 'all' || specializationFilter
-                    ? 'لا توجد نتائج تطابق معايير البحث.'
-                    : 'لا يوجد معلمون مسجلون حالياً.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalTeachers}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newPageSize, newPage) => {
+              setPageSize(newPageSize);
+              setCurrentPage(newPage);
+            }}
+          />
+        </div>
       )}
       <TeacherFormModal
         show={showModal}

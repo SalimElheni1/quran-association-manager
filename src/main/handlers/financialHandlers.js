@@ -106,9 +106,39 @@ async function handleGetTransactions(event, filters) {
       params.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
 
-    sql += ' ORDER BY t.transaction_date DESC, t.id DESC';
+    // Check if pagination is requested
+    const hasPagination = filters?.page !== undefined || filters?.limit !== undefined;
 
-    return await db.allQuery(sql, params);
+    if (hasPagination) {
+      // Get total count for pagination
+      const countSql = `SELECT COUNT(*) as total FROM (${sql}) as filtered_transactions`;
+      const countResult = await db.getQuery(countSql, params);
+      const totalCount = countResult?.total || 0;
+
+      sql += ' ORDER BY t.transaction_date DESC, t.id DESC';
+
+      // Apply pagination
+      const page = parseInt(filters?.page) || 1;
+      const limit = parseInt(filters?.limit) || 25;
+      const offset = (page - 1) * limit;
+
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
+      const transactions = await db.allQuery(sql, params);
+
+      return {
+        transactions,
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      };
+    } else {
+      // Return direct array for backwards compatibility
+      sql += ' ORDER BY t.transaction_date DESC, t.id DESC';
+      return await db.allQuery(sql, params);
+    }
   } catch (error) {
     logError('Error in handleGetTransactions:', error);
     return [];

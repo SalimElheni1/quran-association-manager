@@ -333,6 +333,7 @@ async function initializeDatabase() {
     await getQuery('SELECT count(*) FROM sqlite_master');
     log('[DB_LOG] Database key is correct.');
 
+    const { seedSurahs, seedHizbs } = require('./seederFunctions');
     let tempCredentials = null;
     if (!dbExists) {
       log('[DB_LOG] New database detected. Initializing schema and default data...');
@@ -341,6 +342,8 @@ async function initializeDatabase() {
       getDbSalt();
       log('[DB_LOG] Database salt created.');
       tempCredentials = await seedSuperadmin(); // Capture credentials
+      await seedSurahs();
+      await seedHizbs();
       log('[DB_LOG] Database schema and default data initialized.');
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
@@ -359,6 +362,21 @@ async function initializeDatabase() {
       );
 
       await runMigrations();
+
+      // Always try to seed memorization data if the tables exist but are empty
+      try {
+        const surahsCount = await getQuery('SELECT COUNT(*) as count FROM surahs');
+        if (surahsCount.count === 0) {
+          await seedSurahs();
+        }
+        const hizbsCount = await getQuery('SELECT COUNT(*) as count FROM hizbs');
+        if (hizbsCount.count === 0) {
+          await seedHizbs();
+        }
+      } catch (err) {
+        // Ignore errors if tables don't exist yet - they'll be handled on next migration
+        console.log('[DB_LOG] Memorization tables not found or error seeding, will try on next startup');
+      }
     }
 
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
