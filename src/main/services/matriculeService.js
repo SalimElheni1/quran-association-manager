@@ -45,8 +45,8 @@ async function generateMatricule(entityType) {
     const result = await getQuery(sql, params);
     const nextId = (result.max_id || 0) + 1;
 
-    // Pad with leading zeros to 6 digits to ensure consistent length (e.g., 000001, 000010, 000100)
-    const paddedId = nextId.toString().padStart(6, '0');
+    // Pad with leading zeros to 4 digits to ensure consistent length (e.g., 0001, 0010, 0100)
+    const paddedId = nextId.toString().padStart(4, '0');
 
     return `${prefix}${paddedId}`;
   } catch (error) {
