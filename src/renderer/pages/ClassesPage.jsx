@@ -231,7 +231,6 @@ function ClassesPage() {
               <tr>
                 <th>#</th>
                 <th>اسم الفصل</th>
-                <th>النوع</th>
                 <th>المعلم المسؤول</th>
                 <th>الجدول الزمني</th>
                 <th>الجنس</th>
@@ -245,7 +244,6 @@ function ClassesPage() {
                   <tr key={cls.id}>
                     <td>{(currentPage - 1) * pageSize + index + 1}</td>
                     <td>{cls.name}</td>
-                    <td>{cls.class_type || '-'}</td>
                     <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                     <td>{formatSchedule(cls.schedule)}</td>
                     <td>{genderTranslations[cls.gender] || cls.gender}</td>
@@ -284,7 +282,7 @@ function ClassesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="text-center">
+                  <td colSpan="7" className="text-center">
                     {searchTerm
                       ? 'لا توجد نتائج تطابق معايير البحث.'
                       : 'لا توجد فصول دراسية مسجلة حالياً.'}

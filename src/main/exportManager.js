@@ -191,6 +191,38 @@ function localizeData(data) {
     active: 'نشط',
     inactive: 'غير نشط',
     pending: 'معلق',
+    present: 'حاضر',
+    absent: 'غائب',
+    late: 'متأخر',
+  };
+  const specializationMap = {
+    Taajoed: 'تجويد',
+    Tajweed: 'تجويد',
+    Qiraat: 'قراءات',
+    Memorization: 'حفظ',
+    Hifdh: 'حفظ',
+    Tajweed: 'تجويد',
+    Hifdh: 'حفظ',
+    'Islamic Studies': 'دراسات إسلامية',
+    'Islamic Education': 'تربية إسلامية',
+    Fiqh: 'فقه',
+    Hadith: 'حديث',
+    Aqeedah: 'عقيدة',
+    Arabic: 'عربية',
+  };
+  const roleMap = {
+    'Branch Admin': 'مدير فرع',
+    'Superadmin': 'مدير عام',
+    'FinanceManager': 'مدير مالي',
+    'SessionSupervisor': 'مشرف جلسات',
+    // Handle database role values
+    FinanceManager: 'مدير مالي',
+    SessionSupervisor: 'مشرف جلسات',
+    BranchManager: 'مدير فرع',
+    Admin: 'مدير',
+  };
+  const memorizationLevelMap = {
+    // Convert various memorization formats to Arabic
   };
   const paymentMethodMap = {
     Cash: 'نقداً',
@@ -213,6 +245,9 @@ function localizeData(data) {
     const out = { ...row };
     if (out.gender && genderMap[out.gender]) out.gender = genderMap[out.gender];
     if (out.status && statusMap[out.status]) out.status = statusMap[out.status];
+    if (out.specialization && specializationMap[out.specialization])
+      out.specialization = specializationMap[out.specialization];
+    if (out.role && roleMap[out.role]) out.role = roleMap[out.role];
     if (out.payment_method && paymentMethodMap[out.payment_method])
       out.payment_method = paymentMethodMap[out.payment_method];
     if (out.donation_type && donationTypeMap[out.donation_type])

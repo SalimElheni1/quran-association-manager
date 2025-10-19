@@ -80,7 +80,6 @@ function ClassDetailsModal({ show, handleClose, classData }) {
         <h5 className="form-section-title">المعلومات الأساسية</h5>
         <Row>
           <DetailItem label="اسم الفصل" value={classData.name || 'غير محدد'} />
-          <DetailItem label="نوع الفصل" value={classData.class_type || 'غير محدد'} />
           <DetailItem label="المعلم المسؤول" value={classData.teacher_name || 'غير محدد'} />
           <DetailItem
             label="الحالة"

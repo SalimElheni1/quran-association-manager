@@ -171,16 +171,6 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                 required
               />
             </Form.Group>
-            <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>نوع الفصل</Form.Label>
-              <Form.Control
-                type="text"
-                name="class_type"
-                value={formData.class_type || ''}
-                onChange={handleChange}
-                placeholder="مثال: حفظ، تجويد"
-              />
-            </Form.Group>
           </Row>
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">

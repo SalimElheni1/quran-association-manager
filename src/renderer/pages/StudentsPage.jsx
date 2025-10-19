@@ -430,7 +430,6 @@ function StudentsPage() {
                 <th>الرقم التعريفي</th>
                 <th>الاسم واللقب</th>
                 <th>العمر</th>
-                <th>تاريخ التسجيل</th>
                 <th>الحالة</th>
                 <th>الإجراءات</th>
               </tr>
@@ -443,7 +442,6 @@ function StudentsPage() {
                     <td>{student.matricule}</td>
                     <td>{student.name}</td>
                     <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
-                    <td>{new Date(student.enrollment_date).toLocaleDateString('en-GB')}</td>
                     <td>{renderStatusBadge(student.status)}</td>
                     <td className="table-actions d-flex gap-2">
                       <Button
@@ -476,7 +474,7 @@ function StudentsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center">
+                  <td colSpan="6" className="text-center">
                     {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
                       ? 'لا توجد نتائج تطابق معايير البحث.'
                       : 'لا يوجد طلاب مسجلون حالياً.'}
