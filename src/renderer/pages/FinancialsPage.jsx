@@ -34,7 +34,7 @@ function FinancialsPage() {
             <Tab eventKey="accounts" title="📋 إدارة الفئات">
               <AccountsPage />
             </Tab>
-            <Tab eventKey="inventory" title="📦 المخزون">
+            <Tab eventKey="inventory" title="📦 الجرد">
               <InventoryTab key={inventoryTabKey} />
             </Tab>
           </Tabs>

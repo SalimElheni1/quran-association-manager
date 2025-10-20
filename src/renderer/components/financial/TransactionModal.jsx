@@ -5,7 +5,15 @@ import { useStudents } from '@renderer/hooks/useStudents';
 import { useClasses } from '@renderer/hooks/useClasses';
 import SearchableStudentSelect from '@renderer/components/SearchableStudentSelect';
 
-function TransactionModal({ show, onHide, onSave, transaction, type }) {
+function TransactionModal({
+  show,
+  onHide,
+  onSave,
+  transaction,
+  type,
+  defaultCategory,
+  customTitle,
+}) {
   const [formData, setFormData] = useState({});
   const [amountWarning, setAmountWarning] = useState('');
   const [inKindCategories, setInKindCategories] = useState([]);
@@ -14,6 +22,7 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
   const isEditMode = !!transaction;
 
   const { categories } = useCategories(type);
+  const filteredCategories = categories.filter((cat) => cat.name !== 'مداخيل أخرى');
   const { students, searchStudents } = useStudents(); // Use searchable students hook
   const { classes } = useClasses({}); // For monthly fees
 
@@ -27,10 +36,17 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
     }
   }, [show, type]);
 
+  // Generate unique voucher number for in-kind donations
+  const generateInKindVoucher = () => {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000);
+    return `INK-${timestamp}-${random}`;
+  };
+
   useEffect(() => {
     const initialData = {
       transaction_date: new Date().toISOString().split('T')[0],
-      category: '',
+      category: defaultCategory || '',
       amount: '',
       description: '',
       payment_method: 'CASH',
@@ -59,12 +75,25 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
     } else {
       setFormData(initialData);
     }
-  }, [transaction, show, isEditMode]);
+  }, [transaction, show, isEditMode, defaultCategory]);
 
   const isInKindDonation = formData.category === 'التبرعات العينية';
   const isCashDonation = formData.category === 'التبرعات النقدية';
   const isStudentFee =
     formData.receipt_type === 'معلوم الترسيم' || formData.receipt_type === 'معلوم شهري';
+
+  const getTitle = () => {
+    if (customTitle) return customTitle;
+    if (isEditMode) {
+      return type === 'INCOME' ? 'تعديل مدخول' : 'تعديل مصروف';
+    } else {
+      if (type === 'INCOME') {
+        if (isInKindDonation) return 'إضافة تبرع عيني';
+        return 'إضافة مدخول';
+      }
+      return 'إضافة مصروف';
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -136,20 +165,12 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
     <Modal show={show} onHide={onHide} centered size="lg" backdrop="static">
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
-          <Modal.Title>
-            {isEditMode
-              ? type === 'INCOME'
-                ? 'تعديل مدخول'
-                : 'تعديل مصروف'
-              : type === 'INCOME'
-                ? 'إضافة مدخول'
-                : 'إضافة مصروف'}
-          </Modal.Title>
+          <Modal.Title>{getTitle()}</Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
           <Row>
-            <Form.Group as={Col} md="4" className="mb-3">
+            <Form.Group as={Col} md={defaultCategory && !isEditMode ? '6' : '4'} className="mb-3">
               <Form.Label>
                 التاريخ <span className="text-danger">*</span>
               </Form.Label>
@@ -162,40 +183,40 @@ function TransactionModal({ show, onHide, onSave, transaction, type }) {
               />
             </Form.Group>
 
-            <Form.Group as={Col} md="4" className="mb-3">
-              <Form.Label>
-                الفئة <span className="text-danger">*</span>
-              </Form.Label>
-              <Form.Select
-                name="category"
-                value={formData.category || ''}
-                onChange={handleChange}
-                required
-              >
-                <option value="">اختر الفئة</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            {!isInKindDonation && (
+            {(!defaultCategory || isEditMode) && (
               <Form.Group as={Col} md="4" className="mb-3">
                 <Form.Label>
-                  رقم الوصل <span className="text-danger">*</span>
+                  الفئة <span className="text-danger">*</span>
                 </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="voucher_number"
-                  value={formData.voucher_number || ''}
+                <Form.Select
+                  name="category"
+                  value={formData.category || ''}
                   onChange={handleChange}
-                  placeholder="مثال: 001"
                   required
-                />
+                >
+                  <option value="">اختر الفئة</option>
+                  {filteredCategories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </Form.Select>
               </Form.Group>
             )}
+
+            <Form.Group as={Col} md={defaultCategory && !isEditMode ? '6' : '4'} className="mb-3">
+              <Form.Label>
+                رقم الوصل {isInKindDonation ? '' : <span className="text-danger">*</span>}
+              </Form.Label>
+              <Form.Control
+                type="text"
+                name="voucher_number"
+                value={formData.voucher_number || ''}
+                onChange={handleChange}
+                placeholder={!isInKindDonation ? 'مثال: 001' : 'اختياري'}
+                required={!isInKindDonation}
+              />
+            </Form.Group>
           </Row>
 
           {type === 'INCOME' && isCashDonation && (

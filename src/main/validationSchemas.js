@@ -185,6 +185,14 @@ const transactionValidationSchema = Joi.object({
     'any.only': 'طريقة الدفع غير صالحة',
     'any.required': 'طريقة الدفع مطلوبة',
   }),
+  voucher_number: Joi.when('category', {
+    is: 'التبرعات العينية',
+    then: Joi.string().allow(null, ''),
+    otherwise: Joi.string().required().messages({
+      'string.empty': 'رقم الوصل مطلوب',
+      'any.required': 'رقم الوصل مطلوب',
+    }),
+  }),
   check_number: Joi.string().when('payment_method', {
     is: 'CHECK',
     then: Joi.string().required().messages({
@@ -201,6 +209,9 @@ const transactionValidationSchema = Joi.object({
     .valid('Student', 'Teacher', 'Donor', 'Supplier')
     .allow(null, ''),
   related_entity_id: Joi.number().integer().positive().allow(null),
+  receipt_type: Joi.string().allow(null, ''),
+  class_id: Joi.number().integer().positive().allow(null),
+  donor_cin: Joi.string().allow(null, ''),
 }).unknown(true);
 
 module.exports = {
