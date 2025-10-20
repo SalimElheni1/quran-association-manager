@@ -161,6 +161,14 @@ async function handleAddTransaction(event, transaction) {
     // Generate matricule
     const matricule = await generateMatricule(validatedData.type, validatedData.transaction_date);
 
+    // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
+    if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
+      const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [validatedData.voucher_number]);
+      if (existing) {
+        validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
+      }
+    }
+
     // Insert transaction
     const sql = `
       INSERT INTO transactions (

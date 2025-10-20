@@ -108,6 +108,8 @@ function IncomePage() {
         transaction={selectedTransaction}
         onHide={() => setShowModal(false)}
         onSave={handleSave}
+        defaultCategory={!selectedTransaction ? 'التبرعات النقدية' : undefined}
+        customTitle={!selectedTransaction ? 'إضافة مدخول' : undefined}
       />
 
       <VoucherPrintModal

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, Button, Form, Row, Col, InputGroup } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 
 const initialFormData = {
   item_name: '',
@@ -15,44 +15,18 @@ const initialFormData = {
 
 function InventoryFormModal({ show, onHide, onSave, item }) {
   const [formData, setFormData] = useState(initialFormData);
-  const [isUnique, setIsUnique] = useState(true);
-  const [isValidated, setIsValidated] = useState(false);
-  const [itemNameForCheck, setItemNameForCheck] = useState('');
   const [categories, setCategories] = useState([]);
 
   const isEditMode = item != null;
-  
+
   useEffect(() => {
     if (show) {
-      window.electronAPI.getInKindCategories().then(setCategories).catch(() => {});
+      window.electronAPI
+        .getInKindCategories()
+        .then(setCategories)
+        .catch(() => {});
     }
   }, [show]);
-
-  // Debounce effect for item name uniqueness check
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (itemNameForCheck) {
-        checkUniqueness(itemNameForCheck);
-      }
-    }, 500); // 500ms debounce delay
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [itemNameForCheck]);
-
-  const checkUniqueness = useCallback(async (name) => {
-    if (!name || (isEditMode && name === item.item_name)) {
-      setIsUnique(true);
-      return;
-    }
-    const { isUnique: unique } = await window.electronAPI.checkInventoryItemUniqueness({
-      itemName: name,
-      currentId: isEditMode ? item.id : null,
-    });
-    setIsUnique(unique);
-    setIsValidated(true);
-  }, [isEditMode, item]);
 
   useEffect(() => {
     if (show) {
@@ -67,25 +41,16 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
       } else {
         setFormData(initialFormData);
       }
-      // Reset validation state on open
-      setIsUnique(true);
-      setIsValidated(false);
-      setItemNameForCheck('');
     }
   }, [item, isEditMode, show]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === 'item_name') {
-      setIsValidated(false);
-      setItemNameForCheck(value);
-    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!isUnique) return;
     onSave(formData);
     onHide(); // Close modal on save
   };
@@ -113,26 +78,22 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
               اسم الصنف<span className="text-danger">*</span>
             </Form.Label>
             <Col sm={9}>
-              <InputGroup hasValidation>
-                <Form.Control
-                  type="text"
-                  name="item_name"
-                  value={formData.item_name}
-                  onChange={handleChange}
-                  required
-                  isInvalid={!isUnique}
-                />
-                <Form.Control.Feedback type="invalid">
-                  هذا الصنف موجود بالفعل في المخزون.
-                </Form.Control.Feedback>
-              </InputGroup>
+              <Form.Control
+                type="text"
+                name="item_name"
+                value={formData.item_name}
+                onChange={handleChange}
+                required
+              />
             </Col>
           </Form.Group>
 
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>الفئة <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  الفئة <span className="text-danger">*</span>
+                </Form.Label>
                 <Form.Control
                   as="select"
                   name="category"
@@ -255,7 +216,7 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
           </Form.Group>
 
           <div className="d-grid">
-            <Button variant="primary" type="submit" disabled={!isUnique}>
+            <Button variant="primary" type="submit">
               {isEditMode ? 'حفظ التعديلات' : 'إضافة الصنف'}
             </Button>
           </div>

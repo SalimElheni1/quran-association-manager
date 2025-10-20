@@ -70,18 +70,8 @@ async function handleGetInventoryItems(event, filters = {}) {
 }
 
 async function handleCheckItemUniqueness(event, { itemName, currentId }) {
-  let sql = 'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE';
-  const params = [itemName];
-
-  if (currentId) {
-    sql += ' AND id != ?';
-    params.push(currentId);
-  }
-
-  const result = await getQuery(sql, params);
-  // If `result` is undefined (no item found), it's unique.
-  // If `result` is an object (item found), it's not unique.
-  return { isUnique: !result };
+  // Allow duplicates for item names as multiple donations/purchases can have same item name
+  return { isUnique: true };
 }
 
 async function handleAddInventoryItem(event, item) {

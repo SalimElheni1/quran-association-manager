@@ -53,6 +53,8 @@ function TransactionTable({
     return <div className="text-center p-4 text-muted">لا توجد عمليات مالية</div>;
   }
 
+  const isIncomeTable = transactions.length > 0 && transactions[0].type === 'INCOME';
+
   const tableComponent = (
     <Table striped bordered hover responsive className="transactions-table">
       <thead>
@@ -61,7 +63,7 @@ function TransactionTable({
           {!compact && <th>المرجع</th>}
           <th>التاريخ</th>
           {!compact && <th>رقم الوصل</th>}
-          <th>الفئة</th>
+          <th>{isIncomeTable ? 'نوع المدخول' : 'الفئة'}</th>
           {!compact && <th>نوع المدخول</th>}
           <th>المبلغ</th>
           {!compact && <th>طريقة الدفع</th>}
@@ -79,7 +81,7 @@ function TransactionTable({
             )}
             <td>{formatDate(transaction.transaction_date)}</td>
             {!compact && <td>{transaction.voucher_number || '-'}</td>}
-            <td>{transaction.category}</td>
+            <td>{isIncomeTable ? transaction.receipt_type || '-' : transaction.category}</td>
             {!compact && <td>{transaction.receipt_type || '-'}</td>}
             <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
               {formatCurrency(transaction.amount)}

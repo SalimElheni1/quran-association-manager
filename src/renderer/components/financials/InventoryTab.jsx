@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
 import TablePagination from '../common/TablePagination';
 import InventoryFormModal from './InventoryFormModal';
+import TransactionModal from '../financial/TransactionModal';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { toast } from 'react-toastify';
+import { error as logError } from '@renderer/utils/logger';
 
 function InventoryTab() {
   const [items, setItems] = useState([]);
@@ -14,6 +16,7 @@ function InventoryTab() {
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showInKindModal, setShowInKindModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
   const fetchItems = useCallback(async () => {
@@ -104,6 +107,35 @@ function InventoryTab() {
     }
   };
 
+  const handleInKindSave = async (data) => {
+    try {
+      await window.electronAPI.addTransaction({ ...data, type: 'INCOME' });
+
+      // Extract inkind data and add to inventory
+      const inKindDetails = JSON.parse(data.description);
+      const inventoryData = {
+        item_name: inKindDetails.item_name,
+        category: inKindDetails.category,
+        quantity: inKindDetails.quantity,
+        unit_value: inKindDetails.unit_value,
+        location: '', // default
+        notes: '',
+        acquisition_date: data.transaction_date,
+        acquisition_source: 'تبرع',
+        condition_status: inKindDetails.condition,
+      };
+      await window.electronAPI.addInventoryItem(inventoryData);
+
+      toast.success('✅ تم إضافة التبرع العيني بنجاح');
+      setShowInKindModal(false);
+      // Refresh inventory list after adding
+      fetchItems();
+    } catch (err) {
+      logError('Error saving in-kind donation:', err);
+      toast.error('❌ فشل في حفظ التبرع العيني');
+    }
+  };
+
   const renderTableBody = () => {
     if (items.length === 0) {
       return (
@@ -123,7 +155,7 @@ function InventoryTab() {
         <td>{item.quantity}</td>
         <td>{item.unit_value ? `${item.unit_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
-        <td>{item.location || 'غير محدد'}</td>
+        <td>{item.acquisition_source || 'غير محدد'}</td>
         <td>
           <Button
             variant="outline-primary"
@@ -145,10 +177,15 @@ function InventoryTab() {
     <>
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center">
-          <h3 className="mb-0">إدارة المخزون</h3>
-          <Button variant="primary" onClick={handleAddItem}>
-            إضافة صنف جديد
-          </Button>
+          <h3 className="mb-0">الجرد</h3>
+          <div className="d-flex gap-2">
+            <Button variant="primary" onClick={handleAddItem}>
+              إضافة صنف جديد
+            </Button>
+            <Button variant="success" onClick={() => setShowInKindModal(true)}>
+              إضافة تبرع عيني
+            </Button>
+          </div>
         </Card.Header>
         <Card.Body>
           {isLoading && (
@@ -167,7 +204,7 @@ function InventoryTab() {
                   <th>الكمية</th>
                   <th>قيمة الوحدة</th>
                   <th>القيمة الإجمالية</th>
-                  <th>الموقع</th>
+                  <th>مصدر الاقتناء</th>
                   <th>إجراءات</th>
                 </tr>
               </thead>
@@ -204,6 +241,16 @@ function InventoryTab() {
         handleConfirm={handleDeleteConfirm}
         title="تأكيد الحذف"
         body={`هل أنت متأكد من رغبتك في حذف الصنف "${selectedItem?.item_name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+      />
+
+      <TransactionModal
+        show={showInKindModal}
+        type="INCOME"
+        transaction={null}
+        onHide={() => setShowInKindModal(false)}
+        onSave={handleInKindSave}
+        defaultCategory="التبرعات العينية"
+        customTitle="إضافة تبرع عيني"
       />
     </>
   );
