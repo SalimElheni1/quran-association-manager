@@ -47,6 +47,7 @@ const { log, error: logError } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { registerFinancialHandlers } = require('./handlers/financialHandlers');
+const { registerStudentFeeHandlers } = require('./handlers/studentFeeHandlers');
 const { registerFinancialExportHandlers } = require('./services/financialExportService');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
 const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
@@ -296,6 +297,7 @@ const initializeApp = async () => {
     });
 
     registerFinancialHandlers();
+    registerStudentFeeHandlers();
     registerFinancialExportHandlers();
     registerStudentHandlers();
     registerTeacherHandlers();
