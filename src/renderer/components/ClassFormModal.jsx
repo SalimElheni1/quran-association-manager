@@ -210,6 +210,32 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               </Form.Select>
             </Form.Group>
           </Row>
+          <Row>
+            <Form.Group as={Col} md="6" className="mb-3">
+              <Form.Label>نوع الرسوم</Form.Label>
+              <Form.Select
+                name="fee_type"
+                value={formData.fee_type || 'standard'}
+                onChange={handleChange}
+              >
+                <option value="standard">رسوم قياسية</option>
+                <option value="special">رسوم خاصة</option>
+              </Form.Select>
+            </Form.Group>
+            {formData.fee_type === 'special' && (
+              <Form.Group as={Col} md="6" className="mb-3">
+                <Form.Label>الرسم الشهري الخاص</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="monthly_fee"
+                  value={formData.monthly_fee || ''}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                />
+              </Form.Group>
+            )}
+          </Row>
           <div className="mb-3">
             <h5 className="form-section-title mb-3 text-primary">الجدول الزمني</h5>
             <div className="study-times-section">

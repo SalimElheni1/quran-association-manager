@@ -341,6 +341,50 @@ const SettingsPage = () => {
                             </Form.Text>
                           </Col>
                         </Form.Group>
+                        <hr />
+                        <h6>إعدادات الرسوم الدراسية</h6>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            الرسم السنوي الافتراضي
+                          </Form.Label>
+                          <Col sm={8}>
+                            <InputGroup>
+                              <Form.Control
+                                type="number"
+                                name="annual_fee"
+                                value={settings.annual_fee || ''}
+                                onChange={handleChange}
+                                min="0"
+                                step="0.01"
+                              />
+                              <InputGroup.Text>د.ت</InputGroup.Text>
+                            </InputGroup>
+                            <Form.Text className="text-muted">
+                              الرسم السنوي الذي سيتم تطبيقه على الطلاب الذين يمكن أن يدفعوا.
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            الرسم الشهري القياسي
+                          </Form.Label>
+                          <Col sm={8}>
+                            <InputGroup>
+                              <Form.Control
+                                type="number"
+                                name="standard_monthly_fee"
+                                value={settings.standard_monthly_fee || ''}
+                                onChange={handleChange}
+                                min="0"
+                                step="0.01"
+                              />
+                              <InputGroup.Text>د.ت</InputGroup.Text>
+                            </InputGroup>
+                            <Form.Text className="text-muted">
+                              الرسم الشهري الذي سيتم تطبيقه على الطلاب المسجلين في الفصول القياسية.
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
                       </Card.Body>
                     </Card>
                   </Tab>

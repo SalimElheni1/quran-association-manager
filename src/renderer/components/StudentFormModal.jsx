@@ -29,7 +29,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       contact_info: '',
       email: '',
       status: 'active',
-      is_full_memorizer: false,
+
       notes: '',
       parent_name: '',
       guardian_relation: '',
@@ -507,19 +507,61 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                 </div>
               </Form.Group>
             </Row>
+            <hr />
+
+            {/* Fee Category Info */}
+            <h5 className="form-section-title">معلومات الرسوم</h5>
             <Row>
-              <Form.Group as={Col} className="mb-3" controlId="formIsFullMemorizer">
-                <Form.Check
-                  type="checkbox"
-                  label="حافظ للقرآن كاملاً"
-                  name="is_full_memorizer"
-                  checked={formData.is_full_memorizer || false}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, is_full_memorizer: e.target.checked }))
-                  }
-                />
+              <Form.Group as={Col} md="6" className="mb-3" controlId="formFeeCategory">
+                <Form.Label>فئة الرسوم</Form.Label>
+                <Form.Select
+                  name="fee_category"
+                  value={formData.fee_category || 'CAN_PAY'}
+                  onChange={handleChange}
+                >
+                  <option value="CAN_PAY">يستطيع الدفع</option>
+                  <option value="EXEMPT">معفى من الرسوم</option>
+                  <option value="SPONSORED">مكفول</option>
+                </Form.Select>
               </Form.Group>
             </Row>
+            {formData.fee_category === 'SPONSORED' && (
+              <>
+                <Row>
+                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorName">
+                    <Form.Label>اسم الكافل</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="sponsor_name"
+                      value={formData.sponsor_name || ''}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorPhone">
+                    <Form.Label>هاتف الكافل</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="sponsor_phone"
+                      value={formData.sponsor_phone || ''}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Row>
+                <Row>
+                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorCin">
+                    <Form.Label>رقم الهوية الوطنية الكافل (CIN)</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="sponsor_cin"
+                      value={formData.sponsor_cin || ''}
+                      onChange={handleChange}
+                      maxLength={8}
+                    />
+                  </Form.Group>
+                </Row>
+              </>
+            )}
+
             <Row>
               <Form.Group as={Col} className="mb-3" controlId="formStudentNotes">
                 <Form.Label>ملاحظات</Form.Label>
