@@ -273,6 +273,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateInKindCategory: (id, name) => ipcRenderer.invoke('in-kind-categories:update', id, name),
   deleteInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:delete', id),
 
+  // Student Fees API
+  studentFeesGetStatus: (studentId) => ipcRenderer.invoke('student-fees:getStatus', studentId),
+  studentFeesGetAll: () => ipcRenderer.invoke('student-fees:getAll'),
+  studentFeesRecordPayment: (paymentDetails) => ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),
+
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
   getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),

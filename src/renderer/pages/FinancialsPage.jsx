@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
 import FinancialDashboard from './FinancialDashboard';
 import IncomePage from './IncomePage';
+import StudentFeesTab from '@renderer/components/financials/StudentFeesTab';
 import ExpensesPage from './ExpensesPage';
 import AccountsPage from './AccountsPage';
 import InventoryTab from '@renderer/components/financials/InventoryTab';
@@ -27,6 +28,9 @@ function FinancialsPage() {
             </Tab>
             <Tab eventKey="income" title="💰 المداخيل">
               <IncomePage />
+            </Tab>
+            <Tab eventKey="student-fees" title="👨‍🎓 رسوم الطلاب">
+              <StudentFeesTab />
             </Tab>
             <Tab eventKey="expenses" title="💸 المصاريف">
               <ExpensesPage />
