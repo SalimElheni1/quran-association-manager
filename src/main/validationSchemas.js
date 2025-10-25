@@ -2,7 +2,7 @@ const Joi = require('joi');
 
 const studentValidationSchema = Joi.object({
   matricule: Joi.string()
-    .pattern(/^S-\d{6}$/)
+    .pattern(/^S-\d{4}$/)
     .messages({
       'string.pattern.base': 'الرقم التعريفي للطالب غير صالح.',
     }),
@@ -33,6 +33,12 @@ const studentValidationSchema = Joi.object({
     .messages({
       'string.pattern.base': 'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
     }),
+  fee_category: Joi.string().valid('CAN_PAY', 'EXEMPT', 'SPONSORED').allow(null, ''),
+  sponsor_name: Joi.string().allow(null, ''),
+  sponsor_phone: Joi.string().allow(null, ''),
+  sponsor_cin: Joi.string().pattern(/^\d{8}$/).allow(null, '').messages({
+    'string.pattern.base': 'رقم بطاقة الكافل يجب أن يتكون من 8 أرقام.',
+  }),
 }).unknown(true);
 
 const classValidationSchema = Joi.object({
@@ -50,11 +56,13 @@ const classValidationSchema = Joi.object({
   class_type: Joi.string().allow(null, ''),
   start_date: Joi.date().iso().allow(null, ''),
   end_date: Joi.date().iso().allow(null, ''),
+  fee_type: Joi.string().valid('standard', 'special').allow(null, ''),
+  monthly_fee: Joi.number().positive().allow(null, ''),
 }).unknown(true);
 
 const teacherValidationSchema = Joi.object({
   matricule: Joi.string()
-    .pattern(/^T-\d{6}$/)
+    .pattern(/^T-\d{4}$/)
     .messages({
       'string.pattern.base': 'الرقم التعريفي للمعلم غير صالح.',
     }),
@@ -79,7 +87,7 @@ const teacherValidationSchema = Joi.object({
 
 const userValidationSchema = Joi.object({
   matricule: Joi.string()
-    .pattern(/^U-\d{6}$/)
+    .pattern(/^U-\d{4}$/)
     .messages({
       'string.pattern.base': 'الرقم التعريفي للمستخدم غير صالح.',
     }),
