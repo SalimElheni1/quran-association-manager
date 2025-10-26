@@ -9,6 +9,7 @@ const db = require('../../db/db');
 const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { translateTransaction, translateArray } = require('../utils/translations');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -128,7 +129,7 @@ async function handleGetTransactions(event, filters) {
       const transactions = await db.allQuery(sql, params);
 
       return {
-        transactions,
+        transactions: translateArray(transactions, translateTransaction),
         total: totalCount,
         page,
         limit,
@@ -137,7 +138,8 @@ async function handleGetTransactions(event, filters) {
     } else {
       // Return direct array for backwards compatibility
       sql += ' ORDER BY t.transaction_date DESC, t.id DESC';
-      return await db.allQuery(sql, params);
+      const result = await db.allQuery(sql, params);
+      return translateArray(result, translateTransaction);
     }
   } catch (error) {
     logError('Error in handleGetTransactions:', error);
@@ -203,7 +205,8 @@ async function handleAddTransaction(event, transaction) {
 
     await db.runQuery('COMMIT;');
 
-    return await db.getQuery('SELECT * FROM transactions WHERE id = ?', [result.id]);
+    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [result.id]);
+    return translateTransaction(transaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
@@ -274,7 +277,8 @@ async function handleUpdateTransaction(event, id, transaction) {
 
     await db.runQuery('COMMIT;');
 
-    return await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+    return translateTransaction(transaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
@@ -401,7 +405,7 @@ async function handleGetFinancialSummary(_event, period) {
       transactionCount,
       incomeByCategory: income,
       expensesByCategory: expenses,
-      recentTransactions,
+      recentTransactions: translateArray(recentTransactions, translateTransaction),
     };
   } catch (error) {
     logError('Error in handleGetFinancialSummary:', error);

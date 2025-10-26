@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { runQuery, getQuery, allQuery } = require('../../db/db');
+const { mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
@@ -55,11 +56,18 @@ function registerGroupHandlers() {
 
       query += ' ORDER BY g.name ASC';
 
-      const groups = await allQuery(query, params);
+      let groups = await allQuery(query, params);
+
+      // Apply translations to category
+      groups = groups.map(group => ({
+        ...group,
+        category: mapCategory(group.category),
+      }));
+
       return { success: true, data: groups };
     } catch (error) {
       console.error('Error fetching groups:', error);
-      return { success: false, message: 'Failed to fetch groups.' };
+      return { success: false, message: 'فشل في جلب بيانات المجموعات.' };
     }
   });
 
@@ -84,9 +92,9 @@ function registerGroupHandlers() {
     } catch (error) {
       console.error('Error adding group:', error);
       if (error.message.includes('UNIQUE constraint failed: groups.name')) {
-        return { success: false, message: 'A group with this name already exists.' };
+        return { success: false, message: 'يوجد مجموعة بهذا الاسم بالفعل.' };
       }
-      return { success: false, message: 'Failed to add group.' };
+      return { success: false, message: 'فشل في إضافة المجموعة.' };
     }
   });
 
@@ -118,9 +126,9 @@ function registerGroupHandlers() {
     } catch (error) {
       console.error(`Error updating group ${id}:`, error);
       if (error.message.includes('UNIQUE constraint failed: groups.name')) {
-        return { success: false, message: 'A group with this name already exists.' };
+        return { success: false, message: 'يوجد مجموعة بهذا الاسم بالفعل.' };
       }
-      return { success: false, message: 'Failed to update group.' };
+      return { success: false, message: 'فشل في تحديث المجموعة.' };
     }
   });
 
@@ -133,7 +141,7 @@ function registerGroupHandlers() {
       return { success: true };
     } catch (error) {
       console.error(`Error deleting group ${id}:`, error);
-      return { success: false, message: 'Failed to delete group.' };
+      return { success: false, message: 'فشل في حذف المجموعة.' };
     }
   });
 
@@ -150,7 +158,7 @@ function registerGroupHandlers() {
       return { success: true, data: students };
     } catch (error) {
       console.error(`Error fetching students for group ${groupId}:`, error);
-      return { success: false, message: 'Failed to fetch students for group.' };
+      return { success: false, message: 'فشل في جلب الطلاب للمجموعة.' };
     }
   });
 
@@ -163,7 +171,7 @@ function registerGroupHandlers() {
       // Ignore unique constraint errors, as it means the assignment already exists.
       if (!error.message.includes('UNIQUE constraint failed')) {
         console.error(`Error adding student ${studentId} to group ${groupId}:`, error);
-        return { success: false, message: 'Failed to add student to group.' };
+        return { success: false, message: 'فشل في إضافة الطالب إلى المجموعة.' };
       }
       return { success: true }; // Already exists, so it's a "success"
     }
@@ -176,7 +184,7 @@ function registerGroupHandlers() {
       return { success: true };
     } catch (error) {
       console.error(`Error removing student ${studentId} from group ${groupId}:`, error);
-      return { success: false, message: 'Failed to remove student from group.' };
+      return { success: false, message: 'فشل في إزالة الطالب من المجموعة.' };
     }
   });
 
@@ -191,7 +199,7 @@ function registerGroupHandlers() {
       return { success: true, data: groups };
     } catch (error) {
       console.error(`Error fetching groups for student ${studentId}:`, error);
-      return { success: false, message: 'Failed to fetch student groups.' };
+      return { success: false, message: 'فشل في جلب مجموعات الطالب.' };
     }
   });
 
@@ -199,7 +207,7 @@ function registerGroupHandlers() {
     try {
       const group = await getQuery('SELECT * FROM groups WHERE id = ?', [groupId]);
       if (!group) {
-        return { success: false, message: 'Group not found.' };
+        return { success: false, message: 'المجموعة غير موجودة.' };
       }
 
       // Get all active students first
@@ -240,7 +248,7 @@ function registerGroupHandlers() {
       return { success: true, data: students };
     } catch (error) {
       console.error(`Error fetching assignment data for group ${groupId}:`, error);
-      return { success: false, message: 'Failed to fetch assignment data.' };
+      return { success: false, message: 'فشل في جلب بيانات التعيين.' };
     }
   });
 
@@ -265,7 +273,7 @@ function registerGroupHandlers() {
     } catch (error) {
       await runQuery('ROLLBACK;');
       console.error(`Error updating students for group ${groupId}:`, error);
-      return { success: false, message: 'Failed to update group students.' };
+      return { success: false, message: 'فشل في تحديث طلاب المجموعة.' };
     }
   });
 
@@ -274,7 +282,7 @@ function registerGroupHandlers() {
     try {
       const classData = await getQuery('SELECT * FROM classes WHERE id = ?', [classId]);
       if (!classData) {
-        return { success: false, message: 'Class not found.' };
+        return { success: false, message: 'الفصل غير موجود.' };
       }
 
       let categoryCondition = '';
@@ -304,7 +312,7 @@ function registerGroupHandlers() {
       return { success: true, data: groups };
     } catch (error) {
       console.error(`Error fetching eligible groups for class ${classId}:`, error);
-      return { success: false, message: 'Failed to fetch eligible groups.' };
+      return { success: false, message: 'فشل في جلب المجموعات المؤهلة.' };
     }
   });
 }
@@ -346,7 +354,7 @@ function registerGroupHandlers() {
       return { success: true, data: students };
     } catch (error) {
       console.error(`Error fetching students for group category ${groupCategory}:`, error);
-      return { success: false, message: 'Failed to fetch students for group.' };
+      return { success: false, message: 'فشل في جلب الطلاب للمجموعة.' };
     }
   });
 

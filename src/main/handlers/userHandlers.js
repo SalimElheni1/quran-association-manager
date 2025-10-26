@@ -5,6 +5,7 @@ const { userValidationSchema, userUpdateValidationSchema } = require('../validat
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { translateUser } = require('../utils/translations');
 
 const userFields = [
   'matricule',
@@ -81,7 +82,7 @@ function registerUserHandlers() {
       const users = await db.allQuery(sql, params);
 
       return {
-        users: users.map((user) => ({
+        users: users.map(translateUser).map((user) => ({
           ...user,
           roles: user.roles ? user.roles.split(',') : [],
         })),

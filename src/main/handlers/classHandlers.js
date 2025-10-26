@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
+const { mapGender, mapStatus, mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
@@ -85,7 +86,7 @@ function registerClassHandlers() {
 
   ipcMain.handle('classes:delete', (_event, id) => {
     if (!id || typeof id !== 'number')
-      throw new Error('A valid class ID is required for deletion.');
+      throw new Error('معرف الفصل صالح مطلوب للحذف.');
     const sql = 'DELETE FROM classes WHERE id = ?';
     return db.runQuery(sql, [id]);
   });
@@ -127,7 +128,14 @@ function registerClassHandlers() {
       sql += ' LIMIT ? OFFSET ?';
       params.push(limit, offset);
 
-      const classes = await db.allQuery(sql, params);
+      let classes = await db.allQuery(sql, params);
+
+      // Apply translations to status and gender
+      classes = classes.map(classItem => ({
+        ...classItem,
+        status: mapStatus(classItem.status),
+        gender: mapCategory(classItem.gender), // class gender uses category mapping (men/women/kids)
+      }));
 
       return {
         classes,
@@ -139,7 +147,14 @@ function registerClassHandlers() {
     } else {
       // Return array directly for backwards compatibility (e.g., AttendancePage)
       sql += ' ORDER BY c.name ASC';
-      return db.allQuery(sql, params);
+      let classes = await db.allQuery(sql, params);
+      // Apply translations to status and gender
+      classes = classes.map(classItem => ({
+        ...classItem,
+        status: mapStatus(classItem.status),
+        gender: mapCategory(classItem.gender),
+      }));
+      return classes;
     }
   });
 
