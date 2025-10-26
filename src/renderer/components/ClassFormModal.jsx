@@ -210,22 +210,25 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               </Form.Select>
             </Form.Group>
           </Row>
-          <Row>
-            <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>نوع الرسوم</Form.Label>
-              <Form.Select
-                name="fee_type"
-                value={formData.fee_type || 'standard'}
-                onChange={handleChange}
-              >
-                <option value="standard">رسوم قياسية</option>
-                <option value="special">رسوم خاصة</option>
-              </Form.Select>
+          <Row className="align-items-center">
+            <Form.Group as={Col} md="auto" className="mb-3">
+              <Form.Check
+                type="checkbox"
+                id="customMonthlyFee"
+                label="معلوم شهري خاص"
+                checked={formData.fee_type === 'special'}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    fee_type: e.target.checked ? 'special' : 'standard',
+                  }))
+                }
+              />
             </Form.Group>
             {formData.fee_type === 'special' && (
-              <Form.Group as={Col} md="6" className="mb-3">
-                <Form.Label>الرسم الشهري الخاص</Form.Label>
+              <Form.Group as={Col} className="mb-3">
                 <Form.Control
+                  placeholder="معلوم شهري"
                   type="number"
                   name="monthly_fee"
                   value={formData.monthly_fee || ''}

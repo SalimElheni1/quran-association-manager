@@ -39,7 +39,9 @@ const studentValidationSchema = Joi.object({
   sponsor_cin: Joi.string().pattern(/^\d{8}$/).allow(null, '').messages({
     'string.pattern.base': 'رقم بطاقة الكافل يجب أن يتكون من 8 أرقام.',
   }),
-}).unknown(true);
+}).unknown(true).keys({
+  financial_assistance_notes: Joi.forbidden(), // Removed, no longer used
+});
 
 const studentPaymentValidationSchema = Joi.object({
   student_id: Joi.number().integer().positive().required().messages({

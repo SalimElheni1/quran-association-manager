@@ -783,7 +783,6 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'المهنة', key: 'occupation', width: 20 },
         { header: 'الحالة الاجتماعية', key: 'civil_status', width: 15 },
         { header: 'أفراد العائلة المسجلون', key: 'related_family_members', width: 30 },
-        { header: 'ملاحظات المساعدة المالية', key: 'financial_assistance_notes', width: 30 },
       ],
       dummyData: [
         {

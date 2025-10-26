@@ -70,7 +70,6 @@ const studentFields = [
   'occupation', // Student's occupation (if applicable)
   'civil_status', // Marital status
   'related_family_members', // Family members in the association
-  'financial_assistance_notes', // Financial aid information
   'fee_category', // Student fee category (CAN_PAY, EXEMPT, SPONSORED)
   'sponsor_name', // Sponsor name for sponsored students
   'sponsor_phone', // Sponsor phone for sponsored students

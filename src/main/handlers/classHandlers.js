@@ -39,6 +39,8 @@ const classFields = [
   'status',
   'capacity',
   'gender',
+  'fee_type',
+  'monthly_fee',
 ];
 
 function registerClassHandlers() {
