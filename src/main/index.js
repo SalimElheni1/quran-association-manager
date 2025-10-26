@@ -64,6 +64,7 @@ const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
 const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
+const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('./feeChargeScheduler');
 
 const store = new Store();
 let initialCredentials = null;

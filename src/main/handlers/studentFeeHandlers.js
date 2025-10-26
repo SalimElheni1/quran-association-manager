@@ -8,6 +8,9 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { requireRoles } = require('../authMiddleware');
 const { error: logError } = require('../logger');
+const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
+const { studentPaymentValidationSchema } = require('../validationSchemas');
+const { internalGetSettingsHandler } = require('./settingsHandlers');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -173,6 +176,31 @@ async function recordStudentPayment(event, paymentDetails) {
 
   await db.runQuery('BEGIN TRANSACTION;');
   try {
+    // Validate receipt number uniqueness across all income tables
+    if (receipt_number) {
+      // Check payments table
+      const existingPayment = await db.getQuery(
+        'SELECT id FROM payments WHERE receipt_number = ?',
+        [receipt_number]
+      );
+
+      // Check donations table
+      const existingDonation = await db.getQuery(
+        'SELECT id FROM donations WHERE receipt_number = ?',
+        [receipt_number]
+      );
+
+      // Check student_payments table (exclude current payment if updating)
+      const existingStudentPayment = await db.getQuery(
+        'SELECT id FROM student_payments WHERE receipt_number = ?',
+        [receipt_number]
+      );
+
+      if (existingPayment || existingDonation || existingStudentPayment) {
+        throw new Error('رقم الوصل مستخدم بالفعل. يرجى اختيار رقم وصل آخر.');
+      }
+    }
+
     // 1. Create a student_payment record
     const paymentResult = await db.runQuery(`
       INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number)
@@ -257,8 +285,17 @@ function registerStudentFeeHandlers() {
 
   ipcMain.handle('student-fees:recordPayment', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, paymentDetails) => {
     try {
+      // Validate payment details
+      await studentPaymentValidationSchema.validateAsync(paymentDetails, {
+        abortEarly: false,
+        stripUnknown: false,
+      });
+
       return await recordStudentPayment(event, paymentDetails);
     } catch (error) {
+      if (error.isJoi) {
+        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      }
       logError('Error recording student payment:', error);
       throw new Error('Failed to record student payment.');
     }
@@ -300,6 +337,87 @@ function registerStudentFeeHandlers() {
     } catch (error) {
       logError('Error getting all students with fee status:', error);
       throw new Error('Failed to get students with fee status.');
+    }
+  }));
+
+  // Charge generation handlers
+  ipcMain.handle('student-fees:generateAnnualCharges', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, academicYear) => {
+    try {
+      await generateAnnualFeeCharges(academicYear);
+      return { success: true, message: 'تم إنشاء الرسوم السنوية بنجاح' };
+    } catch (error) {
+      logError('Error generating annual charges:', error);
+      throw new Error('فشل في إنشاء الرسوم السنوية');
+    }
+  }));
+
+  ipcMain.handle('student-fees:generateMonthlyCharges', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, data) => {
+    try {
+      const { academicYear, month } = data;
+      await generateMonthlyFeeCharges(academicYear, month);
+      return { success: true, message: 'تم إنشاء الرسوم الشهرية بنجاح' };
+    } catch (error) {
+      logError('Error generating monthly charges:', error);
+      throw new Error('فشل في إنشاء الرسوم الشهرية');
+    }
+  }));
+
+  ipcMain.handle('student-fees:generateAllCharges', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, academicYear, force = false) => {
+    try {
+      // Generate annual charges for the year
+      await generateAnnualFeeCharges(academicYear);
+
+      // Generate monthly charges for upcoming months
+      const currentMonth = new Date().getMonth() + 1; // JavaScript months are 0-indexed
+      const monthsToGenerate = [currentMonth, currentMonth + 1, currentMonth + 2]; // Current + next 2 months
+
+      for (const month of monthsToGenerate) {
+        if (month <= 12) {
+          await generateMonthlyFeeCharges(academicYear, month, force);
+        } else {
+          // Handle year rollover
+          const nextYear = academicYear + 1;
+          await generateMonthlyFeeCharges(nextYear.toString(), month - 12, force);
+        }
+      }
+
+      return { success: true, message: 'تم إنشاء جميع الرسوم بنجاح' };
+    } catch (error) {
+      logError('Error generating all charges:', error);
+      throw new Error('فشل في إنشاء جميع الرسوم');
+    }
+  }));
+
+
+
+  // Receipt management handlers
+  ipcMain.handle('receipts:generate', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, options = {}) => {
+    try {
+      const receiptType = options.receiptType || 'fee_payment';
+      const result = await generateReceiptNumber(receiptType, event.sender.userId);
+      return result;
+    } catch (error) {
+      logError('Error generating receipt number:', error);
+      throw new Error('Failed to generate receipt number.');
+    }
+  }));
+
+  ipcMain.handle('receipts:getStats', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, year = null) => {
+    try {
+      return await getReceiptBookStats(year);
+    } catch (error) {
+      logError('Error getting receipt book stats:', error);
+      throw new Error('Failed to get receipt book statistics.');
+    }
+  }));
+
+  ipcMain.handle('receipts:validate', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event, receiptNumber) => {
+    try {
+      const { validateReceiptNumber } = require('../services/receiptService');
+      return validateReceiptNumber(receiptNumber);
+    } catch (error) {
+      logError('Error validating receipt number:', error);
+      throw new Error('Failed to validate receipt number.');
     }
   }));
 }

@@ -41,6 +41,36 @@ const studentValidationSchema = Joi.object({
   }),
 }).unknown(true);
 
+const studentPaymentValidationSchema = Joi.object({
+  student_id: Joi.number().integer().positive().required().messages({
+    'number.base': 'معرف الطالب يجب أن يكون رقماً',
+    'any.required': 'معرف الطالب مطلوب',
+  }),
+  amount: Joi.number().positive().required().messages({
+    'number.base': 'المبلغ يجب أن يكون رقماً',
+    'number.positive': 'المبلغ يجب أن يكون موجباً',
+    'any.required': 'المبلغ مطلوب',
+  }),
+  payment_method: Joi.string().valid('CASH', 'CHECK', 'TRANSFER').required().messages({
+    'any.only': 'طريقة الدفع غير صالحة',
+    'any.required': 'طريقة الدفع مطلوبة',
+  }),
+  payment_type: Joi.string().allow(null, ''),
+  academic_year: Joi.string().allow(null, ''),
+  notes: Joi.string().allow(null, ''),
+  check_number: Joi.string().when('payment_method', {
+    is: 'CHECK',
+    then: Joi.string().required().messages({
+      'any.required': 'رقم الشيك مطلوب',
+    }),
+    otherwise: Joi.string().allow(null, ''),
+  }),
+  receipt_number: Joi.string().required().messages({
+    'string.empty': 'رقم الوصل مطلوب',
+    'any.required': 'رقم الوصل مطلوب',
+  }),
+}).unknown(true);
+
 const classValidationSchema = Joi.object({
   name: Joi.string().min(3).max(100).required().messages({
     'string.base': 'اسم الفصل يجب أن يكون نصاً',
@@ -224,6 +254,7 @@ const transactionValidationSchema = Joi.object({
 
 module.exports = {
   studentValidationSchema,
+  studentPaymentValidationSchema,
   classValidationSchema,
   teacherValidationSchema,
   userValidationSchema,
