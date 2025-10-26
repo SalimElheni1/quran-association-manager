@@ -79,9 +79,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
       // Ensure roles array is not empty
       const dataToSubmit = {
         ...formData,
-        roles: formData.roles && formData.roles.length > 0 ? formData.roles : ['Administrator']
+        roles: formData.roles && formData.roles.length > 0 ? formData.roles : ['Administrator'],
       };
-      
+
       if (isEditMode) {
         await window.electronAPI.updateUser(user.id, dataToSubmit);
         toast.success('تم تحديث بيانات المستخدم بنجاح!');
@@ -183,7 +183,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
               <Form.Label>
-                رقم ب.ت.و<span className="text-danger">*</span>
+                رقم الهوية الوطنية (CIN)<span className="text-danger">*</span>
               </Form.Label>
               <Form.Control
                 type="text"
@@ -217,6 +217,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                 maxLength={8}
                 required
               />
+              <Form.Text className="text-muted">(يجب أن يتكون من 8 أرقام)</Form.Text>
             </Form.Group>
           </Row>
           <Row>

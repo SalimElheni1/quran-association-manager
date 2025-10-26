@@ -265,6 +265,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     onChange={handleChange}
                     maxLength={8}
                   />
+                  <Form.Text className="text-muted">(يجب أن يتكون من 8 أرقام)</Form.Text>
                 </Form.Group>
                 <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentEmail">
                   <Form.Label>البريد الإلكتروني (الطالب)</Form.Label>
@@ -313,8 +314,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                       name="parent_contact"
                       value={formData.parent_contact || ''}
                       onChange={handleChange}
+                      maxLength={8}
                     />
-                    <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
+                    <Form.Text className="text-muted">(يجب أن يتكون من 8 أرقام)</Form.Text>
                   </Form.Group>
                   <Form.Group as={Col} md="6" className="mb-3" controlId="formGuardianEmail">
                     <Form.Label>بريد ولي الأمر الإلكتروني</Form.Label>
@@ -357,8 +359,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                       name="emergency_contact_phone"
                       value={formData.emergency_contact_phone || ''}
                       onChange={handleChange}
+                      maxLength={8}
                     />
-                    <Form.Text className="text-muted">(مثال: +123456789)</Form.Text>
+                    <Form.Text className="text-muted">(يجب أن يتكون من 8 أرقام)</Form.Text>
                   </Form.Group>
                 </Row>
                 <Row>
@@ -542,7 +545,9 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     name="sponsor_phone"
                     value={formData.sponsor_phone || ''}
                     onChange={handleChange}
+                    maxLength={8}
                   />
+                  <Form.Text className="text-muted">(يجب أن يتكون من 8 أرقام)</Form.Text>
                 </Form.Group>
                 <Form.Group as={Col} md="4" className="mb-3" controlId="formSponsorCin">
                   <Form.Label>رقم الهوية الوطنية الكافل (CIN)</Form.Label>
