@@ -19,7 +19,18 @@ export function useFinancialSummary(period) {
     setLoading(true);
     try {
       const data = await window.electronAPI.getFinancialSummary(period);
-      setSummary(data);
+      console.log(data);
+
+      // Filter out specific payment type categories that shouldn't appear in "المداخيل حسب نوع الوصل"
+      // These are covered under "رسوم الطلاب" category
+      const filteredIncomeByCategory = data.incomeByCategory?.filter(cat =>
+        !['ANNUAL', 'MONTHLY'].includes(cat.category)
+      ) || [];
+
+      setSummary({
+        ...data,
+        incomeByCategory: filteredIncomeByCategory,
+      });
     } catch (err) {
       logError('Failed to fetch financial summary:', err);
       setSummary({

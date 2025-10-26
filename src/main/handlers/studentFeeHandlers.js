@@ -197,7 +197,7 @@ async function recordStudentPayment(event, paymentDetails) {
       );
 
       if (existingPayment || existingDonation || existingStudentPayment) {
-        throw new Error('رقم الوصل مستخدم بالفعل. يرجى اختيار رقم وصل آخر.');
+        throw new Error('DUPLICATE_RECEIPT');
       }
     }
 
@@ -244,14 +244,14 @@ async function recordStudentPayment(event, paymentDetails) {
     }
 
     // 3. Create a corresponding transaction record
-    const student = await db.getQuery('SELECT name FROM students WHERE id = ?', [student_id]);
-    const transactionDescription = `Payment for ${student.name} - ${payment_type || 'Fee'}`;
+    const student = await db.getQuery('SELECT name, matricule FROM students WHERE id = ?', [student_id]);
+    const transactionDescription = `دفعة رسوم من الطالب: ${student.name} - ${payment_type || 'رسوم'}`;
 
     // Note: You might want to make the account_id dynamic
     const transactionResult = await db.runQuery(`
-      INSERT INTO transactions (type, category, amount, transaction_date, description, payment_method, check_number, account_id, related_person_name, related_entity_type, related_entity_id, created_by_user_id)
-      VALUES ('INCOME', 'Student Fees', ?, ?, ?, ?, ?, 1, ?, 'Student', ?, ?)
-    `, [amount, new Date().toISOString().split('T')[0], transactionDescription, payment_method, check_number, student.name, student_id, event.sender.userId]);
+      INSERT INTO transactions (type, category, amount, transaction_date, description, payment_method, check_number, receipt_number, receipt_type, account_id, related_person_name, related_entity_type, related_entity_id, created_by_user_id, matricule)
+      VALUES ('INCOME', 'رسوم الطلاب', ?, ?, ?, ?, ?, ?, ?, 1, ?, 'Student', ?, ?, ?)
+    `, [amount, new Date().toISOString().split('T')[0], transactionDescription, payment_method, check_number, receipt_number, payment_type, student.name, student_id, event.sender.userId, student.matricule]);
 
     // Link the transaction to the payment
     await db.runQuery(
@@ -265,7 +265,10 @@ async function recordStudentPayment(event, paymentDetails) {
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     logError('Error in recordStudentPayment:', error);
-    throw new Error('Failed to record student payment.');
+    if (error.message === 'DUPLICATE_RECEIPT') {
+      throw new Error('رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.');
+    }
+    throw new Error('فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.');
   }
 }
 
@@ -274,6 +277,30 @@ async function recordStudentPayment(event, paymentDetails) {
 // ============================================
 
 function registerStudentFeeHandlers() {
+  ipcMain.handle('student-fees:getPaymentHistory', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, { studentId, academicYear }) => {
+    try {
+      return await db.allQuery(
+        'SELECT * FROM student_payments WHERE student_id = ? AND academic_year = ?',
+        [studentId, academicYear]
+      );
+    } catch (error) {
+      logError('Error getting student payment history:', error);
+      throw new Error('Failed to get student payment history.');
+    }
+  }));
+
+  ipcMain.handle('student-fees:getClassesWithSpecialFees', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, studentId) => {
+    try {
+      return await db.allQuery(`
+        SELECT c.id, c.name FROM classes c
+        JOIN class_students cs ON c.id = cs.class_id
+        WHERE cs.student_id = ? AND c.status = 'active' AND c.fee_type = 'special'
+      `, [studentId]);
+    } catch (error) {
+      logError('Error getting classes with special fees:', error);
+      throw new Error('Failed to get classes with special fees.');
+    }
+  }));
   ipcMain.handle('student-fees:getStatus', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, studentId) => {
     try {
       return await getStudentFeeStatus(studentId);
