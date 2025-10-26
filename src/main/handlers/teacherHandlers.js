@@ -3,6 +3,7 @@ const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
+const { mapGender, mapStatus, mapCategory } = require('../utils/translations');
 
 const teacherFields = [
   'matricule',
@@ -68,7 +69,7 @@ function registerTeacherHandlers() {
   ipcMain.handle('teachers:delete', async (_event, id) => {
     try {
       if (!id || typeof id !== 'number')
-        throw new Error('A valid teacher ID is required for deletion.');
+        throw new Error('معرف المعلم صالح مطلوب للحذف.');
       const sql = 'DELETE FROM teachers WHERE id = ?';
       return await db.runQuery(sql, [id]);
     } catch (error) {
@@ -110,7 +111,13 @@ function registerTeacherHandlers() {
       sql += ' LIMIT ? OFFSET ?';
       params.push(limit, offset);
 
-      const teachers = await db.allQuery(sql, params);
+      let teachers = await db.allQuery(sql, params);
+
+      // Apply translations to gender
+      teachers = teachers.map(teacher => ({
+        ...teacher,
+        gender: mapGender(teacher.gender),
+      }));
 
       return {
         teachers,

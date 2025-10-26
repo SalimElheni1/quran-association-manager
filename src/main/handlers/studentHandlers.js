@@ -18,6 +18,7 @@ const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { translateStudent } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth string.
@@ -239,7 +240,7 @@ function registerStudentHandlers() {
           const paginatedStudents = students.slice(offset, offset + limit);
 
           return {
-            students: paginatedStudents,
+            students: paginatedStudents.map(translateStudent),
             total: totalCount,
             page,
             limit,
