@@ -182,19 +182,20 @@ function ClassesPage() {
   };
 
   const renderStatusBadge = (status) => {
-    const translations = {
-      pending: 'قيد الانتظار',
-      active: 'نشط',
-      completed: 'مكتمل',
-    };
+    // Status values are already translated to Arabic by translateClass function
+    // So we need Arabic keys: قيد الانتظار, نشط, مكتمل
     const variants = {
-      pending: 'warning',
-      active: 'success',
-      completed: 'secondary',
+      'قيد الانتظار': 'warning', // Yellow for pending
+      نشط: 'success', // Green for active
+      مكتمل: 'secondary', // Gray for completed
     };
+
+    const bgColor = variants[status] || 'light';
+    const textColor = bgColor === 'white'; // White text for yellow badges
+
     return (
-      <Badge bg={variants[status] || 'light'} text="dark" className="p-2">
-        {translations[status] || status}
+      <Badge bg={bgColor} text={textColor} className="p-2">
+        {status}
       </Badge>
     );
   };

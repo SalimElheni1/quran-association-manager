@@ -18,7 +18,7 @@ const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
-const { translateStudent } = require('../utils/translations');
+const { translateStudent, mapFeeCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth string.
@@ -100,6 +100,8 @@ function registerStudentHandlers() {
    * @param {Object} [filters] - Optional filters for student search
    * @param {string} [filters.searchTerm] - Search term for name or matricule
    * @param {string} [filters.genderFilter] - Gender filter ('male', 'female', 'all')
+   * @param {string} [filters.statusFilter] - Status filter ('active', 'inactive', 'all')
+   * @param {string} [filters.feeCategoryFilter] - Fee category filter ('CAN_PAY', 'EXEMPT', 'SPONSORED', 'all')
    * @param {number} [filters.minAgeFilter] - Minimum age filter
    * @param {number} [filters.maxAgeFilter] - Maximum age filter
    * @returns {Promise<Array>} Array of student objects with basic information
@@ -114,7 +116,7 @@ function registerStudentHandlers() {
           let havingClauses = [];
 
           let sql = `
-        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender
+        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category
         FROM students s
       `;
 
@@ -148,6 +150,16 @@ function registerStudentHandlers() {
             params.push(filters.genderFilter);
           }
 
+          if (filters?.statusFilter && filters.statusFilter !== 'all') {
+            sql += ' AND s.status = ?';
+            params.push(filters.statusFilter);
+          }
+
+          if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
+            sql += ' AND s.fee_category = ?';
+            params.push(filters.feeCategoryFilter);
+          }
+
           sql += ' GROUP BY s.id';
 
           if (havingClauses.length > 0) {
@@ -160,7 +172,7 @@ function registerStudentHandlers() {
           let countSql = `
             SELECT COUNT(*) as total
             FROM (
-              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender', 'SELECT COUNT(*) as cnt')}
+              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category', 'SELECT COUNT(*) as cnt')}
             ) as filtered_students
           `;
 
@@ -195,6 +207,16 @@ function registerStudentHandlers() {
             if (filters?.genderFilter && filters.genderFilter !== 'all') {
               baseSql += ' AND s.gender = ?';
               countParams.push(filters.genderFilter);
+            }
+
+            if (filters?.statusFilter && filters.statusFilter !== 'all') {
+              baseSql += ' AND s.status = ?';
+              countParams.push(filters.statusFilter);
+            }
+
+            if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
+              baseSql += ' AND s.fee_category = ?';
+              countParams.push(filters.feeCategoryFilter);
             }
 
             if (havingClauses.length > 0) {

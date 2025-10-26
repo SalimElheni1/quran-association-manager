@@ -77,6 +77,20 @@ function mapCategory(category) {
 }
 
 /**
+ * Maps English fee category values to Arabic
+ * @param {string} feeCategory - English fee category from database
+ * @returns {string} Arabic fee category for frontend display
+ */
+function mapFeeCategory(feeCategory) {
+  const feeCategoryMap = {
+    CAN_PAY: 'قادر على الدفع',
+    EXEMPT: 'معفى من الدفع',
+    SPONSORED: 'مكفول'
+  };
+  return feeCategoryMap[feeCategory] || feeCategory;
+}
+
+/**
  * Applies all translations to a student object
  * @param {Object} student - Student object from database
  * @returns {Object} Student object with translated values
@@ -87,7 +101,8 @@ function translateStudent(student) {
   return {
     ...student,
     gender: mapGender(student.gender),
-    status: mapStatus(student.status)
+    status: mapStatus(student.status),
+    fee_category: mapFeeCategory(student.fee_category)
   };
 }
 
@@ -137,6 +152,7 @@ module.exports = {
   mapPaymentMethod,
   mapTransactionType,
   mapCategory,
+  mapFeeCategory,
   translateStudent,
   translateUser,
   translateTransaction,

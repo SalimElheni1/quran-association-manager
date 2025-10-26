@@ -37,15 +37,14 @@
 
 .filter-bar:not(.grid-layout) {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   gap: 1rem;
-  flex-wrap: wrap;
 }
 
 .search-input-group {
-  flex: 1 1 300px; /* Allow it to grow and shrink, with a base width */
-  min-width: 250px;
+  width: 100%;
+  flex: none; /* Don't grow or shrink */
+  margin-bottom: 0; /* We have gap in parent now */
 }
 
 .search-input-group .input-group-text {
@@ -65,7 +64,17 @@
 .filter-controls {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  /* flex-wrap: wrap; */
+  width: 100%;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/* On larger screens, allow filters to fill available space */
+@media (min-width: 768px) {
+  .filter-controls {
+    justify-content: space-between;
+  }
 }
 
 .filter-select,
