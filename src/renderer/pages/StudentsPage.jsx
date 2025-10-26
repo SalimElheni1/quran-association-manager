@@ -30,6 +30,8 @@ function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [feeCategoryFilter, setFeeCategoryFilter] = useState('all');
   const [minAgeFilter, setMinAgeFilter] = useState('');
   const [maxAgeFilter, setMaxAgeFilter] = useState('');
   const [surahFilter, setSurahFilter] = useState([]);
@@ -56,7 +58,16 @@ function StudentsPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, genderFilter, minAgeFilter, maxAgeFilter, surahFilter, hizbFilter]);
+  }, [
+    searchTerm,
+    genderFilter,
+    statusFilter,
+    feeCategoryFilter,
+    minAgeFilter,
+    maxAgeFilter,
+    surahFilter,
+    hizbFilter,
+  ]);
 
   // Initialize pending filters with current active filters when modal opens
   useEffect(() => {
@@ -113,6 +124,8 @@ function StudentsPage() {
       const filters = {
         searchTerm,
         genderFilter,
+        statusFilter,
+        feeCategoryFilter,
         minAgeFilter,
         maxAgeFilter,
         surahIds: Array.isArray(surahFilter) ? surahFilter : surahFilter ? [surahFilter] : [],
@@ -140,6 +153,8 @@ function StudentsPage() {
   }, [
     searchTerm,
     genderFilter,
+    statusFilter,
+    feeCategoryFilter,
     minAgeFilter,
     maxAgeFilter,
     surahFilter,
@@ -329,11 +344,19 @@ function StudentsPage() {
   };
 
   const renderStatusBadge = (status) => {
-    const translations = { active: 'نشط', inactive: 'غير نشط' };
-    const variants = { active: 'success', inactive: 'secondary' };
+    // Status values are already translated to Arabic by translateStudent function
+    // So we need Arabic keys: نشط, غير نشط
+    const variants = {
+      نشط: 'success', // Active - Green
+      'غير نشط': 'warning', // Inactive - Yellow
+    };
+
+    const bgColor = variants[status] || 'light';
+    const textColor = bgColor === 'warning' ? 'white' : 'dark'; // White text for yellow badges, dark for others
+
     return (
-      <Badge bg={variants[status] || 'light'} text="dark" className="p-2">
-        {translations[status] || status}
+      <Badge bg={bgColor} text={textColor} className="p-2">
+        {status}
       </Badge>
     );
   };
@@ -362,6 +385,27 @@ function StudentsPage() {
             <option value="all">الجنس (الكل)</option>
             <option value="Male">ذكر</option>
             <option value="Female">أنثى</option>
+          </Form.Select>
+          <Form.Select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">الحالة (الكل)</option>
+            <option value="active">نشط</option>
+            <option value="inactive">غير نشط</option>
+          </Form.Select>
+          <Form.Select
+            aria-label="Filter by fee category"
+            value={feeCategoryFilter}
+            onChange={(e) => setFeeCategoryFilter(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">فئة الرسوم (الكل)</option>
+            <option value="CAN_PAY">قادر على الدفع</option>
+            <option value="EXEMPT">معفى من الدفع</option>
+            <option value="SPONSORED">مكفول</option>
           </Form.Select>
           <Form.Control
             type="number"
@@ -475,7 +519,12 @@ function StudentsPage() {
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center">
-                    {searchTerm || genderFilter !== 'all' || minAgeFilter || maxAgeFilter
+                    {searchTerm ||
+                    genderFilter !== 'all' ||
+                    statusFilter !== 'all' ||
+                    feeCategoryFilter !== 'all' ||
+                    minAgeFilter ||
+                    maxAgeFilter
                       ? 'لا توجد نتائج تطابق معايير البحث.'
                       : 'لا يوجد طلاب مسجلون حالياً.'}
                   </td>
