@@ -151,8 +151,8 @@ const userValidationSchema = Joi.object({
     .required()
     .messages({
       'string.pattern.base': 'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
-      'string.empty': 'رقم ب.ت.و مطلوب',
-      'any.required': 'رقم ب.ت.و مطلوب',
+      'string.empty': 'رقم الهوية الوطنية (CIN) مطلوب',
+      'any.required': 'رقم الهوية الوطنية (CIN) مطلوب',
     }),
   email: Joi.string()
     .email({ tlds: { allow: false } })
