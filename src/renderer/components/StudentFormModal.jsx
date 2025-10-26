@@ -45,7 +45,6 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       occupation: '',
       civil_status: 'Single', // Default value
       related_family_members: '',
-      financial_assistance_notes: '',
     };
 
     if (isEditMode && student) {
@@ -526,40 +525,36 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
               </Form.Group>
             </Row>
             {formData.fee_category === 'SPONSORED' && (
-              <>
-                <Row>
-                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorName">
-                    <Form.Label>اسم الكافل</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="sponsor_name"
-                      value={formData.sponsor_name || ''}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorPhone">
-                    <Form.Label>هاتف الكافل</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="sponsor_phone"
-                      value={formData.sponsor_phone || ''}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Row>
-                <Row>
-                  <Form.Group as={Col} md="6" className="mb-3" controlId="formSponsorCin">
-                    <Form.Label>رقم الهوية الوطنية الكافل (CIN)</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="sponsor_cin"
-                      value={formData.sponsor_cin || ''}
-                      onChange={handleChange}
-                      maxLength={8}
-                    />
-                  </Form.Group>
-                </Row>
-              </>
+              <Row>
+                <Form.Group as={Col} md="4" className="mb-3" controlId="formSponsorName">
+                  <Form.Label>اسم الكافل</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="sponsor_name"
+                    value={formData.sponsor_name || ''}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group as={Col} md="4" className="mb-3" controlId="formSponsorPhone">
+                  <Form.Label>هاتف الكافل</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="sponsor_phone"
+                    value={formData.sponsor_phone || ''}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group as={Col} md="4" className="mb-3" controlId="formSponsorCin">
+                  <Form.Label>رقم الهوية الوطنية الكافل (CIN)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="sponsor_cin"
+                    value={formData.sponsor_cin || ''}
+                    onChange={handleChange}
+                    maxLength={8}
+                  />
+                </Form.Group>
+              </Row>
             )}
 
             <Row>
@@ -571,19 +566,6 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   name="notes"
                   value={formData.notes || ''}
                   onChange={handleChange}
-                />
-              </Form.Group>
-            </Row>
-            <Row>
-              <Form.Group as={Col} className="mb-3" controlId="formFinancialNotes">
-                <Form.Label>ملاحظات حول الوضع الاجتماعي/المالي</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  name="financial_assistance_notes"
-                  value={formData.financial_assistance_notes || ''}
-                  onChange={handleChange}
-                  placeholder="ملاحظات حول الحاجة إلى مساعدة في الرسوم، إلخ."
                 />
               </Form.Group>
             </Row>
