@@ -335,20 +335,34 @@ async function handleGetFinancialSummary(_event, period) {
 
     const { startDate, endDate } = period;
 
-    // Get income grouped by receipt_type only
+    // Get income grouped by receipt_type only (regular transactions)
+    // Exclude legacy categories: معلوم الترسيم, معلوم شهري
     const incomeSql = `
-      SELECT 
+      SELECT
         receipt_type as category,
         SUM(amount) as total,
         COUNT(*) as count
       FROM transactions
-      WHERE transaction_date BETWEEN ? AND ? AND type = 'INCOME' AND receipt_type IS NOT NULL
+      WHERE transaction_date BETWEEN ? AND ?
+        AND type = 'INCOME'
+        AND receipt_type IS NOT NULL
+        AND receipt_type NOT IN ('معلوم الترسيم', 'معلوم شهري')
       GROUP BY receipt_type
+    `;
+
+    // Get student fees as separate income category
+    const studentFeesSql = `
+      SELECT
+        'رسوم الطلاب' as category,
+        SUM(sp.amount) as total,
+        COUNT(*) as count
+      FROM student_payments sp
+      WHERE sp.payment_date BETWEEN ? AND ?
     `;
 
     // Get expenses grouped by category
     const expenseSql = `
-      SELECT 
+      SELECT
         category,
         SUM(amount) as total,
         COUNT(*) as count
@@ -357,8 +371,15 @@ async function handleGetFinancialSummary(_event, period) {
       GROUP BY category
     `;
 
-    const income = await db.allQuery(incomeSql, [startDate, endDate]);
+    const incomeCategories = await db.allQuery(incomeSql, [startDate, endDate]);
+    const studentFeesCategory = await db.getQuery(studentFeesSql, [startDate, endDate]);
     const expenses = await db.allQuery(expenseSql, [startDate, endDate]);
+
+    // Combine income categories
+    const income = [...incomeCategories];
+    if (studentFeesCategory && studentFeesCategory.total > 0) {
+      income.push(studentFeesCategory);
+    }
 
     const totalIncome = income.reduce((sum, r) => sum + r.total, 0);
     const totalExpenses = expenses.reduce((sum, r) => sum + r.total, 0);
@@ -366,9 +387,9 @@ async function handleGetFinancialSummary(_event, period) {
       income.reduce((sum, r) => sum + r.count, 0) + expenses.reduce((sum, r) => sum + r.count, 0);
 
     const recentTransactions = await db.allQuery(
-      `SELECT * FROM transactions 
+      `SELECT * FROM transactions
        WHERE transaction_date BETWEEN ? AND ?
-       ORDER BY transaction_date DESC, id DESC 
+       ORDER BY transaction_date DESC, id DESC
        LIMIT 10`,
       [startDate, endDate],
     );

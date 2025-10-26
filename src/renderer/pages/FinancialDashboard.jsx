@@ -13,11 +13,11 @@ function FinancialDashboard() {
   const today = new Date();
   const [period, setPeriod] = useState({
     startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+    endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0],
   });
 
   const { summary, loading, refresh } = useFinancialSummary(period);
-  
+
   useEffect(() => {
     const handleDataChange = () => refresh();
     window.addEventListener('financial-data-changed', handleDataChange);
@@ -57,7 +57,7 @@ function FinancialDashboard() {
             />
             <SummaryCard
               title="عدد العمليات"
-              value={summary?.transactionCount || 0}
+              value={Math.floor(summary?.transactionCount || 0)}
               variant="info"
               suffix=""
             />
@@ -85,7 +85,7 @@ function FinancialDashboard() {
             </Col>
           </Row>
 
-          <Card className="mb-4">
+          {/* <Card className="mb-4">
             <Card.Header>
               <h5 className="mb-0">آخر العمليات</h5>
             </Card.Header>
@@ -103,7 +103,7 @@ function FinancialDashboard() {
                 <p className="text-muted text-center">لا توجد عمليات في هذه الفترة</p>
               )}
             </Card.Body>
-          </Card>
+          </Card> */}
         </>
       )}
     </div>

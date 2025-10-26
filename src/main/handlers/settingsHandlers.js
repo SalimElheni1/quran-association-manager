@@ -5,6 +5,7 @@ const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
+const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('../feeChargeScheduler');
 const { log, error: logError } = require('../logger');
 
 // Joi schema for settings validation
@@ -21,13 +22,18 @@ const settingsValidationSchema = Joi.object({
   adultAgeThreshold: Joi.number().integer().min(1).max(100).required(),
   backup_reminder_enabled: Joi.boolean(),
   backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
+  annual_fee: Joi.number().min(0).allow(null),
+  standard_monthly_fee: Joi.number().min(0).allow(null),
+  auto_charge_generation_enabled: Joi.boolean(),
+  charge_generation_frequency: Joi.string().valid('daily', 'weekly'),
+  pre_generate_months_ahead: Joi.number().integer().min(1).max(12),
 });
 
 const defaultSettings = {
   national_association_name: 'الرابطة الوطنية للقرآن الكريم',
   regional_association_name: '',
   local_branch_name: '',
-  national_logo_path: '/assets/logos/g247.png',
+  national_logo_path: 'assets/logos/icon.png',
   regional_local_logo_path: '',
   backup_path: '',
   backup_enabled: false,
@@ -36,6 +42,11 @@ const defaultSettings = {
   adultAgeThreshold: 18,
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
+  annual_fee: 0,
+  standard_monthly_fee: 0,
+  auto_charge_generation_enabled: true,
+  charge_generation_frequency: 'daily',
+  pre_generate_months_ahead: 2,
 };
 
 const internalGetSettingsHandler = async () => {
@@ -46,7 +57,7 @@ const internalGetSettingsHandler = async () => {
       acc[key] = true;
     } else if (value === 'false') {
       acc[key] = false;
-    } else if (!isNaN(value) && value.trim() !== '') {
+    } else if (!isNaN(value) && value !== null && value !== undefined && value.trim() !== '') {
       acc[key] = Number(value);
     } else {
       acc[key] = value;
@@ -139,10 +150,11 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       const result = await internalUpdateSettingsHandler(settingsData);
       if (result.success) {
-        log('Settings updated, restarting backup scheduler...');
+        log('Settings updated, restarting backup and fee charge schedulers...');
         const { settings: newSettings } = await internalGetSettingsHandler();
         if (newSettings) {
           backupManager.startScheduler(newSettings);
+          startFeeChargeScheduler(newSettings);
         }
         await refreshSettings();
       }
