@@ -41,6 +41,15 @@ function TransactionTable({
     return <Badge bg={variants[method] || 'secondary'}>{labels[method] || method}</Badge>;
   };
 
+  const getTranslatedIncomeType = (type) => {
+    const translations = {
+      MONTHLY: 'رسوم شهرية',
+      ANNUAL: 'رسوم سنوية',
+      SPECIAL: 'رسوم خاصة',
+    };
+    return translations[type] || type;
+  };
+
   if (loading) {
     return (
       <div className="text-center p-4">
@@ -60,7 +69,6 @@ function TransactionTable({
       <thead>
         <tr>
           <th>#</th>
-          {!compact && <th>المرجع</th>}
           <th>التاريخ</th>
           {!compact && <th>رقم الوصل</th>}
           <th>{isIncomeTable ? 'نوع المدخول' : 'الفئة'}</th>
@@ -74,15 +82,10 @@ function TransactionTable({
         {transactions.map((transaction, index) => (
           <tr key={transaction.id}>
             <td>{index + 1}</td>
-            {!compact && (
-              <td>
-                <small className="text-muted">{transaction.matricule || '-'}</small>
-              </td>
-            )}
             <td>{formatDate(transaction.transaction_date)}</td>
-            {!compact && <td>{transaction.voucher_number || '-'}</td>}
-            <td>{isIncomeTable ? transaction.receipt_type || '-' : transaction.category}</td>
-            {!compact && <td>{transaction.receipt_type || '-'}</td>}
+            {!compact && <td>{transaction.receipt_number || '-'}</td>}
+            <td>{isIncomeTable ? transaction.category || '-' : transaction.category}</td>
+            {!compact && <td>{getTranslatedIncomeType(transaction.receipt_type) || '-'}</td>}
             <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
               {formatCurrency(transaction.amount)}
             </td>
