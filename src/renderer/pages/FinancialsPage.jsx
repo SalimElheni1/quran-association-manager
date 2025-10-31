@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
 import FinancialDashboard from './FinancialDashboard';
 import IncomePage from './IncomePage';
@@ -14,6 +15,49 @@ function FinancialsPage() {
   const handleInventoryUpdate = () => {
     setInventoryTabKey(Date.now());
   };
+
+  // Listen for import completion to refresh inventory tab when inventory sheet is imported
+  useEffect(() => {
+    const domHandler = (e) => {
+      try {
+        const sheets = e?.detail?.sheets || [];
+        if (sheets.includes('المخزون')) {
+          handleInventoryUpdate();
+        }
+      } catch (err) {
+        // ignore
+        // console.error('Error handling DOM import-completed in FinancialsPage:', err);
+      }
+    };
+
+    let unsubscribe = null;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.onImportCompleted === 'function') {
+        unsubscribe = window.electronAPI.onImportCompleted((payload) => {
+          try {
+            const sheets = payload?.sheets || [];
+            if (sheets.includes('المخزون')) {
+              handleInventoryUpdate();
+            }
+          } catch (err) {
+            // ignore
+          }
+        });
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    window.addEventListener('app:import-completed', domHandler);
+    return () => {
+      window.removeEventListener('app:import-completed', domHandler);
+      try {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
 
   return (
     <Container fluid className="p-4">

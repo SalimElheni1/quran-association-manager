@@ -172,7 +172,7 @@ async function getStudentFeeStatus(studentId) {
  * @returns {Promise<object>} The newly created student payment record.
  */
 async function recordStudentPayment(event, paymentDetails) {
-  const { student_id, amount, payment_method, check_number, payment_type, notes, academic_year, receipt_number } = paymentDetails;
+  const { student_id, amount, payment_method, check_number, payment_type, notes, academic_year, receipt_number, class_id } = paymentDetails;
 
   await db.runQuery('BEGIN TRANSACTION;');
   try {
@@ -203,9 +203,9 @@ async function recordStudentPayment(event, paymentDetails) {
 
     // 1. Create a student_payment record
     const paymentResult = await db.runQuery(`
-      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [student_id, amount, payment_method, payment_type || 'CUSTOM', academic_year || new Date().getFullYear().toString(), notes, check_number, receipt_number]);
+      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [student_id, amount, payment_method, payment_type || 'CUSTOM', academic_year || new Date().getFullYear().toString(), notes, check_number, receipt_number, class_id]);
 
     const studentPaymentId = paymentResult.id;
 

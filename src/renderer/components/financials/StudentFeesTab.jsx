@@ -15,8 +15,37 @@ import {
 import { toast } from 'react-toastify';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import TablePagination from '@renderer/components/common/TablePagination';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const studentFeesFields = [
+  { key: 'name', label: 'الاسم' },
+  { key: 'totalDue', label: 'إجمالي المستحق' },
+  { key: 'totalPaid', label: 'إجمالي المدفوع' },
+  { key: 'balance', label: 'المبلغ المتبقي' },
+  { key: 'status', label: 'الحالة' },
+];
+
+const studentPaymentFields = [
+  { key: 'student_matricule', label: 'رقم التعريفي' },
+  { key: 'student_name', label: 'اسم الطالب' },
+  { key: 'amount', label: 'المبلغ' },
+  { key: 'payment_date', label: 'تاريخ الدفع' },
+  { key: 'payment_method', label: 'طريقة الدفع' },
+  { key: 'payment_type', label: 'نوع الدفعة' },
+  { key: 'class_matricule', label: 'رقم تعريفي الفصل' },
+  { key: 'academic_year', label: 'السنة الدراسية' },
+  { key: 'receipt_number', label: 'رقم الوصل' },
+  { key: 'check_number', label: 'رقم الشيك' },
+  { key: 'notes', label: 'ملاحظات' },
+];
 
 const StudentFeesTab = () => {
+  const { hasPermission } = usePermissions();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,9 +64,26 @@ const StudentFeesTab = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('ALL'); // ALL, PAID, PARTIAL, UNPAID, EXEMPT
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     loadStudents();
+  }, []);
+
+  // Listen for import completion events to refresh data
+  useEffect(() => {
+    const handleImportCompleted = (payload) => {
+      // Check if student fees data was imported
+      if (payload.sheets && payload.sheets.includes('رسوم الطلاب')) {
+        console.log('StudentFeesTab: Import completed, refreshing data');
+        loadStudents();
+      }
+    };
+
+    const unsubscribe = window.electronAPI.onImportCompleted(handleImportCompleted);
+
+    return unsubscribe;
   }, []);
 
   // Helper functions
@@ -195,6 +241,18 @@ const StudentFeesTab = () => {
             </Col>
             <Col xs="auto">
               <div className="d-flex align-items-center gap-2">
+                {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
+                  <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+                    <ExportIcon className="ms-2" /> تصدير البيانات
+                  </Button>
+                )}
+                {/* TODO: Re-enable import after fixing import processing
+                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+                  <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+                    <ImportIcon className="ms-2" /> استيراد البيانات
+                  </Button>
+                )}
+                */}
                 <Form.Select
                   value={paymentStatusFilter}
                   onChange={(e) => {
@@ -285,7 +343,12 @@ const StudentFeesTab = () => {
                               await window.electronAPI.studentFeesGetClassesWithSpecialFees(
                                 student.id,
                               );
-                            setSpecialFeeClasses(specialClasses);
+                            // Transform to use matricule as value and name as label
+                            const classesWithMatricules = specialClasses.map((cls) => ({
+                              ...cls,
+                              matricule: cls.matricule || `C-${cls.id.toString().padStart(4, '0')}`, // Fallback if no matricule
+                            }));
+                            setSpecialFeeClasses(classesWithMatricules);
                             setShowPaymentModal(true);
                           }}
                         >
@@ -386,7 +449,7 @@ const StudentFeesTab = () => {
                     >
                       <option value="">اختر فصلًا</option>
                       {specialFeeClasses.map((c) => (
-                        <option key={c.id} value={c.id}>
+                        <option key={c.id} value={c.matricule}>
                           {c.name}
                         </option>
                       ))}
@@ -481,6 +544,21 @@ const StudentFeesTab = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="student-fees"
+        fields={studentPaymentFields}
+        title="تصدير رسوم الطلاب"
+      />
+
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="رسوم الطلاب"
+        title="استيراد رسوم الطلاب"
+      />
     </>
   );
 };

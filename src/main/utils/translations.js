@@ -130,7 +130,6 @@ function translateTransaction(transaction) {
 
   return {
     ...transaction,
-    payment_method: mapPaymentMethod(transaction.payment_method),
     type: mapTransactionType(transaction.type)
   };
 }

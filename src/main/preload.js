@@ -299,7 +299,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('financial-export:financial-summary', period),
 
   // Imports API
-  generateImportTemplate: () => ipcRenderer.invoke('import:generate-template'),
+  generateImportTemplate: (options) => ipcRenderer.invoke('generate-import-template', options),
   generateDevTemplate: () => ipcRenderer.invoke('export:generate-dev-template'),
 
   // Single-step Excel Import API
@@ -326,6 +326,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeListener('force-logout', handler);
     };
+  },
+  /**
+   * Register a listener for import completion events from the main process.
+   * The callback will receive a single argument: the payload sent by main ({ sheets, results }).
+   * Returns an unsubscribe function to remove the listener.
+   *
+   * Usage:
+   * const unsubscribe = window.electronAPI.onImportCompleted((payload) => { ... });
+   * unsubscribe();
+   */
+  onImportCompleted: (callback) => {
+    if (!callback || typeof callback !== 'function') {
+      return () => {};
+    }
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('import:completed', handler);
+    return () => ipcRenderer.removeListener('import:completed', handler);
   },
   getInitialCredentials: () => ipcRenderer.invoke('get-initial-credentials'),
   clearInitialCredentials: () => ipcRenderer.invoke('clear-initial-credentials'),

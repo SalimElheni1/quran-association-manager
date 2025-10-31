@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Badge, Form, InputGroup, Tabs, Tab } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StudentFormModal from '@renderer/components/StudentFormModal';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 import SelectionModal from '@renderer/components/SelectionModal';
@@ -18,10 +20,67 @@ import TrashIcon from '@renderer/components/icons/TrashIcon';
 import EyeIcon from '@renderer/components/icons/EyeIcon';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const studentsAdultFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
+  { key: 'name', label: 'الاسم واللقب' },
+  { key: 'national_id', label: 'رقم الهوية' },
+  { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+  { key: 'gender', label: 'الجنس' },
+  { key: 'address', label: 'العنوان' },
+  { key: 'contact_info', label: 'رقم الهاتف' },
+  { key: 'email', label: 'البريد الإلكتروني' },
+  { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+  { key: 'status', label: 'الحالة' },
+  { key: 'memorization_level', label: 'مستوى الحفظ' },
+  { key: 'notes', label: 'ملاحظات' },
+  { key: 'educational_level', label: 'المستوى التعليمي (راشد)' },
+  { key: 'occupation', label: 'المهنة (راشد)' },
+  { key: 'civil_status', label: 'الحالة الاجتماعية (راشد)' },
+  { key: 'related_family_members', label: 'أفراد العائلة المسجلون (راشد)' },
+  { key: 'fee_category', label: 'فئة الرسوم' },
+  { key: 'sponsor_name', label: 'اسم الكفيل' },
+  { key: 'sponsor_phone', label: 'هاتف الكفيل' },
+  { key: 'sponsor_cin', label: 'رقم هوية الكفيل' },
+  { key: 'financial_assistance_notes', label: 'ملاحظات المساعدة المالية' },
+];
+
+const studentsKidsFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
+  { key: 'name', label: 'الاسم واللقب' },
+  { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+  { key: 'gender', label: 'الجنس' },
+  { key: 'address', label: 'العنوان' },
+  { key: 'contact_info', label: 'رقم الهاتف' },
+  { key: 'email', label: 'البريد الإلكتروني' },
+  { key: 'enrollment_date', label: 'تاريخ التسجيل' },
+  { key: 'status', label: 'الحالة' },
+  { key: 'memorization_level', label: 'مستوى الحفظ' },
+  { key: 'notes', label: 'ملاحظات' },
+  { key: 'parent_name', label: 'اسم ولي الأمر (طفل)' },
+  { key: 'guardian_relation', label: 'صلة القرابة (طفل)' },
+  { key: 'parent_contact', label: 'هاتف ولي الأمر (طفل)' },
+  { key: 'guardian_email', label: 'البريد الإلكتروني للولي (طفل)' },
+  { key: 'emergency_contact_name', label: 'جهة الاتصال في حالات الطوارئ (طفل)' },
+  { key: 'emergency_contact_phone', label: 'هاتف الطوارئ (طفل)' },
+  { key: 'health_conditions', label: 'الحالة الصحية (طفل)' },
+  { key: 'national_id', label: 'رقم الهوية' },
+  { key: 'school_name', label: 'اسم المدرسة (طفل)' },
+  { key: 'grade_level', label: 'المستوى الدراسي (طفل)' },
+  { key: 'fee_category', label: 'فئة الرسوم' },
+  { key: 'sponsor_name', label: 'اسم الكفيل' },
+  { key: 'sponsor_phone', label: 'هاتف الكفيل' },
+  { key: 'sponsor_cin', label: 'رقم هوية الكفيل' },
+  { key: 'financial_assistance_notes', label: 'ملاحظات المساعدة المالية' },
+];
 
 function StudentsPage() {
   const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState('students');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Student-related state
   const [students, setStudents] = useState([]);
@@ -182,6 +241,50 @@ function StudentsPage() {
       fetchFilterData();
     }
   }, [activeTab, fetchStudents]);
+
+  // Subscribe to import completion events (IPC via preload preferred, DOM fallback supported)
+  useEffect(() => {
+    const domHandler = (e) => {
+      try {
+        const sheets = e?.detail?.sheets || [];
+        if (sheets.includes('الطلاب')) {
+          fetchStudents();
+          toast.info('تم تحديث قائمة الطلاب بعد الاستيراد.');
+        }
+      } catch (err) {
+        logError('Error handling DOM import-completed in StudentsPage:', err);
+      }
+    };
+
+    let unsubscribe = null;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.onImportCompleted === 'function') {
+        unsubscribe = window.electronAPI.onImportCompleted((payload) => {
+          try {
+            const sheets = payload?.sheets || [];
+            if (sheets.includes('الطلاب')) {
+              fetchStudents();
+              toast.info('تم تحديث قائمة الطلاب بعد الاستيراد.');
+            }
+          } catch (err) {
+            logError('Error handling import-completed IPC payload in StudentsPage:', err);
+          }
+        });
+      }
+    } catch (err) {
+      logError('Failed to register import completion IPC listener in StudentsPage:', err);
+    }
+
+    window.addEventListener('app:import-completed', domHandler);
+    return () => {
+      window.removeEventListener('app:import-completed', domHandler);
+      try {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      } catch (e) {
+        /* ignore */
+      }
+    };
+  }, [fetchStudents]);
 
   const handleShowAddModal = () => {
     setEditingStudent(null);
@@ -553,16 +656,28 @@ function StudentsPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>شؤون الطلاب</h1>
-        {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
-          <Button variant="primary" onClick={handleShowAddModal}>
-            <PlusIcon className="ms-2" /> إضافة طالب
-          </Button>
-        )}
-        {activeTab === 'groups' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
-          <Button variant="primary" onClick={handleShowAddGroupModal}>
-            <PlusIcon className="ms-2" /> إضافة مجموعة
-          </Button>
-        )}
+        <div className="page-header-actions">
+          {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_VIEW) && (
+            <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+              <ExportIcon className="ms-2" /> تصدير البيانات
+            </Button>
+          )}
+          {activeTab === 'students' && hasPermission(PERMISSIONS.USERS_CREATE) && (
+            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+              <ImportIcon className="ms-2" /> استيراد البيانات
+            </Button>
+          )}
+          {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
+            <Button variant="primary" onClick={handleShowAddModal}>
+              <PlusIcon className="ms-2" /> إضافة طالب
+            </Button>
+          )}
+          {activeTab === 'groups' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
+            <Button variant="primary" onClick={handleShowAddGroupModal}>
+              <PlusIcon className="ms-2" /> إضافة مجموعة
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs
@@ -645,6 +760,22 @@ function StudentsPage() {
         selectedItems={pendingHizbFilter}
         onSelectionChange={handleHizbFilterChange}
         onSave={handleHizbFilterSave}
+      />
+
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="students"
+        fields={studentsAdultFields}
+        kidFields={studentsKidsFields}
+        title="تصدير بيانات الطلاب"
+      />
+
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="الطلاب"
+        title="استيراد بيانات الطلاب"
       />
     </div>
   );

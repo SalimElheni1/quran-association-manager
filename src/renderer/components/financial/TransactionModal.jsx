@@ -51,7 +51,7 @@ function TransactionModal({
       description: '',
       payment_method: 'CASH',
       check_number: '',
-      voucher_number: '',
+      receipt_number: '',
       account_id: 1,
       related_person_name: '',
       donor_cin: '',
@@ -158,7 +158,7 @@ function TransactionModal({
 
         <Modal.Body>
           <Row>
-            <Form.Group as={Col} md={defaultCategory && !isEditMode ? '6' : '4'} className="mb-3">
+            <Form.Group as={Col} md={defaultCategory ? '6' : '4'} className="mb-3">
               <Form.Label>
                 التاريخ <span className="text-danger">*</span>
               </Form.Label>
@@ -171,7 +171,7 @@ function TransactionModal({
               />
             </Form.Group>
 
-            {(!defaultCategory || isEditMode) && (
+            {!defaultCategory && (
               <Form.Group as={Col} md="4" className="mb-3">
                 <Form.Label>
                   الفئة <span className="text-danger">*</span>
@@ -192,14 +192,14 @@ function TransactionModal({
               </Form.Group>
             )}
 
-            <Form.Group as={Col} md={defaultCategory && !isEditMode ? '6' : '4'} className="mb-3">
+            <Form.Group as={Col} md={defaultCategory ? '6' : '4'} className="mb-3">
               <Form.Label>
                 رقم الوصل {isInKindDonation ? '' : <span className="text-danger">*</span>}
               </Form.Label>
               <Form.Control
                 type="text"
-                name="voucher_number"
-                value={formData.voucher_number || ''}
+                name="receipt_number"
+                value={formData.receipt_number || ''}
                 onChange={handleChange}
                 placeholder={!isInKindDonation ? 'مثال: 001' : 'اختياري'}
                 required={!isInKindDonation}

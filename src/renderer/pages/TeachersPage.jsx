@@ -5,7 +5,8 @@ import TeacherFormModal from '@renderer/components/TeacherFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import TeacherDetailsModal from '@renderer/components/TeacherDetailsModal';
 import TablePagination from '@renderer/components/common/TablePagination';
-// We can reuse the same page styles from the students page
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
@@ -13,8 +14,26 @@ import SearchIcon from '@renderer/components/icons/SearchIcon';
 import EyeIcon from '@renderer/components/icons/EyeIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
+
+const teachersFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
+  { key: 'name', label: 'الاسم واللقب' },
+  { key: 'gender', label: 'الجنس' },
+  { key: 'address', label: 'العنوان' },
+  { key: 'contact_info', label: 'رقم الهاتف' },
+  { key: 'date_of_birth', label: 'تاريخ الميلاد' },
+  { key: 'date_of_joining', label: 'تاريخ الالتحاق' },
+  { key: 'qualifications', label: 'المؤهلات' },
+  { key: 'specialization', label: 'التخصص' },
+  { key: 'notes', label: 'ملاحظات' },
+];
 
 function TeachersPage() {
+  const { hasPermission } = usePermissions();
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -26,14 +45,14 @@ function TeachersPage() {
   const [teacherToDelete, setTeacherToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [teacherToView, setTeacherToView] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalTeachers, setTotalTeachers] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, genderFilter, specializationFilter]);
@@ -54,7 +73,6 @@ function TeachersPage() {
         setTotalTeachers(result.total);
         setTotalPages(result.totalPages);
       } else {
-        // Fallback for old API response format
         setTeachers(result);
         setTotalTeachers(result.length);
         setTotalPages(1);
@@ -69,6 +87,55 @@ function TeachersPage() {
 
   useEffect(() => {
     fetchTeachers();
+  }, [fetchTeachers]);
+
+  // Listen for global import completion events and refresh if teachers were imported
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const sheets = detail.sheets || [];
+        if (sheets.includes('المعلمون') || sheets.includes('المعلمين')) {
+          fetchTeachers();
+          toast.info('تم تحديث قائمة المعلمين بعد الاستيراد.');
+        }
+      } catch (err) {
+        logError('Error handling import-completed event:', err);
+      }
+    };
+
+    window.addEventListener('app:import-completed', handler);
+    return () => window.removeEventListener('app:import-completed', handler);
+  }, [fetchTeachers]);
+
+  // Also subscribe via the secure preload IPC listener if available (preferred)
+  useEffect(() => {
+    let unsubscribe = null;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.onImportCompleted === 'function') {
+        unsubscribe = window.electronAPI.onImportCompleted((payload) => {
+          try {
+            const sheets = payload?.sheets || [];
+            if (sheets.includes('المعلمون') || sheets.includes('المعلمين')) {
+              fetchTeachers();
+              toast.info('تم تحديث قائمة المعلمين بعد الاستيراد.');
+            }
+          } catch (err) {
+            logError('Error handling import-completed IPC payload:', err);
+          }
+        });
+      }
+    } catch (err) {
+      logError('Failed to register import completion IPC listener:', err);
+    }
+
+    return () => {
+      try {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      } catch (err) {
+        /* ignore */
+      }
+    };
   }, [fetchTeachers]);
 
   const handleShowAddModal = () => {
@@ -150,9 +217,23 @@ function TeachersPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>شؤون المعلمين</h1>
-        <Button variant="primary" onClick={handleShowAddModal}>
-          <PlusIcon className="ms-2" /> إضافة معلم
-        </Button>
+        <div className="page-header-actions">
+          {hasPermission(PERMISSIONS.USERS_VIEW) && (
+            <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+              <ExportIcon className="ms-2" /> تصدير البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+              <ImportIcon className="ms-2" /> استيراد البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+            <Button variant="primary" onClick={handleShowAddModal}>
+              <PlusIcon className="ms-2" /> إضافة معلم
+            </Button>
+          )}
+        </div>
       </div>
       <div className="filter-bar">
         <InputGroup className="search-input-group">
@@ -220,20 +301,24 @@ function TeachersPage() {
                       >
                         <EyeIcon />
                       </Button>
-                      <Button
-                        variant="outline-success"
-                        size="sm"
-                        onClick={() => handleShowEditModal(teacher)}
-                      >
-                        <EditIcon />
-                      </Button>
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDeleteRequest(teacher)}
-                      >
-                        <TrashIcon />
-                      </Button>
+                      {hasPermission(PERMISSIONS.USERS_EDIT) && (
+                        <Button
+                          variant="outline-success"
+                          size="sm"
+                          onClick={() => handleShowEditModal(teacher)}
+                        >
+                          <EditIcon />
+                        </Button>
+                      )}
+                      {hasPermission(PERMISSIONS.USERS_DELETE) && (
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => handleDeleteRequest(teacher)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -281,6 +366,19 @@ function TeachersPage() {
         body={`هل أنت متأكد من رغبتك في حذف المعلم "${teacherToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
+      />
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="teachers"
+        fields={teachersFields}
+        title="تصدير بيانات المعلمين"
+      />
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="المعلمين"
+        title="استيراد بيانات المعلمين"
       />
     </div>
   );

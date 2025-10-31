@@ -18,12 +18,25 @@ import { toast } from 'react-toastify';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import SaveIcon from '@renderer/components/icons/SaveIcon';
 import TimesIcon from '@renderer/components/icons/TimesIcon';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const attendanceFields = [
+  { key: 'student_name', label: 'اسم الطالب' },
+  { key: 'class_name', label: 'اسم الفصل' },
+  { key: 'date', label: 'التاريخ' },
+  { key: 'status', label: 'الحالة' },
+];
 
 function AttendancePage() {
+  const { hasPermission } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialLoadRef = useRef(true);
 
-  // Initialize state from URL search parameters
   const [selectedClass, setSelectedClass] = useState(searchParams.get('classId') || '');
   const [selectedDate, setSelectedDate] = useState(
     searchParams.get('date') || new Date().toISOString().split('T')[0],
@@ -34,10 +47,11 @@ function AttendancePage() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [savedRecordsSummary, setSavedRecordsSummary] = useState([]);
-  const [isSaved, setIsSaved] = useState(false); // To track if the current record is already saved
-  const [isEditMode, setIsEditMode] = useState(false); // To control the edit state of the attendance sheet
+  const [isSaved, setIsSaved] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
-  // Fetch active classes on component mount
   useEffect(() => {
     const fetchActiveClasses = async () => {
       setLoadingClasses(true);
@@ -52,11 +66,9 @@ function AttendancePage() {
       }
     };
     fetchActiveClasses();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
-  // Update URL search params when the selected class changes
   useEffect(() => {
-    // Avoid updating URL on initial render if params are already set
     if (initialLoadRef.current && searchParams.get('classId')) {
       initialLoadRef.current = false;
       return;
@@ -66,11 +78,9 @@ function AttendancePage() {
     if (selectedClass) params.classId = selectedClass;
     if (selectedDate) params.date = selectedDate;
 
-    // Use replace to avoid polluting browser history
     setSearchParams(params, { replace: true });
   }, [selectedClass, selectedDate, setSearchParams, searchParams]);
 
-  // Fetch the summary of saved attendance records when a class is selected
   useEffect(() => {
     const fetchSavedRecordsSummary = async () => {
       if (!selectedClass) {
@@ -88,7 +98,6 @@ function AttendancePage() {
     fetchSavedRecordsSummary();
   }, [selectedClass]);
 
-  // Fetch students and their attendance records when a class is selected
   const fetchStudentAndAttendanceData = useCallback(async () => {
     if (!selectedClass || !selectedDate) {
       setStudents([]);
@@ -111,7 +120,7 @@ function AttendancePage() {
 
       const isExistingRecord = Object.keys(existingRecords).length > 0;
       setIsSaved(isExistingRecord);
-      setIsEditMode(!isExistingRecord); // Start in edit mode for new records
+      setIsEditMode(!isExistingRecord);
     } catch (err) {
       logError('Error fetching students or attendance:', err);
       toast.error('فشل تحميل بيانات الطلاب أو الحضور.');
@@ -139,7 +148,6 @@ function AttendancePage() {
   };
 
   const handleCancelEdit = () => {
-    // Refetch data to discard any changes made
     fetchStudentAndAttendanceData();
     setIsEditMode(false);
     toast.info('تم إلغاء التعديلات.');
@@ -150,21 +158,20 @@ function AttendancePage() {
       toast.warn('الرجاء اختيار فصل وتحديد حالة الحضور للطلاب أولاً.');
       return;
     }
-    setLoadingStudents(true); // Reuse student loading spinner for save operation
+    setLoadingStudents(true);
     try {
       await window.electronAPI.saveAttendance({
         classId: selectedClass,
         date: selectedDate,
         records: attendanceRecords,
       });
-      setIsSaved(true); // Mark as saved
-      // Refresh the summary list to include the new record if it wasn't there
+      setIsSaved(true);
       if (!savedRecordsSummary.some((rec) => rec.date === selectedDate)) {
         const summary = await window.electronAPI.getAttendanceSummaryForClass(selectedClass);
         setSavedRecordsSummary(summary);
       }
       toast.success('تم حفظ سجل الحضور بنجاح!');
-      setIsEditMode(false); // Exit edit mode after saving
+      setIsEditMode(false);
     } catch (err) {
       logError('Error saving attendance:', err);
       toast.error('فشل حفظ سجل الحضور.');
@@ -177,6 +184,18 @@ function AttendancePage() {
     <div className="page-container">
       <div className="page-header">
         <h1>تسجيل الحضور والغياب</h1>
+        <div className="page-header-actions">
+          {hasPermission(PERMISSIONS.ATTENDANCE_VIEW) && (
+            <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+              <ExportIcon className="ms-2" /> تصدير البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.ATTENDANCE_CREATE) && (
+            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+              <ImportIcon className="ms-2" /> استيراد البيانات
+            </Button>
+          )}
+        </div>
       </div>
 
       <Row>
@@ -353,6 +372,21 @@ function AttendancePage() {
           </Card>
         </Col>
       </Row>
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="attendance"
+        fields={attendanceFields}
+        isAttendance={true}
+        title="تصدير سجل الحضور"
+      />
+
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="الحضور"
+        title="استيراد سجل الحضور"
+      />
     </div>
   );
 }

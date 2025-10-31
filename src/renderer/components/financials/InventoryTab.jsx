@@ -4,10 +4,27 @@ import TablePagination from '../common/TablePagination';
 import InventoryFormModal from './InventoryFormModal';
 import TransactionModal from '../financial/TransactionModal';
 import ConfirmationModal from '../common/ConfirmationModal';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const inventoryFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
+  { key: 'item_name', label: 'اسم الصنف' },
+  { key: 'category', label: 'الفئة' },
+  { key: 'quantity', label: 'الكمية' },
+  { key: 'unit_value', label: 'قيمة الوحدة' },
+  { key: 'total_value', label: 'القيمة الإجمالية' },
+  { key: 'acquisition_source', label: 'مصدر الاقتناء' },
+];
 
 function InventoryTab() {
+  const { hasPermission } = usePermissions();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [filters, setFilters] = useState({ page: 1, limit: 25 });
@@ -18,13 +35,14 @@ function InventoryTab() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showInKindModal, setShowInKindModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
       setIsLoading(true);
       const result = await window.electronAPI.getInventoryItems(filters);
 
-      // Check if pagination is enabled
       if (result && typeof result === 'object' && result.items) {
         setItems(result.items);
         setPagination({
@@ -34,11 +52,9 @@ function InventoryTab() {
           totalPages: result.totalPages,
         });
       } else {
-        // Fallback for simple array response (backwards compatibility)
         const itemsArray = Array.isArray(result) ? result : [];
         setItems(itemsArray);
 
-        // Initialize pagination even for backwards compatibility
         setPagination({
           total: itemsArray.length,
           page: 1,
@@ -59,6 +75,21 @@ function InventoryTab() {
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  // Listen for import completion events to refresh data
+  useEffect(() => {
+    const handleImportCompleted = (payload) => {
+      // Check if inventory data was imported (UI sheet name is 'الجرد')
+      if (payload.sheets && payload.sheets.includes('الجرد')) {
+        console.log('InventoryTab: Import completed, refreshing data');
+        fetchItems();
+      }
+    };
+
+    const unsubscribe = window.electronAPI.onImportCompleted(handleImportCompleted);
+
+    return unsubscribe;
+  }, []);
 
   const handleAddItem = () => {
     setSelectedItem(null);
@@ -111,7 +142,6 @@ function InventoryTab() {
     try {
       await window.electronAPI.addTransaction({ ...data, type: 'INCOME' });
 
-      // Extract inkind data and add to inventory
       const inKindDetails = JSON.parse(data.description);
       const inventoryData = {
         item_name: inKindDetails.item_name,
@@ -128,7 +158,6 @@ function InventoryTab() {
 
       toast.success('✅ تم إضافة التبرع العيني بنجاح');
       setShowInKindModal(false);
-      // Refresh inventory list after adding
       fetchItems();
     } catch (err) {
       logError('Error saving in-kind donation:', err);
@@ -179,6 +208,16 @@ function InventoryTab() {
         <Card.Header className="d-flex justify-content-between align-items-center">
           <h3 className="mb-0">الجرد</h3>
           <div className="d-flex gap-2">
+            {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
+              <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+                <ExportIcon className="ms-2" /> تصدير البيانات
+              </Button>
+            )}
+            {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+              <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+                <ImportIcon className="ms-2" /> استيراد البيانات
+              </Button>
+            )}
             <Button variant="primary" onClick={handleAddItem}>
               إضافة صنف جديد
             </Button>
@@ -214,7 +253,6 @@ function InventoryTab() {
         </Card.Body>
       </Card>
 
-      {/* Show pagination for inventory management */}
       {pagination && (
         <TablePagination
           currentPage={pagination.page}
@@ -251,6 +289,21 @@ function InventoryTab() {
         onSave={handleInKindSave}
         defaultCategory="التبرعات العينية"
         customTitle="إضافة تبرع عيني"
+      />
+
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="inventory"
+        fields={inventoryFields}
+        title="تصدير بيانات الجرد"
+      />
+
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="الجرد"
+        title="استيراد بيانات الجرد"
       />
     </>
   );
