@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS student_payments (
   notes TEXT,
   check_number TEXT,
   receipt_number TEXT,
+  class_id TEXT, -- Class matricule for SPECIAL payments
   transaction_id INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

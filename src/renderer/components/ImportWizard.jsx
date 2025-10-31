@@ -56,6 +56,16 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
 
       if (response.success) {
         setResult(response.data);
+        try {
+          // Notify the app that an import completed so pages can refresh if needed
+          window.dispatchEvent(
+            new CustomEvent('app:import-completed', {
+              detail: { sheets: selectedSheets, results: response.data },
+            }),
+          );
+        } catch (e) {
+          console.warn('Failed to dispatch import-completed event', e);
+        }
       } else {
         setError(response.message || 'فشل في عملية الاستيراد');
       }

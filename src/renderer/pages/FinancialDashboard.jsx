@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Spinner } from 'react-bootstrap';
+import { Row, Col, Card, Spinner, Button } from 'react-bootstrap';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import CategoryChart from '@renderer/components/financial/CategoryChart';
 import PeriodSelector from '@renderer/components/financial/PeriodSelector';
 import TransactionTable from '@renderer/components/financial/TransactionTable';
+import FinancialExportModal from '@renderer/components/financial/FinancialExportModal';
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
 
-/**
- * FinancialDashboard - Main financial overview page
- */
 function FinancialDashboard() {
+  const { hasPermission } = usePermissions();
   const today = new Date();
   const [period, setPeriod] = useState({
     startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0],
     endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0],
   });
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const { summary, loading, refresh } = useFinancialSummary(period);
 
@@ -28,7 +31,13 @@ function FinancialDashboard() {
     <div className="page-container">
       <div className="page-header">
         <h1>لوحة التحكم المالية</h1>
-        <p>نظرة شاملة على الوضع المالي للفرع</p>
+        <div className="page-header-actions">
+        {hasPermission(PERMISSIONS.FINANCIAL_VIEW) && (
+          <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+            <ExportIcon className="ms-2" /> تصدير التقارير
+          </Button>
+        )}
+        </div>
       </div>
 
       <PeriodSelector period={period} onChange={setPeriod} />
@@ -84,28 +93,12 @@ function FinancialDashboard() {
               />
             </Col>
           </Row>
-
-          {/* <Card className="mb-4">
-            <Card.Header>
-              <h5 className="mb-0">آخر العمليات</h5>
-            </Card.Header>
-            <Card.Body>
-              {summary?.recentTransactions?.length > 0 ? (
-                <TransactionTable
-                  transactions={summary.recentTransactions}
-                  loading={false}
-                  compact={true}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                  onPrint={() => {}}
-                />
-              ) : (
-                <p className="text-muted text-center">لا توجد عمليات في هذه الفترة</p>
-              )}
-            </Card.Body>
-          </Card> */}
         </>
       )}
+      <FinancialExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+      />
     </div>
   );
 }

@@ -82,31 +82,195 @@ async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
   }
-  const fieldSelection = fields.join(', ');
+  // Map logical field keys (from UI) to actual DB columns or expressions per export type
+    function buildFieldSelectionFor(type, fields) {
+    // Comprehensive mapping from UI logical keys to DB columns or SQL expressions.
+    // Keep aliases consistent with the SELECT FROM clauses used in fetchExportData.
+    const maps = {
+      students: {
+        matricule: 'matricule',
+        name: 'name',
+        date_of_birth: 'date_of_birth',
+        gender: 'gender',
+        address: 'address',
+        contact_info: 'contact_info',
+        email: 'email',
+        status: 'status',
+        memorization_level: 'memorization_level',
+        notes: 'notes',
+        parent_name: 'parent_name',
+        guardian_relation: 'guardian_relation',
+        parent_contact: 'parent_contact',
+        guardian_email: 'guardian_email',
+        emergency_contact_name: 'emergency_contact_name',
+        emergency_contact_phone: 'emergency_contact_phone',
+        health_conditions: 'health_conditions',
+        national_id: 'national_id',
+        school_name: 'school_name',
+        grade_level: 'grade_level',
+        educational_level: 'educational_level',
+        occupation: 'occupation',
+        civil_status: 'civil_status',
+        related_family_members: 'related_family_members',
+        fee_category: 'fee_category',
+        sponsor_name: 'sponsor_name',
+        sponsor_phone: 'sponsor_phone',
+        sponsor_cin: 'sponsor_cin',
+        financial_assistance_notes: 'financial_assistance_notes',
+      },
+      teachers: {
+        matricule: 'matricule',
+        name: 'name',
+        national_id: 'national_id',
+        contact_info: 'contact_info',
+        email: 'email',
+        address: 'address',
+        date_of_birth: 'date_of_birth',
+        gender: 'gender',
+        educational_level: 'educational_level',
+        specialization: 'specialization',
+        years_of_experience: 'years_of_experience',
+        availability: 'availability',
+        notes: 'notes',
+        // Legacy / alternate keys
+        date_of_joining: 'created_at',
+        qualifications: 'educational_level',
+      },
+      admins: {
+        matricule: 'matricule',
+        username: 'username',
+        first_name: 'first_name',
+        last_name: 'last_name',
+        email: 'email',
+        phone_number: 'phone_number',
+        role: "role", // role aggregation handled at query-time if needed
+        status: 'status',
+        notes: 'notes',
+      },
+      users: {
+        matricule: 'matricule',
+        username: 'username',
+        first_name: 'first_name',
+        last_name: 'last_name',
+        date_of_birth: 'date_of_birth',
+        national_id: 'national_id',
+        email: 'email',
+        phone_number: 'phone_number',
+        occupation: 'occupation',
+        civil_status: 'civil_status',
+        employment_type: 'employment_type',
+        start_date: 'start_date',
+        end_date: 'end_date',
+        role: 'role',
+        status: 'status',
+        notes: 'notes',
+      },
+      classes: {
+        name: 'c.name',
+        teacher_name: 't.name as teacher_name',
+        schedule: 'c.schedule',
+        gender: 'c.gender',
+        status: 'c.status',
+        matricule: 'c.matricule',
+      },
+      inventory: {
+        matricule: 'matricule',
+        item_name: 'item_name',
+        category: 'category',
+        quantity: 'quantity',
+        unit_value: 'unit_value',
+        acquisition_date: 'acquisition_date',
+        acquisition_source: 'acquisition_source',
+        condition_status: 'condition_status',
+        location: 'location',
+        notes: 'notes',
+      },
+      attendance: {
+        student_name: 's.name as student_name',
+        class_name: 'c.name as class_name',
+        date: 'a.date',
+        status: 'a.status',
+      },
+    };
+
+    const map = maps[type] || {};
+    return fields
+      .map((f) => {
+        if (map[f]) return map[f];
+        // default: use as-is (assume it's a valid column or aliased column key)
+        return f;
+      })
+      .join(', ');
+  }
+
+  // Build mapped field list (not yet joined) so we can validate against table columns
+  const mappedFields = buildFieldSelectionFor(type, fields)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   let query = '';
   let params = [];
+
+  // Helper to get table columns (returns Set)
+  async function getTableColumns(tableName) {
+    try {
+      const cols = await allQuery(`PRAGMA table_info(${tableName})`, []);
+      return new Set((cols || []).map((c) => c.name));
+    } catch (err) {
+      return new Set();
+    }
+  }
 
   switch (type) {
     case 'students': {
       // Apply fast SQL filters (group membership and basic gender)
+      // Validate selected columns against the `students` table
+      const studentCols = await getTableColumns('students');
+      const allowed = [];
+      const omitted = [];
+      for (const mf of mappedFields) {
+        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
+        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+          allowed.push(mf);
+          continue;
+        }
+        if (studentCols.has(mf)) {
+          allowed.push(mf);
+        } else {
+          omitted.push(mf);
+        }
+      }
+
+      if (omitted.length > 0) {
+        console.warn('Export: omitted non-existing student columns:', omitted.join(', '));
+      }
+
+      if (allowed.length === 0) {
+        throw new Error('No valid student fields available for export after validating against DB columns.');
+      }
+
+      const fieldSelection = allowed.join(', ');
+
       if (options.groupId) {
         query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ?`;
         params.push(options.groupId);
         query += ' ORDER BY s.name';
       } else {
-        query = `SELECT ${fieldSelection} FROM students WHERE 1=1 ORDER BY name`;
+        query = `SELECT ${fieldSelection} FROM students s WHERE 1=1 ORDER BY s.name`;
       }
 
       // Fetch all matching students, then apply age-based filtering in JavaScript
       let students = await allQuery(query, params);
 
-      // Apply gender-based age filtering if specified
-      if (options.gender) {
+      // Apply gender-based age filtering only when a specific filter is requested
+      if (options.gender && options.gender !== 'all') {
         const adultAge = await getSetting('adult_age_threshold');
 
         students = students.filter((student) => {
           const age = calculateAge(student.date_of_birth);
-          if (age === null) return false; // Exclude students without valid birth date
+          // If we need to determine adult/kid and DOB is missing, exclude the row
+          if (age === null) return false;
 
           if (options.gender === 'men') {
             return student.gender === 'Male' && age >= adultAge;
@@ -123,7 +287,25 @@ async function fetchExportData({ type, fields, options = {} }) {
       return students;
     }
     case 'teachers': {
-      query = `SELECT ${fieldSelection} FROM teachers`;
+      // Validate teacher fields against teachers table
+      const teacherCols = await getTableColumns('teachers');
+      const allowedT = [];
+      const omittedT = [];
+      for (const mf of mappedFields) {
+        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+          allowedT.push(mf);
+          continue;
+        }
+        if (teacherCols.has(mf)) {
+          allowedT.push(mf);
+        } else {
+          omittedT.push(mf);
+        }
+      }
+      if (omittedT.length > 0) console.warn('Export: omitted non-existing teacher columns:', omittedT.join(', '));
+      if (allowedT.length === 0) throw new Error('No valid teacher fields available for export.');
+      const fieldSelectionT = allowedT.join(', ');
+      query = `SELECT ${fieldSelectionT} FROM teachers`;
       let teacherWhereClauses = [];
       if (options.gender && options.gender !== 'all') {
         if (options.gender === 'men' || options.gender === 'Male') {
@@ -140,9 +322,28 @@ async function fetchExportData({ type, fields, options = {} }) {
       query += ' ORDER BY name';
       return allQuery(query, params);
     }
-    case 'admins':
-      query = `SELECT ${fieldSelection} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
+    case 'admins': {
+      // Validate admin/user fields against users table
+      const userCols = await getTableColumns('users');
+      const allowedU = [];
+      const omittedU = [];
+      for (const mf of mappedFields) {
+        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+          allowedU.push(mf);
+          continue;
+        }
+        if (userCols.has(mf)) {
+          allowedU.push(mf);
+        } else {
+          omittedU.push(mf);
+        }
+      }
+      if (omittedU.length > 0) console.warn('Export: omitted non-existing user columns:', omittedU.join(', '));
+      if (allowedU.length === 0) throw new Error('No valid user/admin fields available for export.');
+      const fieldSelectionU = allowedU.join(', ');
+      query = `SELECT ${fieldSelectionU} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
       return allQuery(query, params);
+    }
     case 'attendance': {
       const attendanceFieldMap = {
         student_name: 's.name as student_name',
@@ -170,6 +371,148 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
 
       query += ` WHERE ${whereClauses.join(' AND ')} ORDER BY a.date`;
+      return allQuery(query, params);
+    }
+    case 'classes': {
+      // Export classes: validate selected columns against the classes table
+      // Note: teacher_name is joined from teachers table
+      const classCols = await getTableColumns('classes');
+      const allowed = [];
+      const omitted = [];
+      for (const mf of mappedFields) {
+        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
+        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+          allowed.push(mf);
+          continue;
+        }
+        if (classCols.has(mf)) {
+          allowed.push(mf);
+        } else {
+          omitted.push(mf);
+        }
+      }
+
+      if (omitted.length > 0) {
+        console.warn('Export: omitted non-existing class columns:', omitted.join(', '));
+      }
+
+      if (allowed.length === 0) {
+        throw new Error('No valid class fields available for export after validating against DB columns.');
+      }
+
+      const fieldSelection = allowed.join(', ');
+
+      query = `SELECT ${fieldSelection} FROM classes c LEFT JOIN teachers t ON c.teacher_id = t.id`;
+      // Optional filtering by class id
+      if (options.classId && options.classId !== 'all') {
+        query += ' WHERE c.id = ?';
+        params.push(options.classId);
+      }
+      query += ' ORDER BY c.name';
+      return allQuery(query, params);
+    }
+    case 'inventory': {
+      // Inventory export: validate selected columns against the inventory_items table
+      const inventoryCols = await getTableColumns('inventory_items');
+      const allowed = [];
+      const omitted = [];
+      for (const mf of mappedFields) {
+        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
+        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+          allowed.push(mf);
+          continue;
+        }
+        if (inventoryCols.has(mf)) {
+          allowed.push(mf);
+        } else {
+          omitted.push(mf);
+        }
+      }
+
+      if (omitted.length > 0) {
+        console.warn('Export: omitted non-existing inventory columns:', omitted.join(', '));
+      }
+
+      if (allowed.length === 0) {
+        throw new Error('No valid inventory fields available for export after validating against DB columns.');
+      }
+
+      const fieldSelection = allowed.join(', ');
+
+      query = `SELECT ${fieldSelection} FROM inventory_items i`;
+      if (options.category) {
+        query += ' WHERE i.category = ?';
+        params.push(options.category);
+      }
+      query += ' ORDER BY i.item_name';
+      return allQuery(query, params);
+    }
+    case 'student-fees': {
+      // Student fees export: join student_payments with students table
+      // Check if class_id column exists (for backward compatibility)
+      let hasClassIdColumn = false;
+      try {
+        const columns = await allQuery(`PRAGMA table_info(student_payments)`, []);
+        hasClassIdColumn = columns.some(col => col.name === 'class_id');
+      } catch (e) {
+        // If we can't check, assume it doesn't exist
+        hasClassIdColumn = false;
+      }
+
+      // Map logical keys to actual DB columns
+      const studentFeesMaps = {
+        student_matricule: 's.matricule as student_matricule',
+        student_name: 's.name as student_name',
+        amount: 'sp.amount',
+        payment_date: 'sp.payment_date',
+        payment_method: 'sp.payment_method',
+        payment_type: 'sp.payment_type',
+        class_matricule: hasClassIdColumn ? 'sp.class_id as class_matricule' : 'NULL as class_matricule',
+        academic_year: 'sp.academic_year',
+        receipt_number: 'sp.receipt_number',
+        check_number: 'sp.check_number',
+        notes: 'sp.notes',
+      };
+
+      const selectedFields = fields
+        .map((f) => studentFeesMaps[f])
+        .filter(Boolean)
+        .join(', ');
+
+      if (!selectedFields) {
+        throw new Error('No valid student fees fields selected.');
+      }
+
+      query = `SELECT ${selectedFields}
+               FROM student_payments sp
+               JOIN students s ON sp.student_id = s.id
+               ORDER BY sp.payment_date DESC, s.name`;
+      return allQuery(query, params);
+    }
+    case 'expenses': {
+      // Expenses export: query transactions table with type = 'EXPENSE'
+      // Map logical keys to actual DB columns
+      const expenseFieldMaps = {
+        date: 'transaction_date as date',
+        description: 'description',
+        amount: 'amount',
+        category_name: 'category as category_name',
+        payment_method: 'payment_method',
+      };
+
+      const selectedFields = fields
+        .map((f) => expenseFieldMaps[f])
+        .filter(Boolean)
+        .join(', ');
+
+      if (!selectedFields) {
+        throw new Error('No valid expense fields selected.');
+      }
+
+      query = `SELECT ${selectedFields}
+               FROM transactions
+               WHERE type = 'EXPENSE'
+               ORDER BY transaction_date DESC`;
       return allQuery(query, params);
     }
     default:
@@ -229,6 +572,14 @@ function localizeData(data) {
     'Bank Transfer': 'تحويل بنكي',
     cash: 'نقداً',
     'bank transfer': 'تحويل بنكي',
+    CASH: 'نقداً',
+    CHECK: 'شيك',
+    TRANSFER: 'تحويل بنكي',
+  };
+  const paymentTypeMap = {
+    MONTHLY: 'رسوم شهرية',
+    ANNUAL: 'رسوم سنوية',
+    SPECIAL: 'رسوم خاصة',
   };
   const donationTypeMap = {
     Cash: 'نقدي',
@@ -250,6 +601,8 @@ function localizeData(data) {
     if (out.role && roleMap[out.role]) out.role = roleMap[out.role];
     if (out.payment_method && paymentMethodMap[out.payment_method])
       out.payment_method = paymentMethodMap[out.payment_method];
+    if (out.payment_type && paymentTypeMap[out.payment_type])
+      out.payment_type = paymentTypeMap[out.payment_type];
     if (out.donation_type && donationTypeMap[out.donation_type])
       out.donation_type = donationTypeMap[out.donation_type];
     return out;
@@ -749,7 +1102,8 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
 }
 
 // --- Excel (XLSX) Template Generation ---
-async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
+async function generateExcelTemplate(outputPath, options = {}) {
+  const { sheetName: singleSheetName, returnDefsOnly = false, importType } = options;
   const workbook = new ExcelJS.Workbook();
   const warningMessage =
     '⚠️ الرجاء عدم تعديل عناوين الأعمدة أو هيكل الملف، قم فقط بإضافة بيانات الصفوف.';
@@ -769,39 +1123,146 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
         { header: 'الحالة', key: 'status', width: 15 },
         { header: 'مستوى الحفظ', key: 'memorization_level', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
-        { header: 'اسم ولي الأمر', key: 'parent_name', width: 25 },
-        { header: 'صلة القرابة', key: 'guardian_relation', width: 15 },
-        { header: 'هاتف ولي الأمر', key: 'parent_contact', width: 20 },
-        { header: 'البريد الإلكتروني للولي', key: 'guardian_email', width: 25 },
-        { header: 'جهة الاتصال في حالات الطوارئ', key: 'emergency_contact_name', width: 25 },
-        { header: 'هاتف الطوارئ', key: 'emergency_contact_phone', width: 20 },
-        { header: 'الحالة الصحية', key: 'health_conditions', width: 30 },
+        { header: 'اسم ولي الأمر (طفل)', key: 'parent_name', width: 25 },
+        { header: 'صلة القرابة (طفل)', key: 'guardian_relation', width: 15 },
+        { header: 'هاتف ولي الأمر (طفل)', key: 'parent_contact', width: 20 },
+        { header: 'البريد الإلكتروني للولي (طفل)', key: 'guardian_email', width: 25 },
+        { header: 'جهة الاتصال في حالات الطوارئ (طفل)', key: 'emergency_contact_name', width: 25 },
+        { header: 'هاتف الطوارئ (طفل)', key: 'emergency_contact_phone', width: 20 },
+        { header: 'الحالة الصحية (طفل)', key: 'health_conditions', width: 30 },
         { header: 'رقم الهوية', key: 'national_id', width: 20 },
-        { header: 'اسم المدرسة', key: 'school_name', width: 25 },
-        { header: 'المستوى الدراسي', key: 'grade_level', width: 15 },
-        { header: 'المستوى التعليمي', key: 'educational_level', width: 20 },
-        { header: 'المهنة', key: 'occupation', width: 20 },
-        { header: 'الحالة الاجتماعية', key: 'civil_status', width: 15 },
-        { header: 'أفراد العائلة المسجلون', key: 'related_family_members', width: 30 },
+        { header: 'اسم المدرسة (طفل)', key: 'school_name', width: 25 },
+        { header: 'المستوى الدراسي (طفل)', key: 'grade_level', width: 15 },
+        { header: 'المستوى التعليمي (راشد)', key: 'educational_level', width: 20 },
+        { header: 'المهنة (راشد)', key: 'occupation', width: 20 },
+        { header: 'الحالة الاجتماعية (راشد)', key: 'civil_status', width: 15 },
+        { header: 'أفراد العائلة المسجلون (راشد)', key: 'related_family_members', width: 30 },
+        { header: 'فئة الرسوم', key: 'fee_category', width: 20 },
+        { header: 'اسم الكفيل', key: 'sponsor_name', width: 25 },
+        { header: 'هاتف الكفيل', key: 'sponsor_phone', width: 20 },
+        { header: 'رقم هوية الكفيل', key: 'sponsor_cin', width: 20 },
+        { header: 'ملاحظات المساعدة المالية', key: 'financial_assistance_notes', width: 30 },
       ],
       dummyData: [
+        // طفل - بنت في المدرسة الابتدائية
         {
-          name: 'علي محمد',
-          date_of_birth: '2005-04-10',
-          gender: 'ذكر',
-          national_id: '111222333',
-          status: 'نشط',
-          memorization_level: '5 أجزاء',
-        },
-        {
-          name: 'سارة عبدالله',
-          date_of_birth: '2006-08-22',
+          name: 'فاطمة أحمد',
+          date_of_birth: '2012-03-15',
           gender: 'أنثى',
-          national_id: '222333444',
+          national_id: '112233445',
+          contact_info: '555-123-456',
+          email: 'fatima.ahmed@example.com',
+          address: 'حي السلام، شارع المدرسة، رقم 15',
           status: 'نشط',
-          memorization_level: '3 أجزاء',
-          parent_name: 'عبدالله أحمد',
+          memorization_level: 'جزء عم',
+          notes: 'طالبة مجتهدة في المدرسة',
+          parent_name: 'أحمد محمد',
+          guardian_relation: 'أب',
           parent_contact: '555-123-456',
+          guardian_email: 'ahmed.mohamed@example.com',
+          emergency_contact_name: 'سارة أحمد',
+          emergency_contact_phone: '555-987-654',
+          health_conditions: 'لا توجد حساسية معروفة',
+          school_name: 'مدرسة الروضة الابتدائية',
+          grade_level: 'الصف الخامس',
+          fee_category: 'CAN_PAY',
+          sponsor_name: '',
+          sponsor_phone: '',
+          sponsor_cin: '',
+          financial_assistance_notes: '',
+        },
+        // طفل - ولد في المدرسة الإعدادية
+        {
+          name: 'محمد علي',
+          date_of_birth: '2010-07-22',
+          gender: 'ذكر',
+          national_id: '223344556',
+          contact_info: '555-234-567',
+          email: 'mohamed.ali@example.com',
+          address: 'حي النور، شارع الجامع، رقم 8',
+          status: 'نشط',
+          memorization_level: 'جزء تبارك',
+          notes: 'يحب المشاركة في الأنشطة الجماعية',
+          parent_name: 'علي حسن',
+          guardian_relation: 'أب',
+          parent_contact: '555-234-567',
+          guardian_email: 'ali.hasan@example.com',
+          emergency_contact_name: 'فاطمة علي',
+          emergency_contact_phone: '555-876-543',
+          health_conditions: 'ربو خفيف',
+          school_name: 'مدرسة الإعدادية النموذجية',
+          grade_level: 'الصف الثامن',
+          fee_category: 'SPONSORED',
+          sponsor_name: 'جمعية البر الخيرية',
+          sponsor_phone: '555-111-222',
+          sponsor_cin: '123456789',
+          financial_assistance_notes: 'مكفول من الجمعية الخيرية',
+        },
+        // راشد - طالب جامعي
+        {
+          name: 'أحمد محمود',
+          date_of_birth: '1998-11-10',
+          gender: 'ذكر',
+          national_id: '334455667',
+          contact_info: '555-345-678',
+          email: 'ahmed.mahmoud@example.com',
+          address: 'حي الجامعة، شارع الطلبة، رقم 25',
+          status: 'نشط',
+          memorization_level: 'ختمة كاملة',
+          notes: 'طالب في كلية الشريعة، يساعد في التدريس أحياناً',
+          educational_level: 'جامعي',
+          occupation: 'طالب',
+          civil_status: 'أعزب',
+          related_family_members: 'أخوه محمد مسجل في نفس الجمعية',
+          fee_category: 'CAN_PAY',
+          sponsor_name: '',
+          sponsor_phone: '',
+          sponsor_cin: '',
+          financial_assistance_notes: 'يسدد الرسوم بانتظام',
+        },
+        // راشد - موظف
+        {
+          name: 'خديجة سالم',
+          date_of_birth: '1995-05-30',
+          gender: 'أنثى',
+          national_id: '445566778',
+          contact_info: '555-456-789',
+          email: 'khadeeja.salem@example.com',
+          address: 'حي الوحدة، شارع النساء، رقم 12',
+          status: 'نشط',
+          memorization_level: '10 أجزاء',
+          notes: 'معلمة في المدرسة، ملتزمة بالحضور',
+          educational_level: 'جامعي',
+          occupation: 'معلمة',
+          civil_status: 'متزوجة',
+          related_family_members: 'زوجها وأطفالها الثلاثة',
+          fee_category: 'EXEMPT',
+          sponsor_name: '',
+          sponsor_phone: '',
+          sponsor_cin: '',
+          financial_assistance_notes: 'معفاة من الرسوم لقاء التدريس',
+        },
+        // راشد - متقاعد
+        {
+          name: 'عمر عبدالله',
+          date_of_birth: '1965-12-03',
+          gender: 'ذكر',
+          national_id: '556677889',
+          contact_info: '555-567-890',
+          email: 'omar.abdullah@example.com',
+          address: 'حي الشيوخ، شارع المسجد، رقم 5',
+          status: 'نشط',
+          memorization_level: 'ختمات متعددة',
+          notes: 'شيخ كبير، له دور كبير في الجمعية',
+          educational_level: 'ثانوي',
+          occupation: 'متقاعد',
+          civil_status: 'متزوج',
+          related_family_members: 'زوجته وابناؤه الخمسة',
+          fee_category: 'EXEMPT',
+          sponsor_name: '',
+          sponsor_phone: '',
+          sponsor_cin: '',
+          financial_assistance_notes: 'معفى من الرسوم لسنوات الخدمة الطويلة',
         },
       ],
     },
@@ -883,6 +1344,37 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
       ],
     },
     {
+      name: 'الفصول',
+      columns: [
+        { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
+        { header: 'اسم الفصل', key: 'name', width: 25 },
+        { header: 'معرف المعلم', key: 'teacher_matricule', width: 20 },
+        { header: 'اسم المعلم', key: 'teacher_name', width: 25 },
+        { header: 'نوع الفصل', key: 'class_type', width: 18 },
+        { header: 'الجدول الزمني', key: 'schedule', width: 40 },
+        { header: 'تاريخ البدء', key: 'start_date', width: 15 },
+        { header: 'تاريخ الانتهاء', key: 'end_date', width: 15 },
+        { header: 'السعة', key: 'capacity', width: 10 },
+        { header: 'الجنس', key: 'gender', width: 10 },
+        { header: 'الحالة', key: 'status', width: 15 },
+      ],
+      dummyData: [
+        {
+          name: 'حلقة التحفيظ الصباحية',
+          teacher_matricule: '',
+          teacher_name: 'خالد حسين',
+          class_type: 'تحفيظ',
+          // Friendly Arabic schedule example for non-technical users
+          schedule: 'الإثنين 08:00-10:00; الأربعاء 09:00-11:00',
+          start_date: '2024-09-01',
+          end_date: '2025-06-30',
+          capacity: 30,
+          gender: 'رجال',
+          status: 'نشط',
+        },
+      ],
+    },
+    {
       name: 'المجموعات',
       columns: [
         { header: 'الرقم التعريفي', key: 'matricule', width: 20 },
@@ -927,6 +1419,71 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
           acquisition_date: '2024-02-01',
           acquisition_source: 'شراء',
           condition_status: 'جيد',
+        },
+      ],
+    },
+    {
+      name: 'رسوم الطلاب',
+      columns: [
+        { header: 'رقم التعريفي', key: 'student_matricule', width: 18 },
+        { header: 'المبلغ', key: 'amount', width: 15 },
+        { header: 'تاريخ الدفع', key: 'payment_date', width: 15 },
+        { header: 'طريقة الدفع', key: 'payment_method', width: 15 },
+        { header: 'نوع الدفعة', key: 'payment_type', width: 15 },
+        { header: 'رقم تعريفي الفصل', key: 'class_matricule', width: 18 },
+        { header: 'السنة الدراسية', key: 'academic_year', width: 15 },
+        { header: 'رقم الوصل', key: 'receipt_number', width: 15 },
+        { header: 'رقم الشيك', key: 'check_number', width: 15 },
+        { header: 'ملاحظات', key: 'notes', width: 30 },
+      ],
+      dummyData: [
+        {
+          student_matricule: 'S-0001',
+          amount: 50,
+          payment_date: '2024-09-10',
+          payment_method: 'نقدي',
+          payment_type: 'رسوم شهرية',
+          class_matricule: '',
+          academic_year: '2024-2025',
+          receipt_number: 'RCP-001',
+          check_number: '',
+          notes: 'دفع رسوم شهر سبتمبر',
+        },
+        {
+          student_matricule: 'S-0002',
+          amount: 200,
+          payment_date: '2024-09-15',
+          payment_method: 'شيك',
+          payment_type: 'رسوم سنوية',
+          class_matricule: '',
+          academic_year: '2024-2025',
+          receipt_number: 'RCP-002',
+          check_number: 'CHK-2024-001',
+          notes: 'دفع رسوم سنوية كاملة',
+        },
+        {
+          student_matricule: 'S-0003',
+          amount: 75,
+          payment_date: '2024-09-20',
+          payment_method: 'تحويل',
+          payment_type: 'رسوم خاصة',
+          class_matricule: 'C-0001',
+          academic_year: '2024-2025',
+          receipt_number: 'RCP-003',
+          check_number: '',
+          notes: 'دفع رسوم فصل دراسي خاص',
+        },
+        {
+          student_matricule: 'S-0004',
+          amount: 30,
+          payment_date: '2024-09-25',
+          payment_method: 'نقدي',
+          payment_type: 'رسوم شهرية',
+          class_matricule: '',
+          academic_year: '2024-2025',
+          receipt_number: 'RCP-004',
+          check_number: '',
+          notes: 'دفع جزء من الرسوم الشهرية',
         },
       ],
     },
@@ -990,7 +1547,15 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     return sheets;
   }
 
-  for (const sheetInfo of sheets) {
+  const sheetsToGenerate = singleSheetName
+    ? sheets.filter((s) => s.name === singleSheetName || s.name === 'المعلمون' && singleSheetName === 'المعلمين')
+    : sheets;
+
+  if (sheetsToGenerate.length === 0) {
+    throw new Error(`No sheet definition found for: ${singleSheetName}`);
+  }
+
+  for (const sheetInfo of sheetsToGenerate) {
     const worksheet = workbook.addWorksheet(sheetInfo.name);
     worksheet.views = [{ rightToLeft: true }];
 
@@ -1015,9 +1580,25 @@ async function generateExcelTemplate(outputPath, returnDefsOnly = false) {
     warningRow.height = 30;
     worksheet.mergeCells(1, 1, 1, sheetInfo.columns.length);
 
-    // Add dummy data
-    if (sheetInfo.dummyData) {
-      worksheet.addRows(sheetInfo.dummyData);
+    // Add dummy data (filter if needed based on importType for financial sheets)
+    let dummyDataToAdd = sheetInfo.dummyData;
+    if (sheetInfo.dummyData && importType && sheetInfo.name === 'العمليات المالية') {
+      if (importType === 'المداخيل') {
+        // Show only income examples (مدخول)
+        dummyDataToAdd = sheetInfo.dummyData.filter(item => item.type === 'مدخول');
+      } else if (importType === 'المصاريف') {
+        // Show only expense examples (مصروف)
+        dummyDataToAdd = sheetInfo.dummyData.filter(item => item.type === 'مصروف');
+      } else if (importType === 'رسوم الطلاب') {
+        // For student fees, show a mix of payment-related examples or create specific ones
+        dummyDataToAdd = sheetInfo.dummyData.filter(item =>
+          item.related_person_name && (item.type === 'مدخول' || item.description.includes('رسوم'))
+        );
+      }
+    }
+
+    if (dummyDataToAdd) {
+      worksheet.addRows(dummyDataToAdd);
     }
   }
 

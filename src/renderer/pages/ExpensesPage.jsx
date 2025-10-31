@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import TransactionTable from '@renderer/components/financial/TransactionTable';
@@ -6,18 +6,50 @@ import TransactionFilters from '@renderer/components/financial/TransactionFilter
 import TransactionModal from '@renderer/components/financial/TransactionModal';
 import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
 import { useTransactions } from '@renderer/hooks/useTransactions';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 import { error as logError } from '@renderer/utils/logger';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const expenseFields = [
+  { key: 'date', label: 'التاريخ' },
+  { key: 'description', label: 'الوصف' },
+  { key: 'amount', label: 'المبلغ' },
+  { key: 'category_name', label: 'الفئة' },
+  { key: 'payment_method', label: 'طريقة الدفع' },
+];
 
 function ExpensesPage() {
+  const { hasPermission } = usePermissions();
   const [filters, setFilters] = useState({ type: 'EXPENSE', page: 1, limit: 25 });
   const [showModal, setShowModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const { transactions, pagination, loading, refresh } = useTransactions(filters);
+
+  // Listen for import completion events to refresh data
+  useEffect(() => {
+    const handleImportCompleted = (payload) => {
+      // Check if expense data was imported (UI sheet name is 'المصاريف')
+      if (payload.sheets && payload.sheets.includes('المصاريف')) {
+        console.log('Expenses page: Import completed, refreshing data');
+        refresh();
+      }
+    };
+
+    const unsubscribe = window.electronAPI.onImportCompleted(handleImportCompleted);
+
+    return unsubscribe;
+  }, [refresh]);
 
   const handleAdd = () => {
     setSelectedTransaction(null);
@@ -78,9 +110,23 @@ function ExpensesPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>المصاريف</h1>
-        <Button variant="primary" onClick={handleAdd}>
-          + إضافة مصروف
-        </Button>
+        <div className="page-header-actions">
+          {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
+            <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+              <ExportIcon className="ms-2" /> تصدير البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+              <ImportIcon className="ms-2" /> استيراد البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+            <Button variant="primary" onClick={handleAdd}>
+              + إضافة مصروف
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -124,6 +170,21 @@ function ExpensesPage() {
         body="هل أنت متأكد من رغبتك في حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء."
         confirmVariant="danger"
         confirmText="نعم، حذف"
+      />
+
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="expenses"
+        fields={expenseFields}
+        title="تصدير المصاريف"
+      />
+
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="المصاريف"
+        title="استيراد المصاريف"
       />
     </div>
   );

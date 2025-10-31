@@ -5,12 +5,26 @@ import '@renderer/styles/StudentsPage.css'; // Reuse styles
 import UserFormModal from '@renderer/components/UserFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import TablePagination from '@renderer/components/common/TablePagination';
+import ExportModal from '@renderer/components/modals/ExportModal';
+import ImportModal from '@renderer/components/modals/ImportModal';
 import { error as logError } from '@renderer/utils/logger';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
+import ExportIcon from '@renderer/components/icons/ExportIcon';
+import ImportIcon from '@renderer/components/icons/ImportIcon';
+
+const adminsFields = [
+  { key: 'matricule', label: 'الرقم التعريفي' },
+  { key: 'username', label: 'اسم المستخدم' },
+  { key: 'first_name', label: 'الاسم الأول' },
+  { key: 'last_name', label: 'اللقب' },
+  { key: 'email', label: 'البريد الإلكتروني' },
+  { key: 'role', label: 'الدور' },
+  { key: 'status', label: 'الحالة' },
+];
 
 function UsersPage() {
   const { hasPermission } = usePermissions();
@@ -20,6 +34,8 @@ function UsersPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Pagination states
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,7 +46,6 @@ function UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, roleFilter]);
@@ -51,7 +66,6 @@ function UsersPage() {
         setTotalUsers(result.total);
         setTotalPages(result.totalPages);
       } else {
-        // Fallback for old API response format
         setUsers(result);
         setTotalUsers(result.length);
         setTotalPages(1);
@@ -66,6 +80,50 @@ function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
+  }, [fetchUsers]);
+
+  // Subscribe to import completion events (IPC via preload preferred, DOM fallback supported)
+  useEffect(() => {
+    const domHandler = (e) => {
+      try {
+        const sheets = e?.detail?.sheets || [];
+        if (sheets.includes('المستخدمون') || sheets.includes('المستخدمين')) {
+          fetchUsers();
+          toast.info('تم تحديث قائمة المستخدمين بعد الاستيراد.');
+        }
+      } catch (err) {
+        logError('Error handling DOM import-completed in UsersPage:', err);
+      }
+    };
+
+    let unsubscribe = null;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.onImportCompleted === 'function') {
+        unsubscribe = window.electronAPI.onImportCompleted((payload) => {
+          try {
+            const sheets = payload?.sheets || [];
+            if (sheets.includes('المستخدمون') || sheets.includes('المستخدمين')) {
+              fetchUsers();
+              toast.info('تم تحديث قائمة المستخدمين بعد الاستيراد.');
+            }
+          } catch (err) {
+            logError('Error handling import-completed IPC payload in UsersPage:', err);
+          }
+        });
+      }
+    } catch (err) {
+      logError('Failed to register import completion IPC listener in UsersPage:', err);
+    }
+
+    window.addEventListener('app:import-completed', domHandler);
+    return () => {
+      window.removeEventListener('app:import-completed', domHandler);
+      try {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      } catch (e) {
+        /* ignore */
+      }
+    };
   }, [fetchUsers]);
 
   const handleSaveSuccess = () => {
@@ -127,14 +185,25 @@ function UsersPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>إدارة المستخدمين</h1>
-        {hasPermission(PERMISSIONS.USERS_CREATE) && (
-          <Button variant="primary" onClick={handleShowAddModal}>
-            <i className="fas fa-plus ms-2"></i> إضافة مستخدم جديد
-          </Button>
-        )}
+        <div className="page-header-actions">
+          {hasPermission(PERMISSIONS.USERS_VIEW) && (
+            <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+              <ExportIcon className="ms-2" /> تصدير البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+              <ImportIcon className="ms-2" /> استيراد البيانات
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+            <Button variant="primary" onClick={handleShowAddModal}>
+              <i className="fas fa-plus ms-2"></i> إضافة مستخدم جديد
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Filters */}
       <div className="filter-bar">
         <InputGroup className="search-input-group">
           <InputGroup.Text>
@@ -274,6 +343,19 @@ function UsersPage() {
         body={`هل أنت متأكد من رغبتك في حذف المستخدم "${userToDelete?.username}"؟ لا يمكن التراجع عن هذا الإجراء.`}
         confirmVariant="danger"
         confirmText="نعم، قم بالحذف"
+      />
+      <ExportModal
+        show={showExportModal}
+        handleClose={() => setShowExportModal(false)}
+        exportType="admins"
+        fields={adminsFields}
+        title="تصدير بيانات المستخدمين"
+      />
+      <ImportModal
+        show={showImportModal}
+        handleClose={() => setShowImportModal(false)}
+        importType="المستخدمين"
+        title="استيراد بيانات المستخدمين"
       />
     </div>
   );
