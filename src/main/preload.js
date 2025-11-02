@@ -293,10 +293,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Financial Export API
   exportCashLedger: (period) => ipcRenderer.invoke('financial-export:cash-ledger', period),
+  exportInventoryLedger: () => ipcRenderer.invoke('financial-export:inventory-ledger'),
   exportInventoryRegister: (period) =>
     ipcRenderer.invoke('financial-export:inventory-register', period),
   exportFinancialSummary: (period) =>
     ipcRenderer.invoke('financial-export:financial-summary', period),
+  exportFinancialReportWord: (data) => ipcRenderer.invoke('financial-export:word-report', data),
 
   // Imports API
   generateImportTemplate: (options) => ipcRenderer.invoke('generate-import-template', options),

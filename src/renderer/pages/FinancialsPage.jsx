@@ -7,6 +7,7 @@ import StudentFeesTab from '@renderer/components/financials/StudentFeesTab';
 import ExpensesPage from './ExpensesPage';
 import AccountsPage from './AccountsPage';
 import InventoryTab from '@renderer/components/financials/InventoryTab';
+import FinancialReportsTab from '@renderer/components/financials/FinancialReportsTab';
 
 function FinancialsPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -84,6 +85,9 @@ function FinancialsPage() {
             </Tab>
             <Tab eventKey="inventory" title="📦 الجرد">
               <InventoryTab key={inventoryTabKey} />
+            </Tab>
+            <Tab eventKey="reports" title="📊 التقارير المالية">
+              <FinancialReportsTab />
             </Tab>
           </Tabs>
         </Card.Body>
