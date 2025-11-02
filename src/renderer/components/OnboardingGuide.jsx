@@ -25,10 +25,8 @@ const routeToStep = (pathname) => {
       return 8;
     case pathname.startsWith('/settings'):
       return 9;
-    case pathname.startsWith('/exports'):
-      return 10;
     case pathname.startsWith('/about'):
-      return 11;
+      return 10;
     default:
       return 0;
   }
@@ -57,8 +55,6 @@ const stepToRoute = (step) => {
     case 9:
       return '/settings';
     case 10:
-      return '/exports';
-    case 11:
       return '/about';
     default:
       return '/';
@@ -74,7 +70,7 @@ function OnboardingGuide() {
   const [step, setStep] = useState(0);
   const [manualOpen, setManualOpen] = useState(null); // 'open' | 'begin' | null
   const [sidebarWidth, setSidebarWidth] = useState(250);
-  const [orderedSteps, setOrderedSteps] = useState([0, 1, 2, 3, 4, 5, 8, 10, 11]);
+  const [orderedSteps, setOrderedSteps] = useState([0, 1, 2, 3, 4, 5, 8, 10]);
 
   // measure function reusable by multiple effects
   const measureSidebarWidth = () => {
@@ -152,14 +148,14 @@ function OnboardingGuide() {
     const steps = [0, 1];
     const roles = user.roles;
     const hasRole = (r) => roles.includes(r);
-    const hasAnyRole = (...r) => roles.some(role => r.includes(role));
+    const hasAnyRole = (...r) => roles.some((role) => r.includes(role));
 
-    if (hasAnyRole('Superadmin', 'Administrator', 'SessionSupervisor', 'FinanceManager')) steps.push(2);
+    if (hasAnyRole('Superadmin', 'Administrator', 'SessionSupervisor', 'FinanceManager'))
+      steps.push(2);
     if (hasAnyRole('Superadmin', 'Administrator')) steps.push(3, 4, 5);
     if (hasAnyRole('Superadmin', 'Administrator', 'FinanceManager')) steps.push(6);
-    steps.push(10);
     if (hasRole('Superadmin')) steps.push(7, 9);
-    steps.push(8, 11);
+    steps.push(8, 10);
 
     setOrderedSteps(steps);
   }, [user?.roles]);
