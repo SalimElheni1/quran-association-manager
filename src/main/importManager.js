@@ -210,8 +210,19 @@ async function replaceDatabase(importedDbPath, password) {
     await initializeDatabase(password);
     log('New database initialized successfully.');
     log('Processing SQL script to import data...');
-    await executeSqlScriptSafely(sqlScript);
-    log('Data import completed successfully.');
+
+    // Temporarily disable foreign key constraints during import
+    log('Disabling foreign key constraints for import...');
+    await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
+
+    try {
+      await executeSqlScriptSafely(sqlScript);
+      log('Data import completed successfully.');
+    } finally {
+      // Always re-enable foreign key constraints
+      log('Re-enabling foreign key constraints...');
+      await dbExec(getDb(), 'PRAGMA foreign_keys = ON');
+    }
     
     // Migrate users without roles to user_roles table (for old backups)
     log('Checking for users without role assignments...');
