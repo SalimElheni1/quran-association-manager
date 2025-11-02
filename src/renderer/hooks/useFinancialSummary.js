@@ -19,7 +19,6 @@ export function useFinancialSummary(period) {
     setLoading(true);
     try {
       const data = await window.electronAPI.getFinancialSummary(period);
-      console.log(data);
 
       // Filter out specific payment type categories that shouldn't appear in "المداخيل حسب نوع الوصل"
       // These are covered under "رسوم الطلاب" category

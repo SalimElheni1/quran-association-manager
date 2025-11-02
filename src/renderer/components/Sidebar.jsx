@@ -9,7 +9,7 @@ import TeacherIcon from './icons/TeacherIcon';
 import ClassesIcon from './icons/ClassesIcon';
 import AttendanceIcon from './icons/AttendanceIcon';
 import FinancialsIcon from './icons/FinancialsIcon';
-import ExportsIcon from './icons/ExportsIcon';
+
 import UserShieldIcon from './icons/UserShieldIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import ProfileIcon from './icons/ProfileIcon';
@@ -93,10 +93,7 @@ function Sidebar() {
               <span>الشؤون المالية</span>
             </NavLink>
           )}
-          <NavLink to="/exports" className="nav-link">
-            <ExportsIcon />
-            <span>تصدير البيانات</span>
-          </NavLink>
+
           {canAccessModule('users') && (
             <NavLink to="/users" className="nav-link">
               <UserShieldIcon />
