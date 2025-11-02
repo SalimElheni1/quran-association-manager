@@ -64,7 +64,7 @@ function applyArabicStyling(worksheet) {
   worksheet.eachRow((row) => {
     row.eachCell((cell) => {
       cell.alignment = { horizontal: 'right', vertical: 'middle' };
-      cell.font = { name: 'Arial', size: 11 };
+      cell.font = { name: 'Traditional Arabic', size: 12 };
     });
   });
 }
@@ -127,57 +127,38 @@ async function generateCashLedgerReport(event, { period }) {
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('سجل المحاسبة');
+    const worksheet = workbook.addWorksheet(monthYear);
+    worksheet.pageSetup.orientation = 'landscape';
 
-    // Header - Organization name
+    // Title - Month/Year
     worksheet.mergeCells('A1:G1');
-    worksheet.getCell('A1').value = orgName;
-    worksheet.getCell('A1').font = { size: 14, bold: true };
+    worksheet.getCell('A1').value = monthYear;
+    worksheet.getCell('A1').font = { name: 'Traditional Arabic', size: 14, bold: true };
     worksheet.getCell('A1').alignment = { horizontal: 'center' };
 
-    // Branch name
-    worksheet.mergeCells('A2:G2');
-    worksheet.getCell('A2').value = branch;
-    worksheet.getCell('A2').font = { size: 12 };
-    worksheet.getCell('A2').alignment = { horizontal: 'center' };
-
-    // Title
-    worksheet.mergeCells('A3:G3');
-    worksheet.getCell('A3').value = 'سجل المحاسبة';
-    worksheet.getCell('A3').font = { size: 16, bold: true };
-    worksheet.getCell('A3').alignment = { horizontal: 'center' };
-
-    // Month/Year
-    worksheet.mergeCells('A4:G4');
-    worksheet.getCell('A4').value = monthYear;
-    worksheet.getCell('A4').font = { size: 12, bold: true };
-    worksheet.getCell('A4').alignment = { horizontal: 'center' };
-
-    // Starting balance section
+    // Starting balance section - 3 rows
     worksheet.addRow([]);
-    const balanceRow = worksheet.addRow([
-      'الرصيد بداية الشهر:',
-      '',
-      '',
-      '',
-      '',
-      startingBalance.toFixed(3),
-      'د.ت',
-    ]);
-    balanceRow.font = { bold: true };
+    const cashRow = worksheet.addRow(['السيولة:', '', '', '', '', startingBalance.toFixed(3), 'د.ت']);
+    cashRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
+    
+    const bankRow = worksheet.addRow(['الرصيد البنكي:', '', '', '', '', '0.000', 'د.ت']);
+    bankRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
+    
+    const totalRow = worksheet.addRow(['المجموع:', '', '', '', '', startingBalance.toFixed(3), 'د.ت']);
+    totalRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
 
     // Column headers
     worksheet.addRow([]);
     const headerRow = worksheet.addRow([
-      'الرقم التسلسلي',
+      'رقم التسلسل',
       'التاريخ',
-      'وصف العملية المحاسبية',
-      'مداخل',
+      'Libellé',
+      'مداخيل',
       'مصاريف',
       'الرصيد',
       'وثيقة الإثبات',
     ]);
-    headerRow.font = { bold: true };
+    headerRow.font = { name: 'Traditional Arabic', size: 14, bold: true };
     headerRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
       cell.border = {
@@ -199,7 +180,7 @@ async function generateCashLedgerReport(event, { period }) {
       startingBalance.toFixed(3),
       `جرد يوم ${formatDateArabic(startDate)}`,
     ]);
-    firstRow.font = { bold: true };
+    firstRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
     firstRow.eachCell((cell) => {
       cell.border = {
         top: { style: 'thin' },
@@ -260,34 +241,42 @@ async function generateCashLedgerReport(event, { period }) {
           voucherText,
         ]);
 
-        row.eachCell((cell) => {
+        row.eachCell((cell, colNumber) => {
           cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
             bottom: { style: 'thin' },
             right: { style: 'thin' },
           };
+          // Apply red font to expense vouchers (column 7)
+          if (colNumber === 7 && group.type === 'EXPENSE') {
+            cell.font = { name: 'Traditional Arabic', size: 12, color: { argb: 'FFFF0000' } };
+          }
         });
       });
 
-    // Last row: Ending balance
-    const lastRow = worksheet.addRow([
-      '',
-      formatDateArabic(endDate),
-      'الرصيد أخر الشهر',
-      '',
-      '',
-      runningBalance.toFixed(3),
-      '',
-    ]);
-    lastRow.font = { bold: true };
-    lastRow.eachCell((cell) => {
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' },
-      };
+    // Footer: Ending balance - 3 rows
+    worksheet.addRow([]);
+    const endCashRow = worksheet.addRow(['السيولة:', '', '', '', '', runningBalance.toFixed(3), 'د.ت']);
+    endCashRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
+    endCashRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
+    
+    const endBankRow = worksheet.addRow(['الرصيد البنكي:', '', '', '', '', '0.000', 'د.ت']);
+    endBankRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
+    endBankRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
+    
+    const endTotalRow = worksheet.addRow(['المجموع:', '', '', '', '', runningBalance.toFixed(3), 'د.ت']);
+    endTotalRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
+    endTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
+    [endCashRow, endBankRow, endTotalRow].forEach(row => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
     });
 
     // Column widths

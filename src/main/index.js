@@ -46,9 +46,12 @@ const Store = require('electron-store');
 const { log, error: logError } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
+const { requireRoles } = require('./authMiddleware');
 const { registerFinancialHandlers } = require('./handlers/financialHandlers');
 const { registerStudentFeeHandlers } = require('./handlers/studentFeeHandlers');
-const { registerFinancialExportHandlers } = require('./services/financialExportService');
+const { registerFinancialWordExportHandlers } = require('./services/financialWordExportService');
+const { generateCashLedgerReport } = require('./services/cashLedgerExport');
+const { generateInventoryLedger } = require('./services/inventoryLedgerExport');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
 const { registerTeacherHandlers } = require('./handlers/teacherHandlers');
 const { registerClassHandlers } = require('./handlers/classHandlers');
@@ -299,7 +302,19 @@ const initializeApp = async () => {
 
     registerFinancialHandlers();
     registerStudentFeeHandlers();
-    registerFinancialExportHandlers();
+    registerFinancialWordExportHandlers();
+    
+    // Cash ledger export
+    ipcMain.handle(
+      'financial-export:cash-ledger',
+      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateCashLedgerReport)
+    );
+    
+    // Inventory ledger export
+    ipcMain.handle(
+      'financial-export:inventory-ledger',
+      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateInventoryLedger)
+    );
     registerStudentHandlers();
     registerTeacherHandlers();
     registerClassHandlers();
