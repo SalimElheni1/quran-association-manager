@@ -28,7 +28,6 @@ const teachersFields = [
   { key: 'date_of_birth', label: 'تاريخ الميلاد' },
   { key: 'date_of_joining', label: 'تاريخ الالتحاق' },
   { key: 'qualifications', label: 'المؤهلات' },
-  { key: 'specialization', label: 'التخصص' },
   { key: 'notes', label: 'ملاحظات' },
 ];
 
@@ -40,7 +39,6 @@ function TeachersPage() {
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('all');
-  const [specializationFilter, setSpecializationFilter] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -55,7 +53,7 @@ function TeachersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, genderFilter, specializationFilter]);
+  }, [searchTerm, genderFilter]);
 
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
@@ -63,7 +61,6 @@ function TeachersPage() {
       const filters = {
         searchTerm,
         genderFilter,
-        specializationFilter,
         page: currentPage,
         limit: pageSize,
       };
@@ -83,7 +80,7 @@ function TeachersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, genderFilter, specializationFilter, currentPage, pageSize]);
+  }, [searchTerm, genderFilter, currentPage, pageSize]);
 
   useEffect(() => {
     fetchTeachers();
@@ -258,13 +255,6 @@ function TeachersPage() {
             <option value="Male">ذكر</option>
             <option value="Female">أنثى</option>
           </Form.Select>
-          <Form.Control
-            type="text"
-            placeholder="البحث بالتخصص..."
-            value={specializationFilter}
-            onChange={(e) => setSpecializationFilter(e.target.value)}
-            className="filter-select"
-          />
         </div>
       </div>
       {loading ? (
@@ -280,7 +270,6 @@ function TeachersPage() {
                 <th>الرقم التعريفي</th>
                 <th>الاسم واللقب</th>
                 <th>رقم الهاتف</th>
-                <th>التخصص</th>
                 <th>الإجراءات</th>
               </tr>
             </thead>
@@ -292,7 +281,6 @@ function TeachersPage() {
                     <td>{teacher.matricule}</td>
                     <td>{teacher.name}</td>
                     <td>{teacher.contact_info || '-'}</td>
-                    <td>{teacher.specialization || '-'}</td>
                     <td className="table-actions d-flex gap-2">
                       <Button
                         variant="outline-info"
@@ -324,8 +312,8 @@ function TeachersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center">
-                    {searchTerm || genderFilter !== 'all' || specializationFilter
+                  <td colSpan="5" className="text-center">
+                    {searchTerm || genderFilter !== 'all'
                       ? 'لا توجد نتائج تطابق معايير البحث.'
                       : 'لا يوجد معلمون مسجلون حالياً.'}
                   </td>
