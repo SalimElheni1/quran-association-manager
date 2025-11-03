@@ -227,11 +227,11 @@ async function replaceDatabase(importedDbPath, password) {
     // Migrate users without roles to user_roles table (for old backups)
     log('Checking for users without role assignments...');
     const usersWithoutRoles = await allQuery(`
-      SELECT u.id, u.username 
-      FROM users u 
+      SELECT u.id, u.username
+      FROM users u
       WHERE NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)
     `);
-    
+
     if (usersWithoutRoles.length > 0) {
       log(`Found ${usersWithoutRoles.length} users without roles. Assigning default roles...`);
       for (const user of usersWithoutRoles) {
@@ -245,6 +245,53 @@ async function replaceDatabase(importedDbPath, password) {
           log(`Assigned Administrator role to user: ${user.username}`);
         }
       }
+    }
+
+    // Fix matricule formats for imported data (convert old 6-digit to new 4-digit format)
+    log('Checking for matricules that need format conversion...');
+    const matriculeTables = [
+      { name: 'students', prefix: 'S-' },
+      { name: 'teachers', prefix: 'T-' },
+      { name: 'users', prefix: 'U-' },
+      { name: 'groups', prefix: 'G-' },
+      { name: 'inventory_items', prefix: 'INV-' }
+    ];
+
+    let matriculeFixes = 0;
+    for (const table of matriculeTables) {
+      // Find matricules that are longer than expected (old 6-digit format)
+      const matriculesToFix = await allQuery(`
+        SELECT id, matricule
+        FROM ${table.name}
+        WHERE matricule IS NOT NULL
+          AND LENGTH(matricule) > 0
+          AND LENGTH(SUBSTR(matricule, INSTR(matricule, '-') + 1)) > 4
+      `);
+
+      for (const record of matriculesToFix) {
+        // Extract the numeric part and convert to 4-digit format
+        const parts = record.matricule.split('-');
+        if (parts.length === 2) {
+          const prefix = parts[0] + '-';
+          const number = parseInt(parts[1], 10);
+          const newMatricule = prefix + number.toString().padStart(4, '0');
+
+          // Update the record
+          await runQuery(
+            `UPDATE ${table.name} SET matricule = ? WHERE id = ?`,
+            [newMatricule, record.id]
+          );
+
+          log(`Converted matricule: ${record.matricule} → ${newMatricule}`);
+          matriculeFixes++;
+        }
+      }
+    }
+
+    if (matriculeFixes > 0) {
+      log(`Fixed ${matriculeFixes} matricule formats during import.`);
+    } else {
+      log('All matricules were already in the correct format.');
     }
     
     mainStore.set('force-relogin-after-restart', true);
