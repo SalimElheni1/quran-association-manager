@@ -6,16 +6,44 @@ const { mapGender, mapStatus, mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
- * Uses the same logic as the frontend calculateAge function.
+ * Handles multiple date formats including Unix timestamps.
  *
- * @param {string} birthDateString - Date of birth in YYYY-MM-DD format
+ * @param {string|number} birthDateValue - Date of birth in various formats
  * @returns {number|null} Age in years or null if invalid date
  */
-function calculateAge(birthDateString) {
-  if (!birthDateString) return null;
+function calculateAge(birthDateValue) {
+  // Handle null, undefined, or empty values
+  if (!birthDateValue) return null;
 
-  const birthDate = new Date(birthDateString);
-  if (isNaN(birthDate.getTime())) return null;
+  let birthDate;
+
+  // Handle Unix timestamp (number)
+  if (typeof birthDateValue === 'number') {
+    birthDate = new Date(birthDateValue);
+  }
+  // Handle string dates
+  else if (typeof birthDateValue === 'string') {
+    if (birthDateValue.trim() === '') return null;
+
+    // Try multiple date formats to handle different storage formats
+    const dateFormats = [
+      birthDateValue, // Try original format first
+      birthDateValue.replace(/\//g, '-'), // Convert DD/MM/YYYY to DD-MM-YYYY
+      birthDateValue.split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
+      birthDateValue.split('-').reverse().join('-'), // Convert DD-MM-YYYY to YYYY-MM-DD
+    ];
+
+    for (const dateStr of dateFormats) {
+      const parsedDate = new Date(dateStr);
+      if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 1900) {
+        birthDate = parsedDate;
+        break;
+      }
+    }
+  }
+
+  // If we couldn't parse the date, return null
+  if (!birthDate || isNaN(birthDate.getTime())) return null;
 
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -183,7 +211,7 @@ function registerClassHandlers() {
         SELECT s.id, s.name, s.date_of_birth, s.gender
         FROM students s
         LEFT JOIN class_students cs ON s.id = cs.student_id AND cs.class_id = ?
-        WHERE s.status = 'active' AND cs.student_id IS NULL AND s.date_of_birth IS NOT NULL
+        WHERE s.status = 'active' AND cs.student_id IS NULL
         ORDER BY s.name ASC
       `;
 
@@ -198,21 +226,79 @@ function registerClassHandlers() {
       );
       const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
+      // Convert Arabic class gender to English for filtering
+      // This is a targeted fix for the enrollment functionality
+      function mapArabicClassGenderToEnglish(arabicGender) {
+        const mapping = {
+          'رجال': 'men',
+          'نساء': 'women',
+          'أطفال': 'kids',
+          'الكل': 'all'
+        };
+        return mapping[arabicGender] || arabicGender;
+      }
+
+      const englishClassGender = mapArabicClassGenderToEnglish(classGender);
+
+      // Log filtering summary for monitoring
+      log(`Filtering ${notEnrolledStudents.length} students for ${classGender} class (adult threshold: ${adultAgeThreshold})`);
+
+      // Helper function to normalize gender values
+      function normalizeGender(gender) {
+        if (!gender) return null;
+        const normalized = gender.trim().toLowerCase();
+        // Map various gender representations to standard values
+        if (['male', 'ذكر'].includes(normalized)) return 'Male';
+        if (['female', 'أنثى'].includes(normalized)) return 'Female';
+        return null; // Unknown gender
+      }
+
       notEnrolledStudents = notEnrolledStudents.filter(student => {
         const age = calculateAge(student.date_of_birth);
+        const hasValidAge = age !== null;
+        const normalizedGender = normalizeGender(student.gender);
+        const hasValidGender = normalizedGender !== null;
 
-        if (classGender === 'kids') {
-          return age < adultAgeThreshold;
-        } else if (classGender === 'men') {
-          return student.gender === 'Male' && age >= adultAgeThreshold;
-        } else if (classGender === 'women') {
-          return student.gender === 'Female' && age >= adultAgeThreshold;
-        } else if (classGender === 'all') {
-          return true; // Include all genders for "all" category
+        // For "all" classes, include all active students
+        if (englishClassGender === 'all') {
+          return true;
         }
 
-        return false; // Unknown class gender
+        // For "kids" classes, be more inclusive
+        if (englishClassGender === 'kids') {
+          if (hasValidAge) {
+            return age < adultAgeThreshold;
+          } else {
+            // If no valid age data, include students who might be kids
+            // This helps when date_of_birth is missing or in unexpected format
+            return true; // Be inclusive for kids classes to avoid excluding students unnecessarily
+          }
+        }
+
+        // For gender-specific classes (men/women) - require both valid gender and age
+        if (englishClassGender === 'men') {
+          if (hasValidGender && hasValidAge) {
+            // Both age and gender are valid, use strict filtering
+            return normalizedGender === 'Male' && age >= adultAgeThreshold;
+          }
+          // If age data is missing, we can't confirm they're adults, so exclude
+          return false;
+        }
+
+        if (englishClassGender === 'women') {
+          if (hasValidGender && hasValidAge) {
+            // Both age and gender are valid, use strict filtering
+            return normalizedGender === 'Female' && age >= adultAgeThreshold;
+          }
+          // If age data is missing, we can't confirm they're adults, so exclude
+          return false;
+        }
+
+        // Unknown class gender, exclude by default
+        return false;
       });
+
+      log(`After filtering: ${notEnrolledStudents.length} students remain for class gender: ${classGender}`);
 
       return { enrolledStudents, notEnrolledStudents };
     } catch (error) {

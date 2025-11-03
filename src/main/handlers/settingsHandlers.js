@@ -27,6 +27,7 @@ const settingsValidationSchema = Joi.object({
   auto_charge_generation_enabled: Joi.boolean(),
   charge_generation_frequency: Joi.string().valid('daily', 'weekly'),
   pre_generate_months_ahead: Joi.number().integer().min(1).max(12),
+  last_charge_generation_check: Joi.string().allow(null, ''),
 });
 
 const defaultSettings = {
