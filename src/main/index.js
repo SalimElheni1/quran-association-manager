@@ -67,6 +67,7 @@ const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
 const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
+const backupManager = require('./backupManager');
 const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('./feeChargeScheduler');
 
 const store = new Store();
@@ -160,6 +161,30 @@ const initializeApp = async () => {
       initialCredentials = tempCredentials;
     }
     log('Database initialized successfully.');
+    // =============================================================================
+
+    // =============================================================================
+    // START AUTOMATED SCHEDULERS
+    // =============================================================================
+    // Start backup and fee charge schedulers with current settings
+    try {
+      log('Loading settings and starting automated schedulers...');
+      const { internalGetSettingsHandler } = require('./handlers/settingsHandlers');
+      const { settings } = await internalGetSettingsHandler();
+
+      if (settings) {
+        // Start backup scheduler
+        backupManager.startScheduler(settings);
+        // Start fee charge scheduler
+        startFeeChargeScheduler(settings);
+        log('Automated schedulers started successfully.');
+      } else {
+        log('No settings found, schedulers will start when settings are configured.');
+      }
+    } catch (error) {
+      logError('Failed to start automated schedulers:', error);
+      // Don't fail app startup for scheduler issues
+    }
     // =============================================================================
 
     Menu.setApplicationMenu(null);
@@ -356,9 +381,18 @@ ipcMain.on('logout', async () => {
   await db.closeDatabase();
 });
 
-// Gracefully close the database when the app is about to quit
+// Gracefully close the database and stop schedulers when the app is about to quit
 app.on('will-quit', async () => {
-  log('App is quitting, ensuring database is closed.');
+  log('App is quitting, stopping schedulers and closing database.');
+  try {
+    // Stop automated schedulers
+    backupManager.stopScheduler();
+    stopFeeChargeScheduler();
+    log('Schedulers stopped successfully.');
+  } catch (error) {
+    logError('Error stopping schedulers:', error);
+  }
+
   await db.closeDatabase();
 });
 

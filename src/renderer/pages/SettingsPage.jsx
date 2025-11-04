@@ -366,7 +366,7 @@ const SettingsPage = () => {
                         </Form.Group>
                         <Form.Group as={Row} className="mb-3">
                           <Form.Label column sm={4}>
-                            الرسم الشهري القياسي
+                            الرسوم الشهرية
                           </Form.Label>
                           <Col sm={8}>
                             <InputGroup>
@@ -381,7 +381,7 @@ const SettingsPage = () => {
                               <InputGroup.Text>د.ت</InputGroup.Text>
                             </InputGroup>
                             <Form.Text className="text-muted">
-                              الرسم الشهري الذي سيتم تطبيقه على الطلاب المسجلين في الفصول القياسية.
+                              الرسم الشهري الذي سيتم تطبيقه على الطلاب المسجلين في الفصول.
                             </Form.Text>
                           </Col>
                         </Form.Group>

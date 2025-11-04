@@ -329,6 +329,89 @@ function registerClassHandlers() {
       throw error;
     }
   });
+
+  ipcMain.handle('classes:getForStudent', async (_event, { studentGender, studentAge }) => {
+    try {
+      // Get adult age threshold from settings
+      const ageThresholdSetting = await db.getQuery(
+        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
+      );
+      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
+
+      // Determine if student is adult or kid
+      const isAdult = studentAge !== null && studentAge >= adultAgeThreshold;
+      const isKid = studentAge !== null && studentAge < adultAgeThreshold;
+
+      // Normalize gender
+      function normalizeGender(gender) {
+        if (!gender) return null;
+        const normalized = gender.trim().toLowerCase();
+        if (['male', 'ذكر'].includes(normalized)) return 'Male';
+        if (['female', 'أنثى'].includes(normalized)) return 'Female';
+        return null;
+      }
+
+      const normalizedGender = normalizeGender(studentGender);
+
+      // Build WHERE clause based on student criteria
+      let whereConditions = [];
+      let params = [];
+
+      if (isAdult) {
+        // Adult students: only classes matching their gender
+        if (normalizedGender === 'Male') {
+          whereConditions.push("c.gender = 'men'");
+        } else if (normalizedGender === 'Female') {
+          whereConditions.push("c.gender = 'women'");
+        } else {
+          // Unknown gender - no classes available
+          return [];
+        }
+      } else if (isKid) {
+        // Kid students: classes for kids + classes for their gender
+        if (normalizedGender === 'Male') {
+          whereConditions.push("c.gender IN ('kids', 'men')");
+        } else if (normalizedGender === 'Female') {
+          whereConditions.push("c.gender IN ('kids', 'women')");
+        } else {
+          // Unknown gender - only kids classes
+          whereConditions.push("c.gender = 'kids'");
+        }
+      } else {
+        // Age unknown - show all classes (fallback)
+        // Don't add gender filter
+      }
+
+      // Always exclude inactive classes
+      whereConditions.push("c.status != 'pending'");
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      const sql = `
+        SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender,
+               c.teacher_id, t.name as teacher_name
+        FROM classes c
+        LEFT JOIN teachers t ON c.teacher_id = t.id
+        ${whereClause}
+        ORDER BY c.name ASC
+      `;
+
+      let classes = await db.allQuery(sql, params);
+
+      // Apply translations to status and gender
+      classes = classes.map(classItem => ({
+        ...classItem,
+        status: mapStatus(classItem.status),
+        gender: mapCategory(classItem.gender),
+      }));
+
+      log(`Found ${classes.length} classes for student (gender: ${studentGender}, age: ${studentAge}, isAdult: ${isAdult}, isKid: ${isKid})`);
+      return classes;
+    } catch (error) {
+      logError('Error fetching classes for student:', error);
+      throw error;
+    }
+  });
 }
 
 module.exports = { registerClassHandlers };

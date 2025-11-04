@@ -162,6 +162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Classes API
   getClasses: (filters) => ipcRenderer.invoke('classes:get', filters),
+  getClassesForStudent: (criteria) => ipcRenderer.invoke('classes:getForStudent', criteria),
   addClass: (classData) => ipcRenderer.invoke('classes:add', classData),
   updateClass: (id, classData) => ipcRenderer.invoke('classes:update', id, classData),
   deleteClass: (id) => ipcRenderer.invoke('classes:delete', id),

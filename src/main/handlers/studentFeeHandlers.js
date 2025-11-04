@@ -111,8 +111,9 @@ async function generateMonthlyFeeCharges(academicYear, month) {
         totalMonthlyFee += standardMonthlyFee;
       }
 
+      // Add custom monthly fees from all enrolled classes (both standard and special)
       enrolledClasses.forEach(c => {
-        if (c.fee_type === 'special' && c.monthly_fee > 0) {
+        if (c.monthly_fee > 0) {
           totalMonthlyFee += c.monthly_fee;
         }
       });
