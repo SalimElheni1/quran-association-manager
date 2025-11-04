@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import SelectionModal from './SelectionModal';
+import MultiSelectDropdown from './MultiSelectDropdown';
 
 function StudentFormModal({ show, handleClose, onSave, student }) {
   const [formData, setFormData] = useState({});
@@ -12,13 +13,15 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
   const [allGroups, setAllGroups] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState([]);
 
+  // Classes state
+  const [allClasses, setAllClasses] = useState([]);
+  const [selectedClassIds, setSelectedClassIds] = useState([]);
+
   // Memorization state
   const [allSurahs, setAllSurahs] = useState([]);
   const [allHizbs, setAllHizbs] = useState([]);
   const [selectedSurahIds, setSelectedSurahIds] = useState([]);
   const [selectedHizbIds, setSelectedHizbIds] = useState([]);
-  const [showSurahModal, setShowSurahModal] = useState(false);
-  const [showHizbModal, setShowHizbModal] = useState(false);
 
   useEffect(() => {
     const initialData = {
@@ -57,12 +60,17 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       });
       setSelectedSurahIds(student.surahs?.map((s) => s.id) || []);
       setSelectedHizbIds(student.hizbs?.map((h) => h.id) || []);
+      // Load student's current classes
+      if (student.classes) {
+        setSelectedClassIds(student.classes.map((c) => c.id));
+      }
     } else {
       setFormData(initialData);
       setAge(null);
       setAgeCategory(null);
       setSelectedSurahIds([]);
       setSelectedHizbIds([]);
+      setSelectedClassIds([]);
     }
 
     const fetchMemorizationData = async () => {
@@ -137,6 +145,30 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
     }
   }, [formData.date_of_birth]);
 
+  // Effect to fetch classes when gender or age changes
+  useEffect(() => {
+    const fetchClassesForStudent = async () => {
+      if (formData.gender && age !== null) {
+        try {
+          const classes = await window.electronAPI.getClassesForStudent({
+            studentGender: formData.gender,
+            studentAge: age,
+          });
+          setAllClasses(classes.map((c) => ({ value: c.id, label: c.name })));
+        } catch (error) {
+          toast.error('فشل تحميل الفصول الدراسية.');
+          setAllClasses([]);
+        }
+      } else {
+        setAllClasses([]);
+      }
+    };
+
+    if (show) {
+      fetchClassesForStudent();
+    }
+  }, [formData.gender, age, show]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -147,6 +179,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
     const finalFormData = {
       ...formData,
       groupIds: selectedGroups.map((g) => g.value),
+      classIds: selectedClassIds,
       surahIds: selectedSurahIds,
       hizbIds: selectedHizbIds,
     };
@@ -197,23 +230,37 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
             <Row>
               <Form.Group as={Col} className="mb-3" controlId="formStudentGroups">
                 <Form.Label>المجموعات</Form.Label>
-                <Form.Select
-                  multiple
-                  name="groups"
-                  value={selectedGroups.map((g) => g.value)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, (option) => option.value);
-                    const selected = allGroups.filter((g) => values.includes(g.value.toString()));
+                <MultiSelectDropdown
+                  options={allGroups}
+                  selectedValues={selectedGroups.map((g) => g.value)}
+                  onSelectionChange={(values) => {
+                    const selected = allGroups.filter((g) => values.includes(g.value));
                     setSelectedGroups(selected);
                   }}
-                >
-                  {allGroups.map((group) => (
-                    <option key={group.value} value={group.value}>
-                      {group.label}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Text className="text-muted">اضغط Ctrl للاختيار المتعدد</Form.Text>
+                  placeholder="اختر المجموعات..."
+                  disabled={allGroups.length === 0}
+                />
+                {allGroups.length === 0 && (
+                  <Form.Text className="text-muted">لا توجد مجموعات متاحة</Form.Text>
+                )}
+              </Form.Group>
+            </Row>
+            <Row>
+              <Form.Group as={Col} className="mb-3" controlId="formStudentClasses">
+                <Form.Label>الفصول الدراسية</Form.Label>
+                <MultiSelectDropdown
+                  options={allClasses}
+                  selectedValues={selectedClassIds}
+                  onSelectionChange={setSelectedClassIds}
+                  placeholder="اختر الفصول الدراسية..."
+                  disabled={allClasses.length === 0}
+                  maxHeight="250px"
+                />
+                {allClasses.length === 0 && (
+                  <Form.Text className="text-muted">
+                    يرجى تحديد الجنس وتاريخ الميلاد لعرض الفصول المتاحة
+                  </Form.Text>
+                )}
               </Form.Group>
             </Row>
             <Row>
@@ -484,28 +531,27 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
               </Form.Group>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formMemorizationLevel">
                 <Form.Label>مستوى الحفظ</Form.Label>
-                <div className="memorization-display">
-                  <p>
-                    السور: <Badge bg="info">{selectedSurahIds.length}</Badge>
-                  </p>
-                  <p>
-                    الأحزاب: <Badge bg="info">{selectedHizbIds.length}</Badge>
-                  </p>
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => setShowSurahModal(true)}
-                  >
-                    اختر السور
-                  </Button>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => setShowHizbModal(true)}
-                    className="ms-2"
-                  >
-                    اختر الأحزاب
-                  </Button>
+                <div className="memorization-level-section">
+                  <div className="mb-2">
+                    <Form.Label className="small mb-1">السور المحفوظة</Form.Label>
+                    <MultiSelectDropdown
+                      options={allSurahs}
+                      selectedValues={selectedSurahIds}
+                      onSelectionChange={setSelectedSurahIds}
+                      placeholder="اختر السور..."
+                      disabled={allSurahs.length === 0}
+                    />
+                  </div>
+                  <div>
+                    <Form.Label className="small mb-1">الأحزاب المحفوظة</Form.Label>
+                    <MultiSelectDropdown
+                      options={allHizbs}
+                      selectedValues={selectedHizbIds}
+                      onSelectionChange={setSelectedHizbIds}
+                      placeholder="اختر الأحزاب..."
+                      disabled={allHizbs.length === 0}
+                    />
+                  </div>
                 </div>
               </Form.Group>
             </Row>
@@ -585,26 +631,6 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           </Modal.Footer>
         </Form>
       </Modal>
-
-      <SelectionModal
-        show={showSurahModal}
-        handleClose={() => setShowSurahModal(false)}
-        title="اختر السور"
-        items={allSurahs}
-        selectedItems={selectedSurahIds}
-        onSelectionChange={setSelectedSurahIds}
-        onSave={() => setShowSurahModal(false)}
-      />
-
-      <SelectionModal
-        show={showHizbModal}
-        handleClose={() => setShowHizbModal(false)}
-        title="اختر الأحزاب"
-        items={allHizbs}
-        selectedItems={selectedHizbIds}
-        onSelectionChange={setSelectedHizbIds}
-        onSave={() => setShowHizbModal(false)}
-      />
     </>
   );
 }

@@ -290,6 +290,13 @@ function registerStudentHandlers() {
       const student = await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
       if (!student) return null;
 
+      const classes = await db.allQuery(
+        `SELECT c.id, c.name FROM classes c
+         JOIN class_students cs ON c.id = cs.class_id
+         WHERE cs.student_id = ?`,
+        [id],
+      );
+
       const surahs = await db.allQuery(
         `SELECT s.id, s.name_ar, s.name_en FROM surahs s
          JOIN student_surahs ss ON s.id = ss.surah_id
@@ -304,6 +311,7 @@ function registerStudentHandlers() {
         [id],
       );
 
+      student.classes = classes;
       student.surahs = surahs;
       student.hizbs = hizbs;
 
@@ -332,7 +340,7 @@ function registerStudentHandlers() {
   ipcMain.handle(
     'students:add',
     requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
-      const { groupIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
+      const { groupIds, classIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
@@ -358,6 +366,13 @@ function registerStudentHandlers() {
           const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
           for (const groupId of groupIds) {
             await db.runQuery(insertGroupSql, [studentId, groupId]);
+          }
+        }
+
+        if (studentId && classIds && classIds.length > 0) {
+          const insertClassSql = 'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
+          for (const classId of classIds) {
+            await db.runQuery(insertClassSql, [classId, studentId]);
           }
         }
 
@@ -390,7 +405,7 @@ function registerStudentHandlers() {
   ipcMain.handle(
     'students:update',
     requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
-      const { groupIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
+      const { groupIds, classIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
@@ -416,6 +431,15 @@ function registerStudentHandlers() {
           const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
           for (const groupId of groupIds) {
             await db.runQuery(insertGroupSql, [id, groupId]);
+          }
+        }
+
+        // Update student classes
+        await db.runQuery('DELETE FROM class_students WHERE student_id = ?', [id]);
+        if (classIds && classIds.length > 0) {
+          const insertClassSql = 'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
+          for (const classId of classIds) {
+            await db.runQuery(insertClassSql, [classId, id]);
           }
         }
 

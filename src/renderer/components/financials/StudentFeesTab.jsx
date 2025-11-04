@@ -21,6 +21,7 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import SearchIcon from '@renderer/components/icons/SearchIcon';
 
 const studentFeesFields = [
   { key: 'name', label: 'الاسم' },
@@ -64,8 +65,14 @@ const StudentFeesTab = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('ALL'); // ALL, PAID, PARTIAL, UNPAID, EXEMPT
+  const [searchTerm, setSearchTerm] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showGenerateFeesModal, setShowGenerateFeesModal] = useState(false);
+  const [generateAcademicYear, setGenerateAcademicYear] = useState(
+    new Date().getFullYear().toString(),
+  );
+  const [forceGeneration, setForceGeneration] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -127,24 +134,37 @@ const StudentFeesTab = () => {
     return status === 'EXEMPT';
   };
 
-  // Filter students based on selected filter
+  // Filter students based on search term and payment status filter
   const getFilteredStudents = () => {
     return students.filter((student) => {
+      // Search filter - case insensitive search by name
+      const matchesSearch =
+        searchTerm === '' || student.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Payment status filter
       const status = getStudentPaymentStatus(student);
+      let matchesStatus = true;
 
       switch (paymentStatusFilter) {
         case 'PAID':
-          return status === 'PAID';
+          matchesStatus = status === 'PAID';
+          break;
         case 'PARTIAL':
-          return status === 'PARTIAL';
+          matchesStatus = status === 'PARTIAL';
+          break;
         case 'UNPAID':
-          return status === 'UNPAID';
+          matchesStatus = status === 'UNPAID';
+          break;
         case 'EXEMPT':
-          return status === 'EXEMPT';
+          matchesStatus = status === 'EXEMPT';
+          break;
         case 'ALL':
         default:
-          return true;
+          matchesStatus = true;
+          break;
       }
+
+      return matchesSearch && matchesStatus;
     });
   };
 
@@ -218,6 +238,30 @@ const StudentFeesTab = () => {
     }
   };
 
+  const handleGenerateFees = () => {
+    setShowGenerateFeesModal(true);
+  };
+
+  const handleConfirmGenerateFees = async () => {
+    try {
+      const result = await window.electronAPI.studentFeesGenerateAllCharges(
+        generateAcademicYear,
+        forceGeneration,
+      );
+
+      if (result.success) {
+        toast.success(result.message);
+        setShowGenerateFeesModal(false);
+        loadStudents(); // Refresh the data
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'فشل في توليد الرسوم.';
+      toast.error(errorMessage);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -253,21 +297,9 @@ const StudentFeesTab = () => {
                   </Button>
                 )}
                 */}
-                <Form.Select
-                  value={paymentStatusFilter}
-                  onChange={(e) => {
-                    setPaymentStatusFilter(e.target.value);
-                    setCurrentPage(1); // Reset to first page when filter changes
-                  }}
-                  style={{ width: '160px' }}
-                  className="filter-select"
-                >
-                  <option value="ALL">الجميع</option>
-                  <option value="PAID">مدفوع</option>
-                  <option value="PARTIAL">جزئياً مدفوع</option>
-                  <option value="UNPAID">غير مدفوع</option>
-                  <option value="EXEMPT">معفى</option>
-                </Form.Select>
+                <Button variant="success" onClick={handleGenerateFees}>
+                  توليد الرسوم
+                </Button>
                 <Button variant="primary" onClick={loadStudents}>
                   تحديث
                 </Button>
@@ -277,37 +309,75 @@ const StudentFeesTab = () => {
         </Card.Header>
         <Card.Body>
           {students.length > 0 && (
-            <Row className="mb-4">
-              <SummaryCard
-                title="عدد الطلاب المسددين"
-                value={students.filter((s) => getStudentPaymentStatus(s) === 'PAID').length}
-                variant="success"
-                suffix=""
-              />
-              <SummaryCard
-                title="الطلاب الذين دفعوا جزئياً"
-                value={students.filter((s) => getStudentPaymentStatus(s) === 'PARTIAL').length}
-                variant="warning"
-                suffix=""
-              />
-              <SummaryCard
-                title="الطلاب غير المسددين"
-                value={students.filter((s) => getStudentPaymentStatus(s) === 'UNPAID').length}
-                variant="danger"
-                suffix=""
-              />
-              <SummaryCard
-                title="الطلاب المعفيين"
-                value={students.filter((s) => getStudentPaymentStatus(s) === 'EXEMPT').length}
-                variant="secondary"
-                suffix=""
-              />
-            </Row>
+            <>
+              <Row className="mb-4">
+                <SummaryCard
+                  title="عدد الطلاب المسددين"
+                  value={students.filter((s) => getStudentPaymentStatus(s) === 'PAID').length}
+                  variant="success"
+                  suffix=""
+                />
+                <SummaryCard
+                  title="الطلاب الذين دفعوا جزئياً"
+                  value={students.filter((s) => getStudentPaymentStatus(s) === 'PARTIAL').length}
+                  variant="warning"
+                  suffix=""
+                />
+                <SummaryCard
+                  title="الطلاب غير المسددين"
+                  value={students.filter((s) => getStudentPaymentStatus(s) === 'UNPAID').length}
+                  variant="danger"
+                  suffix=""
+                />
+                <SummaryCard
+                  title="الطلاب المعفيين"
+                  value={students.filter((s) => getStudentPaymentStatus(s) === 'EXEMPT').length}
+                  variant="secondary"
+                  suffix=""
+                />
+              </Row>
+            </>
           )}
           {students.length === 0 ? (
             <Alert variant="info">لا توجد طلاب لعرضهم.</Alert>
           ) : (
             <>
+              {/* Search and Filter Bar */}
+              <div className="d-flex gap-3 mb-4 align-items-center">
+                <div className="flex-grow-1">
+                  <InputGroup className="search-input-group">
+                    <InputGroup.Text>
+                      <SearchIcon />
+                    </InputGroup.Text>
+                    <Form.Control
+                      type="search"
+                      placeholder="البحث بالاسم..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1); // Reset to first page when search changes
+                      }}
+                    />
+                  </InputGroup>
+                </div>
+                <div style={{ minWidth: '160px' }}>
+                  <Form.Select
+                    value={paymentStatusFilter}
+                    onChange={(e) => {
+                      setPaymentStatusFilter(e.target.value);
+                      setCurrentPage(1); // Reset to first page when filter changes
+                    }}
+                    style={{ width: '160px' }}
+                    className="filter-select"
+                  >
+                    <option value="ALL">الجميع</option>
+                    <option value="PAID">مدفوع</option>
+                    <option value="PARTIAL">جزئياً مدفوع</option>
+                    <option value="UNPAID">غير مدفوع</option>
+                    <option value="EXEMPT">معفى</option>
+                  </Form.Select>
+                </div>
+              </div>
               <Table responsive striped hover>
                 <thead>
                   <tr>
@@ -559,6 +629,49 @@ const StudentFeesTab = () => {
         importType="رسوم الطلاب"
         title="استيراد رسوم الطلاب"
       />
+
+      {/* Generate Fees Modal */}
+      <Modal show={showGenerateFeesModal} onHide={() => setShowGenerateFeesModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>توليد رسوم الطلاب</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info">
+            سيتم توليد الرسوم السنوية والشهرية للطلاب المسجلين للسنة الدراسية المحددة.
+          </Alert>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>السنة الدراسية</Form.Label>
+              <Form.Control
+                type="text"
+                value={generateAcademicYear}
+                onChange={(e) => setGenerateAcademicYear(e.target.value)}
+                placeholder="مثال: 2024-2025"
+              />
+              <Form.Text className="text-muted">اتركه فارغاً لاستخدام السنة الحالية</Form.Text>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label="إعادة التوليد حتى لو كانت الرسوم موجودة مسبقاً"
+                checked={forceGeneration}
+                onChange={(e) => setForceGeneration(e.target.checked)}
+              />
+              <Form.Text className="text-muted">
+                استخدم هذا الخيار بحذر - قد يؤدي إلى إنشاء رسوم مكررة
+              </Form.Text>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowGenerateFeesModal(false)}>
+            إلغاء
+          </Button>
+          <Button variant="success" onClick={handleConfirmGenerateFees}>
+            توليد الرسوم
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };
