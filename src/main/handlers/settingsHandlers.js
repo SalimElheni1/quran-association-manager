@@ -6,7 +6,29 @@ const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
 const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('../feeChargeScheduler');
-const { log, error: logError } = require('../logger');
+const { log, warn: logWarn, error: logError } = require('../logger');
+
+/**
+ * Safely attempt to rollback a transaction if one is active.
+ * Prevents "cannot rollback - no transaction is active" errors.
+ * @returns {Promise<boolean>} true if rollback was attempted, false if skipped
+ */
+async function safeRollback() {
+  try {
+    // Try to rollback - if no transaction is active, this will fail silently
+    await db.runQuery('ROLLBACK;');
+    return true;
+  } catch (err) {
+    // If the error is about no active transaction, that's fine - just log it
+    if (err.message && err.message.includes('cannot rollback')) {
+      logWarn('Attempted rollback but no transaction was active (this is expected in some cases)');
+      return false;
+    }
+    // For other errors, log them but don't rethrow
+    logError('Error during rollback attempt:', err);
+    return false;
+  }
+}
 
 // Joi schema for settings validation
 const settingsValidationSchema = Joi.object({
@@ -28,6 +50,11 @@ const settingsValidationSchema = Joi.object({
   charge_generation_frequency: Joi.string().valid('daily', 'weekly'),
   pre_generate_months_ahead: Joi.number().integer().min(1).max(12),
   last_charge_generation_check: Joi.string().allow(null, ''),
+  men_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
+  women_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
+  kids_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
+  academic_year_start_month: Joi.number().integer().min(1).max(12),
+  charge_generation_day: Joi.number().integer().min(1).max(28),
 });
 
 const defaultSettings = {
@@ -111,7 +138,6 @@ const internalUpdateSettingsHandler = async (settingsData) => {
     return s.replace(/([A-Z])/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, '');
   }
 
-  await db.runQuery('BEGIN TRANSACTION;');
   try {
     for (const [key, value] of Object.entries(validatedData)) {
       const primaryDbKey = Object.prototype.hasOwnProperty.call(dbKeyMap, key)
@@ -125,10 +151,8 @@ const internalUpdateSettingsHandler = async (settingsData) => {
         dbValue,
       ]);
     }
-    await db.runQuery('COMMIT;');
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     logError('Failed to update settings:', error);
     throw new Error('فشل تحديث الإعدادات.');
   }
@@ -149,18 +173,69 @@ function registerSettingsHandlers(refreshSettings) {
 
   ipcMain.handle('settings:update', async (_event, settingsData) => {
     try {
+      log('[DEBUG] settings:update IPC handler called with settingsData:', JSON.stringify(settingsData, null, 2));
+
+      // Get old settings to check if fees were just configured
+      const { settings: oldSettings } = await internalGetSettingsHandler();
+      const oldAnnualFee = parseFloat(oldSettings.annual_fee || '0');
+      const oldMonthlyFee = parseFloat(oldSettings.standard_monthly_fee || '0');
+      const feesWereNotSet = oldAnnualFee <= 0 && oldMonthlyFee <= 0;
+
+      log('[DEBUG] settings:update - oldFees:', { oldAnnualFee, oldMonthlyFee, feesWereNotSet });
+      
       const result = await internalUpdateSettingsHandler(settingsData);
+
+      log(`[Settings] Update result: ${JSON.stringify(result)}`);
+
       if (result.success) {
         log('Settings updated, restarting backup and fee charge schedulers...');
         const { settings: newSettings } = await internalGetSettingsHandler();
+
+        log(`[Settings] New settings loaded: ${JSON.stringify(newSettings)}`);
+
         if (newSettings) {
           backupManager.startScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
+
+          // Check if fees are configured and generate charges only when actually needed
+          const newAnnualFee = parseFloat(newSettings.annual_fee || '0');
+          const newMonthlyFee = parseFloat(newSettings.standard_monthly_fee || '0');
+
+          log(`[Settings] Fees check - Old Annual: ${oldAnnualFee}, Old Monthly: ${oldMonthlyFee}, New Annual: ${newAnnualFee}, New Monthly: ${newMonthlyFee}`);
+
+          // Only regenerate charges if fees are actually being configured or changed
+          const feesWerePreviouslySet = oldAnnualFee > 0 || oldMonthlyFee > 0;
+          const feesBeingSetNow = newAnnualFee > 0 || newMonthlyFee > 0;
+          const isFirstTimeSetup = !feesWerePreviouslySet && feesBeingSetNow;
+          const feesActuallyChanged = (oldAnnualFee !== newAnnualFee) || (oldMonthlyFee !== newMonthlyFee);
+
+          if (feesBeingSetNow && (isFirstTimeSetup || feesActuallyChanged)) {
+            // Generate charges for first-time setup regardless of auto-generation setting
+            // For fee updates, respect the auto-generation setting
+            if (isFirstTimeSetup || newSettings.auto_charge_generation_enabled) {
+              log(`[Settings] Charges need to be generated - First setup: ${isFirstTimeSetup}, Fees changed: ${feesActuallyChanged}`);
+              const { checkAndGenerateChargesForAllStudents } = require('./studentFeeHandlers');
+              const chargeResult = await checkAndGenerateChargesForAllStudents(newSettings);
+              log(`[Settings] Charge result: ${JSON.stringify(chargeResult)}`);
+
+              if (chargeResult.success && !chargeResult.skipped) {
+                result.message += ' تم توليد الرسوم لجميع الطلاب بنجاح.';
+              }
+            } else {
+              log('[Settings] Fee values changed but auto-generation disabled - skipping charge regeneration');
+            }
+          } else if (feesBeingSetNow) {
+            log('[Settings] Fees configured but no change detected - no charge regeneration needed');
+          } else {
+            log('[Settings] No fees configured - skipping charge generation');
+          }
         }
         await refreshSettings();
       }
       return result;
     } catch (error) {
+      // Safely attempt to rollback any stray transactions
+      await safeRollback();
       logError('Error in settings:update IPC wrapper:', error);
       return { success: false, message: error.message };
     }

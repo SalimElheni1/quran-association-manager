@@ -68,7 +68,7 @@ const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 const backupManager = require('./backupManager');
-const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('./feeChargeScheduler');
+const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler, onAppStartup: onFeeChargeStartup } = require('./feeChargeScheduler');
 
 const store = new Store();
 let initialCredentials = null;
@@ -177,6 +177,8 @@ const initializeApp = async () => {
         backupManager.startScheduler(settings);
         // Start fee charge scheduler
         startFeeChargeScheduler(settings);
+        // Run startup check for missing charges (handles offline app scenario)
+        await onFeeChargeStartup(settings);
         log('Automated schedulers started successfully.');
       } else {
         log('No settings found, schedulers will start when settings are configured.');

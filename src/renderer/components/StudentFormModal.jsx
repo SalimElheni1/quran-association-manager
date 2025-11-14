@@ -32,7 +32,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       contact_info: '',
       email: '',
       status: 'active',
-
+      fee_category: 'CAN_PAY',
       notes: '',
       parent_name: '',
       guardian_relation: '',
@@ -46,8 +46,13 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       grade_level: '',
       educational_level: '',
       occupation: '',
-      civil_status: 'Single', // Default value
+      civil_status: 'Single',
       related_family_members: '',
+      sponsor_name: '',
+      sponsor_phone: '',
+      sponsor_cin: '',
+      discount_percentage: 0,
+      discount_reason: '',
     };
 
     if (isEditMode && student) {
@@ -148,7 +153,11 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
   // Effect to fetch classes when gender or age changes
   useEffect(() => {
     const fetchClassesForStudent = async () => {
-      if (formData.gender && age !== null) {
+      // Check for valid gender (not empty string) and valid age
+      const hasValidGender = formData.gender && formData.gender.trim() !== '';
+      const hasValidAge = age !== null && !isNaN(age);
+
+      if (hasValidGender && hasValidAge) {
         try {
           const classes = await window.electronAPI.getClassesForStudent({
             studentGender: formData.gender,
@@ -156,6 +165,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
           });
           setAllClasses(classes.map((c) => ({ value: c.id, label: c.name })));
         } catch (error) {
+          console.error('Error loading classes:', error);
           toast.error('فشل تحميل الفصول الدراسية.');
           setAllClasses([]);
         }
@@ -182,6 +192,10 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       classIds: selectedClassIds,
       surahIds: selectedSurahIds,
       hizbIds: selectedHizbIds,
+      fee_category: formData.fee_category || 'CAN_PAY',
+      sponsor_name: formData.sponsor_name || null,
+      sponsor_phone: formData.sponsor_phone || null,
+      sponsor_cin: formData.sponsor_cin || null,
     };
     onSave(finalFormData, student ? student.id : null);
   };
@@ -228,6 +242,16 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
               </Form.Group>
             </Row>
             <Row>
+              <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentGender">
+                <Form.Label>الجنس</Form.Label>
+                <Form.Select name="gender" value={formData.gender || ''} onChange={handleChange}>
+                  <option value="">اختر الجنس...</option>
+                  <option value="Male">ذكر</option>
+                  <option value="Female">أنثى</option>
+                </Form.Select>
+              </Form.Group>
+            </Row>
+            <Row>
               <Form.Group as={Col} className="mb-3" controlId="formStudentGroups">
                 <Form.Label>المجموعات</Form.Label>
                 <MultiSelectDropdown
@@ -238,10 +262,15 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     setSelectedGroups(selected);
                   }}
                   placeholder="اختر المجموعات..."
-                  disabled={allGroups.length === 0}
+                  disabled={
+                    allGroups.length === 0 || !formData.gender || formData.gender.trim() === ''
+                  }
                 />
                 {allGroups.length === 0 && (
                   <Form.Text className="text-muted">لا توجد مجموعات متاحة</Form.Text>
+                )}
+                {(!formData.gender || formData.gender.trim() === '') && allGroups.length > 0 && (
+                  <Form.Text className="text-muted">يرجى تحديد الجنس لعرض المجموعات</Form.Text>
                 )}
               </Form.Group>
             </Row>
@@ -253,30 +282,31 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   selectedValues={selectedClassIds}
                   onSelectionChange={setSelectedClassIds}
                   placeholder="اختر الفصول الدراسية..."
-                  disabled={allClasses.length === 0}
+                  disabled={
+                    allClasses.length === 0 ||
+                    !formData.gender ||
+                    formData.gender.trim() === '' ||
+                    !formData.date_of_birth
+                  }
                   maxHeight="250px"
                 />
-                {allClasses.length === 0 && (
+                {allClasses.length === 0 &&
+                  formData.gender &&
+                  formData.gender.trim() !== '' &&
+                  formData.date_of_birth && (
+                    <Form.Text className="text-muted">
+                      لا توجد فصول متاحة لهذه الفئة العمرية والجنس
+                    </Form.Text>
+                  )}
+                {(!formData.gender || formData.gender.trim() === '' || !formData.date_of_birth) && (
                   <Form.Text className="text-muted">
                     يرجى تحديد الجنس وتاريخ الميلاد لعرض الفصول المتاحة
                   </Form.Text>
                 )}
               </Form.Group>
             </Row>
-            <Row>
-              <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentGender">
-                <Form.Label>الجنس</Form.Label>
-                <Form.Select
-                  name="gender"
-                  value={formData.gender || 'Male'}
-                  onChange={handleChange}
-                >
-                  <option value="">اختر الجنس...</option>
-                  <option value="Male">ذكر</option>
-                  <option value="Female">أنثى</option>
-                </Form.Select>
-              </Form.Group>
-              {(ageCategory === 'teen' || ageCategory === 'adult') && (
+            {(ageCategory === 'teen' || ageCategory === 'adult') && (
+              <Row>
                 <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentNationalId">
                   <Form.Label>رقم الهوية الوطنية (CIN)</Form.Label>
                   <Form.Control
@@ -287,8 +317,8 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     maxLength={8}
                   />
                 </Form.Group>
-              )}
-            </Row>
+              </Row>
+            )}
             <Row>
               <Form.Group as={Col} className="mb-3" controlId="formStudentAddress">
                 <Form.Label>العنوان</Form.Label>
@@ -603,6 +633,38 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                     value={formData.sponsor_cin || ''}
                     onChange={handleChange}
                     maxLength={8}
+                  />
+                </Form.Group>
+              </Row>
+            )}
+            <Row>
+              <Form.Group as={Col} md="6" className="mb-3" controlId="formDiscountPercentage">
+                <Form.Label>نسبة الخصم (%)</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  name="discount_percentage"
+                  value={formData.discount_percentage || 0}
+                  onChange={handleChange}
+                />
+                <Form.Text className="text-muted">
+                  للعائلات أو الحالات الخاصة (مثال: 30 للخصم 30%)
+                </Form.Text>
+              </Form.Group>
+            </Row>
+            {formData.discount_percentage > 0 && (
+              <Row>
+                <Form.Group as={Col} className="mb-3" controlId="formDiscountReason">
+                  <Form.Label>سبب الخصم</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    name="discount_reason"
+                    value={formData.discount_reason || ''}
+                    onChange={handleChange}
+                    placeholder="مثال: خصم عائلي - 3 أطفال"
                   />
                 </Form.Group>
               </Row>

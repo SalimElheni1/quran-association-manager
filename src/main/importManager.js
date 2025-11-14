@@ -293,6 +293,16 @@ async function replaceDatabase(importedDbPath, password) {
     } else {
       log('All matricules were already in the correct format.');
     }
+
+    // Generate missing charges for students after import
+    log('Checking for students without charges...');
+    const { checkAndGenerateChargesForAllStudents } = require('./handlers/studentFeeHandlers');
+    const chargeGenResult = await checkAndGenerateChargesForAllStudents();
+    if (chargeGenResult.success) {
+      log(`Generated charges for ${chargeGenResult.studentsProcessed} students.`);
+    } else {
+      logWarn('Failed to generate charges after import:', chargeGenResult.message);
+    }
     
     mainStore.set('force-relogin-after-restart', true);
     log('Database import successful. The app will now restart.');

@@ -12,7 +12,7 @@
  */
 
 const db = require('../db/db');
-const { generateAnnualFeeCharges, generateMonthlyFeeCharges } = require('./handlers/studentFeeHandlers');
+const { generateAnnualFeeCharges, generateMonthlyFeeCharges, getCurrentAcademicYear } = require('./handlers/studentFeeHandlers');
 const { log, error: logError } = require('./logger');
 
 let schedulerIntervalId = null;
@@ -89,62 +89,80 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false
 };
 
 /**
+ * Checks and generates charges on app startup (handles offline app scenario).
+ * @param {Object} settings - Application settings
+ */
+const onAppStartup = async (settings) => {
+  try {
+    log('[Startup] Checking for missing charges...');
+    
+    const startMonth = parseInt(settings.academic_year_start_month || 9);
+    const genDay = parseInt(settings.charge_generation_day || 25);
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentDay = currentDate.getDate();
+    const academicYear = getCurrentAcademicYear(startMonth);
+    
+    log(`[Startup] Academic year: ${academicYear}, Current month: ${currentMonth}`);
+    
+    // Check and generate annual charges if needed
+    await generatePendingAnnualCharges(academicYear);
+    log(`[Startup] Annual charges checked for ${academicYear}`);
+    
+    // Always ensure current month exists
+    await generateMonthlyChargesIfNeeded(academicYear, currentMonth);
+    log(`[Startup] Current month (${currentMonth}) charges checked`);
+    
+    // If past generation day, ensure next month exists
+    if (currentDay >= genDay) {
+      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      const nextYear = currentMonth === 12 ? 
+        getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1)) : 
+        academicYear;
+      
+      await generateMonthlyChargesIfNeeded(nextYear, nextMonth);
+      log(`[Startup] Next month (${nextMonth}) charges checked (past day ${genDay})`);
+    }
+    
+    log('[Startup] Charge check completed');
+  } catch (error) {
+    logError('[Startup] Error checking charges:', error);
+  }
+};
+
+/**
  * Main function that checks what charges need to be generated and creates them.
  * Called by the scheduler interval.
- * @param {boolean} force - Force regeneration of existing charges
+ * @param {Object} settings - Application settings
  */
-const checkAndGenerateCharges = async (force = false) => {
+const checkAndGenerateCharges = async (settings) => {
   try {
-    log('Checking for pending fee charges...');
-
+    const startMonth = parseInt(settings.academic_year_start_month || 9);
+    const genDay = parseInt(settings.charge_generation_day || 25);
     const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth() + 1;
+    const currentDay = currentDate.getDate();
+    const academicYear = getCurrentAcademicYear(startMonth);
 
-    // Determine academic year (assuming Sept-Aug academic year)
-    const academicYear = currentMonth >= 9 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+    log(`[Scheduler] Daily check - Day ${currentDay} of month ${currentMonth}`);
 
-    let generatedCount = 0;
-
-    // 1. Generate annual charges if not exists
-    if (await generatePendingAnnualCharges(academicYear)) {
-      generatedCount++;
-    }
-
-    // 2. Generate current month charges if not exists
-    if (await generateMonthlyChargesIfNeeded(academicYear, currentMonth)) {
-      generatedCount++;
-    }
-
-    // 3. Pre-generate next month charges (1 week before month end or on the 24th+)
-    if (currentDate.getDate() >= 24) {
+    // Only generate next month on/after generation day
+    if (currentDay >= genDay) {
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextMonthYear = currentMonth === 12 ? academicYear.split('-')[1] : academicYear;
-
-      if (await generateMonthlyChargesIfNeeded(nextMonthYear, nextMonth)) {
-        generatedCount++;
+      const nextYear = currentMonth === 12 ? 
+        getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1)) : 
+        academicYear;
+      
+      if (await generateMonthlyChargesIfNeeded(nextYear, nextMonth)) {
+        log(`[Scheduler] Generated charges for next month (${nextMonth})`);
+      } else {
+        log(`[Scheduler] Next month (${nextMonth}) charges already exist`);
       }
-    }
-
-    // 4. Pre-generate month after next (for really early preparation)
-    if (currentDate.getDate() >= 28) {
-      const monthAfterNext = currentMonth === 12 ? 2 : (currentMonth === 11 ? 1 : currentMonth + 2);
-      const monthAfterNextYear = (currentMonth >= 11) ? academicYear.split('-')[1] :
-                                  (currentMonth === 10) ? academicYear : academicYear.split('-')[0];
-
-      if (await generateMonthlyChargesIfNeeded(monthAfterNextYear, monthAfterNext)) {
-        generatedCount++;
-      }
-    }
-
-    if (generatedCount > 0) {
-      log(`Fee charge scheduler generated ${generatedCount} charge sets.`);
     } else {
-      log('Fee charge scheduler check completed - no charges needed.');
+      log(`[Scheduler] Not yet day ${genDay} - skipping next month generation`);
     }
-
   } catch (error) {
-    logError('Error in fee charge scheduler check:', error);
+    logError('[Scheduler] Error in fee charge check:', error);
   }
 };
 
@@ -161,18 +179,15 @@ const startScheduler = (settings) => {
   }
 
   log('Starting automated fee charge generation scheduler.');
-  log('Charges will be checked every 6 hours for generation needs.');
+  log('Charges will be checked daily at midnight.');
 
-  // Check every 6 hours for charges that need generation
+  // Check once per day (24 hours) for charges that need generation
   schedulerIntervalId = setInterval(
     async () => {
-      await checkAndGenerateCharges();
+      await checkAndGenerateCharges(settings);
     },
-    1000 * 60 * 60 * 6, // 6 hours
+    1000 * 60 * 60 * 24, // 24 hours
   );
-
-  // Also check immediately on start
-  setTimeout(checkAndGenerateCharges, 5000); // 5 seconds after start
 };
 
 /**
@@ -213,6 +228,7 @@ const runManualCheck = async (settings, force = false) => {
 module.exports = {
   startScheduler,
   stopScheduler,
+  onAppStartup,
   checkAndGenerateCharges,
   runManualCheck,
   generatePendingAnnualCharges,

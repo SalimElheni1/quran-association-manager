@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
-import { error as logError } from '@renderer/utils/logger';
+import { error, log } from '@renderer/utils/logger';
 import {
   Container,
   Row,
@@ -99,13 +99,22 @@ const SettingsPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      console.log('[FRONTEND DEBUG] SettingsPage.handleSubmit called');
+      console.log('[FRONTEND DEBUG] Settings object:', JSON.stringify(settings, null, 2));
+      log('[SettingsPage] Submitting settings:', settings);
+      console.log('[FRONTEND DEBUG] About to call window.electronAPI.updateSettings');
       const response = await window.electronAPI.updateSettings(settings);
+      console.log('[FRONTEND DEBUG] API call completed, response:', response);
+      log('[SettingsPage] Response:', response);
       if (response.success) {
-        toast.success(response.message);
+        toast.success(response.message, { autoClose: 5000 });
+        // Emit event to notify other components
+        window.dispatchEvent(new Event('settings-updated'));
       } else {
         toast.error(response.message);
       }
     } catch (err) {
+      error('[SettingsPage] Error:', err);
       toast.error(err.message);
     } finally {
       setIsSubmitting(false);
@@ -385,6 +394,135 @@ const SettingsPage = () => {
                             </Form.Text>
                           </Col>
                         </Form.Group>
+                        <Alert variant="warning" className="mb-3">
+                          <strong>⚠️ تحذير مهم حول تغيير الرسوم:</strong>
+                          <ul className="mb-0 mt-2">
+                            <li>
+                              تغيير الرسوم السنوية أو الشهرية <strong>لن يؤثر</strong> على الرسوم
+                              المولدة مسبقاً
+                            </li>
+                            <li>الطلاب الذين دفعوا بالفعل لن يتأثروا بهذا التغيير</li>
+                            <li>
+                              الرسوم الجديدة ستطبق فقط على الطلاب الجدد أو عند توليد رسوم جديدة
+                            </li>
+                            <li>لضمان الاتساق، يُفضل تغيير الرسوم في بداية السنة الدراسية</li>
+                          </ul>
+                        </Alert>
+                        <hr />
+                        <h6>نظام الدفع حسب نوع الفصل</h6>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            نظام الدفع للرجال
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Select
+                              name="men_payment_frequency"
+                              value={settings.men_payment_frequency || 'MONTHLY'}
+                              onChange={handleChange}
+                            >
+                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
+                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
+                            </Form.Select>
+                            <Form.Text className="text-muted">
+                              يطبق على الطلاب المسجلين في فصول الرجال
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            نظام الدفع للنساء
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Select
+                              name="women_payment_frequency"
+                              value={settings.women_payment_frequency || 'MONTHLY'}
+                              onChange={handleChange}
+                            >
+                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
+                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
+                            </Form.Select>
+                            <Form.Text className="text-muted">
+                              يطبق على الطلاب المسجلين في فصول النساء
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            نظام الدفع للأطفال
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Select
+                              name="kids_payment_frequency"
+                              value={settings.kids_payment_frequency || 'MONTHLY'}
+                              onChange={handleChange}
+                            >
+                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
+                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
+                            </Form.Select>
+                            <Form.Text className="text-muted">
+                              يطبق على الطلاب المسجلين في فصول الأطفال
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <hr />
+                        <h6>إعدادات السنة الدراسية والتوليد التلقائي</h6>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            شهر بداية السنة الدراسية
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Select
+                              name="academic_year_start_month"
+                              value={settings.academic_year_start_month || 9}
+                              onChange={handleChange}
+                            >
+                              <option value="1">يناير</option>
+                              <option value="2">فبراير</option>
+                              <option value="3">مارس</option>
+                              <option value="4">أبريل</option>
+                              <option value="5">مايو</option>
+                              <option value="6">يونيو</option>
+                              <option value="7">يوليو</option>
+                              <option value="8">أغسطس</option>
+                              <option value="9">سبتمبر (افتراضي)</option>
+                              <option value="10">أكتوبر</option>
+                              <option value="11">نوفمبر</option>
+                              <option value="12">ديسمبر</option>
+                            </Form.Select>
+                            <Form.Text className="text-muted">
+                              يحدد متى تبدأ السنة الدراسية (مثال: سبتمبر 2024 = سنة 2024-2025)
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <Form.Group as={Row} className="mb-3">
+                          <Form.Label column sm={4}>
+                            يوم توليد رسوم الشهر القادم
+                          </Form.Label>
+                          <Col sm={8}>
+                            <Form.Control
+                              type="number"
+                              name="charge_generation_day"
+                              value={settings.charge_generation_day || 25}
+                              onChange={handleChange}
+                              min="1"
+                              max="28"
+                            />
+                            <Form.Text className="text-muted">
+                              سيتم توليد رسوم الشهر القادم تلقائياً في هذا اليوم من كل شهر (افتراضي:
+                              25)
+                            </Form.Text>
+                          </Col>
+                        </Form.Group>
+                        <Alert variant="info" className="mt-3">
+                          <strong>ℹ️ معلومة هامة:</strong>
+                          <ul className="mb-0 mt-2">
+                            <li>سيتم توليد الرسوم تلقائياً كل شهر. لا حاجة للتوليد اليدوي.</li>
+                            <li>
+                              عند تحديد الرسوم لأول مرة، سيتم إنشاء رسوم الشهر الحالي لجميع الطلاب.
+                            </li>
+                            <li>الخصومات الدائمة للطلاب ستطبق تلقائياً على جميع الرسوم.</li>
+                          </ul>
+                        </Alert>
                       </Card.Body>
                     </Card>
                   </Tab>
