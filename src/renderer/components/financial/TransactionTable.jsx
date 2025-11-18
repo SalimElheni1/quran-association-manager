@@ -41,13 +41,26 @@ function TransactionTable({
     return <Badge bg={variants[method] || 'secondary'}>{labels[method] || method}</Badge>;
   };
 
-  const getTranslatedIncomeType = (type) => {
+  const getTranslatedIncomeType = (transaction) => {
+    // Special handling for student fee transactions with CUSTOM receipt_type
+    if (transaction.category === 'رسوم الطلاب' && transaction.receipt_type === 'CUSTOM') {
+      return 'رسوم الطلاب';
+    }
+    
+    // Use the translated receipt_type from backend if available
+    if (transaction.receipt_type_display && transaction.receipt_type_display !== 'CUSTOM') {
+      return transaction.receipt_type_display;
+    }
+    
+    // Fallback translations
     const translations = {
       MONTHLY: 'رسوم شهرية',
       ANNUAL: 'رسوم سنوية',
       SPECIAL: 'رسوم خاصة',
+      'رسوم الطلاب': 'رسوم الطلاب'
     };
-    return translations[type] || type;
+    
+    return translations[transaction.receipt_type] || transaction.receipt_type || '-';
   };
 
   if (loading) {
@@ -83,9 +96,9 @@ function TransactionTable({
           <tr key={transaction.id}>
             <td>{index + 1}</td>
             <td>{formatDate(transaction.transaction_date)}</td>
-            {!compact && <td>{transaction.receipt_number || '-'}</td>}
+            {!compact && <td>{transaction.voucher_number || '-'}</td>}
             <td>{isIncomeTable ? transaction.category || '-' : transaction.category}</td>
-            {!compact && <td>{getTranslatedIncomeType(transaction.receipt_type) || '-'}</td>}
+            {!compact && <td>{getTranslatedIncomeType(transaction)}</td>}
             <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
               {formatCurrency(transaction.amount)}
             </td>

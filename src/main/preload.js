@@ -153,6 +153,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   getHizbs: () => ipcRenderer.invoke('hizbs:get'),
 
+  /**
+   * Gets students matching a specific age group (for class enrollment).
+   * @param {number} ageGroupId - The age group ID
+   * @returns {Promise<Object>} Object with ageGroup details and matching students
+   */
+  getStudentsByAgeGroup: (ageGroupId) => ipcRenderer.invoke('students:getByAgeGroup', ageGroupId),
+
   // Teachers API
   getTeachers: (filters) => ipcRenderer.invoke('teachers:get', filters),
   getTeacherById: (id) => ipcRenderer.invoke('teachers:getById', id),
@@ -194,6 +201,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
   uploadLogo: () => ipcRenderer.invoke('settings:uploadLogo'),
   getLogo: () => ipcRenderer.invoke('settings:getLogo'),
+
+  // Age Groups API
+  getAgeGroups: () => ipcRenderer.invoke('ageGroups:get'),
+  createAgeGroup: (ageGroupData) => ipcRenderer.invoke('ageGroups:create', ageGroupData),
+  updateAgeGroup: (id, ageGroupData) => ipcRenderer.invoke('ageGroups:update', id, ageGroupData),
+  deleteAgeGroup: (id) => ipcRenderer.invoke('ageGroups:delete', id),
+  matchStudentToAgeGroups: (studentAge, studentGender) => ipcRenderer.invoke('ageGroups:matchStudent', studentAge, studentGender),
+  validateStudentForClass: (studentAge, studentGender, classAgeGroupId) => ipcRenderer.invoke('ageGroups:validateStudentForClass', studentAge, studentGender, classAgeGroupId),
 
   // Dialog API
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
@@ -285,6 +300,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   studentFeesGenerateAllCharges: (academicYear) => ipcRenderer.invoke('student-fees:generateAllCharges', academicYear),
   studentFeesGenerateAnnualCharges: (academicYear) => ipcRenderer.invoke('student-fees:generateAnnualCharges', academicYear),
   studentFeesGenerateMonthlyCharges: (data) => ipcRenderer.invoke('student-fees:generateMonthlyCharges', data),
+  studentFeesRefreshStudentCharges: (data) => ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
+  studentFeesRefreshAllStudentCharges: (data) => ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
 
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
@@ -350,4 +367,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getInitialCredentials: () => ipcRenderer.invoke('get-initial-credentials'),
   clearInitialCredentials: () => ipcRenderer.invoke('clear-initial-credentials'),
+
+  // ========================================================================
+  // TESTING & DEBUGGING APIs
+  // ========================================================================
+
+  /**
+   * Gets recent logs for debugging/testing purposes
+   * @param {number} lines - Number of recent lines to retrieve (default: 100)
+   * @returns {Promise<Object>} {success: boolean, logs: string[]}
+   */
+  getRecentLogs: (lines = 100) => ipcRenderer.invoke('logs:get-recent', { lines }),
+
+  /**
+   * Gets filtered logs containing a specific keyword
+   * @param {string} keyword - Filter keyword (e.g., 'ChargeRegen', 'Enrollment', 'ERROR')
+   * @param {number} lines - Number of recent lines to retrieve (default: 100)
+   * @returns {Promise<Object>} {success: boolean, logs: string[]}
+   */
+  getFilteredLogs: (keyword, lines = 100) => ipcRenderer.invoke('logs:get-filtered', { keyword, lines }),
+
+  /**
+   * Clears the application log file
+   * @returns {Promise<Object>} {success: boolean, message: string}
+   */
+  clearLogs: () => ipcRenderer.invoke('logs:clear'),
+
+  /**
+   * Gets the path to the log file
+   * @returns {Promise<Object>} {success: boolean, path: string}
+   */
+  getLogFilePath: () => ipcRenderer.invoke('logs:get-file-path'),
 });

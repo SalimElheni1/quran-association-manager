@@ -8,6 +8,7 @@ This document provides a comprehensive reference for all IPC (Inter-Process Comm
 - [Student Management APIs](#student-management-apis)
 - [Teacher Management APIs](#teacher-management-apis)
 - [Class Management APIs](#class-management-apis)
+- [Age Groups APIs](#age-groups-apis)
 - [User Management APIs](#user-management-apis)
 - [Attendance APIs](#attendance-apis)
 - [Financial APIs](#financial-apis)
@@ -244,6 +245,113 @@ Updates student enrollments for a class.
 
 **Returns:** `Promise<Object>`
 - Update result
+
+## Age Groups APIs
+
+### `ageGroups:get`
+Retrieves all age groups with optional filters.
+
+**Parameters:**
+- `filters` (Object, optional): Filter criteria (e.g., `{ isActive: true }`)
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Operation success
+- `ageGroups` (Array): Array of age group objects with fields:
+  - `id`: Group ID
+  - `uuid`: Unique identifier for default groups
+  - `name`: Display name (Arabic or English)
+  - `description`: Purpose and usage
+  - `min_age`: Minimum age (inclusive)
+  - `max_age`: Maximum age (inclusive, null for unlimited)
+  - `gender`: Gender category ('all', 'male', 'female')
+  - `gender_policy`: Organization policy ('mixed', 'separated', 'single_gender')
+  - `is_active`: Whether group is available for new classes
+
+**Example:**
+```javascript
+const result = await window.electronAPI.getAgeGroups();
+console.log(result.ageGroups); // Array of age groups
+```
+
+### `ageGroups:add`
+Creates a new age group.
+
+**Parameters:**
+- `groupData` (Object): Age group information
+  - `name` (string): Required. Group name
+  - `min_age` (number): Required. Minimum age
+  - `max_age` (number|null): Maximum age or null for no limit
+  - `gender` (string): Optional. Gender category ('all', 'male', 'female')
+  - `gender_policy` (string): Optional. Default 'mixed'
+  - `description` (string): Optional. Description
+  - `is_active` (boolean): Optional. Default true
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Creation success
+- `id` (number): New group ID if successful
+- `message` (string): Error message if failed
+
+### `ageGroups:update`
+Updates an existing age group.
+
+**Parameters:**
+- `id` (number): Age group ID
+- `groupData` (Object): Fields to update
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Update success
+- `message` (string): Status or error message
+
+### `ageGroups:delete`
+Deletes an age group (if not in use by classes).
+
+**Parameters:**
+- `id` (number): Age group ID
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Deletion success
+- `message` (string): Status or error message
+
+### `ageGroups:matchStudent`
+Finds all age groups matching a student's age and gender.
+
+**Parameters:**
+- `studentId` (number): Student ID
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Operation success
+- `matchedGroups` (Array): Age groups the student qualifies for
+- `studentAge` (number): Calculated age of the student
+
+**Example:**
+```javascript
+const result = await window.electronAPI.matchStudentToAgeGroups(15);
+// Returns groups matching 15-year-old's profile
+```
+
+### `ageGroups:validateStudentForClass`
+Validates if a student can enroll in a specific class based on age group requirements.
+
+**Parameters:**
+- `studentId` (number): Student ID
+- `classId` (number): Class ID
+
+**Returns:** `Promise<Object>`
+- `success` (boolean): Validation result (true if allowed)
+- `message` (string): Error message if validation fails
+  - "Student age/gender does not match class requirements"
+  - "Class has no age group assigned"
+  - etc.
+
+**Example:**
+```javascript
+const result = await window.electronAPI.validateStudentForClass(10, 5);
+if (result.success) {
+  console.log('Student can enroll');
+} else {
+  console.log('Validation failed:', result.message);
+}
+```
 
 ## User Management APIs
 

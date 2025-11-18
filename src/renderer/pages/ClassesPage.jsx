@@ -25,7 +25,7 @@ const classesFields = [
   { key: 'name', label: 'اسم الفصل' },
   { key: 'teacher_name', label: 'المعلم المسؤول' },
   { key: 'schedule', label: 'الجدول الزمني' },
-  { key: 'gender', label: 'الجنس' },
+  { key: 'age_group_name', label: 'فئة العمر' },
   { key: 'status', label: 'الحالة' },
 ];
 
@@ -239,12 +239,7 @@ function ClassesPage() {
     }
   };
 
-  const genderTranslations = {
-    all: 'الكل',
-    men: 'رجال',
-    women: 'نساء',
-    kids: 'أطفال',
-  };
+
 
   const renderStatusBadge = (status) => {
     const variants = {
@@ -311,7 +306,7 @@ function ClassesPage() {
                 <th>اسم الفصل</th>
                 <th>المعلم المسؤول</th>
                 <th>الجدول الزمني</th>
-                <th>الجنس</th>
+                <th>فئة العمر</th>
                 <th>الحالة</th>
                 <th>الإجراءات</th>
               </tr>
@@ -324,7 +319,7 @@ function ClassesPage() {
                     <td>{cls.name}</td>
                     <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                     <td>{formatSchedule(cls.schedule)}</td>
-                    <td>{genderTranslations[cls.gender] || cls.gender}</td>
+                    <td>{cls.age_group_name || <span className="text-muted">غير محدد</span>}</td>
                     <td>{renderStatusBadge(cls.status)}</td>
                     <td className="table-actions d-flex gap-2" style={{ minWidth: '260px' }}>
                       {hasPermission(PERMISSIONS.CLASSES_EDIT) && (

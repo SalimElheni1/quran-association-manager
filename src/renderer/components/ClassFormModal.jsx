@@ -26,7 +26,26 @@ const daysOfWeek = [
 function ClassFormModal({ show, handleClose, onSave, classData }) {
   const [formData, setFormData] = useState({});
   const [teachers, setTeachers] = useState([]);
+  const [ageGroups, setAgeGroups] = useState([]);
   const isEditMode = !!classData;
+
+  // Fetch age groups
+  useEffect(() => {
+    const fetchAgeGroups = async () => {
+      try {
+        const response = await window.electronAPI.getAgeGroups();
+        if (response.success) {
+          setAgeGroups(response.ageGroups);
+        }
+      } catch (error) {
+        logError('Failed to fetch age groups', error);
+      }
+    };
+
+    if (show) {
+      fetchAgeGroups();
+    }
+  }, [show]);
 
   useEffect(() => {
     // Fetch the list of teachers to populate the dropdown
@@ -54,12 +73,12 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     const initialData = {
       name: '',
       teacher_id: '',
-      schedule: [{ day: '', time: '' }], // Start with one empty schedule row
+      schedule: [{ day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
       start_date: '',
       end_date: '',
       status: 'pending',
       capacity: '',
-      gender: 'all',
+      age_group_id: null,
       class_type: '',
     };
 
@@ -81,7 +100,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
         schedule:
           classData.schedule && classData.schedule !== '[]'
             ? JSON.parse(classData.schedule)
-            : [{ day: '', time: '' }],
+            : [{ day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
       });
     } else {
       setFormData(initialData);
@@ -104,18 +123,17 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
 
     if (mode === 'prayer') {
       newSchedule[index].prayerTime = value;
+      newSchedule[index].timeMode = 'prayer';
       newSchedule[index].customTimeFrom = '';
       newSchedule[index].customTimeTo = '';
-      newSchedule[index].time = value; // Store prayer time directly
+      newSchedule[index].time = value;
     } else if (mode === 'custom') {
-      // Handle custom time inputs
+      newSchedule[index].timeMode = 'custom';
       if (value.startsWith('from')) {
         newSchedule[index].customTimeFrom = value.substring(4);
       } else if (value.startsWith('to')) {
         newSchedule[index].customTimeTo = value.substring(2);
       }
-
-      // Format custom time for display and storage
       const from = newSchedule[index].customTimeFrom || '';
       const to = newSchedule[index].customTimeTo || '';
       newSchedule[index].time = from && to ? `${from} - ${to}` : '';
@@ -125,7 +143,10 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
   };
 
   const addScheduleRow = () => {
-    setFormData((prev) => ({ ...prev, schedule: [...prev.schedule, { day: '', time: '' }] }));
+    setFormData((prev) => ({
+      ...prev,
+      schedule: [...prev.schedule, { day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
+    }));
   };
 
   const removeScheduleRow = (index) => {
@@ -141,6 +162,11 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     // in the database for optional selection, rather than an invalid foreign key like 0.
     if (dataToSave.teacher_id === '' || dataToSave.teacher_id === null) {
       dataToSave.teacher_id = null;
+    }
+
+    // Handle optional monthly_fee
+    if (dataToSave.fee_type !== 'special') {
+      dataToSave.monthly_fee = null;
     }
 
     // Filter out empty schedule rows and serialize the array to a JSON string before saving
@@ -201,12 +227,21 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
               </Form.Select>
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>الفئة</Form.Label>
-              <Form.Select name="gender" value={formData.gender || 'all'} onChange={handleChange}>
-                <option value="all">الكل</option>
-                <option value="men">رجال</option>
-                <option value="women">نساء</option>
-                <option value="kids">أطفال</option>
+              <Form.Label>
+                الفئة العمرية<span className="text-danger">*</span>
+              </Form.Label>
+              <Form.Select
+                name="age_group_id"
+                value={formData.age_group_id || ''}
+                onChange={handleChange}
+                required
+              >
+                <option value="">-- اختر فئة عمرية --</option>
+                {ageGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} ({group.min_age} {group.max_age ? `- ${group.max_age}` : '+'} سنة)
+                  </option>
+                ))}
               </Form.Select>
             </Form.Group>
           </Row>
@@ -235,6 +270,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                   onChange={handleChange}
                   min="0"
                   step="0.01"
+                  required
                 />
               </Form.Group>
             )}
@@ -313,7 +349,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                             type="button"
                             variant={item.timeMode === 'custom' ? 'success' : 'outline-secondary'}
                             size="sm"
-                            onClick={() => handleScheduleChange(index, 'timeMode', 'custom')}
+                            onClick={() => handleTimeModeChange(index, 'custom', '')}
                             style={{
                               fontSize: '12px',
                               padding: '6px 12px',

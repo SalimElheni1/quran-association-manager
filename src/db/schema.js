@@ -111,7 +111,9 @@ const schema = `
     capacity INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     gender TEXT CHECK(gender IN ('women', 'men', 'kids', 'all')) DEFAULT 'all',
-    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+    age_group_id INTEGER,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL,
+    FOREIGN KEY (age_group_id) REFERENCES age_groups(id) ON DELETE RESTRICT
   );
 
   CREATE TABLE IF NOT EXISTS class_students (
@@ -210,6 +212,20 @@ const schema = `
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS age_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    min_age INTEGER NOT NULL CHECK(min_age >= 0),
+    max_age INTEGER NULL CHECK(max_age IS NULL OR max_age >= min_age),
+    gender TEXT NOT NULL CHECK(gender IN ('male_only', 'female_only', 'any')),
+    gender_policy TEXT DEFAULT 'mixed' CHECK(gender_policy IN ('mixed', 'separated', 'single_gender')),
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category TEXT NOT NULL,
@@ -234,6 +250,16 @@ const schema = `
     ('president_full_name', ''),
     ('backup_reminder_enabled', 'true'),
     ('backup_reminder_frequency_days', '7');
+
+  -- Insert default age groups with gender policies
+  INSERT OR IGNORE INTO age_groups (uuid, name, description, min_age, max_age, gender, gender_policy, is_active) VALUES
+    ('children-6-11', 'الأطفال', 'الأطفال وهم الذين تتراوح أعمارهم بين 6 و 11 سنة', 6, 11, 'any', 'mixed', 1),
+    ('youth-boys-12-14', 'الناشئون (ذكور)', 'الناشئون الذكور من 12 إلى 14 سنة', 12, 14, 'male_only', 'separated', 1),
+    ('youth-girls-12-14', 'الناشئون (إناث)', 'الناشئون الإناث من 12 إلى 14 سنة', 12, 14, 'female_only', 'separated', 1),
+    ('young-adults-boys-15-17', 'الشباب (ذكور)', 'الشباب الذكور من 15 إلى 17 سنة', 15, 17, 'male_only', 'separated', 1),
+    ('young-adults-girls-15-17', 'الشباب (إناث)', 'الشباب الإناث من 15 إلى 17 سنة', 15, 17, 'female_only', 'separated', 1),
+    ('men-18-plus', 'الرجال', 'الرجال البالغون (18 سنة فما فوق)', 18, NULL, 'male_only', 'single_gender', 1),
+    ('women-18-plus', 'النساء', 'النساء البالغات (18 سنة فما فوق)', 18, NULL, 'female_only', 'single_gender', 1);
 `;
 
 module.exports = schema;

@@ -39,7 +39,7 @@ const studentValidationSchema = Joi.object({
   sponsor_cin: Joi.string().pattern(/^\d{8}$/).allow(null, '').messages({
     'string.pattern.base': 'رقم بطاقة الكافل يجب أن يتكون من 8 أرقام.',
   }),
-  financial_assistance_notes: Joi.string().allow(null, ''), // Allow existing field for backward compatibility
+  financial_assistance_notes: Joi.string().allow(null, ''),
 }).unknown(true);
 
 const studentPaymentValidationSchema = Joi.object({
@@ -83,12 +83,23 @@ const classValidationSchema = Joi.object({
   status: Joi.string().valid('pending', 'active', 'completed'),
   capacity: Joi.number().integer().min(1).allow(null, ''),
   schedule: Joi.string().allow(null, ''),
-  gender: Joi.string().valid('women', 'men', 'kids', 'all').default('all'),
+  gender: Joi.string().valid('women', 'men', 'kids', 'all').allow(null, ''),
+  age_group_id: Joi.number().integer().positive().required().messages({
+    'number.base': 'معرف فئة العمر يجب أن يكون رقماً',
+    'any.required': 'فئة العمر مطلوبة',
+  }),
   class_type: Joi.string().allow(null, ''),
   start_date: Joi.date().iso().allow(null, ''),
   end_date: Joi.date().iso().allow(null, ''),
   fee_type: Joi.string().valid('standard', 'special').allow(null, ''),
-  monthly_fee: Joi.number().positive().allow(null, ''),
+  monthly_fee: Joi.number().positive().when('fee_type', {
+    is: 'special',
+    then: Joi.number().positive().required().messages({
+      'number.positive': 'المعلوم الشهري يجب أن يكون موجباً',
+      'any.required': 'المعلوم الشهري مطلوب عند اختيار معلوم خاص',
+    }),
+    otherwise: Joi.number().positive().allow(null, ''),
+  }),
 }).unknown(true);
 
 const teacherValidationSchema = Joi.object({

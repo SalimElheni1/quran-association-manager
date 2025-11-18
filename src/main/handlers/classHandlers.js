@@ -68,6 +68,7 @@ const classFields = [
   'status',
   'capacity',
   'gender',
+  'age_group_id',
   'fee_type',
   'monthly_fee',
 ];
@@ -121,10 +122,12 @@ function registerClassHandlers() {
 
   ipcMain.handle('classes:get', async (_event, filters) => {
     let sql = `
-      SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender,
-             c.teacher_id, t.name as teacher_name
+      SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender, c.age_group_id,
+             c.teacher_id, t.name as teacher_name,
+             ag.name as age_group_name, ag.min_age, ag.max_age
       FROM classes c
       LEFT JOIN teachers t ON c.teacher_id = t.id
+      LEFT JOIN age_groups ag ON c.age_group_id = ag.id
       WHERE 1=1
     `;
     const params = [];
@@ -196,8 +199,15 @@ function registerClassHandlers() {
     return db.getQuery(sql, [id]);
   });
 
-  ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classGender }) => {
+  ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classAgeGroupId }) => {
     try {
+      const ageGroup = await db.getQuery(
+        `SELECT id, name, min_age, max_age, gender
+         FROM age_groups
+         WHERE id = ? AND is_active = 1`,
+        [classAgeGroupId]
+      );
+
       const enrolledSql = `
         SELECT s.id, s.name
         FROM students s
@@ -206,8 +216,7 @@ function registerClassHandlers() {
         ORDER BY s.name ASC
       `;
 
-      // Get all active, non-enrolled students first (no age/gender filtering in SQL)
-      let notEnrolledSql = `
+      const notEnrolledSql = `
         SELECT s.id, s.name, s.date_of_birth, s.gender
         FROM students s
         LEFT JOIN class_students cs ON s.id = cs.student_id AND cs.class_id = ?
@@ -220,85 +229,31 @@ function registerClassHandlers() {
         db.allQuery(notEnrolledSql, [classId]),
       ]);
 
-      // Apply accurate age and gender filtering in JavaScript
-      const ageThresholdSetting = await db.getQuery(
-        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
-      );
-      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
-
-      // Convert Arabic class gender to English for filtering
-      // This is a targeted fix for the enrollment functionality
-      function mapArabicClassGenderToEnglish(arabicGender) {
-        const mapping = {
-          'رجال': 'men',
-          'نساء': 'women',
-          'أطفال': 'kids',
-          'الكل': 'all'
-        };
-        return mapping[arabicGender] || arabicGender;
-      }
-
-      const englishClassGender = mapArabicClassGenderToEnglish(classGender);
-
-      // Log filtering summary for monitoring
-      log(`Filtering ${notEnrolledStudents.length} students for ${classGender} class (adult threshold: ${adultAgeThreshold})`);
-
-      // Helper function to normalize gender values
-      function normalizeGender(gender) {
-        if (!gender) return null;
-        const normalized = gender.trim().toLowerCase();
-        // Map various gender representations to standard values
-        if (['male', 'ذكر'].includes(normalized)) return 'Male';
-        if (['female', 'أنثى'].includes(normalized)) return 'Female';
-        return null; // Unknown gender
+      // If age group is not set, show all students without filtering
+      if (!ageGroup) {
+        log(`Age group not set for class ${classId}. Showing all students without filtering.`);
+        return { enrolledStudents, notEnrolledStudents, noAgeGroupWarning: true };
       }
 
       notEnrolledStudents = notEnrolledStudents.filter(student => {
         const age = calculateAge(student.date_of_birth);
-        const hasValidAge = age !== null;
-        const normalizedGender = normalizeGender(student.gender);
-        const hasValidGender = normalizedGender !== null;
+        
+        if (age === null) return true;
 
-        // For "all" classes, include all active students
-        if (englishClassGender === 'all') {
-          return true;
-        }
+        const ageInRange = age >= ageGroup.min_age && 
+                          (ageGroup.max_age === null || age <= ageGroup.max_age);
+        
+        if (!ageInRange) return false;
 
-        // For "kids" classes, be more inclusive
-        if (englishClassGender === 'kids') {
-          if (hasValidAge) {
-            return age < adultAgeThreshold;
-          } else {
-            // If no valid age data, include students who might be kids
-            // This helps when date_of_birth is missing or in unexpected format
-            return true; // Be inclusive for kids classes to avoid excluding students unnecessarily
-          }
-        }
-
-        // For gender-specific classes (men/women) - require both valid gender and age
-        if (englishClassGender === 'men') {
-          if (hasValidGender && hasValidAge) {
-            // Both age and gender are valid, use strict filtering
-            return normalizedGender === 'Male' && age >= adultAgeThreshold;
-          }
-          // If age data is missing, we can't confirm they're adults, so exclude
-          return false;
-        }
-
-        if (englishClassGender === 'women') {
-          if (hasValidGender && hasValidAge) {
-            // Both age and gender are valid, use strict filtering
-            return normalizedGender === 'Female' && age >= adultAgeThreshold;
-          }
-          // If age data is missing, we can't confirm they're adults, so exclude
-          return false;
-        }
-
-        // Unknown class gender, exclude by default
-        return false;
+        if (ageGroup.gender === 'any') return true;
+        
+        const studentGender = student.gender === 'Male' ? 'male_only' : 
+                             student.gender === 'Female' ? 'female_only' : 'any';
+        
+        return ageGroup.gender === studentGender;
       });
 
-      log(`After filtering: ${notEnrolledStudents.length} students remain for class gender: ${classGender}`);
+      log(`Filtered ${notEnrolledStudents.length} students for age group: ${ageGroup.name}`);
 
       return { enrolledStudents, notEnrolledStudents };
     } catch (error) {
@@ -307,8 +262,28 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds }) => {
+  ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
     try {
+      // Track which students were added/removed for charge regeneration
+      const oldEnrollments = await db.allQuery(
+        'SELECT student_id FROM class_students WHERE class_id = ?',
+        [classId]
+      );
+      const oldStudentIds = oldEnrollments.map((e) => e.student_id);
+
+      // Identify added and removed students
+      const addedStudents = (studentIds || []).filter((id) => !oldStudentIds.includes(id));
+      const removedStudents = oldStudentIds.filter((id) => !(studentIds || []).includes(id));
+      const affectedStudents = [...new Set([...addedStudents, ...removedStudents])];
+
+      log(`[Enrollment] ════════════════════════════════════════════════════`);
+      log(`[Enrollment] Updating enrollments for class ${classId}`);
+      log(`[Enrollment] Previous students: ${oldStudentIds.join(', ') || 'none'}`);
+      log(`[Enrollment] New students: ${(studentIds || []).join(', ') || 'none'}`);
+      log(`[Enrollment] Added students: ${addedStudents.join(', ') || 'none'}`);
+      log(`[Enrollment] Removed students: ${removedStudents.join(', ') || 'none'}`);
+      log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
+
       await db.runQuery('BEGIN TRANSACTION');
       await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
       if (studentIds && studentIds.length > 0) {
@@ -321,8 +296,25 @@ function registerClassHandlers() {
         await db.runQuery(sql, params);
       }
       await db.runQuery('COMMIT');
-      log('Enrollments updated successfully');
-      return { success: true };
+
+      log(`[Enrollment] ✓ Database updated successfully`);
+
+      // 🆕 NEW: Trigger charge regeneration for affected students
+      const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
+      for (const studentId of affectedStudents) {
+        try {
+          log(`[Enrollment] ▶️ Triggering charge regeneration for student ${studentId}...`);
+          await triggerChargeRegenerationForStudent(studentId, { userId });
+          log(`[Enrollment] ✅ Student ${studentId} charges regenerated`);
+        } catch (error) {
+          logError(`[Enrollment] ❌ Failed to regenerate charges for student ${studentId}:`, error);
+          // Don't fail the enrollment operation - continue
+        }
+      }
+
+      log(`[Enrollment] ✅ Enrollments updated successfully`);
+      log(`[Enrollment] ════════════════════════════════════════════════════`);
+      return { success: true, affectedStudents };
     } catch (error) {
       await db.runQuery('ROLLBACK');
       logError('Error updating enrollments:', error);
@@ -332,80 +324,58 @@ function registerClassHandlers() {
 
   ipcMain.handle('classes:getForStudent', async (_event, { studentGender, studentAge }) => {
     try {
-      // Get adult age threshold from settings
-      const ageThresholdSetting = await db.getQuery(
-        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
+      const ageGroups = await db.allQuery(
+        `SELECT id, name, min_age, max_age, gender
+         FROM age_groups
+         WHERE is_active = 1
+         ORDER BY min_age ASC`,
+        []
       );
-      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
 
-      // Determine if student is adult or kid
-      const isAdult = studentAge !== null && studentAge >= adultAgeThreshold;
-      const isKid = studentAge !== null && studentAge < adultAgeThreshold;
+      const matchingAgeGroups = ageGroups.filter(ag => {
+        if (studentAge === null) return true;
 
-      // Normalize gender
-      function normalizeGender(gender) {
-        if (!gender) return null;
-        const normalized = gender.trim().toLowerCase();
-        if (['male', 'ذكر'].includes(normalized)) return 'Male';
-        if (['female', 'أنثى'].includes(normalized)) return 'Female';
-        return null;
+        const ageInRange = studentAge >= ag.min_age && 
+                          (ag.max_age === null || studentAge <= ag.max_age);
+        
+        if (!ageInRange) return false;
+
+        if (ag.gender === 'any') return true;
+        
+        const mappedGender = studentGender === 'Male' ? 'male_only' : 
+                            studentGender === 'Female' ? 'female_only' : 'any';
+        
+        return ag.gender === mappedGender;
+      });
+
+      if (matchingAgeGroups.length === 0) {
+        log(`No matching age groups for student (gender: ${studentGender}, age: ${studentAge})`);
+        return [];
       }
 
-      const normalizedGender = normalizeGender(studentGender);
-
-      // Build WHERE clause based on student criteria
-      let whereConditions = [];
-      let params = [];
-
-      if (isAdult) {
-        // Adult students: only classes matching their gender
-        if (normalizedGender === 'Male') {
-          whereConditions.push("c.gender = 'men'");
-        } else if (normalizedGender === 'Female') {
-          whereConditions.push("c.gender = 'women'");
-        } else {
-          // Unknown gender - no classes available
-          return [];
-        }
-      } else if (isKid) {
-        // Kid students: classes for kids + classes for their gender
-        if (normalizedGender === 'Male') {
-          whereConditions.push("c.gender IN ('kids', 'men')");
-        } else if (normalizedGender === 'Female') {
-          whereConditions.push("c.gender IN ('kids', 'women')");
-        } else {
-          // Unknown gender - only kids classes
-          whereConditions.push("c.gender = 'kids'");
-        }
-      } else {
-        // Age unknown - show all classes (fallback)
-        // Don't add gender filter
-      }
-
-      // Always exclude inactive classes
-      whereConditions.push("c.status != 'pending'");
-
-      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const ageGroupIds = matchingAgeGroups.map(ag => ag.id);
+      const placeholders = ageGroupIds.map(() => '?').join(',');
 
       const sql = `
         SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender,
-               c.teacher_id, t.name as teacher_name
+               c.teacher_id, t.name as teacher_name, c.age_group_id,
+               ag.name as age_group_name
         FROM classes c
         LEFT JOIN teachers t ON c.teacher_id = t.id
-        ${whereClause}
+        LEFT JOIN age_groups ag ON c.age_group_id = ag.id
+        WHERE c.age_group_id IN (${placeholders}) AND c.status != 'pending'
         ORDER BY c.name ASC
       `;
 
-      let classes = await db.allQuery(sql, params);
+      let classes = await db.allQuery(sql, ageGroupIds);
 
-      // Apply translations to status and gender
       classes = classes.map(classItem => ({
         ...classItem,
         status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
 
-      log(`Found ${classes.length} classes for student (gender: ${studentGender}, age: ${studentAge}, isAdult: ${isAdult}, isKid: ${isKid})`);
+      log(`Found ${classes.length} classes for student (gender: ${studentGender}, age: ${studentAge})`);
       return classes;
     } catch (error) {
       logError('Error fetching classes for student:', error);

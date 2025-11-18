@@ -18,6 +18,7 @@ import {
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
+import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 
 const SettingsPage = () => {
   const { state } = useLocation();
@@ -99,12 +100,11 @@ const SettingsPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      console.log('[FRONTEND DEBUG] SettingsPage.handleSubmit called');
-      console.log('[FRONTEND DEBUG] Settings object:', JSON.stringify(settings, null, 2));
-      log('[SettingsPage] Submitting settings:', settings);
-      console.log('[FRONTEND DEBUG] About to call window.electronAPI.updateSettings');
-      const response = await window.electronAPI.updateSettings(settings);
-      console.log('[FRONTEND DEBUG] API call completed, response:', response);
+      const filteredSettings = { ...settings };
+      delete filteredSettings.adultAgeThreshold;
+      delete filteredSettings.adult_age_threshold;
+      log('[SettingsPage] Submitting settings:', filteredSettings);
+      const response = await window.electronAPI.updateSettings(filteredSettings);
       log('[SettingsPage] Response:', response);
       if (response.success) {
         toast.success(response.message, { autoClose: 5000 });
@@ -169,7 +169,7 @@ const SettingsPage = () => {
       }
     } catch (err) {
       toast.error(`حدث خطأ فادح: ${err.message}`);
-      logError(err);
+      error(err);
     } finally {
       setIsImporting(false);
     }
@@ -285,7 +285,7 @@ const SettingsPage = () => {
                               style={{ maxHeight: '100px' }}
                               onError={(e) => {
                                 e.target.style.display = 'none';
-                                logError('Failed to load image:', settings.national_logo_path);
+                                log('Failed to load image:', settings.national_logo_path);
                               }}
                             />
                           )}
@@ -331,30 +331,10 @@ const SettingsPage = () => {
                   <Tab eventKey="general" title="إعدادات عامة">
                     <Card className="border-0">
                       <Card.Body>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            سن الرشد (للتقارير والتصنيف)
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Control
-                              type="number"
-                              name="adultAgeThreshold"
-                              value={settings.adultAgeThreshold || 18}
-                              onChange={handleChange}
-                              min="1"
-                              max="100"
-                            />
-                            <Form.Text className="text-muted">
-                              يستخدم هذا العمر لتصنيف الطلاب إلى أطفال وبالغين في التقارير وخيارات
-                              التصدير.
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <hr />
                         <h6>إعدادات الرسوم الدراسية</h6>
                         <Form.Group as={Row} className="mb-3">
                           <Form.Label column sm={4}>
-                            الرسم السنوي الافتراضي
+                            الرسوم السنوية
                           </Form.Label>
                           <Col sm={8}>
                             <InputGroup>
@@ -525,6 +505,9 @@ const SettingsPage = () => {
                         </Alert>
                       </Card.Body>
                     </Card>
+                  </Tab>
+                  <Tab eventKey="age-groups" title="فئات عمرية">
+                    <AgeGroupsTab />
                   </Tab>
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
                     <Card className="border-0">

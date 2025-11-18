@@ -589,6 +589,75 @@ function registerStudentHandlers() {
       throw new Error('فشل في جلب بيانات الأحزاب.');
     }
   });
+
+  // Get students that match a specific age group (for class enrollment)
+  ipcMain.handle('students:getByAgeGroup', async (_event, ageGroupId) => {
+    try {
+      if (!ageGroupId) {
+        return { success: false, message: 'معرف الفئة العمرية غير محدد' };
+      }
+
+      // Get the age group details
+      const ageGroup = await db.getQuery(
+        `SELECT id, name, min_age, max_age, gender, gender_policy
+         FROM age_groups
+         WHERE id = ? AND is_active = 1`,
+        [ageGroupId]
+      );
+
+      if (!ageGroup) {
+        return { success: false, message: 'فئة عمرية غير موجودة' };
+      }
+
+      // Get students that match the age group criteria
+      let sql = `
+        SELECT s.id, s.name, s.matricule, s.gender, s.date_of_birth, s.status
+        FROM students s
+        WHERE s.status = 'active'
+      `;
+
+      const params = [];
+
+      // We'll calculate age in the application layer since SQLite age calculation can be complex
+      const allStudents = await db.allQuery(sql, params);
+
+      // Filter students by age and gender
+      const matchingStudents = allStudents.filter(student => {
+        const age = calculateAge(student.date_of_birth);
+
+        // Check age range
+        if (age === null) return false; // Skip students without age
+        if (age < ageGroup.min_age) return false;
+        if (ageGroup.max_age !== null && age > ageGroup.max_age) return false;
+
+        // Check gender compatibility
+        if (ageGroup.gender !== 'any') {
+          const genderMap = {
+            'M': 'male_only',
+            'F': 'female_only',
+            'male': 'male_only',
+            'female': 'female_only',
+            'ذكر': 'male_only',
+            'أنثى': 'female_only'
+          };
+          const studentGenderMapped = genderMap[student.gender] || 'any';
+          if (ageGroup.gender !== studentGenderMapped) return false;
+        }
+
+        return true;
+      });
+
+      return {
+        success: true,
+        ageGroup,
+        students: matchingStudents,
+        count: matchingStudents.length
+      };
+    } catch (error) {
+      logError('Error in students:getByAgeGroup handler:', error);
+      return { success: false, message: error.message };
+    }
+  });
 }
 
 module.exports = { registerStudentHandlers };

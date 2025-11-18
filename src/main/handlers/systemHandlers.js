@@ -1,6 +1,8 @@
 const { ipcMain, app, dialog } = require('electron');
 const db = require('../../db/db');
-const { error: logError } = require('../logger');
+const { error: logError, getLogFilePath, clearLogFile } = require('../logger');
+const fs = require('fs');
+const path = require('path');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
@@ -219,6 +221,63 @@ function registerSystemHandlers() {
   });
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
+
+  // Log management handlers for testing
+  ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {
+    try {
+      const logFilePath = getLogFilePath();
+      if (!logFilePath || !fs.existsSync(logFilePath)) {
+        return { success: true, logs: [], message: 'Log file not found' };
+      }
+
+      const content = fs.readFileSync(logFilePath, 'utf-8');
+      const allLines = content.split('\n').filter(l => l.trim());
+      const recentLines = allLines.slice(-lines);
+      
+      return { success: true, logs: recentLines };
+    } catch (error) {
+      logError('Error reading logs:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('logs:get-filtered', async (_event, { keyword, lines = 100 } = {}) => {
+    try {
+      const logFilePath = getLogFilePath();
+      if (!logFilePath || !fs.existsSync(logFilePath)) {
+        return { success: true, logs: [], message: 'Log file not found' };
+      }
+
+      const content = fs.readFileSync(logFilePath, 'utf-8');
+      const allLines = content.split('\n').filter(l => l.trim());
+      const filtered = allLines.filter(l => l.includes(keyword)).slice(-lines);
+      
+      return { success: true, logs: filtered };
+    } catch (error) {
+      logError('Error filtering logs:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('logs:clear', async () => {
+    try {
+      clearLogFile();
+      return { success: true, message: 'Logs cleared' };
+    } catch (error) {
+      logError('Error clearing logs:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('logs:get-file-path', async () => {
+    try {
+      const logFilePath = getLogFilePath();
+      return { success: true, path: logFilePath };
+    } catch (error) {
+      logError('Error getting log file path:', error);
+      return { success: false, message: error.message };
+    }
+  });
 }
 
 module.exports = { registerSystemHandlers, handleGetBackupReminderStatus };

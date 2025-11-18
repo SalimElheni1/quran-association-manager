@@ -11,8 +11,7 @@ const ExportModal = ({
   isAttendance = false,
   title,
 }) => {
-  const [genderFilter, setGenderFilter] = useState('all');
-  const [filterMode, setFilterMode] = useState('gender'); // 'gender' or 'group'
+  const [filterMode, setFilterMode] = useState('group'); // 'group' only
   const [selectedFields, setSelectedFields] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -23,11 +22,8 @@ const ExportModal = ({
   const [selectedGroupId, setSelectedGroupId] = useState('all');
 
   const currentFields = useMemo(() => {
-    if (exportType === 'students' && genderFilter === 'kids') {
-      return kidFields;
-    }
     return fields;
-  }, [exportType, genderFilter, fields, kidFields]);
+  }, [fields]);
 
   useEffect(() => {
     setSelectedFields(currentFields.map((f) => f.key));
@@ -92,12 +88,8 @@ const ExportModal = ({
       exportOptions.options.startDate = startDate;
       exportOptions.options.endDate = endDate;
       exportOptions.options.classId = selectedClassId;
-    } else {
-      if (filterMode === 'group' && exportType === 'students') {
-        exportOptions.options.groupId = selectedGroupId === 'all' ? null : selectedGroupId;
-      } else {
-        exportOptions.options.gender = genderFilter;
-      }
+    } else if (exportType === 'students') {
+      exportOptions.options.groupId = selectedGroupId === 'all' ? null : selectedGroupId;
     }
 
     try {
@@ -137,53 +129,24 @@ const ExportModal = ({
       <Modal.Body>
         <p>اختر الحقول التي تريد تضمينها في التصدير.</p>
         <Form>
-          {!isAttendance && (
+          {!isAttendance && exportType === 'students' && (
             <Row className="mb-3">
-              <Col md={4}>
+              <Col md={6}>
                 <Form.Group>
-                  <Form.Label>مرشح التصدير</Form.Label>
-                  <Form.Select value={filterMode} onChange={(e) => setFilterMode(e.target.value)}>
-                    <option value="gender">حسب الجنس</option>
-                    {exportType === 'students' && <option value="group">حسب المجموعة</option>}
+                  <Form.Label>اختر المجموعة</Form.Label>
+                  <Form.Select
+                    value={selectedGroupId}
+                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                  >
+                    <option value="all">كل المجموعات</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
                   </Form.Select>
                 </Form.Group>
               </Col>
-
-              {filterMode === 'gender' && (
-                <Col md={4}>
-                  <Form.Group>
-                    <Form.Label>فرز حسب الجنس</Form.Label>
-                    <Form.Select
-                      value={genderFilter}
-                      onChange={(e) => setGenderFilter(e.target.value)}
-                    >
-                      <option value="all">الكل</option>
-                      <option value="men">رجال</option>
-                      <option value="women">نساء</option>
-                      {exportType === 'students' && <option value="kids">أطفال</option>}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              )}
-
-              {filterMode === 'group' && exportType === 'students' && (
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>اختر المجموعة</Form.Label>
-                    <Form.Select
-                      value={selectedGroupId}
-                      onChange={(e) => setSelectedGroupId(e.target.value)}
-                    >
-                      <option value="all">كل المجموعات</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              )}
             </Row>
           )}
           {isAttendance && (
