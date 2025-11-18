@@ -4,7 +4,7 @@
  * @version 2.0.0
  */
 
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const db = require('../../db/db');
 const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
@@ -205,8 +205,14 @@ async function handleAddTransaction(event, transaction) {
 
     await db.runQuery('COMMIT;');
 
-    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [result.id]);
-    return translateTransaction(transaction);
+    const newTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [result.id]);
+    
+    // Notify all renderer processes about data change
+    BrowserWindow.getAllWindows().forEach(win => {
+      win.webContents.send('financial-data-changed');
+    });
+    
+    return translateTransaction(newTransaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
@@ -277,8 +283,14 @@ async function handleUpdateTransaction(event, id, transaction) {
 
     await db.runQuery('COMMIT;');
 
-    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
-    return translateTransaction(transaction);
+    const updatedTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+    
+    // Notify all renderer processes about data change
+    BrowserWindow.getAllWindows().forEach(win => {
+      win.webContents.send('financial-data-changed');
+    });
+    
+    return translateTransaction(updatedTransaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
@@ -306,6 +318,11 @@ async function handleDeleteTransaction(event, transactionId) {
     await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
 
     await db.runQuery('COMMIT;');
+    
+    // Notify all renderer processes about data change
+    BrowserWindow.getAllWindows().forEach(win => {
+      win.webContents.send('financial-data-changed');
+    });
 
     return { id: transactionId };
   } catch (error) {
@@ -340,18 +357,27 @@ async function handleGetFinancialSummary(_event, period) {
     const { startDate, endDate } = period;
 
     // Get income grouped by receipt_type only (regular transactions)
-    // Exclude legacy categories: معلوم الترسيم, معلوم شهري
+    // Exclude legacy categories and student fee related transactions
     const incomeSql = `
       SELECT
-        receipt_type as category,
+        CASE 
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+          WHEN category = 'التبرعات النقدية' THEN 'تبرع'
+          ELSE category
+        END as category,
         SUM(amount) as total,
         COUNT(*) as count
       FROM transactions
       WHERE transaction_date BETWEEN ? AND ?
         AND type = 'INCOME'
-        AND receipt_type IS NOT NULL
-        AND receipt_type NOT IN ('معلوم الترسيم', 'معلوم شهري')
-      GROUP BY receipt_type
+        AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
+        AND (receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب')
+      GROUP BY 
+        CASE 
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+          WHEN category = 'التبرعات النقدية' THEN 'تبرع'
+          ELSE category
+        END
     `;
 
     // Get student fees as separate income category
@@ -362,6 +388,7 @@ async function handleGetFinancialSummary(_event, period) {
         COUNT(*) as count
       FROM student_payments sp
       WHERE sp.payment_date BETWEEN ? AND ?
+        AND sp.amount > 0
     `;
 
     // Get expenses grouped by category

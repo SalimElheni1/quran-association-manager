@@ -210,7 +210,17 @@ function registerGroupHandlers() {
         return { success: false, message: 'المجموعة غير موجودة.' };
       }
 
-      // Get all active students first
+      const categoryToAgeGroup = {
+        'Men': { gender: 'male_only', minAge: 18 },
+        'Women': { gender: 'female_only', minAge: 18 },
+        'Kids': { gender: 'any', maxAge: 17 }
+      };
+
+      const criteria = categoryToAgeGroup[group.category];
+      if (!criteria) {
+        return { success: false, message: 'فئة المجموعة غير معروفة.' };
+      }
+
       let sql = `
         SELECT s.id, s.name, s.matricule, s.date_of_birth, s.gender,
                CASE WHEN sg.student_id IS NOT NULL THEN 1 ELSE 0 END as isMember
@@ -222,24 +232,19 @@ function registerGroupHandlers() {
 
       let students = await allQuery(sql, params);
 
-      // Filter students by age and gender on the JavaScript side for accuracy
-      const ageThresholdSetting = await getQuery(
-        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
-      );
-      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
-
       students = students.filter(student => {
         const age = calculateAge(student.date_of_birth);
+        if (age === null) return false;
 
-        if (group.category === 'Men') {
-          return student.gender === 'Male' && age >= adultAgeThreshold;
-        } else if (group.category === 'Women') {
-          return student.gender === 'Female' && age >= adultAgeThreshold;
-        } else if (group.category === 'Kids') {
-          return age < adultAgeThreshold;
-        }
+        // Check age criteria
+        if (criteria.minAge !== undefined && age < criteria.minAge) return false;
+        if (criteria.maxAge !== undefined && age > criteria.maxAge) return false;
 
-        return false; // Unknown category
+        // Check gender criteria
+        if (criteria.gender === 'male_only' && student.gender !== 'Male') return false;
+        if (criteria.gender === 'female_only' && student.gender !== 'Female') return false;
+
+        return true;
       });
 
       // Sort by name
@@ -315,11 +320,20 @@ function registerGroupHandlers() {
       return { success: false, message: 'فشل في جلب المجموعات المؤهلة.' };
     }
   });
-}
 
   ipcMain.handle('groups:getEligibleStudentsForGroup', async (event, groupCategory) => {
     try {
-      // Get all active students first
+      const categoryToAgeGroup = {
+        'Men': { gender: 'male_only', minAge: 18 },
+        'Women': { gender: 'female_only', minAge: 18 },
+        'Kids': { gender: 'any', maxAge: 17 }
+      };
+
+      const criteria = categoryToAgeGroup[groupCategory];
+      if (!criteria) {
+        return { success: false, message: 'فئة المجموعة غير معروفة.' };
+      }
+
       let sql = `
         SELECT s.id, s.name, s.matricule, s.date_of_birth, s.gender
         FROM students s
@@ -328,24 +342,19 @@ function registerGroupHandlers() {
 
       let students = await allQuery(sql);
 
-      // Filter students by age and gender on the JavaScript side for accuracy
-      const ageThresholdSetting = await getQuery(
-        "SELECT value FROM settings WHERE key = 'adult_age_threshold'",
-      );
-      const adultAgeThreshold = ageThresholdSetting ? parseInt(ageThresholdSetting.value, 10) : 18;
-
       students = students.filter(student => {
         const age = calculateAge(student.date_of_birth);
+        if (age === null) return false;
 
-        if (groupCategory === 'Men') {
-          return student.gender === 'Male' && age >= adultAgeThreshold;
-        } else if (groupCategory === 'Women') {
-          return student.gender === 'Female' && age >= adultAgeThreshold;
-        } else if (groupCategory === 'Kids') {
-          return age < adultAgeThreshold;
-        }
+        // Check age criteria
+        if (criteria.minAge !== undefined && age < criteria.minAge) return false;
+        if (criteria.maxAge !== undefined && age > criteria.maxAge) return false;
 
-        return false; // Unknown category
+        // Check gender criteria
+        if (criteria.gender === 'male_only' && student.gender !== 'Male') return false;
+        if (criteria.gender === 'female_only' && student.gender !== 'Female') return false;
+
+        return true;
       });
 
       // Sort by name
@@ -357,5 +366,6 @@ function registerGroupHandlers() {
       return { success: false, message: 'فشل في جلب الطلاب للمجموعة.' };
     }
   });
+}
 
 module.exports = { registerGroupHandlers };

@@ -51,7 +51,7 @@ function TransactionModal({
       description: '',
       payment_method: 'CASH',
       check_number: '',
-      receipt_number: '',
+      voucher_number: '',
       account_id: 1,
       related_person_name: '',
       donor_cin: '',
@@ -198,8 +198,8 @@ function TransactionModal({
               </Form.Label>
               <Form.Control
                 type="text"
-                name="receipt_number"
-                value={formData.receipt_number || ''}
+                name="voucher_number"
+                value={formData.voucher_number || ''}
                 onChange={handleChange}
                 placeholder={!isInKindDonation ? 'مثال: 001' : 'اختياري'}
                 required={!isInKindDonation}

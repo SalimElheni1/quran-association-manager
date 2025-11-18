@@ -1664,6 +1664,81 @@ As the application evolves, the database schema will change. A robust migration 
 - **Applying Migrations:** The application checks the `migrations` table to see which migrations have already been applied and runs any new ones in order during startup.
 - **Creating a New Migration:** To make a schema change, create a new SQL file with an incrementing number, add your SQL commands, and place it in the `src/db/migrations/` directory.
 
+### 4.4. Age Groups System
+
+The Age Groups system provides flexible, category-based student classification and class organization, replacing the simple binary gender-based system with a more sophisticated multi-dimensional approach.
+
+#### Overview
+
+The Age Groups system allows administrators to:
+- Define multiple age groups with configurable age ranges and gender policies
+- Link classes to specific age groups for automated student matching
+- Validate student enrollment against class requirements
+- Support mixed, separated, and single-gender class policies
+
+#### Key Tables
+
+**`age_groups`** - Defines student age categories and enrollment policies
+- `id`: Primary key
+- `uuid`: Unique identifier for default groups (e.g., 'children-6-11')
+- `name`: Display name (Arabic/English)
+- `description`: Purpose and usage notes
+- `min_age`: Minimum age in the group (inclusive)
+- `max_age`: Maximum age in the group (inclusive, NULL for no upper limit)
+- `gender`: Gender category (used for filtering, e.g., 'all', 'male', 'female')
+- `gender_policy`: How genders are organized in this group:
+  - `'mixed'`: Boys and girls study together (default)
+  - `'separated'`: Classes auto-segregate by gender  
+  - `'single_gender'`: Only one gender allowed in classes
+- `is_active`: Whether this group is available for new classes
+- `created_at`: Timestamp
+
+**`classes`** - Extended with age group reference
+- `age_group_id`: Foreign key to `age_groups` table (NEW in migrations 045-046)
+- `gender`: Legacy field maintained for backward compatibility
+
+#### Default Age Groups
+
+The system ships with 7 pre-configured age groups:
+
+| UUID | Name | Age Range | Gender | Policy |
+|------|------|-----------|--------|--------|
+| `children-6-11` | Children | 6-11 | All | Mixed |
+| `youth-boys-12-14` | Youth (Boys) | 12-14 | Male | Separated |
+| `youth-girls-12-14` | Youth (Girls) | 12-14 | Female | Separated |
+| `young-adults-boys-15-17` | Young Adults (Boys) | 15-17 | Male | Separated |
+| `young-adults-girls-15-17` | Young Adults (Girls) | 15-17 | Female | Separated |
+| `men-18-plus` | Men | 18+ | Male | Single Gender |
+| `women-18-plus` | Women | 18+ | Female | Single Gender |
+
+#### Recent Migrations
+
+Three migrations implement the Age Groups system:
+
+- **Migration 044** (`044-add-gender-policy-to-age-groups.sql`): Adds the `gender_policy` field to `age_groups` table with appropriate pre-population for default groups.
+- **Migration 045** (`045-add-age-group-id-to-classes.sql`): Adds `age_group_id` column to `classes` table and creates an index for performance.
+- **Migration 046** (`046-migrate-classes-to-age-groups.sql`): Auto-maps existing classes by gender to appropriate age groups:
+  - `gender='kids'` → `children-6-11` group
+  - `gender='men'` → `men-18-plus` group
+  - `gender='women'` → `women-18-plus` group
+  - `gender='all'` → `children-6-11` group (mixed policy default)
+
+#### Backward Compatibility
+
+- The legacy `gender` field is retained in the `classes` table
+- Existing queries continue to work without modification
+- New code should prefer `age_group_id` over `gender` for class-student matching
+- During migration, all existing classes are automatically assigned to an appropriate age group
+
+#### IPC Handlers
+
+New IPC handlers support age group management and validation:
+
+- `ageGroups:matchStudent` - Find all age groups matching a student's age/gender
+- `ageGroups:validateStudentForClass` - Validate if a student can enroll in a class
+- `students:getByAgeGroup` - Filter students by age group with validation
+- Standard CRUD: `ageGroups:get`, `ageGroups:add`, `ageGroups:update`, `ageGroups:delete`
+
 ## 5. API Reference (IPC)
 
 This section details the secure communication channels between the Electron main process (backend) and the renderer process (frontend).
@@ -1688,6 +1763,7 @@ The following is a high-level overview of the available API namespaces. For the 
 | `teachers:` | `teacherHandlers.js`| Full CRUD operations for teacher records. |
 | `classes:` | `classHandlers.js` | Full CRUD operations for classes and student enrollment. |
 | `attendance:` | `attendanceHandlers.js`| Manages getting and saving attendance records. |
+| `ageGroups:` | `settingsHandlers.js`| Full CRUD for age groups; includes validation handlers (`matchStudent`, `validateStudentForClass`). |
 | `financials:*` | `financialHandlers.js`| A suite of handlers for all financial entities: `payments`, `salaries`, `donations`, `expenses`, and summary reports. |
 | `settings:` | `settingsHandlers.js`| Manages getting and updating application settings, including logo uploads. |
 | `system:` | `systemHandlers.js` | Handles system-level operations like data export/import, backups, and dialogs. |

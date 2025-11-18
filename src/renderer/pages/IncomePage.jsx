@@ -36,7 +36,7 @@ function IncomePage() {
 
   const { transactions, pagination, loading, refresh } = useTransactions(filters);
 
-  // Listen for import completion events to refresh data
+  // Listen for import completion events and financial data changes to refresh data
   useEffect(() => {
     const handleImportCompleted = (payload) => {
       // Check if income data was imported (UI sheet name is 'المداخيل')
@@ -45,10 +45,16 @@ function IncomePage() {
         refresh();
       }
     };
+    
+    const handleDataChange = () => refresh();
+    window.addEventListener('financial-data-changed', handleDataChange);
 
     const unsubscribe = window.electronAPI.onImportCompleted(handleImportCompleted);
 
-    return unsubscribe;
+    return () => {
+      window.removeEventListener('financial-data-changed', handleDataChange);
+      unsubscribe();
+    };
   }, [refresh]);
 
   const handleAdd = () => {

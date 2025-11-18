@@ -253,38 +253,13 @@ async function fetchExportData({ type, fields, options = {} }) {
       const fieldSelection = allowed.join(', ');
 
       if (options.groupId) {
-        query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ?`;
+        query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ? ORDER BY s.name`;
         params.push(options.groupId);
-        query += ' ORDER BY s.name';
       } else {
-        query = `SELECT ${fieldSelection} FROM students s WHERE 1=1 ORDER BY s.name`;
+        query = `SELECT ${fieldSelection} FROM students s ORDER BY s.name`;
       }
 
-      // Fetch all matching students, then apply age-based filtering in JavaScript
-      let students = await allQuery(query, params);
-
-      // Apply gender-based age filtering only when a specific filter is requested
-      if (options.gender && options.gender !== 'all') {
-        const adultAge = await getSetting('adult_age_threshold');
-
-        students = students.filter((student) => {
-          const age = calculateAge(student.date_of_birth);
-          // If we need to determine adult/kid and DOB is missing, exclude the row
-          if (age === null) return false;
-
-          if (options.gender === 'men') {
-            return student.gender === 'Male' && age >= adultAge;
-          } else if (options.gender === 'women') {
-            return student.gender === 'Female' && age >= adultAge;
-          } else if (options.gender === 'kids') {
-            return age <= adultAge;
-          }
-
-          return true;
-        });
-      }
-
-      return students;
+      return await allQuery(query, params);
     }
     case 'teachers': {
       // Validate teacher fields against teachers table

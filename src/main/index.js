@@ -43,7 +43,7 @@ if (app.isPackaged) {
 }
 // =================================================================================
 const Store = require('electron-store');
-const { log, error: logError } = require('./logger');
+const { log, error: logError, initializeLogFile } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
@@ -126,6 +126,13 @@ const createWindow = () => {
  */
 const initializeApp = async () => {
   try {
+    // Initialize log file as soon as app is ready
+    initializeLogFile();
+    log('═══════════════════════════════════════════════════════════════════════════');
+    log('APPLICATION STARTED');
+    log(`Time: ${new Date().toISOString()}`);
+    log('═══════════════════════════════════════════════════════════════════════════');
+    
     // =================================================================================
     // JWT SECRET MANAGEMENT
     // =================================================================================
@@ -161,6 +168,27 @@ const initializeApp = async () => {
       initialCredentials = tempCredentials;
     }
     log('Database initialized successfully.');
+    // =============================================================================
+
+    // =============================================================================
+    // INITIALIZE DEFAULT AGE GROUPS
+    // =============================================================================
+    try {
+      const existing = await db.getQuery('SELECT COUNT(*) as count FROM age_groups');
+      if (existing && existing.count === 0) {
+        log('Initializing default age groups...');
+        await db.run(
+          `INSERT INTO age_groups (id, name, min_age, max_age, gender_policy, created_at) VALUES
+           (1, 'أطفال (6-11)', 6, 11, 'all', datetime('now')),
+           (2, 'مراهقون (12-17)', 12, 17, 'all', datetime('now')),
+           (3, 'رجال (18+)', 18, 150, 'male', datetime('now')),
+           (4, 'نساء (18+)', 18, 150, 'female', datetime('now'))`
+        );
+        log('Default age groups initialized successfully.');
+      }
+    } catch (error) {
+      logError('Error initializing default age groups:', error);
+    }
     // =============================================================================
 
     // =============================================================================

@@ -77,6 +77,22 @@ function mapCategory(category) {
 }
 
 /**
+ * Maps English receipt type values to Arabic
+ * @param {string} receiptType - English receipt type from database
+ * @returns {string} Arabic receipt type for frontend display
+ */
+function mapReceiptType(receiptType) {
+  const receiptTypeMap = {
+    'رسوم الطلاب': 'رسوم الطلاب',
+    'تبرع': 'تبرع',
+    'انخراط': 'انخراط',
+    'نشاط': 'نشاط',
+    'Student Fees': 'رسوم الطلاب'
+  };
+  return receiptTypeMap[receiptType] || receiptType;
+}
+
+/**
  * Maps English fee category values to Arabic
  * @param {string} feeCategory - English fee category from database
  * @returns {string} Arabic fee category for frontend display
@@ -130,7 +146,9 @@ function translateTransaction(transaction) {
 
   return {
     ...transaction,
-    type: mapTransactionType(transaction.type)
+    type: mapTransactionType(transaction.type),
+    payment_method: mapPaymentMethod(transaction.payment_method),
+    receipt_type_display: mapReceiptType(transaction.receipt_type)
   };
 }
 
@@ -152,6 +170,7 @@ module.exports = {
   mapTransactionType,
   mapCategory,
   mapFeeCategory,
+  mapReceiptType,
   translateStudent,
   translateUser,
   translateTransaction,

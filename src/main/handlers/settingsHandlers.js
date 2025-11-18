@@ -15,16 +15,13 @@ const { log, warn: logWarn, error: logError } = require('../logger');
  */
 async function safeRollback() {
   try {
-    // Try to rollback - if no transaction is active, this will fail silently
     await db.runQuery('ROLLBACK;');
     return true;
   } catch (err) {
-    // If the error is about no active transaction, that's fine - just log it
     if (err.message && err.message.includes('cannot rollback')) {
       logWarn('Attempted rollback but no transaction was active (this is expected in some cases)');
       return false;
     }
-    // For other errors, log them but don't rethrow
     logError('Error during rollback attempt:', err);
     return false;
   }
@@ -41,7 +38,7 @@ const settingsValidationSchema = Joi.object({
   backup_path: Joi.string().allow(''),
   backup_enabled: Joi.boolean(),
   backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
-  adultAgeThreshold: Joi.number().integer().min(1).max(100).required(),
+
   backup_reminder_enabled: Joi.boolean(),
   backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
   annual_fee: Joi.number().min(0).allow(null),
@@ -67,7 +64,7 @@ const defaultSettings = {
   backup_enabled: false,
   backup_frequency: 'daily',
   president_full_name: '',
-  adultAgeThreshold: 18,
+
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
   annual_fee: 0,
@@ -80,7 +77,6 @@ const defaultSettings = {
 const internalGetSettingsHandler = async () => {
   const results = await db.allQuery('SELECT key, value FROM settings');
   const dbSettings = results.reduce((acc, { key, value }) => {
-    // Convert string representations of booleans and numbers back to their types
     if (value === 'true') {
       acc[key] = true;
     } else if (value === 'false') {
@@ -93,21 +89,13 @@ const internalGetSettingsHandler = async () => {
     return acc;
   }, {});
 
-  // Normalize legacy/snake_case keys from the DB to the schema's camelCase keys
-  if (Object.prototype.hasOwnProperty.call(dbSettings, 'adult_age_threshold')) {
-    dbSettings.adultAgeThreshold = dbSettings['adult_age_threshold'];
-    delete dbSettings['adult_age_threshold'];
-  }
-
-  // Merge database settings with defaults to ensure all keys are present
   const settings = { ...defaultSettings, ...dbSettings };
-
   return { success: true, settings };
 };
 
 const internalCopyLogoAsset = async (tempPath) => {
   if (!tempPath || !fs.existsSync(tempPath)) {
-    return null; // No new file to copy
+    return null;
   }
   const userDataPath = app.getPath('userData');
   const logosDir = path.join(userDataPath, 'assets', 'logos');
@@ -117,37 +105,35 @@ const internalCopyLogoAsset = async (tempPath) => {
   const fileName = path.basename(tempPath);
   const newPath = path.join(logosDir, fileName);
   fs.copyFileSync(tempPath, newPath);
-  return path.join('assets', 'logos', fileName).replace(/\\/g, '/'); // Ensure forward slashes
+  return path.join('assets', 'logos', fileName).replace(/\\/g, '/');
+};
+
+const validateLogoPath = (logoPath) => {
+  if (!logoPath) return true;
+  const userDataPath = app.getPath('userData');
+  const fullPath = path.join(userDataPath, logoPath);
+  return fs.existsSync(fullPath);
 };
 
 const internalUpdateSettingsHandler = async (settingsData) => {
-  // Accept legacy snake_case keys from the renderer and map them to the schema's camelCase
-  const normalized = { ...settingsData };
-  if (Object.prototype.hasOwnProperty.call(normalized, 'adult_age_threshold')) {
-    normalized.adultAgeThreshold = normalized['adult_age_threshold'];
-    delete normalized['adult_age_threshold'];
+  const filteredData = { ...settingsData };
+  delete filteredData.adultAgeThreshold;
+  delete filteredData.adult_age_threshold;
+
+  if (filteredData.national_logo_path && !validateLogoPath(filteredData.national_logo_path)) {
+    filteredData.national_logo_path = defaultSettings.national_logo_path;
+  }
+  if (filteredData.regional_local_logo_path && !validateLogoPath(filteredData.regional_local_logo_path)) {
+    filteredData.regional_local_logo_path = '';
   }
 
-  const validatedData = await settingsValidationSchema.validateAsync(normalized);
-  // Reverse-map camelCase validated keys back to snake_case DB keys when necessary
-  const dbKeyMap = {
-    adultAgeThreshold: 'adult_age_threshold',
-  };
-
-  function camelToSnake(s) {
-    return s.replace(/([A-Z])/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, '');
-  }
+  const validatedData = await settingsValidationSchema.validateAsync(filteredData);
 
   try {
     for (const [key, value] of Object.entries(validatedData)) {
-      const primaryDbKey = Object.prototype.hasOwnProperty.call(dbKeyMap, key)
-        ? dbKeyMap[key]
-        : key;
       const dbValue = value === null || value === undefined ? '' : String(value);
-
-      // Use INSERT OR REPLACE to ensure the setting is always saved
       await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
-        primaryDbKey,
+        key,
         dbValue,
       ]);
     }
@@ -175,7 +161,6 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       log('[DEBUG] settings:update IPC handler called with settingsData:', JSON.stringify(settingsData, null, 2));
 
-      // Get old settings to check if fees were just configured
       const { settings: oldSettings } = await internalGetSettingsHandler();
       const oldAnnualFee = parseFloat(oldSettings.annual_fee || '0');
       const oldMonthlyFee = parseFloat(oldSettings.standard_monthly_fee || '0');
@@ -197,21 +182,17 @@ function registerSettingsHandlers(refreshSettings) {
           backupManager.startScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
 
-          // Check if fees are configured and generate charges only when actually needed
           const newAnnualFee = parseFloat(newSettings.annual_fee || '0');
           const newMonthlyFee = parseFloat(newSettings.standard_monthly_fee || '0');
 
           log(`[Settings] Fees check - Old Annual: ${oldAnnualFee}, Old Monthly: ${oldMonthlyFee}, New Annual: ${newAnnualFee}, New Monthly: ${newMonthlyFee}`);
 
-          // Only regenerate charges if fees are actually being configured or changed
           const feesWerePreviouslySet = oldAnnualFee > 0 || oldMonthlyFee > 0;
           const feesBeingSetNow = newAnnualFee > 0 || newMonthlyFee > 0;
           const isFirstTimeSetup = !feesWerePreviouslySet && feesBeingSetNow;
           const feesActuallyChanged = (oldAnnualFee !== newAnnualFee) || (oldMonthlyFee !== newMonthlyFee);
 
           if (feesBeingSetNow && (isFirstTimeSetup || feesActuallyChanged)) {
-            // Generate charges for first-time setup regardless of auto-generation setting
-            // For fee updates, respect the auto-generation setting
             if (isFirstTimeSetup || newSettings.auto_charge_generation_enabled) {
               log(`[Settings] Charges need to be generated - First setup: ${isFirstTimeSetup}, Fees changed: ${feesActuallyChanged}`);
               const { checkAndGenerateChargesForAllStudents } = require('./studentFeeHandlers');
@@ -234,7 +215,6 @@ function registerSettingsHandlers(refreshSettings) {
       }
       return result;
     } catch (error) {
-      // Safely attempt to rollback any stray transactions
       await safeRollback();
       logError('Error in settings:update IPC wrapper:', error);
       return { success: false, message: error.message };
@@ -245,7 +225,6 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       const userDataPath = app.getPath('userData');
 
-      // If the database is open, fetch the logo path from the database.
       if (db.isDbOpen()) {
         const { settings } = await internalGetSettingsHandler();
         if (settings.regional_local_logo_path) {
@@ -261,8 +240,6 @@ function registerSettingsHandlers(refreshSettings) {
           }
         }
       } else {
-        // If the database is closed (e.g., on the login screen after logout),
-        // try to get the logo path from the persistent store.
         const store = new Store();
         const cachedLogoPath = store.get('cached_logo_path');
         if (cachedLogoPath) {
@@ -273,7 +250,6 @@ function registerSettingsHandlers(refreshSettings) {
         }
       }
 
-      // Fallback if no logo is found
       return { success: true, path: null };
     } catch (error) {
       logError('Failed to get logo:', error);
@@ -300,6 +276,222 @@ function registerSettingsHandlers(refreshSettings) {
     } catch (error) {
       logError('Failed to upload logo:', error);
       return { success: false, message: `Error uploading logo: ${error.message}` };
+    }
+  });
+
+  // Age Groups handlers
+  ipcMain.handle('ageGroups:get', async () => {
+    try {
+      const results = await db.allQuery('SELECT * FROM age_groups WHERE is_active = 1 ORDER BY min_age ASC');
+      return { success: true, ageGroups: results };
+    } catch (error) {
+      logError('Error in ageGroups:get IPC handler:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('ageGroups:create', async (_event, ageGroupData) => {
+    try {
+      log('[DEBUG] ageGroups:create - Input data:', JSON.stringify(ageGroupData));
+      const { v4: uuidv4 } = require('uuid');
+
+      const schema = Joi.object({
+        name: Joi.string().required().min(1).max(100),
+        description: Joi.string().allow('').max(500),
+        min_age: Joi.number().integer().min(0).max(100).required(),
+        max_age: Joi.number().integer().allow(null).when('min_age', {
+          is: Joi.number().required(),
+          then: Joi.number().integer().min(Joi.ref('min_age')).max(100)
+        }),
+        gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        is_active: Joi.boolean().default(true)
+      });
+
+      let validatedData;
+      try {
+        validatedData = await schema.validateAsync(ageGroupData);
+        log('[DEBUG] ageGroups:create - Validated data:', JSON.stringify(validatedData));
+      } catch (validationError) {
+        log('[DEBUG] ageGroups:create - Validation error:', validationError.message);
+        throw validationError;
+      }
+
+      const uuid = uuidv4();
+      log('[DEBUG] ageGroups:create - Generated UUID:', uuid);
+      
+      let result;
+      try {
+        result = await db.runQuery(
+          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            uuid,
+            validatedData.name,
+            validatedData.description || '',
+            validatedData.min_age,
+            validatedData.max_age || null,
+            validatedData.gender,
+            validatedData.is_active ? 1 : 0
+          ]
+        );
+        log('[DEBUG] ageGroups:create - Insert result:', JSON.stringify(result));
+      } catch (dbError) {
+        log('[DEBUG] ageGroups:create - Database error:', dbError.message);
+        throw dbError;
+      }
+
+      if (result.id) {
+        log('[DEBUG] ageGroups:create - Success! ID:', result.id);
+        return { success: true, message: 'تم إنشاء الفئة العمرية بنجاح.', ageGroupId: result.id };
+      } else {
+        throw new Error('Failed to create age group - no ID returned');
+      }
+    } catch (error) {
+      logError('Error in ageGroups:create IPC handler:', error);
+      log('[DEBUG] ageGroups:create - Error details:', error.message, error.stack);
+      return { success: false, message: error.message || 'Failed to create age group' };
+    }
+  });
+
+  ipcMain.handle('ageGroups:update', async (_event, id, ageGroupData) => {
+    try {
+      const schema = Joi.object({
+        name: Joi.string().required().min(1).max(100),
+        description: Joi.string().allow('').max(500),
+        min_age: Joi.number().integer().min(0).max(100).required(),
+        max_age: Joi.number().integer().allow(null).when('min_age', {
+          is: Joi.number().required(),
+          then: Joi.number().integer().min(Joi.ref('min_age')).max(100)
+        }),
+        gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        is_active: Joi.boolean().default(true)
+      });
+
+      const validatedData = await schema.validateAsync(ageGroupData);
+
+      await db.runQuery(
+        `UPDATE age_groups SET
+         name = ?, description = ?, min_age = ?, max_age = ?,
+         gender = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          validatedData.name,
+          validatedData.description || '',
+          validatedData.min_age,
+          validatedData.max_age || null,
+          validatedData.gender,
+          validatedData.is_active ? 1 : 0,
+          id
+        ]
+      );
+
+      return { success: true, message: 'تم تحديث الفئة العمرية بنجاح.' };
+    } catch (error) {
+      logError('Error in ageGroups:update IPC handler:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('ageGroups:delete', async (_event, id) => {
+    try {
+      await db.runQuery('UPDATE age_groups SET is_active = 0 WHERE id = ?', [id]);
+      return { success: true, message: 'تم إلغاء تفعيل الفئة العمرية بنجاح.' };
+    } catch (error) {
+      logError('Error in ageGroups:delete IPC handler:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('ageGroups:matchStudent', async (_event, studentAge, studentGender) => {
+    try {
+      if (studentAge === null || studentAge === undefined) {
+        return { success: false, message: 'عمر الطالب غير محدد' };
+      }
+
+      let sql = `
+        SELECT id, uuid, name, description, min_age, max_age, gender
+        FROM age_groups
+        WHERE is_active = 1
+        AND min_age <= ?
+        AND (max_age IS NULL OR max_age >= ?)
+        AND (gender = 'any' OR gender = ?)
+        ORDER BY min_age ASC
+      `;
+
+      const genderMap = {
+        'M': 'male_only',
+        'F': 'female_only',
+        'male': 'male_only',
+        'female': 'female_only',
+        'ذكر': 'male_only',
+        'أنثى': 'female_only'
+      };
+      const mappedGender = genderMap[studentGender] || 'any';
+
+      const results = await db.allQuery(sql, [studentAge, studentAge, mappedGender]);
+      return { success: true, ageGroups: results || [] };
+    } catch (error) {
+      logError('Error in ageGroups:matchStudent IPC handler:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('ageGroups:validateStudentForClass', async (_event, studentAge, studentGender, classAgeGroupId) => {
+    try {
+      if (!classAgeGroupId) {
+        return { success: false, message: 'معرف فئة الفصل غير محدد' };
+      }
+
+      if (studentAge === null || studentAge === undefined) {
+        return { success: true, isValid: true, warning: 'عمر الطالب غير محدد، يرجى تحديثه' };
+      }
+
+      const ageGroup = await db.getQuery(
+        `SELECT id, name, min_age, max_age, gender
+         FROM age_groups
+         WHERE id = ? AND is_active = 1`,
+        [classAgeGroupId]
+      );
+
+      if (!ageGroup) {
+        return { success: false, message: 'فئة الفصل غير موجودة' };
+      }
+
+      const ageInRange = studentAge >= ageGroup.min_age && 
+                        (ageGroup.max_age === null || studentAge <= ageGroup.max_age);
+
+      if (!ageInRange) {
+        return {
+          success: true,
+          isValid: false,
+          message: `عمر الطالب (${studentAge}) خارج نطاق فئة الفصل (${ageGroup.min_age}-${ageGroup.max_age || '+'})`
+        };
+      }
+
+      const genderMap = {
+        'M': 'male_only',
+        'F': 'female_only',
+        'male': 'male_only',
+        'female': 'female_only',
+        'ذكر': 'male_only',
+        'أنثى': 'female_only'
+      };
+      const mappedGender = genderMap[studentGender] || 'any';
+
+      const genderCompatible = ageGroup.gender === 'any' || ageGroup.gender === mappedGender;
+
+      if (!genderCompatible) {
+        return {
+          success: true,
+          isValid: false,
+          message: `جنس الطالب (${studentGender}) غير متوافق مع فئة الفصل`
+        };
+      }
+
+      return { success: true, isValid: true, ageGroup };
+    } catch (error) {
+      logError('Error in ageGroups:validateStudentForClass IPC handler:', error);
+      return { success: false, message: error.message };
     }
   });
 }

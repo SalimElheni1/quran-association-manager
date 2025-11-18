@@ -20,20 +20,9 @@ async function getSetting(key) {
     await refreshSettings();
   }
 
-  let value = settingsCache?.[key];
-
-  // Handle age threshold key mapping between camelCase and snake_case
-  if (value === undefined && key === 'adult_age_threshold') {
-    value = settingsCache?.['adultAgeThreshold'];
-  } else if (value === undefined && key === 'adultAgeThreshold') {
-    value = settingsCache?.['adult_age_threshold'];
-  }
+  const value = settingsCache?.[key];
 
   if (value === undefined || value === null) {
-    // Provide sensible defaults for critical settings
-    if (key === 'adult_age_threshold' || key === 'adultAgeThreshold') {
-      return 18;
-    }
     return null;
   }
 

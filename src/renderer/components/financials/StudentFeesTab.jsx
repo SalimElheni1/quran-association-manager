@@ -19,6 +19,7 @@ import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import { error as logError } from '@renderer/utils/logger';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
@@ -76,6 +77,7 @@ const StudentFeesTab = () => {
     new Date().getFullYear().toString(),
   );
   const [forceGeneration, setForceGeneration] = useState(false);
+  const [isGeneratingFees, setIsGeneratingFees] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -274,6 +276,9 @@ const StudentFeesTab = () => {
 
   const handleConfirmGenerateFees = async () => {
     try {
+      setIsGeneratingFees(true);
+      setShowGenerateFeesModal(false);
+
       const result = await window.electronAPI.studentFeesGenerateAllCharges(
         generateAcademicYear,
         forceGeneration,
@@ -281,7 +286,6 @@ const StudentFeesTab = () => {
 
       if (result.success) {
         toast.success(result.message);
-        setShowGenerateFeesModal(false);
         loadStudents(); // Refresh the data
       } else {
         toast.error(result.message);
@@ -289,6 +293,8 @@ const StudentFeesTab = () => {
     } catch (err) {
       const errorMessage = err.message || 'فشل في توليد الرسوم.';
       toast.error(errorMessage);
+    } finally {
+      setIsGeneratingFees(false);
     }
   };
 
@@ -333,16 +339,6 @@ const StudentFeesTab = () => {
                   </Button>
                 )}
                 */}
-                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
-                  <Button
-                    variant="warning"
-                    onClick={handleGenerateFees}
-                    style={{ display: 'none' }}
-                    title="للطوارئ فقط - الاستخدام العادي تلقائي"
-                  >
-                    توليد الرسوم (طوارئ)
-                  </Button>
-                )}
                 <Button variant="primary" onClick={loadStudents}>
                   تحديث
                 </Button>
@@ -575,26 +571,6 @@ const StudentFeesTab = () => {
                 </Form.Group>
               </Col>
             </Row>
-            <Row>
-              {specialFeeClasses.length > 0 && (
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>فصل إضافي (اختياري)</Form.Label>
-                    <Form.Select
-                      value={selectedSpecialFeeClass}
-                      onChange={(e) => setSelectedSpecialFeeClass(e.target.value)}
-                    >
-                      <option value="">بدون فصل إضافي</option>
-                      {specialFeeClasses.map((c) => (
-                        <option key={c.id} value={c.matricule}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              )}
-            </Row>
             {paymentMethod === 'CHECK' && (
               <Row>
                 <Col md={6}>
@@ -626,17 +602,6 @@ const StudentFeesTab = () => {
                   <Form.Text className="text-muted">
                     يجب أن يكون رقم الوصل فريداً عبر جميع عمليات الدفع
                   </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>السنة الدراسية</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
-                    placeholder="مثال: 2024-2025"
-                  />
                 </Form.Group>
               </Col>
             </Row>

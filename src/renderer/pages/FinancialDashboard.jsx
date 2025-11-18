@@ -9,6 +9,7 @@ import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
+import RefreshIcon from '@renderer/components/icons/RefreshCwIcon';
 
 function FinancialDashboard() {
   const { hasPermission } = usePermissions();
@@ -23,20 +24,44 @@ function FinancialDashboard() {
 
   useEffect(() => {
     const handleDataChange = () => refresh();
+    const handleTabChange = () => {
+      // Refresh when tab becomes visible
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+    
     window.addEventListener('financial-data-changed', handleDataChange);
-    return () => window.removeEventListener('financial-data-changed', handleDataChange);
+    window.addEventListener('focus', handleTabChange);
+    document.addEventListener('visibilitychange', handleTabChange);
+    
+    return () => {
+      window.removeEventListener('financial-data-changed', handleDataChange);
+      window.removeEventListener('focus', handleTabChange);
+      document.removeEventListener('visibilitychange', handleTabChange);
+    };
   }, [refresh]);
+
+  // Refresh when component becomes visible (tab switching)
+  useEffect(() => {
+    refresh();
+  }, []);
 
   return (
     <div className="page-container">
       <div className="page-header">
         <h1>لوحة التحكم المالية</h1>
         <div className="page-header-actions">
-        {hasPermission(PERMISSIONS.FINANCIAL_VIEW) && (
-          <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
-            <ExportIcon className="ms-2" /> تصدير التقارير
-          </Button>
-        )}
+          {hasPermission(PERMISSIONS.FINANCIAL_VIEW) && (
+            <>
+              <Button variant="outline-secondary" onClick={() => refresh()} disabled={loading}>
+                <RefreshIcon className="ms-2" /> {loading ? 'جاري التحديث...' : 'تحديث'}
+              </Button>
+              <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
+                <ExportIcon className="ms-2" /> تصدير التقارير
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -95,10 +120,7 @@ function FinancialDashboard() {
           </Row>
         </>
       )}
-      <FinancialExportModal
-        show={showExportModal}
-        handleClose={() => setShowExportModal(false)}
-      />
+      <FinancialExportModal show={showExportModal} handleClose={() => setShowExportModal(false)} />
     </div>
   );
 }
