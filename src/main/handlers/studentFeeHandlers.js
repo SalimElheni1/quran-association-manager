@@ -1297,7 +1297,16 @@ async function recordStudentPayment(event, paymentDetails) {
     // 3. Create a corresponding transaction record
     log(`[PAYMENT_TRANSACTION] Creating transaction record...`);
     const student = await db.getQuery('SELECT name, matricule FROM students WHERE id = ?', [student_id]);
-    const transactionDescription = `دفعة رسوم من الطالب: ${student.name} - ${payment_type || 'رسوم'}`;
+    
+    const paymentTypeMap = {
+      'CUSTOM': 'دفعة مخصصة',
+      'MONTHLY': 'رسوم شهرية',
+      'ANNUAL': 'رسوم سنوية',
+      'SPECIAL': 'رسوم خاصة'
+    };
+    const paymentTypeAr = paymentTypeMap[payment_type] || payment_type || 'رسوم';
+    
+    const transactionDescription = `دفعة رسوم من الطالب: ${student.name} - ${paymentTypeAr}`;
 
     // Note: You might want to make the account_id dynamic
     const transactionResult = await db.runQuery(`
