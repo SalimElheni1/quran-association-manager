@@ -59,8 +59,15 @@ function VoucherPrintModal({ show, transaction, onHide }) {
               <tr>
                 <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>طريقة الدفع:</td>
                 <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {transaction.payment_method === 'CASH' ? 'نقدي' : 
-                   transaction.payment_method === 'CHECK' ? 'شيك' : 'تحويل بنكي'}
+                  {(() => {
+                    const method = transaction.payment_method?.toUpperCase();
+                    switch (method) {
+                      case 'CASH': return 'نقدي';
+                      case 'CHECK': return 'شيك';
+                      case 'TRANSFER': return 'تحويل بنكي';
+                      default: return method || 'غير محدد';
+                    }
+                  })()}
                 </td>
               </tr>
               {transaction.check_number && (
