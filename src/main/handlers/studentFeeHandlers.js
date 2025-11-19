@@ -1130,7 +1130,7 @@ async function autoGenerateChargesIfNeeded(studentId, academicYear) {
  * @returns {Promise<object>} The newly created student payment record.
  */
 async function recordStudentPayment(event, paymentDetails) {
-  const { student_id, amount, payment_method, check_number, payment_type, notes, academic_year, receipt_number, class_id } = paymentDetails;
+  const { student_id, amount, payment_method, check_number, payment_type, notes, academic_year, receipt_number, class_id, sponsor_name, sponsor_phone } = paymentDetails;
 
   console.log(`[PAYMENT_START] Recording payment for student ${student_id}, amount: ${amount}, method: ${payment_method}`);
 
@@ -1177,9 +1177,9 @@ async function recordStudentPayment(event, paymentDetails) {
     // 1. Create a student_payment record
     console.log(`[PAYMENT_DB] Creating payment record...`);
     const paymentResult = await db.runQuery(`
-      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [student_id, amount, payment_method, payment_type || 'رسوم الطلاب', academic_year || new Date().getFullYear().toString(), notes, check_number, receipt_number, class_id]);
+      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id, sponsor_name, sponsor_phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [student_id, amount, payment_method, payment_type || 'رسوم الطلاب', academic_year || new Date().getFullYear().toString(), notes, check_number, receipt_number, class_id, sponsor_name, sponsor_phone]);
 
     const studentPaymentId = paymentResult.id;
     console.log(`[PAYMENT_DB] Payment record created with ID: ${studentPaymentId}`);
@@ -1406,14 +1406,14 @@ function registerStudentFeeHandlers() {
   ipcMain.handle('student-fees:getAll', requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_event) => {
     try {
       const students = await db.allQuery(
-        'SELECT id, name, matricule, fee_category FROM students WHERE status = ? ORDER BY name',
+        'SELECT id, name, matricule, fee_category, sponsor_name, sponsor_phone FROM students WHERE status = ? ORDER BY name',
         ['active']
       );
 
       // Get fee status for each student, filtering out exempt/sponsored students
       const studentsWithFees = await Promise.all(
         students.map(async (student) => {
-          if (student.fee_category === 'EXEMPT' || student.fee_category === 'SPONSORED') {
+          if (student.fee_category === 'EXEMPT') {
             return {
               ...student,
               totalDue: 0,
@@ -1428,6 +1428,8 @@ function registerStudentFeeHandlers() {
             name: student.name,
             matricule: student.matricule,
             fee_category: student.fee_category,
+            sponsor_name: student.sponsor_name,
+            sponsor_phone: student.sponsor_phone,
             totalDue: feeStatus.totalDue,
             totalPaid: feeStatus.totalPaid,
             balance: feeStatus.balance,

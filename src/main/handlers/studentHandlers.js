@@ -75,6 +75,8 @@ const studentFields = [
   'sponsor_name', // Sponsor name for sponsored students
   'sponsor_phone', // Sponsor phone for sponsored students
   'sponsor_cin', // Sponsor CIN for sponsored students
+  'discount_percentage', // Discount percentage for student fees
+  'discount_reason', // Reason for the discount
 ];
 
 /**
@@ -457,9 +459,11 @@ function registerStudentHandlers() {
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
-        // Get current student data to check for fee_category changes
-        const currentStudent = await db.getQuery('SELECT fee_category, status FROM students WHERE id = ?', [id]);
+        // Get current student data to check for fee_category and discount changes
+        const currentStudent = await db.getQuery('SELECT fee_category, status, discount_percentage FROM students WHERE id = ?', [id]);
         const oldFeeCategory = currentStudent?.fee_category;
+        const oldDiscount = currentStudent?.discount_percentage || 0;
+        const newDiscount = restOfStudentData.discount_percentage !== undefined ? restOfStudentData.discount_percentage : oldDiscount;
 
         const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
           abortEarly: false,
@@ -513,6 +517,19 @@ function registerStudentHandlers() {
         }
 
         await db.runQuery('COMMIT;');
+
+        // Check if discount changed and regenerate charges
+        const discountChanged = oldDiscount !== newDiscount;
+        if (discountChanged && validatedData.status === 'active' && (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')) {
+          console.log(`[Student Update] Discount changed from ${oldDiscount}% to ${newDiscount}% for student ${id}, regenerating charges`);
+          try {
+            const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
+            await triggerChargeRegenerationForStudent(id, { regenCurrentMonth: true, regenNextMonth: false });
+            console.log(`[Student Update] Charges regenerated successfully for student ${id}`);
+          } catch (err) {
+            logError('Failed to regenerate charges after discount change:', err);
+          }
+        }
 
         // Check if fee_category changed from EXEMPT to CAN_PAY and generate charges
         const newFeeCategory = validatedData.fee_category;

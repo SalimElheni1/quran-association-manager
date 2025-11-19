@@ -45,6 +45,8 @@ const studentPaymentFields = [
   { key: 'receipt_number', label: 'رقم الوصل' },
   { key: 'check_number', label: 'رقم الشيك' },
   { key: 'notes', label: 'ملاحظات' },
+  { key: 'sponsor_name', label: 'اسم الكافل' },
+  { key: 'sponsor_phone', label: 'هاتف الكافل' },
 ];
 
 const StudentFeesTab = () => {
@@ -129,7 +131,7 @@ const StudentFeesTab = () => {
   const getStudentPaymentStatus = (student) => {
     const { balance, totalPaid, totalDue, fee_category } = student;
 
-    if (fee_category === 'EXEMPT' || fee_category === 'SPONSORED') {
+    if (fee_category === 'EXEMPT') {
       return 'EXEMPT';
     }
 
@@ -249,6 +251,10 @@ const StudentFeesTab = () => {
         receipt_number: receiptNumber,
         ...(paymentMethod === 'CHECK' && checkNumber && { check_number: checkNumber }),
         ...(selectedSpecialFeeClass && { class_id: selectedSpecialFeeClass }),
+        ...(selectedStudent.fee_category === 'SPONSORED' && {
+          sponsor_name: selectedStudent.sponsor_name,
+          sponsor_phone: selectedStudent.sponsor_phone,
+        }),
       };
 
       await window.electronAPI.studentFeesRecordPayment(paymentDetails);
@@ -538,6 +544,22 @@ const StudentFeesTab = () => {
               </Row>
             </div>
           )}
+
+          {selectedStudent && selectedStudent.fee_category === 'SPONSORED' && (
+            <Alert variant="info" className="mb-4">
+              <h6 className="alert-heading">🎓 طالب مكفول</h6>
+              <hr />
+              <Row>
+                <Col md={6}>
+                  <strong>اسم الكافل:</strong> {selectedStudent.sponsor_name || 'غير محدد'}
+                </Col>
+                <Col md={6}>
+                  <strong>هاتف الكافل:</strong> {selectedStudent.sponsor_phone || 'غير محدد'}
+                </Col>
+              </Row>
+            </Alert>
+          )}
+
           <Form>
             <Row>
               <Col md={6}>
@@ -685,6 +707,21 @@ const StudentFeesTab = () => {
                 </Row>
               </div>
 
+              {selectedStudent.fee_category === 'SPONSORED' && (
+                <Alert variant="info" className="mb-3">
+                  <h6 className="alert-heading">🎓 طالب مكفول</h6>
+                  <hr />
+                  <Row>
+                    <Col md={6}>
+                      <strong>اسم الكافل:</strong> {selectedStudent.sponsor_name || 'غير محدد'}
+                    </Col>
+                    <Col md={6}>
+                      <strong>هاتف الكافل:</strong> {selectedStudent.sponsor_phone || 'غير محدد'}
+                    </Col>
+                  </Row>
+                </Alert>
+              )}
+
               {/* Show credit alert for students with credit */}
               {selectedStudent.balanceSummary.totalCredit > 0 &&
                 selectedStudent.balanceSummary.displayType === 'owed' && (
@@ -698,70 +735,72 @@ const StudentFeesTab = () => {
 
               {selectedStudent.balanceSummary.charges &&
               selectedStudent.balanceSummary.charges.length > 0 ? (
-                <Table striped bordered hover>
-                  <thead>
-                    <tr>
-                      <th>النوع</th>
-                      <th>الوصف</th>
-                      <th>المبلغ</th>
-                      <th>المدفوع</th>
-                      <th>المتبقي</th>
-                      <th>الحالة</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedStudent.balanceSummary.charges
-                      .filter((charge) => charge.fee_type !== 'CREDIT')
-                      .map((charge) => {
-                        const remaining = charge.amount - charge.amount_paid;
-                        const statusVariant =
-                          charge.status === 'PAID'
-                            ? 'success'
-                            : charge.status === 'PARTIALLY_PAID'
-                              ? 'warning'
-                              : 'danger';
-                        const statusLabel =
-                          charge.status === 'PAID'
-                            ? 'مدفوع'
-                            : charge.status === 'PARTIALLY_PAID'
-                              ? 'جزئياً'
-                              : 'غير مدفوع';
-                        return (
-                          <tr key={charge.id}>
-                            <td>{charge.fee_type === 'ANNUAL' ? 'سنوي' : 'شهري'}</td>
-                            <td>{charge.description}</td>
-                            <td>{(charge.amount?.toFixed(2) || 0) + ' د.ت'}</td>
-                            <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
-                            <td className={remaining > 0 ? 'text-danger fw-bold' : 'text-success'}>
-                              {remaining > 0 ? remaining?.toFixed(2) + ' د.ت' : '-'}
-                            </td>
-                            <td>
-                              <Badge bg={statusVariant}>{statusLabel}</Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="table-secondary">
-                      <td colSpan="2" className="text-end fw-bold">
-                        المجموع:
-                      </td>
-                      <td className="fw-bold">
-                        {selectedStudent.balanceSummary.totalDue?.toFixed(2)} د.ت
-                      </td>
-                      <td className="fw-bold">
-                        {selectedStudent.balanceSummary.totalPaid?.toFixed(2)} د.ت
-                      </td>
-                      <td
-                        className={`fw-bold ${selectedStudent.balanceSummary.balance >= 0 ? 'text-danger' : 'text-success'}`}
-                      >
-                        {selectedStudent.balanceSummary.balance?.toFixed(2)} د.ت
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </Table>
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <Table striped bordered hover>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                      <tr>
+                        <th>النوع</th>
+                        <th>الوصف</th>
+                        <th>المبلغ</th>
+                        <th>المدفوع</th>
+                        <th>المتبقي</th>
+                        <th>الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStudent.balanceSummary.charges
+                        .filter((charge) => charge.fee_type !== 'CREDIT')
+                        .map((charge) => {
+                          const remaining = charge.amount - charge.amount_paid;
+                          const statusVariant =
+                            charge.status === 'PAID'
+                              ? 'success'
+                              : charge.status === 'PARTIALLY_PAID'
+                                ? 'warning'
+                                : 'danger';
+                          const statusLabel =
+                            charge.status === 'PAID'
+                              ? 'مدفوع'
+                              : charge.status === 'PARTIALLY_PAID'
+                                ? 'جزئياً'
+                                : 'غير مدفوع';
+                          return (
+                            <tr key={charge.id}>
+                              <td>{charge.fee_type === 'ANNUAL' ? 'سنوي' : 'شهري'}</td>
+                              <td>{charge.description}</td>
+                              <td>{(charge.amount?.toFixed(2) || 0) + ' د.ت'}</td>
+                              <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
+                              <td className={remaining > 0 ? 'text-danger fw-bold' : 'text-success'}>
+                                {remaining > 0 ? remaining?.toFixed(2) + ' د.ت' : '-'}
+                              </td>
+                              <td>
+                                <Badge bg={statusVariant}>{statusLabel}</Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="table-secondary" style={{ position: 'sticky', bottom: 0, zIndex: 1 }}>
+                        <td colSpan="2" className="text-end fw-bold">
+                          المجموع:
+                        </td>
+                        <td className="fw-bold">
+                          {selectedStudent.balanceSummary.totalDue?.toFixed(2)} د.ت
+                        </td>
+                        <td className="fw-bold">
+                          {selectedStudent.balanceSummary.totalPaid?.toFixed(2)} د.ت
+                        </td>
+                        <td
+                          className={`fw-bold ${selectedStudent.balanceSummary.balance >= 0 ? 'text-danger' : 'text-success'}`}
+                        >
+                          {selectedStudent.balanceSummary.balance?.toFixed(2)} د.ت
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </Table>
+                </div>
               ) : (
                 <Alert variant="info">لا توجد رسوم لهذا الطالب.</Alert>
               )}

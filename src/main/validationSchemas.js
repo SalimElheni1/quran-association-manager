@@ -40,6 +40,8 @@ const studentValidationSchema = Joi.object({
     'string.pattern.base': 'رقم بطاقة الكافل يجب أن يتكون من 8 أرقام.',
   }),
   financial_assistance_notes: Joi.string().allow(null, ''),
+  discount_percentage: Joi.number().min(0).max(100).allow(null, '').default(0),
+  discount_reason: Joi.string().allow(null, ''),
 }).unknown(true);
 
 const studentPaymentValidationSchema = Joi.object({
