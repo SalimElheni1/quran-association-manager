@@ -22,9 +22,8 @@ export function useFinancialSummary(period) {
 
       // Filter out specific payment type categories that shouldn't appear in "المداخيل حسب نوع الوصل"
       // These are covered under "رسوم الطلاب" category
-      const filteredIncomeByCategory = data.incomeByCategory?.filter(cat =>
-        !['ANNUAL', 'MONTHLY'].includes(cat.category)
-      ) || [];
+      const filteredIncomeByCategory =
+        data.incomeByCategory?.filter((cat) => !['ANNUAL', 'MONTHLY'].includes(cat.category)) || [];
 
       setSummary({
         ...data,

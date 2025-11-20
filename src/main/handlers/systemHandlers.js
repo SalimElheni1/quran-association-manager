@@ -2,7 +2,7 @@ const { ipcMain, app, dialog } = require('electron');
 const db = require('../../db/db');
 const { error: logError, getLogFilePath, clearLogFile } = require('../logger');
 const fs = require('fs');
-const path = require('path');
+
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
@@ -231,9 +231,9 @@ function registerSystemHandlers() {
       }
 
       const content = fs.readFileSync(logFilePath, 'utf-8');
-      const allLines = content.split('\n').filter(l => l.trim());
+      const allLines = content.split('\n').filter((l) => l.trim());
       const recentLines = allLines.slice(-lines);
-      
+
       return { success: true, logs: recentLines };
     } catch (error) {
       logError('Error reading logs:', error);
@@ -249,9 +249,9 @@ function registerSystemHandlers() {
       }
 
       const content = fs.readFileSync(logFilePath, 'utf-8');
-      const allLines = content.split('\n').filter(l => l.trim());
-      const filtered = allLines.filter(l => l.includes(keyword)).slice(-lines);
-      
+      const allLines = content.split('\n').filter((l) => l.trim());
+      const filtered = allLines.filter((l) => l.includes(keyword)).slice(-lines);
+
       return { success: true, logs: filtered };
     } catch (error) {
       logError('Error filtering logs:', error);

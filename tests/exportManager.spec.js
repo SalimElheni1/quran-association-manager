@@ -1,5 +1,3 @@
-
-
 // Mock dependencies
 jest.mock('fs');
 jest.mock('path');
@@ -16,7 +14,6 @@ jest.mock('../src/db/db');
 jest.mock('../src/main/settingsManager');
 jest.mock('../src/main/handlers/legacyFinancialHandlers');
 jest.mock('../src/main/handlers/inventoryHandlers');
-
 
 const ExcelJS = require('exceljs');
 const {

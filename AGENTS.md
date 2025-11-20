@@ -54,14 +54,17 @@ The frontend communicates with the backend via IPC channels. The API is namespac
 ## Building the Application
 
 To create a distributable installer, run:
+
 ```bash
 npm run dist
 ```
+
 The output will be in the `release/` directory.
 
 ## Testing
 
 The project uses Jest for testing.
+
 - **Run tests:**
   ```bash
   npm test

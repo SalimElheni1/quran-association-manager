@@ -37,7 +37,7 @@ async function handleAddExpense(event, expense) {
     description,
   ]);
   const newExpense = await getQuery('SELECT * FROM expenses WHERE id = ?', [result.id]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return newExpense;
 }
 async function handleUpdateExpense(event, expense) {
@@ -45,12 +45,12 @@ async function handleUpdateExpense(event, expense) {
   const sql = `UPDATE expenses SET category = ?, amount = ?, expense_date = ?, responsible_person = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   await runQuery(sql, [category, amount, expense_date, responsible_person, description, id]);
   const updatedExpense = await getQuery('SELECT * FROM expenses WHERE id = ?', [id]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return updatedExpense;
 }
 async function handleDeleteExpense(event, expenseId) {
   await runQuery('DELETE FROM expenses WHERE id = ?', [expenseId]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return { id: expenseId };
 }
 
@@ -88,7 +88,7 @@ async function handleAddDonation(event, donation) {
     category,
   ]);
   const newDonation = await getQuery('SELECT * FROM donations WHERE id = ?', [result.id]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return newDonation;
 }
 async function handleUpdateDonation(event, donation) {
@@ -116,12 +116,12 @@ async function handleUpdateDonation(event, donation) {
     id,
   ]);
   const updatedDonation = await getQuery('SELECT * FROM donations WHERE id = ?', [id]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return updatedDonation;
 }
 async function handleDeleteDonation(event, donationId) {
   await runQuery('DELETE FROM donations WHERE id = ?', [donationId]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return { id: donationId };
 }
 
@@ -171,7 +171,7 @@ async function handleAddSalary(event, salary) {
   `,
     [result.id],
   );
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return newSalary;
 }
 async function handleUpdateSalary(event, salary) {
@@ -193,12 +193,12 @@ async function handleUpdateSalary(event, salary) {
   `,
     [id],
   );
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return updatedSalary;
 }
 async function handleDeleteSalary(event, salaryId) {
   await runQuery('DELETE FROM salaries WHERE id = ?', [salaryId]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return { id: salaryId };
 }
 
@@ -245,7 +245,7 @@ async function handleAddPayment(event, payment) {
     'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes, p.receipt_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
     [result.id],
   );
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return newPayment;
 }
 async function handleUpdatePayment(event, payment) {
@@ -278,12 +278,12 @@ async function handleUpdatePayment(event, payment) {
     'SELECT p.id, p.student_id, s.name as student_name, p.amount, p.payment_date, p.payment_method, p.notes, p.receipt_number FROM payments p JOIN students s ON p.student_id = s.id WHERE p.id = ?',
     [id],
   );
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return updatedPayment;
 }
 async function handleDeletePayment(event, paymentId) {
   await runQuery('DELETE FROM payments WHERE id = ?', [paymentId]);
-  BrowserWindow.getAllWindows().forEach(win => win.webContents.send('financial-data-changed'));
+  BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('financial-data-changed'));
   return { id: paymentId };
 }
 

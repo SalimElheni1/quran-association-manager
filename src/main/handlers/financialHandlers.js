@@ -165,7 +165,9 @@ async function handleAddTransaction(event, transaction) {
 
     // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
     if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
-      const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [validatedData.voucher_number]);
+      const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
+        validatedData.voucher_number,
+      ]);
       if (existing) {
         validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
       }
@@ -205,13 +207,15 @@ async function handleAddTransaction(event, transaction) {
 
     await db.runQuery('COMMIT;');
 
-    const newTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [result.id]);
-    
+    const newTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
+      result.id,
+    ]);
+
     // Notify all renderer processes about data change
-    BrowserWindow.getAllWindows().forEach(win => {
+    BrowserWindow.getAllWindows().forEach((win) => {
       win.webContents.send('financial-data-changed');
     });
-    
+
     return translateTransaction(newTransaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
@@ -284,12 +288,12 @@ async function handleUpdateTransaction(event, id, transaction) {
     await db.runQuery('COMMIT;');
 
     const updatedTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
-    
+
     // Notify all renderer processes about data change
-    BrowserWindow.getAllWindows().forEach(win => {
+    BrowserWindow.getAllWindows().forEach((win) => {
       win.webContents.send('financial-data-changed');
     });
-    
+
     return translateTransaction(updatedTransaction);
   } catch (error) {
     await db.runQuery('ROLLBACK;');
@@ -318,9 +322,9 @@ async function handleDeleteTransaction(event, transactionId) {
     await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
 
     await db.runQuery('COMMIT;');
-    
+
     // Notify all renderer processes about data change
-    BrowserWindow.getAllWindows().forEach(win => {
+    BrowserWindow.getAllWindows().forEach((win) => {
       win.webContents.send('financial-data-changed');
     });
 
@@ -452,7 +456,7 @@ async function handleGetFinancialSummary(_event, period) {
 // ACCOUNT HANDLERS
 // ============================================
 
-async function handleGetAccounts(_event) {
+async function handleGetAccounts() {
   try {
     const tableCheck = await db.getQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'",
@@ -511,7 +515,7 @@ async function handleGetCategories(event, type) {
   }
 }
 
-async function handleGetInKindCategories(event) {
+async function handleGetInKindCategories() {
   try {
     const tableCheck = await db.getQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='in_kind_categories'",

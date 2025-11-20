@@ -4,38 +4,38 @@
 $enable-rtl: true;
 
 // 2. Import Bootstrap's core files
-@import "bootstrap/scss/functions";
-@import "bootstrap/scss/variables";
-@import "bootstrap/scss/variables-dark";
-@import "bootstrap/scss/maps";
-@import "bootstrap/scss/mixins";
-@import "bootstrap/scss/utilities";
-@import "bootstrap/scss/transitions"; // Added for collapse/expand functionality
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/variables-dark';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+@import 'bootstrap/scss/transitions'; // Added for collapse/expand functionality
 
 // 3. Import layout & base components
-@import "bootstrap/scss/root";
-@import "bootstrap/scss/reboot";
-@import "bootstrap/scss/containers";
-@import "bootstrap/scss/grid";
+@import 'bootstrap/scss/root';
+@import 'bootstrap/scss/reboot';
+@import 'bootstrap/scss/containers';
+@import 'bootstrap/scss/grid';
 
 // 4. Import components
-@import "bootstrap/scss/accordion";
-@import "bootstrap/scss/alert";
-@import "bootstrap/scss/badge";
-@import "bootstrap/scss/buttons";
-@import "bootstrap/scss/button-group";
-@import "bootstrap/scss/card";
-@import "bootstrap/scss/close";
-@import "bootstrap/scss/forms";
-@import "bootstrap/scss/images";
-@import "bootstrap/scss/list-group";
-@import "bootstrap/scss/modal";
-@import "bootstrap/scss/nav";
-@import "bootstrap/scss/popover";
-@import "bootstrap/scss/progress";
-@import "bootstrap/scss/spinners";
-@import "bootstrap/scss/tables";
-@import "bootstrap/scss/tooltip";
+@import 'bootstrap/scss/accordion';
+@import 'bootstrap/scss/alert';
+@import 'bootstrap/scss/badge';
+@import 'bootstrap/scss/buttons';
+@import 'bootstrap/scss/button-group';
+@import 'bootstrap/scss/card';
+@import 'bootstrap/scss/close';
+@import 'bootstrap/scss/forms';
+@import 'bootstrap/scss/images';
+@import 'bootstrap/scss/list-group';
+@import 'bootstrap/scss/modal';
+@import 'bootstrap/scss/nav';
+@import 'bootstrap/scss/popover';
+@import 'bootstrap/scss/progress';
+@import 'bootstrap/scss/spinners';
+@import 'bootstrap/scss/tables';
+@import 'bootstrap/scss/tooltip';
 
 // 5. Import the utilities API (required for utilities to work)
-@import "bootstrap/scss/utilities/api";
+@import 'bootstrap/scss/utilities/api';

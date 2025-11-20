@@ -737,7 +737,9 @@ const StudentFeesTab = () => {
               selectedStudent.balanceSummary.charges.length > 0 ? (
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   <Table striped bordered hover>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                    <thead
+                      style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}
+                    >
                       <tr>
                         <th>النوع</th>
                         <th>الوصف</th>
@@ -770,7 +772,9 @@ const StudentFeesTab = () => {
                               <td>{charge.description}</td>
                               <td>{(charge.amount?.toFixed(2) || 0) + ' د.ت'}</td>
                               <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
-                              <td className={remaining > 0 ? 'text-danger fw-bold' : 'text-success'}>
+                              <td
+                                className={remaining > 0 ? 'text-danger fw-bold' : 'text-success'}
+                              >
                                 {remaining > 0 ? remaining?.toFixed(2) + ' د.ت' : '-'}
                               </td>
                               <td>
@@ -781,7 +785,10 @@ const StudentFeesTab = () => {
                         })}
                     </tbody>
                     <tfoot>
-                      <tr className="table-secondary" style={{ position: 'sticky', bottom: 0, zIndex: 1 }}>
+                      <tr
+                        className="table-secondary"
+                        style={{ position: 'sticky', bottom: 0, zIndex: 1 }}
+                      >
                         <td colSpan="2" className="text-end fw-bold">
                           المجموع:
                         </td>

@@ -5,7 +5,7 @@ const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
-const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler } = require('../feeChargeScheduler');
+const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
 
 /**
@@ -123,7 +123,10 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   if (filteredData.national_logo_path && !validateLogoPath(filteredData.national_logo_path)) {
     filteredData.national_logo_path = defaultSettings.national_logo_path;
   }
-  if (filteredData.regional_local_logo_path && !validateLogoPath(filteredData.regional_local_logo_path)) {
+  if (
+    filteredData.regional_local_logo_path &&
+    !validateLogoPath(filteredData.regional_local_logo_path)
+  ) {
     filteredData.regional_local_logo_path = '';
   }
 
@@ -159,7 +162,10 @@ function registerSettingsHandlers(refreshSettings) {
 
   ipcMain.handle('settings:update', async (_event, settingsData) => {
     try {
-      log('[DEBUG] settings:update IPC handler called with settingsData:', JSON.stringify(settingsData, null, 2));
+      log(
+        '[DEBUG] settings:update IPC handler called with settingsData:',
+        JSON.stringify(settingsData, null, 2),
+      );
 
       const { settings: oldSettings } = await internalGetSettingsHandler();
       const oldAnnualFee = parseFloat(oldSettings.annual_fee || '0');
@@ -167,7 +173,7 @@ function registerSettingsHandlers(refreshSettings) {
       const feesWereNotSet = oldAnnualFee <= 0 && oldMonthlyFee <= 0;
 
       log('[DEBUG] settings:update - oldFees:', { oldAnnualFee, oldMonthlyFee, feesWereNotSet });
-      
+
       const result = await internalUpdateSettingsHandler(settingsData);
 
       log(`[Settings] Update result: ${JSON.stringify(result)}`);
@@ -185,16 +191,21 @@ function registerSettingsHandlers(refreshSettings) {
           const newAnnualFee = parseFloat(newSettings.annual_fee || '0');
           const newMonthlyFee = parseFloat(newSettings.standard_monthly_fee || '0');
 
-          log(`[Settings] Fees check - Old Annual: ${oldAnnualFee}, Old Monthly: ${oldMonthlyFee}, New Annual: ${newAnnualFee}, New Monthly: ${newMonthlyFee}`);
+          log(
+            `[Settings] Fees check - Old Annual: ${oldAnnualFee}, Old Monthly: ${oldMonthlyFee}, New Annual: ${newAnnualFee}, New Monthly: ${newMonthlyFee}`,
+          );
 
           const feesWerePreviouslySet = oldAnnualFee > 0 || oldMonthlyFee > 0;
           const feesBeingSetNow = newAnnualFee > 0 || newMonthlyFee > 0;
           const isFirstTimeSetup = !feesWerePreviouslySet && feesBeingSetNow;
-          const feesActuallyChanged = (oldAnnualFee !== newAnnualFee) || (oldMonthlyFee !== newMonthlyFee);
+          const feesActuallyChanged =
+            oldAnnualFee !== newAnnualFee || oldMonthlyFee !== newMonthlyFee;
 
           if (feesBeingSetNow && (isFirstTimeSetup || feesActuallyChanged)) {
             if (isFirstTimeSetup || newSettings.auto_charge_generation_enabled) {
-              log(`[Settings] Charges need to be generated - First setup: ${isFirstTimeSetup}, Fees changed: ${feesActuallyChanged}`);
+              log(
+                `[Settings] Charges need to be generated - First setup: ${isFirstTimeSetup}, Fees changed: ${feesActuallyChanged}`,
+              );
               const { checkAndGenerateChargesForAllStudents } = require('./studentFeeHandlers');
               const chargeResult = await checkAndGenerateChargesForAllStudents(newSettings);
               log(`[Settings] Charge result: ${JSON.stringify(chargeResult)}`);
@@ -203,10 +214,14 @@ function registerSettingsHandlers(refreshSettings) {
                 result.message += ' تم توليد الرسوم لجميع الطلاب بنجاح.';
               }
             } else {
-              log('[Settings] Fee values changed but auto-generation disabled - skipping charge regeneration');
+              log(
+                '[Settings] Fee values changed but auto-generation disabled - skipping charge regeneration',
+              );
             }
           } else if (feesBeingSetNow) {
-            log('[Settings] Fees configured but no change detected - no charge regeneration needed');
+            log(
+              '[Settings] Fees configured but no change detected - no charge regeneration needed',
+            );
           } else {
             log('[Settings] No fees configured - skipping charge generation');
           }
@@ -282,7 +297,9 @@ function registerSettingsHandlers(refreshSettings) {
   // Age Groups handlers
   ipcMain.handle('ageGroups:get', async () => {
     try {
-      const results = await db.allQuery('SELECT * FROM age_groups WHERE is_active = 1 ORDER BY min_age ASC');
+      const results = await db.allQuery(
+        'SELECT * FROM age_groups WHERE is_active = 1 ORDER BY min_age ASC',
+      );
       return { success: true, ageGroups: results };
     } catch (error) {
       logError('Error in ageGroups:get IPC handler:', error);
@@ -299,12 +316,15 @@ function registerSettingsHandlers(refreshSettings) {
         name: Joi.string().required().min(1).max(100),
         description: Joi.string().allow('').max(500),
         min_age: Joi.number().integer().min(0).max(100).required(),
-        max_age: Joi.number().integer().allow(null).when('min_age', {
-          is: Joi.number().required(),
-          then: Joi.number().integer().min(Joi.ref('min_age')).max(100)
-        }),
+        max_age: Joi.number()
+          .integer()
+          .allow(null)
+          .when('min_age', {
+            is: Joi.number().required(),
+            then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
+          }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
-        is_active: Joi.boolean().default(true)
+        is_active: Joi.boolean().default(true),
       });
 
       let validatedData;
@@ -318,7 +338,7 @@ function registerSettingsHandlers(refreshSettings) {
 
       const uuid = uuidv4();
       log('[DEBUG] ageGroups:create - Generated UUID:', uuid);
-      
+
       let result;
       try {
         result = await db.runQuery(
@@ -331,8 +351,8 @@ function registerSettingsHandlers(refreshSettings) {
             validatedData.min_age,
             validatedData.max_age || null,
             validatedData.gender,
-            validatedData.is_active ? 1 : 0
-          ]
+            validatedData.is_active ? 1 : 0,
+          ],
         );
         log('[DEBUG] ageGroups:create - Insert result:', JSON.stringify(result));
       } catch (dbError) {
@@ -359,12 +379,15 @@ function registerSettingsHandlers(refreshSettings) {
         name: Joi.string().required().min(1).max(100),
         description: Joi.string().allow('').max(500),
         min_age: Joi.number().integer().min(0).max(100).required(),
-        max_age: Joi.number().integer().allow(null).when('min_age', {
-          is: Joi.number().required(),
-          then: Joi.number().integer().min(Joi.ref('min_age')).max(100)
-        }),
+        max_age: Joi.number()
+          .integer()
+          .allow(null)
+          .when('min_age', {
+            is: Joi.number().required(),
+            then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
+          }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
-        is_active: Joi.boolean().default(true)
+        is_active: Joi.boolean().default(true),
       });
 
       const validatedData = await schema.validateAsync(ageGroupData);
@@ -381,8 +404,8 @@ function registerSettingsHandlers(refreshSettings) {
           validatedData.max_age || null,
           validatedData.gender,
           validatedData.is_active ? 1 : 0,
-          id
-        ]
+          id,
+        ],
       );
 
       return { success: true, message: 'تم تحديث الفئة العمرية بنجاح.' };
@@ -419,12 +442,12 @@ function registerSettingsHandlers(refreshSettings) {
       `;
 
       const genderMap = {
-        'M': 'male_only',
-        'F': 'female_only',
-        'male': 'male_only',
-        'female': 'female_only',
-        'ذكر': 'male_only',
-        'أنثى': 'female_only'
+        M: 'male_only',
+        F: 'female_only',
+        male: 'male_only',
+        female: 'female_only',
+        ذكر: 'male_only',
+        أنثى: 'female_only',
       };
       const mappedGender = genderMap[studentGender] || 'any';
 
@@ -436,64 +459,68 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('ageGroups:validateStudentForClass', async (_event, studentAge, studentGender, classAgeGroupId) => {
-    try {
-      if (!classAgeGroupId) {
-        return { success: false, message: 'معرف فئة الفصل غير محدد' };
-      }
+  ipcMain.handle(
+    'ageGroups:validateStudentForClass',
+    async (_event, studentAge, studentGender, classAgeGroupId) => {
+      try {
+        if (!classAgeGroupId) {
+          return { success: false, message: 'معرف فئة الفصل غير محدد' };
+        }
 
-      if (studentAge === null || studentAge === undefined) {
-        return { success: true, isValid: true, warning: 'عمر الطالب غير محدد، يرجى تحديثه' };
-      }
+        if (studentAge === null || studentAge === undefined) {
+          return { success: true, isValid: true, warning: 'عمر الطالب غير محدد، يرجى تحديثه' };
+        }
 
-      const ageGroup = await db.getQuery(
-        `SELECT id, name, min_age, max_age, gender
+        const ageGroup = await db.getQuery(
+          `SELECT id, name, min_age, max_age, gender
          FROM age_groups
          WHERE id = ? AND is_active = 1`,
-        [classAgeGroupId]
-      );
+          [classAgeGroupId],
+        );
 
-      if (!ageGroup) {
-        return { success: false, message: 'فئة الفصل غير موجودة' };
-      }
+        if (!ageGroup) {
+          return { success: false, message: 'فئة الفصل غير موجودة' };
+        }
 
-      const ageInRange = studentAge >= ageGroup.min_age && 
-                        (ageGroup.max_age === null || studentAge <= ageGroup.max_age);
+        const ageInRange =
+          studentAge >= ageGroup.min_age &&
+          (ageGroup.max_age === null || studentAge <= ageGroup.max_age);
 
-      if (!ageInRange) {
-        return {
-          success: true,
-          isValid: false,
-          message: `عمر الطالب (${studentAge}) خارج نطاق فئة الفصل (${ageGroup.min_age}-${ageGroup.max_age || '+'})`
+        if (!ageInRange) {
+          return {
+            success: true,
+            isValid: false,
+            message: `عمر الطالب (${studentAge}) خارج نطاق فئة الفصل (${ageGroup.min_age}-${ageGroup.max_age || '+'})`,
+          };
+        }
+
+        const genderMap = {
+          M: 'male_only',
+          F: 'female_only',
+          male: 'male_only',
+          female: 'female_only',
+          ذكر: 'male_only',
+          أنثى: 'female_only',
         };
+        const mappedGender = genderMap[studentGender] || 'any';
+
+        const genderCompatible = ageGroup.gender === 'any' || ageGroup.gender === mappedGender;
+
+        if (!genderCompatible) {
+          return {
+            success: true,
+            isValid: false,
+            message: `جنس الطالب (${studentGender}) غير متوافق مع فئة الفصل`,
+          };
+        }
+
+        return { success: true, isValid: true, ageGroup };
+      } catch (error) {
+        logError('Error in ageGroups:validateStudentForClass IPC handler:', error);
+        return { success: false, message: error.message };
       }
-
-      const genderMap = {
-        'M': 'male_only',
-        'F': 'female_only',
-        'male': 'male_only',
-        'female': 'female_only',
-        'ذكر': 'male_only',
-        'أنثى': 'female_only'
-      };
-      const mappedGender = genderMap[studentGender] || 'any';
-
-      const genderCompatible = ageGroup.gender === 'any' || ageGroup.gender === mappedGender;
-
-      if (!genderCompatible) {
-        return {
-          success: true,
-          isValid: false,
-          message: `جنس الطالب (${studentGender}) غير متوافق مع فئة الفصل`
-        };
-      }
-
-      return { success: true, isValid: true, ageGroup };
-    } catch (error) {
-      logError('Error in ageGroups:validateStudentForClass IPC handler:', error);
-      return { success: false, message: error.message };
-    }
-  });
+    },
+  );
 }
 
 module.exports = {

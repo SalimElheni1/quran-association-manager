@@ -17,13 +17,13 @@ const store = new Store();
  */
 async function generateSqlReplaceStatements() {
   const sqlParts = [];
-  
+
   // Add schema first
   sqlParts.push('-- Database Schema');
   sqlParts.push(schema);
   sqlParts.push('');
   sqlParts.push('-- Database Data');
-  
+
   // Get all user-defined tables, excluding the migrations tracking table
   const tables = await allQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'",

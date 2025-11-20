@@ -10,7 +10,6 @@
  *   node scripts/fix-matricule-format.js
  */
 
-const path = require('path');
 const db = require('../src/db/db');
 const { log, error: logError } = require('../src/main/logger');
 
@@ -29,7 +28,7 @@ async function fixMatriculeFormat() {
       { name: 'teachers', prefix: 'T-' },
       { name: 'users', prefix: 'U-' },
       { name: 'groups', prefix: 'G-' },
-      { name: 'inventory_items', prefix: 'INV-' }
+      { name: 'inventory_items', prefix: 'INV-' },
     ];
 
     let totalFixed = 0;
@@ -58,10 +57,10 @@ async function fixMatriculeFormat() {
             const newMatricule = prefix + number.toString().padStart(4, '0');
 
             // Update the record
-            await db.runQuery(
-              `UPDATE ${table.name} SET matricule = ? WHERE id = ?`,
-              [newMatricule, record.id]
-            );
+            await db.runQuery(`UPDATE ${table.name} SET matricule = ? WHERE id = ?`, [
+              newMatricule,
+              record.id,
+            ]);
 
             log(`Fixed: ${record.matricule} → ${newMatricule}`);
             totalFixed++;
@@ -79,7 +78,6 @@ async function fixMatriculeFormat() {
     } else {
       log('ℹ️  All matricules were already in the correct format.');
     }
-
   } catch (error) {
     logError('Error during matricule format fix:', error);
     process.exit(1);

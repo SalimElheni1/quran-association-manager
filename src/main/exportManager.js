@@ -14,17 +14,6 @@ const { getSetting } = require('./settingsManager');
  * @param {string} dob - Date of birth in YYYY-MM-DD format
  * @returns {number|null} Age in years or null if invalid date
  */
-function calculateAge(dob) {
-  if (!dob) return null;
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
 
 // --- Header Data ---
 async function getExportHeaderData() {
@@ -83,7 +72,7 @@ async function fetchExportData({ type, fields, options = {} }) {
     throw new Error('No fields selected for export.');
   }
   // Map logical field keys (from UI) to actual DB columns or expressions per export type
-    function buildFieldSelectionFor(type, fields) {
+  function buildFieldSelectionFor(type, fields) {
     // Comprehensive mapping from UI logical keys to DB columns or SQL expressions.
     // Keep aliases consistent with the SELECT FROM clauses used in fetchExportData.
     const maps = {
@@ -143,7 +132,7 @@ async function fetchExportData({ type, fields, options = {} }) {
         last_name: 'last_name',
         email: 'email',
         phone_number: 'phone_number',
-        role: "role", // role aggregation handled at query-time if needed
+        role: 'role', // role aggregation handled at query-time if needed
         status: 'status',
         notes: 'notes',
       },
@@ -247,7 +236,9 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
 
       if (allowed.length === 0) {
-        throw new Error('No valid student fields available for export after validating against DB columns.');
+        throw new Error(
+          'No valid student fields available for export after validating against DB columns.',
+        );
       }
 
       const fieldSelection = allowed.join(', ');
@@ -277,7 +268,8 @@ async function fetchExportData({ type, fields, options = {} }) {
           omittedT.push(mf);
         }
       }
-      if (omittedT.length > 0) console.warn('Export: omitted non-existing teacher columns:', omittedT.join(', '));
+      if (omittedT.length > 0)
+        console.warn('Export: omitted non-existing teacher columns:', omittedT.join(', '));
       if (allowedT.length === 0) throw new Error('No valid teacher fields available for export.');
       const fieldSelectionT = allowedT.join(', ');
       query = `SELECT ${fieldSelectionT} FROM teachers`;
@@ -313,8 +305,10 @@ async function fetchExportData({ type, fields, options = {} }) {
           omittedU.push(mf);
         }
       }
-      if (omittedU.length > 0) console.warn('Export: omitted non-existing user columns:', omittedU.join(', '));
-      if (allowedU.length === 0) throw new Error('No valid user/admin fields available for export.');
+      if (omittedU.length > 0)
+        console.warn('Export: omitted non-existing user columns:', omittedU.join(', '));
+      if (allowedU.length === 0)
+        throw new Error('No valid user/admin fields available for export.');
       const fieldSelectionU = allowedU.join(', ');
       query = `SELECT ${fieldSelectionU} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
       return allQuery(query, params);
@@ -372,7 +366,9 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
 
       if (allowed.length === 0) {
-        throw new Error('No valid class fields available for export after validating against DB columns.');
+        throw new Error(
+          'No valid class fields available for export after validating against DB columns.',
+        );
       }
 
       const fieldSelection = allowed.join(', ');
@@ -409,7 +405,9 @@ async function fetchExportData({ type, fields, options = {} }) {
       }
 
       if (allowed.length === 0) {
-        throw new Error('No valid inventory fields available for export after validating against DB columns.');
+        throw new Error(
+          'No valid inventory fields available for export after validating against DB columns.',
+        );
       }
 
       const fieldSelection = allowed.join(', ');
@@ -428,7 +426,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       let hasClassIdColumn = false;
       try {
         const columns = await allQuery(`PRAGMA table_info(student_payments)`, []);
-        hasClassIdColumn = columns.some(col => col.name === 'class_id');
+        hasClassIdColumn = columns.some((col) => col.name === 'class_id');
       } catch (e) {
         // If we can't check, assume it doesn't exist
         hasClassIdColumn = false;
@@ -442,7 +440,9 @@ async function fetchExportData({ type, fields, options = {} }) {
         payment_date: 'sp.payment_date',
         payment_method: 'sp.payment_method',
         payment_type: 'sp.payment_type',
-        class_matricule: hasClassIdColumn ? 'sp.class_id as class_matricule' : 'NULL as class_matricule',
+        class_matricule: hasClassIdColumn
+          ? 'sp.class_id as class_matricule'
+          : 'NULL as class_matricule',
         academic_year: 'sp.academic_year',
         receipt_number: 'sp.receipt_number',
         check_number: 'sp.check_number',
@@ -519,8 +519,6 @@ function localizeData(data) {
     Qiraat: 'قراءات',
     Memorization: 'حفظ',
     Hifdh: 'حفظ',
-    Tajweed: 'تجويد',
-    Hifdh: 'حفظ',
     'Islamic Studies': 'دراسات إسلامية',
     'Islamic Education': 'تربية إسلامية',
     Fiqh: 'فقه',
@@ -530,18 +528,13 @@ function localizeData(data) {
   };
   const roleMap = {
     'Branch Admin': 'مدير فرع',
-    'Superadmin': 'مدير عام',
-    'FinanceManager': 'مدير مالي',
-    'SessionSupervisor': 'مشرف جلسات',
-    // Handle database role values
+    Superadmin: 'مدير عام',
     FinanceManager: 'مدير مالي',
     SessionSupervisor: 'مشرف جلسات',
     BranchManager: 'مدير فرع',
     Admin: 'مدير',
   };
-  const memorizationLevelMap = {
-    // Convert various memorization formats to Arabic
-  };
+
   const paymentMethodMap = {
     Cash: 'نقداً',
     'Bank Transfer': 'تحويل بنكي',
@@ -1523,7 +1516,10 @@ async function generateExcelTemplate(outputPath, options = {}) {
   }
 
   const sheetsToGenerate = singleSheetName
-    ? sheets.filter((s) => s.name === singleSheetName || s.name === 'المعلمون' && singleSheetName === 'المعلمين')
+    ? sheets.filter(
+        (s) =>
+          s.name === singleSheetName || (s.name === 'المعلمون' && singleSheetName === 'المعلمين'),
+      )
     : sheets;
 
   if (sheetsToGenerate.length === 0) {
@@ -1560,14 +1556,16 @@ async function generateExcelTemplate(outputPath, options = {}) {
     if (sheetInfo.dummyData && importType && sheetInfo.name === 'العمليات المالية') {
       if (importType === 'المداخيل') {
         // Show only income examples (مدخول)
-        dummyDataToAdd = sheetInfo.dummyData.filter(item => item.type === 'مدخول');
+        dummyDataToAdd = sheetInfo.dummyData.filter((item) => item.type === 'مدخول');
       } else if (importType === 'المصاريف') {
         // Show only expense examples (مصروف)
-        dummyDataToAdd = sheetInfo.dummyData.filter(item => item.type === 'مصروف');
+        dummyDataToAdd = sheetInfo.dummyData.filter((item) => item.type === 'مصروف');
       } else if (importType === 'رسوم الطلاب') {
         // For student fees, show a mix of payment-related examples or create specific ones
-        dummyDataToAdd = sheetInfo.dummyData.filter(item =>
-          item.related_person_name && (item.type === 'مدخول' || item.description.includes('رسوم'))
+        dummyDataToAdd = sheetInfo.dummyData.filter(
+          (item) =>
+            item.related_person_name &&
+            (item.type === 'مدخول' || item.description.includes('رسوم')),
         );
       }
     }

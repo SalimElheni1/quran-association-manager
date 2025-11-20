@@ -6,6 +6,48 @@ const {
 const db = require('../src/db/db');
 const { generateMatricule } = require('../src/main/services/matriculeService');
 
+jest.mock('electron', () => ({
+  app: {
+    getPath: jest.fn().mockReturnValue('/mock/path'),
+    relaunch: jest.fn(),
+    quit: jest.fn(),
+    on: jest.fn(),
+    whenReady: jest.fn().mockResolvedValue(),
+    isPackaged: true,
+  },
+  BrowserWindow: Object.assign(
+    jest.fn(() => ({
+      loadFile: jest.fn().mockResolvedValue(),
+      webContents: {
+        printToPDF: jest.fn().mockResolvedValue(Buffer.from('pdf-data')),
+        send: jest.fn(),
+        on: jest.fn(),
+      },
+      close: jest.fn(),
+    })),
+    { getAllWindows: jest.fn().mockReturnValue([]) },
+  ),
+  ipcMain: {
+    handlers: new Map(),
+    on: jest.fn(),
+    handle: jest.fn(function (channel, listener) {
+      this.handlers.set(channel, listener);
+    }),
+    invoke: jest.fn(async function (channel, ...args) {
+      const handler = this.handlers.get(channel);
+      if (handler) {
+        const mockEvent = {
+          sender: {
+            executeJavaScript: jest.fn().mockResolvedValue('mock-jwt-token'),
+          },
+        };
+        return await handler(mockEvent, ...args);
+      }
+      throw new Error(`No handler registered for channel '${channel}'`);
+    }),
+  },
+}));
+
 jest.mock('../src/db/db');
 jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/logger');
@@ -33,7 +75,8 @@ describe('Inventory Handlers', () => {
       const result = await ipcMain.invoke('inventory:get');
 
       expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT * FROM inventory_items ORDER BY item_name ASC',
+        'SELECT * FROM inventory_items WHERE 1=1 ORDER BY item_name ASC',
+        [],
       );
       expect(result).toEqual(mockItems);
     });

@@ -11,9 +11,9 @@ import { Card, Col } from 'react-bootstrap';
 function SummaryCard({ title, value, variant = 'primary', suffix = 'د.ت' }) {
   const formatValue = (val) => {
     if (val === null || val === undefined) return '...';
-    return new Intl.NumberFormat('ar-TN', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+    return new Intl.NumberFormat('ar-TN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(val);
   };
 

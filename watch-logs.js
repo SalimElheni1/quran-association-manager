@@ -2,12 +2,12 @@
 
 /**
  * Real-time Log Watcher for Manual Testing
- * 
+ *
  * Usage:
  *   node watch-logs.js          # Watch logs in real-time
  *   node watch-logs.js --clear  # Clear logs before starting
  *   node watch-logs.js --filter [KEYWORD]  # Filter logs by keyword (e.g., ChargeRegen, Enrollment)
- * 
+ *
  * Example filters:
  *   node watch-logs.js --filter ChargeRegen
  *   node watch-logs.js --filter Enrollment
@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { app } = require('electron');
+
 const os = require('os');
 
 // Determine log file location
@@ -48,13 +48,14 @@ const formatLog = (line) => {
   // Extract timestamp and content
   const match = line.match(/\[(.*?)\]\s+\[(.*?)\]\s+(.*)/);
   if (match) {
-    const [, timestamp, level, content] = match;
-    const levelColor = {
-      LOG: '\x1b[36m',   // Cyan
-      WARN: '\x1b[33m',  // Yellow
-      ERROR: '\x1b[31m', // Red
-    }[level] || '\x1b[0m';
-    
+    const [, , level, content] = match;
+    const levelColor =
+      {
+        LOG: '\x1b[36m', // Cyan
+        WARN: '\x1b[33m', // Yellow
+        ERROR: '\x1b[31m', // Red
+      }[level] || '\x1b[0m';
+
     const reset = '\x1b[0m';
     return `${levelColor}[${level}]${reset} ${content}`;
   }
@@ -73,10 +74,10 @@ console.log('──────────────────────�
 
 if (fs.existsSync(logFilePath)) {
   const content = fs.readFileSync(logFilePath, 'utf-8');
-  const lines = content.split('\n').filter(l => l.trim());
+  const lines = content.split('\n').filter((l) => l.trim());
   const lastLines = lines.slice(-30);
-  
-  lastLines.forEach(line => {
+
+  lastLines.forEach((line) => {
     if (matchesFilter(line)) {
       const formatted = formatLog(line);
       if (formatted) console.log(formatted);
@@ -103,20 +104,19 @@ const interval = setInterval(() => {
     const stat = fs.statSync(logFilePath);
     if (stat.size > lastPosition) {
       const content = fs.readFileSync(logFilePath, 'utf-8');
-      const allLines = content.split('\n');
-      
+
       // Calculate which lines are new
       let newContent = content.substring(lastPosition);
-      let newLines = newContent.split('\n').filter(l => l.trim());
-      
+      let newLines = newContent.split('\n').filter((l) => l.trim());
+
       // Display new lines
-      newLines.forEach(line => {
+      newLines.forEach((line) => {
         if (line.trim() && matchesFilter(line)) {
           const formatted = formatLog(line);
           if (formatted) console.log(formatted);
         }
       });
-      
+
       lastPosition = stat.size;
     }
   }

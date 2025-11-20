@@ -59,7 +59,7 @@ function registerGroupHandlers() {
       let groups = await allQuery(query, params);
 
       // Apply translations to category
-      groups = groups.map(group => ({
+      groups = groups.map((group) => ({
         ...group,
         category: mapCategory(group.category),
       }));
@@ -211,9 +211,9 @@ function registerGroupHandlers() {
       }
 
       const categoryToAgeGroup = {
-        'Men': { gender: 'male_only', minAge: 18 },
-        'Women': { gender: 'female_only', minAge: 18 },
-        'Kids': { gender: 'any', maxAge: 17 }
+        Men: { gender: 'male_only', minAge: 18 },
+        Women: { gender: 'female_only', minAge: 18 },
+        Kids: { gender: 'any', maxAge: 17 },
       };
 
       const criteria = categoryToAgeGroup[group.category];
@@ -232,7 +232,7 @@ function registerGroupHandlers() {
 
       let students = await allQuery(sql, params);
 
-      students = students.filter(student => {
+      students = students.filter((student) => {
         const age = calculateAge(student.date_of_birth);
         if (age === null) return false;
 
@@ -324,9 +324,9 @@ function registerGroupHandlers() {
   ipcMain.handle('groups:getEligibleStudentsForGroup', async (event, groupCategory) => {
     try {
       const categoryToAgeGroup = {
-        'Men': { gender: 'male_only', minAge: 18 },
-        'Women': { gender: 'female_only', minAge: 18 },
-        'Kids': { gender: 'any', maxAge: 17 }
+        Men: { gender: 'male_only', minAge: 18 },
+        Women: { gender: 'female_only', minAge: 18 },
+        Kids: { gender: 'any', maxAge: 17 },
       };
 
       const criteria = categoryToAgeGroup[groupCategory];
@@ -342,7 +342,7 @@ function registerGroupHandlers() {
 
       let students = await allQuery(sql);
 
-      students = students.filter(student => {
+      students = students.filter((student) => {
         const age = calculateAge(student.date_of_birth);
         if (age === null) return false;
 

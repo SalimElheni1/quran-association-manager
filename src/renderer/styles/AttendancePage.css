@@ -22,20 +22,20 @@
 }
 
 /* Fix Bootstrap ButtonGroup RTL border-radius */
-[dir="rtl"] .btn-group > .btn:first-child:not(:last-child) {
+[dir='rtl'] .btn-group > .btn:first-child:not(:last-child) {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-top-right-radius: var(--bs-btn-border-radius);
   border-bottom-right-radius: var(--bs-btn-border-radius);
 }
 
-[dir="rtl"] .btn-group > .btn:last-child:not(:first-child) {
+[dir='rtl'] .btn-group > .btn:last-child:not(:first-child) {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   border-top-left-radius: var(--bs-btn-border-radius);
   border-bottom-left-radius: var(--bs-btn-border-radius);
 }
 
-[dir="rtl"] .btn-group > .btn:not(:first-child):not(:last-child) {
+[dir='rtl'] .btn-group > .btn:not(:first-child):not(:last-child) {
   border-radius: 0;
 }

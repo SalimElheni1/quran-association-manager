@@ -13,7 +13,7 @@ const getQuery = jest.fn((sql, params) => {
   return Promise.resolve(null);
 });
 
-const allQuery = jest.fn((sql, _params) => {
+const allQuery = jest.fn((sql) => {
   // Mock the role lookup for the auth middleware
   if (sql.includes('SELECT r.name FROM roles r JOIN user_roles ur')) {
     return Promise.resolve(mockAdminRoles);

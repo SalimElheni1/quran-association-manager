@@ -68,7 +68,11 @@ const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 const backupManager = require('./backupManager');
-const { startScheduler: startFeeChargeScheduler, stopScheduler: stopFeeChargeScheduler, onAppStartup: onFeeChargeStartup } = require('./feeChargeScheduler');
+const {
+  startScheduler: startFeeChargeScheduler,
+  stopScheduler: stopFeeChargeScheduler,
+  onAppStartup: onFeeChargeStartup,
+} = require('./feeChargeScheduler');
 
 const store = new Store();
 let initialCredentials = null;
@@ -132,7 +136,7 @@ const initializeApp = async () => {
     log('APPLICATION STARTED');
     log(`Time: ${new Date().toISOString()}`);
     log('═══════════════════════════════════════════════════════════════════════════');
-    
+
     // =================================================================================
     // JWT SECRET MANAGEMENT
     // =================================================================================
@@ -182,7 +186,7 @@ const initializeApp = async () => {
            (1, 'أطفال (6-11)', 6, 11, 'all', datetime('now')),
            (2, 'مراهقون (12-17)', 12, 17, 'all', datetime('now')),
            (3, 'رجال (18+)', 18, 150, 'male', datetime('now')),
-           (4, 'نساء (18+)', 18, 150, 'female', datetime('now'))`
+           (4, 'نساء (18+)', 18, 150, 'female', datetime('now'))`,
         );
         log('Default age groups initialized successfully.');
       }
@@ -358,17 +362,17 @@ const initializeApp = async () => {
     registerFinancialHandlers();
     registerStudentFeeHandlers();
     registerFinancialWordExportHandlers();
-    
+
     // Cash ledger export
     ipcMain.handle(
       'financial-export:cash-ledger',
-      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateCashLedgerReport)
+      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateCashLedgerReport),
     );
-    
+
     // Inventory ledger export
     ipcMain.handle(
       'financial-export:inventory-ledger',
-      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateInventoryLedger)
+      requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(generateInventoryLedger),
     );
     registerStudentHandlers();
     registerTeacherHandlers();

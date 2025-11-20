@@ -3,8 +3,18 @@ import { Card, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
 
 const ARABIC_MONTHS = [
-  'جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان',
-  'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+  'جانفي',
+  'فيفري',
+  'مارس',
+  'أفريل',
+  'ماي',
+  'جوان',
+  'جويلية',
+  'أوت',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
 ];
 
 function FinancialReportsTab() {
@@ -34,7 +44,11 @@ function FinancialReportsTab() {
     const currentYear = new Date().getFullYear();
     const years = [];
     for (let i = currentYear; i >= currentYear - 10; i--) {
-      years.push(<option key={i} value={i}>{i}</option>);
+      years.push(
+        <option key={i} value={i}>
+          {i}
+        </option>,
+      );
     }
     return years;
   };
@@ -43,15 +57,17 @@ function FinancialReportsTab() {
     if (wordFilterType === 'month') {
       return {
         startDate: new Date(wordYear, wordMonth, 1).toISOString().split('T')[0],
-        endDate: new Date(wordYear, wordMonth + 1, 0).toISOString().split('T')[0]
+        endDate: new Date(wordYear, wordMonth + 1, 0).toISOString().split('T')[0],
       };
     } else if (wordFilterType === 'year') {
       return {
         startDate: new Date(wordYear, 0, 1).toISOString().split('T')[0],
-        endDate: new Date(wordYear, 11, 31).toISOString().split('T')[0]
+        endDate: new Date(wordYear, 11, 31).toISOString().split('T')[0],
       };
     } else if (wordFilterType === 'custom') {
-      return wordStartDate && wordEndDate ? { startDate: wordStartDate, endDate: wordEndDate } : null;
+      return wordStartDate && wordEndDate
+        ? { startDate: wordStartDate, endDate: wordEndDate }
+        : null;
     }
   };
 
@@ -59,15 +75,17 @@ function FinancialReportsTab() {
     if (ledgerFilterType === 'month') {
       return {
         startDate: new Date(ledgerYear, ledgerMonth, 1).toISOString().split('T')[0],
-        endDate: new Date(ledgerYear, ledgerMonth + 1, 0).toISOString().split('T')[0]
+        endDate: new Date(ledgerYear, ledgerMonth + 1, 0).toISOString().split('T')[0],
       };
     } else if (ledgerFilterType === 'year') {
       return {
         startDate: new Date(ledgerYear, 0, 1).toISOString().split('T')[0],
-        endDate: new Date(ledgerYear, 11, 31).toISOString().split('T')[0]
+        endDate: new Date(ledgerYear, 11, 31).toISOString().split('T')[0],
       };
     } else if (ledgerFilterType === 'custom') {
-      return ledgerStartDate && ledgerEndDate ? { startDate: ledgerStartDate, endDate: ledgerEndDate } : null;
+      return ledgerStartDate && ledgerEndDate
+        ? { startDate: ledgerStartDate, endDate: ledgerEndDate }
+        : null;
     }
   };
 
@@ -174,7 +192,10 @@ function FinancialReportsTab() {
                   <Col md={3}>
                     <Form.Group>
                       <Form.Label>نوع الفترة</Form.Label>
-                      <Form.Select value={wordFilterType} onChange={(e) => setWordFilterType(e.target.value)}>
+                      <Form.Select
+                        value={wordFilterType}
+                        onChange={(e) => setWordFilterType(e.target.value)}
+                      >
                         <option value="month">شهر معين</option>
                         <option value="year">سنة معينة</option>
                         <option value="custom">فترة مخصصة</option>
@@ -187,15 +208,25 @@ function FinancialReportsTab() {
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>اختر الشهر</Form.Label>
-                          <Form.Select value={wordMonth} onChange={(e) => setWordMonth(parseInt(e.target.value))}>
-                            {ARABIC_MONTHS.map((m, i) => (<option key={i} value={i}>{m}</option>))}
+                          <Form.Select
+                            value={wordMonth}
+                            onChange={(e) => setWordMonth(parseInt(e.target.value))}
+                          >
+                            {ARABIC_MONTHS.map((m, i) => (
+                              <option key={i} value={i}>
+                                {m}
+                              </option>
+                            ))}
                           </Form.Select>
                         </Form.Group>
                       </Col>
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select value={wordYear} onChange={(e) => setWordYear(parseInt(e.target.value))}>
+                          <Form.Select
+                            value={wordYear}
+                            onChange={(e) => setWordYear(parseInt(e.target.value))}
+                          >
                             {renderYearOptions()}
                           </Form.Select>
                         </Form.Group>
@@ -207,7 +238,10 @@ function FinancialReportsTab() {
                     <Col md={3}>
                       <Form.Group>
                         <Form.Label>اختر السنة</Form.Label>
-                        <Form.Select value={wordYear} onChange={(e) => setWordYear(parseInt(e.target.value))}>
+                        <Form.Select
+                          value={wordYear}
+                          onChange={(e) => setWordYear(parseInt(e.target.value))}
+                        >
                           {renderYearOptions()}
                         </Form.Select>
                       </Form.Group>
@@ -219,25 +253,41 @@ function FinancialReportsTab() {
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>من تاريخ</Form.Label>
-                          <Form.Control type="date" value={wordStartDate} onChange={(e) => setWordStartDate(e.target.value)} />
+                          <Form.Control
+                            type="date"
+                            value={wordStartDate}
+                            onChange={(e) => setWordStartDate(e.target.value)}
+                          />
                         </Form.Group>
                       </Col>
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>إلى تاريخ</Form.Label>
-                          <Form.Control type="date" value={wordEndDate} onChange={(e) => setWordEndDate(e.target.value)} />
+                          <Form.Control
+                            type="date"
+                            value={wordEndDate}
+                            onChange={(e) => setWordEndDate(e.target.value)}
+                          />
                         </Form.Group>
                       </Col>
                     </>
                   )}
                 </Row>
 
-                <Button variant="primary" onClick={handleExportFinancialReport} disabled={wordLoading}>
+                <Button
+                  variant="primary"
+                  onClick={handleExportFinancialReport}
+                  disabled={wordLoading}
+                >
                   {wordLoading ? '⏳ جاري التصدير...' : '📥 تصدير التقرير المالي (Word)'}
                 </Button>
               </Form>
 
-              {wordMessage.text && (<Alert variant={wordMessage.type} className="mt-3">{wordMessage.text}</Alert>)}
+              {wordMessage.text && (
+                <Alert variant={wordMessage.type} className="mt-3">
+                  {wordMessage.text}
+                </Alert>
+              )}
             </Card.Body>
           </Card>
 
@@ -247,7 +297,8 @@ function FinancialReportsTab() {
             </Card.Header>
             <Card.Body>
               <p className="small text-muted">
-                سجل محاسبي شهري مفصل يتضمن: الرصيد الافتتاحي، جميع العمليات، والرصيد النهائي بصيغة Excel.
+                سجل محاسبي شهري مفصل يتضمن: الرصيد الافتتاحي، جميع العمليات، والرصيد النهائي بصيغة
+                Excel.
               </p>
 
               <Form>
@@ -255,7 +306,10 @@ function FinancialReportsTab() {
                   <Col md={3}>
                     <Form.Group>
                       <Form.Label>نوع الفترة</Form.Label>
-                      <Form.Select value={ledgerFilterType} onChange={(e) => setLedgerFilterType(e.target.value)}>
+                      <Form.Select
+                        value={ledgerFilterType}
+                        onChange={(e) => setLedgerFilterType(e.target.value)}
+                      >
                         <option value="month">شهر معين</option>
                         <option value="year">سنة معينة</option>
                         <option value="custom">فترة مخصصة</option>
@@ -268,15 +322,25 @@ function FinancialReportsTab() {
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>اختر الشهر</Form.Label>
-                          <Form.Select value={ledgerMonth} onChange={(e) => setLedgerMonth(parseInt(e.target.value))}>
-                            {ARABIC_MONTHS.map((m, i) => (<option key={i} value={i}>{m}</option>))}
+                          <Form.Select
+                            value={ledgerMonth}
+                            onChange={(e) => setLedgerMonth(parseInt(e.target.value))}
+                          >
+                            {ARABIC_MONTHS.map((m, i) => (
+                              <option key={i} value={i}>
+                                {m}
+                              </option>
+                            ))}
                           </Form.Select>
                         </Form.Group>
                       </Col>
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select value={ledgerYear} onChange={(e) => setLedgerYear(parseInt(e.target.value))}>
+                          <Form.Select
+                            value={ledgerYear}
+                            onChange={(e) => setLedgerYear(parseInt(e.target.value))}
+                          >
                             {renderYearOptions()}
                           </Form.Select>
                         </Form.Group>
@@ -288,7 +352,10 @@ function FinancialReportsTab() {
                     <Col md={3}>
                       <Form.Group>
                         <Form.Label>اختر السنة</Form.Label>
-                        <Form.Select value={ledgerYear} onChange={(e) => setLedgerYear(parseInt(e.target.value))}>
+                        <Form.Select
+                          value={ledgerYear}
+                          onChange={(e) => setLedgerYear(parseInt(e.target.value))}
+                        >
                           {renderYearOptions()}
                         </Form.Select>
                       </Form.Group>
@@ -300,13 +367,21 @@ function FinancialReportsTab() {
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>من تاريخ</Form.Label>
-                          <Form.Control type="date" value={ledgerStartDate} onChange={(e) => setLedgerStartDate(e.target.value)} />
+                          <Form.Control
+                            type="date"
+                            value={ledgerStartDate}
+                            onChange={(e) => setLedgerStartDate(e.target.value)}
+                          />
                         </Form.Group>
                       </Col>
                       <Col md={3}>
                         <Form.Group>
                           <Form.Label>إلى تاريخ</Form.Label>
-                          <Form.Control type="date" value={ledgerEndDate} onChange={(e) => setLedgerEndDate(e.target.value)} />
+                          <Form.Control
+                            type="date"
+                            value={ledgerEndDate}
+                            onChange={(e) => setLedgerEndDate(e.target.value)}
+                          />
                         </Form.Group>
                       </Col>
                     </>
@@ -318,7 +393,11 @@ function FinancialReportsTab() {
                 </Button>
               </Form>
 
-              {ledgerMessage.text && (<Alert variant={ledgerMessage.type} className="mt-3">{ledgerMessage.text}</Alert>)}
+              {ledgerMessage.text && (
+                <Alert variant={ledgerMessage.type} className="mt-3">
+                  {ledgerMessage.text}
+                </Alert>
+              )}
             </Card.Body>
           </Card>
 
@@ -327,9 +406,7 @@ function FinancialReportsTab() {
               <h5 className="mb-0">📦 سجل الجرد</h5>
             </Card.Header>
             <Card.Body>
-              <p className="small text-muted">
-                سجل الأصول الملموسة مجمعة حسب الفئة بصيغة Excel.
-              </p>
+              <p className="small text-muted">سجل الأصول الملموسة مجمعة حسب الفئة بصيغة Excel.</p>
 
               <Button
                 variant="info"
@@ -339,7 +416,11 @@ function FinancialReportsTab() {
                 {inventoryLoading ? '⏳ جاري التصدير...' : '📊 تصدير سجل الجرد (Excel)'}
               </Button>
 
-              {inventoryMessage.text && (<Alert variant={inventoryMessage.type} className="mt-3">{inventoryMessage.text}</Alert>)}
+              {inventoryMessage.text && (
+                <Alert variant={inventoryMessage.type} className="mt-3">
+                  {inventoryMessage.text}
+                </Alert>
+              )}
             </Card.Body>
           </Card>
         </Card.Body>

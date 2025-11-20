@@ -13,7 +13,9 @@ async function fixLogoPath() {
     console.log('Checking current national_logo_path setting...');
 
     // Get current setting
-    const result = await db.getQuery('SELECT value FROM settings WHERE key = ?', ['national_logo_path']);
+    const result = await db.getQuery('SELECT value FROM settings WHERE key = ?', [
+      'national_logo_path',
+    ]);
     const currentPath = result?.value;
 
     console.log('Current logo path:', currentPath);
@@ -24,9 +26,11 @@ async function fixLogoPath() {
     }
 
     // Update to correct path
-    await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['national_logo_path', 'assets/logos/icon.png']);
+    await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
+      'national_logo_path',
+      'assets/logos/icon.png',
+    ]);
     console.log('Updated logo path to: assets/logos/icon.png');
-
   } catch (error) {
     console.error('Error fixing logo path:', error);
   } finally {

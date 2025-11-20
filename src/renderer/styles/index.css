@@ -26,60 +26,132 @@ body {
    ======================================== */
 
 /* Fix spacing utilities in RTL - Bootstrap doesn't auto-flip these */
-[dir="rtl"] .me-1 { margin-left: 0.25rem !important; margin-right: 0 !important; }
-[dir="rtl"] .me-2 { margin-left: 0.5rem !important; margin-right: 0 !important; }
-[dir="rtl"] .me-3 { margin-left: 1rem !important; margin-right: 0 !important; }
-[dir="rtl"] .me-4 { margin-left: 1.5rem !important; margin-right: 0 !important; }
-[dir="rtl"] .me-5 { margin-left: 3rem !important; margin-right: 0 !important; }
-[dir="rtl"] .me-auto { margin-left: auto !important; margin-right: 0 !important; }
+[dir='rtl'] .me-1 {
+  margin-left: 0.25rem !important;
+  margin-right: 0 !important;
+}
+[dir='rtl'] .me-2 {
+  margin-left: 0.5rem !important;
+  margin-right: 0 !important;
+}
+[dir='rtl'] .me-3 {
+  margin-left: 1rem !important;
+  margin-right: 0 !important;
+}
+[dir='rtl'] .me-4 {
+  margin-left: 1.5rem !important;
+  margin-right: 0 !important;
+}
+[dir='rtl'] .me-5 {
+  margin-left: 3rem !important;
+  margin-right: 0 !important;
+}
+[dir='rtl'] .me-auto {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
 
-[dir="rtl"] .ms-1 { margin-right: 0.25rem !important; margin-left: 0 !important; }
-[dir="rtl"] .ms-2 { margin-right: 0.5rem !important; margin-left: 0 !important; }
-[dir="rtl"] .ms-3 { margin-right: 1rem !important; margin-left: 0 !important; }
-[dir="rtl"] .ms-4 { margin-right: 1.5rem !important; margin-left: 0 !important; }
-[dir="rtl"] .ms-5 { margin-right: 3rem !important; margin-left: 0 !important; }
-[dir="rtl"] .ms-auto { margin-right: auto !important; margin-left: 0 !important; }
+[dir='rtl'] .ms-1 {
+  margin-right: 0.25rem !important;
+  margin-left: 0 !important;
+}
+[dir='rtl'] .ms-2 {
+  margin-right: 0.5rem !important;
+  margin-left: 0 !important;
+}
+[dir='rtl'] .ms-3 {
+  margin-right: 1rem !important;
+  margin-left: 0 !important;
+}
+[dir='rtl'] .ms-4 {
+  margin-right: 1.5rem !important;
+  margin-left: 0 !important;
+}
+[dir='rtl'] .ms-5 {
+  margin-right: 3rem !important;
+  margin-left: 0 !important;
+}
+[dir='rtl'] .ms-auto {
+  margin-right: auto !important;
+  margin-left: 0 !important;
+}
 
-[dir="rtl"] .pe-1 { padding-left: 0.25rem !important; padding-right: 0 !important; }
-[dir="rtl"] .pe-2 { padding-left: 0.5rem !important; padding-right: 0 !important; }
-[dir="rtl"] .pe-3 { padding-left: 1rem !important; padding-right: 0 !important; }
-[dir="rtl"] .pe-4 { padding-left: 1.5rem !important; padding-right: 0 !important; }
-[dir="rtl"] .pe-5 { padding-left: 3rem !important; padding-right: 0 !important; }
+[dir='rtl'] .pe-1 {
+  padding-left: 0.25rem !important;
+  padding-right: 0 !important;
+}
+[dir='rtl'] .pe-2 {
+  padding-left: 0.5rem !important;
+  padding-right: 0 !important;
+}
+[dir='rtl'] .pe-3 {
+  padding-left: 1rem !important;
+  padding-right: 0 !important;
+}
+[dir='rtl'] .pe-4 {
+  padding-left: 1.5rem !important;
+  padding-right: 0 !important;
+}
+[dir='rtl'] .pe-5 {
+  padding-left: 3rem !important;
+  padding-right: 0 !important;
+}
 
-[dir="rtl"] .ps-1 { padding-right: 0.25rem !important; padding-left: 0 !important; }
-[dir="rtl"] .ps-2 { padding-right: 0.5rem !important; padding-left: 0 !important; }
-[dir="rtl"] .ps-3 { padding-right: 1rem !important; padding-left: 0 !important; }
-[dir="rtl"] .ps-4 { padding-right: 1.5rem !important; padding-left: 0 !important; }
-[dir="rtl"] .ps-5 { padding-right: 3rem !important; padding-left: 0 !important; }
+[dir='rtl'] .ps-1 {
+  padding-right: 0.25rem !important;
+  padding-left: 0 !important;
+}
+[dir='rtl'] .ps-2 {
+  padding-right: 0.5rem !important;
+  padding-left: 0 !important;
+}
+[dir='rtl'] .ps-3 {
+  padding-right: 1rem !important;
+  padding-left: 0 !important;
+}
+[dir='rtl'] .ps-4 {
+  padding-right: 1.5rem !important;
+  padding-left: 0 !important;
+}
+[dir='rtl'] .ps-5 {
+  padding-right: 3rem !important;
+  padding-left: 0 !important;
+}
 
 /* Fix ButtonGroup border-radius in RTL */
-[dir="rtl"] .btn-group > .btn:first-child:not(:last-child) {
+[dir='rtl'] .btn-group > .btn:first-child:not(:last-child) {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-top-right-radius: var(--bs-btn-border-radius);
   border-bottom-right-radius: var(--bs-btn-border-radius);
 }
 
-[dir="rtl"] .btn-group > .btn:last-child:not(:first-child) {
+[dir='rtl'] .btn-group > .btn:last-child:not(:first-child) {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   border-top-left-radius: var(--bs-btn-border-radius);
   border-bottom-left-radius: var(--bs-btn-border-radius);
 }
 
-[dir="rtl"] .btn-group > .btn:not(:first-child):not(:last-child) {
+[dir='rtl'] .btn-group > .btn:not(:first-child):not(:last-child) {
   border-radius: 0;
 }
 
 /* Fix Input Group border-radius in RTL */
-[dir="rtl"] .input-group > :not(:last-child):not(.dropdown-toggle):not(.dropdown-menu):not(.form-floating) {
+[dir='rtl']
+  .input-group
+  > :not(:last-child):not(.dropdown-toggle):not(.dropdown-menu):not(.form-floating) {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-top-right-radius: var(--bs-border-radius);
   border-bottom-right-radius: var(--bs-border-radius);
 }
 
-[dir="rtl"] .input-group > :not(:first-child):not(.dropdown-menu):not(.valid-tooltip):not(.valid-feedback):not(.invalid-tooltip):not(.invalid-feedback) {
+[dir='rtl']
+  .input-group
+  > :not(:first-child):not(.dropdown-menu):not(.valid-tooltip):not(.valid-feedback):not(
+    .invalid-tooltip
+  ):not(.invalid-feedback) {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   border-top-left-radius: var(--bs-border-radius);
@@ -87,42 +159,101 @@ body {
 }
 
 /* Fix text alignment utilities in RTL */
-[dir="rtl"] .text-start { text-align: right !important; }
-[dir="rtl"] .text-end { text-align: left !important; }
+[dir='rtl'] .text-start {
+  text-align: right !important;
+}
+[dir='rtl'] .text-end {
+  text-align: left !important;
+}
 
 /* Fix float utilities in RTL */
-[dir="rtl"] .float-start { float: right !important; }
-[dir="rtl"] .float-end { float: left !important; }
+[dir='rtl'] .float-start {
+  float: right !important;
+}
+[dir='rtl'] .float-end {
+  float: left !important;
+}
 
 /* Fix border utilities in RTL */
-[dir="rtl"] .border-start { border-left: 0 !important; border-right: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color) !important; }
-[dir="rtl"] .border-end { border-right: 0 !important; border-left: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color) !important; }
-[dir="rtl"] .border-start-0 { border-right: 0 !important; }
-[dir="rtl"] .border-end-0 { border-left: 0 !important; }
+[dir='rtl'] .border-start {
+  border-left: 0 !important;
+  border-right: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color) !important;
+}
+[dir='rtl'] .border-end {
+  border-right: 0 !important;
+  border-left: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color) !important;
+}
+[dir='rtl'] .border-start-0 {
+  border-right: 0 !important;
+}
+[dir='rtl'] .border-end-0 {
+  border-left: 0 !important;
+}
 
 /* Fix rounded utilities in RTL */
-[dir="rtl"] .rounded-start { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-top-right-radius: var(--bs-border-radius) !important; border-bottom-right-radius: var(--bs-border-radius) !important; }
-[dir="rtl"] .rounded-end { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-top-left-radius: var(--bs-border-radius) !important; border-bottom-left-radius: var(--bs-border-radius) !important; }
+[dir='rtl'] .rounded-start {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-top-right-radius: var(--bs-border-radius) !important;
+  border-bottom-right-radius: var(--bs-border-radius) !important;
+}
+[dir='rtl'] .rounded-end {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-top-left-radius: var(--bs-border-radius) !important;
+  border-bottom-left-radius: var(--bs-border-radius) !important;
+}
 
 /* Fix dropdown menu positioning in RTL */
-[dir="rtl"] .dropdown-menu { text-align: right; }
-[dir="rtl"] .dropdown-menu-start { right: 0; left: auto; }
-[dir="rtl"] .dropdown-menu-end { left: 0; right: auto; }
+[dir='rtl'] .dropdown-menu {
+  text-align: right;
+}
+[dir='rtl'] .dropdown-menu-start {
+  right: 0;
+  left: auto;
+}
+[dir='rtl'] .dropdown-menu-end {
+  left: 0;
+  right: auto;
+}
 
 /* Fix list group item actions alignment */
-[dir="rtl"] .list-group-item-action { text-align: right; }
+[dir='rtl'] .list-group-item-action {
+  text-align: right;
+}
 
 /* Fix badge positioning in buttons */
-[dir="rtl"] .btn .badge { margin-right: 0.5rem; margin-left: 0; }
+[dir='rtl'] .btn .badge {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
 
 /* Fix checkbox and radio alignment in forms */
-[dir="rtl"] .form-check { text-align: right; }
-[dir="rtl"] .form-check-input { float: right; margin-left: 0.5rem; margin-right: 0; }
+[dir='rtl'] .form-check {
+  text-align: right;
+}
+[dir='rtl'] .form-check-input {
+  float: right;
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
 
 /* Fix toast notifications positioning */
-[dir="rtl"] .Toastify__toast-container--top-right { right: auto; left: 1em; }
-[dir="rtl"] .Toastify__toast-container--top-left { left: auto; right: 1em; }
-[dir="rtl"] .Toastify__toast-container--bottom-right { right: auto; left: 1em; }
-[dir="rtl"] .Toastify__toast-container--bottom-left { left: auto; right: 1em; }
+[dir='rtl'] .Toastify__toast-container--top-right {
+  right: auto;
+  left: 1em;
+}
+[dir='rtl'] .Toastify__toast-container--top-left {
+  left: auto;
+  right: 1em;
+}
+[dir='rtl'] .Toastify__toast-container--bottom-right {
+  right: auto;
+  left: 1em;
+}
+[dir='rtl'] .Toastify__toast-container--bottom-left {
+  left: auto;
+  right: 1em;
+}
 
 /* You might need to add the font import to your main index.html for it to load correctly */

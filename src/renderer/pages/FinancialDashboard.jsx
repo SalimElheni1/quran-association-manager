@@ -30,11 +30,11 @@ function FinancialDashboard() {
         refresh();
       }
     };
-    
+
     window.addEventListener('financial-data-changed', handleDataChange);
     window.addEventListener('focus', handleTabChange);
     document.addEventListener('visibilitychange', handleTabChange);
-    
+
     return () => {
       window.removeEventListener('financial-data-changed', handleDataChange);
       window.removeEventListener('focus', handleTabChange);

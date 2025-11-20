@@ -14,7 +14,7 @@
 function mapGender(gender) {
   const genderMap = {
     Male: 'ذكر',
-    Female: 'أنثى'
+    Female: 'أنثى',
   };
   return genderMap[gender] || gender;
 }
@@ -27,7 +27,7 @@ function mapGender(gender) {
 function mapStatus(status) {
   const statusMap = {
     active: 'نشط',
-    inactive: 'غير نشط'
+    inactive: 'غير نشط',
   };
   return statusMap[status] || status;
 }
@@ -41,7 +41,7 @@ function mapPaymentMethod(method) {
   const methodMap = {
     CASH: 'نقدي',
     CHECK: 'شيك',
-    TRANSFER: 'تحويل'
+    TRANSFER: 'تحويل',
   };
   return methodMap[method] || method;
 }
@@ -54,7 +54,7 @@ function mapPaymentMethod(method) {
 function mapTransactionType(type) {
   const typeMap = {
     INCOME: 'مدخول',
-    EXPENSE: 'مصروف'
+    EXPENSE: 'مصروف',
   };
   return typeMap[type] || type;
 }
@@ -71,7 +71,7 @@ function mapCategory(category) {
     Kids: 'أطفال',
     men: 'رجال',
     women: 'نساء',
-    kids: 'أطفال'
+    kids: 'أطفال',
   };
   return categoryMap[category] || category;
 }
@@ -84,10 +84,10 @@ function mapCategory(category) {
 function mapReceiptType(receiptType) {
   const receiptTypeMap = {
     'رسوم الطلاب': 'رسوم الطلاب',
-    'تبرع': 'تبرع',
-    'انخراط': 'انخراط',
-    'نشاط': 'نشاط',
-    'Student Fees': 'رسوم الطلاب'
+    تبرع: 'تبرع',
+    انخراط: 'انخراط',
+    نشاط: 'نشاط',
+    'Student Fees': 'رسوم الطلاب',
   };
   return receiptTypeMap[receiptType] || receiptType;
 }
@@ -101,7 +101,7 @@ function mapFeeCategory(feeCategory) {
   const feeCategoryMap = {
     CAN_PAY: 'قادر على الدفع',
     EXEMPT: 'معفى من الدفع',
-    SPONSORED: 'مكفول'
+    SPONSORED: 'مكفول',
   };
   return feeCategoryMap[feeCategory] || feeCategory;
 }
@@ -118,7 +118,7 @@ function translateStudent(student) {
     ...student,
     gender: mapGender(student.gender),
     status: mapStatus(student.status),
-    fee_category: mapFeeCategory(student.fee_category)
+    fee_category: mapFeeCategory(student.fee_category),
   };
 }
 
@@ -132,7 +132,7 @@ function translateUser(user) {
 
   return {
     ...user,
-    status: mapStatus(user.status)
+    status: mapStatus(user.status),
   };
 }
 
@@ -148,7 +148,7 @@ function translateTransaction(transaction) {
     ...transaction,
     type: mapTransactionType(transaction.type),
     payment_method: mapPaymentMethod(transaction.payment_method),
-    receipt_type_display: mapReceiptType(transaction.receipt_type)
+    receipt_type_display: mapReceiptType(transaction.receipt_type),
   };
 }
 
@@ -174,5 +174,5 @@ module.exports = {
   translateStudent,
   translateUser,
   translateTransaction,
-  translateArray
+  translateArray,
 };

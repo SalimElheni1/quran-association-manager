@@ -15,22 +15,22 @@ function registerImportHandlers() {
     try {
       // Map UI sheet names to canonical sheet names if needed
       const sheetNameMap = {
-        'المداخيل': 'العمليات المالية',
-        'المصاريف': 'العمليات المالية',
+        المداخيل: 'العمليات المالية',
+        المصاريف: 'العمليات المالية',
         'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        'الجرد': 'المخزون',
+        الجرد: 'المخزون',
         // Canonical names are already correct
-        'الطلاب': 'الطلاب',
-        'المعلمون': 'المعلمون',
-        'المستخدمون': 'المستخدمون',
-        'الفصول': 'الفصول',
+        الطلاب: 'الطلاب',
+        المعلمون: 'المعلمون',
+        المستخدمون: 'المستخدمون',
+        الفصول: 'الفصول',
         'العمليات المالية': 'العمليات المالية',
-        'الحضور': 'الحضور',
-        'المجموعات': 'المجموعات',
-        'المخزون': 'المخزون',
+        الحضور: 'الحضور',
+        المجموعات: 'المجموعات',
+        المخزون: 'المخزون',
       };
 
-      const canonicalSheets = selectedSheets.map(sheet => sheetNameMap[sheet] || sheet);
+      const canonicalSheets = selectedSheets.map((sheet) => sheetNameMap[sheet] || sheet);
 
       const result = await importExcelData(filePath, canonicalSheets);
       // Broadcast import completion to all renderer windows so they can refresh their data
@@ -92,19 +92,19 @@ function registerImportHandlers() {
     try {
       // Map UI import type names to their corresponding sheet names for template generation
       const importTypeToSheetMap = {
-        'المداخيل': 'العمليات المالية',
-        'المصاريف': 'العمليات المالية',
+        المداخيل: 'العمليات المالية',
+        المصاريف: 'العمليات المالية',
         'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        'الجرد': 'المخزون',
+        الجرد: 'المخزون',
         // Direct matches for other types
-        'الطلاب': 'الطلاب',
-        'المعلمون': 'المعلمون',
-        'المستخدمون': 'المستخدمون',
-        'الفصول': 'الفصول',
+        الطلاب: 'الطلاب',
+        المعلمون: 'المعلمون',
+        المستخدمون: 'المستخدمون',
+        الفصول: 'الفصول',
         'العمليات المالية': 'العمليات المالية',
-        'الحضور': 'الحضور',
-        'المجموعات': 'المجموعات',
-        'المخزون': 'المخزون',
+        الحضور: 'الحضور',
+        المجموعات: 'المجموعات',
+        المخزون: 'المخزون',
       };
 
       const mappedOptions = { ...options };

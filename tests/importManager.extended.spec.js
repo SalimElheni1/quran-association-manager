@@ -209,6 +209,7 @@ describe('importManager - Extended Tests', () => {
 
       // Basic Excel mock setup
       const mockWorksheet = {
+        name: 'Sheet1',
         getRow: jest.fn().mockReturnValue({ hasValues: false }),
         rowCount: 0,
       };
@@ -216,6 +217,7 @@ describe('importManager - Extended Tests', () => {
         xlsx: {
           readFile: jest.fn().mockResolvedValue(),
         },
+        worksheets: [mockWorksheet],
         getWorksheet: jest.fn().mockReturnValue(mockWorksheet),
       };
       ExcelJS.Workbook.mockImplementation(() => mockWorkbook);

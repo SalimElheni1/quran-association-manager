@@ -52,7 +52,8 @@ function ReportsTab() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
+        const startDate =
+          new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0] + ' 00:00:00';
         const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59).toISOString();
         const period = { startDate, endDate };
 
@@ -80,7 +81,8 @@ function ReportsTab() {
     (activities?.expensesByCategory.reduce((acc, exp) => acc + exp.total, 0) || 0);
   const netMonthlyResult = totalMonthlyRevenue - totalMonthlyExpenses;
 
-  const canViewDetailedReport = user?.roles?.includes('Superadmin') || user?.roles?.includes('FinanceManager');
+  const canViewDetailedReport =
+    user?.roles?.includes('Superadmin') || user?.roles?.includes('FinanceManager');
 
   const renderYearOptions = () => {
     const currentYear = new Date().getFullYear();
@@ -112,22 +114,27 @@ function ReportsTab() {
   return (
     <div>
       <Card className="mb-4">
-        <Card.Header as="h4" className="bg-dark text-white d-flex justify-content-between align-items-center">
+        <Card.Header
+          as="h4"
+          className="bg-dark text-white d-flex justify-content-between align-items-center"
+        >
           <span>الملخص المالي لسنة {summaryYear}</span>
           <div style={{ minWidth: '150px' }}>
-             <Form.Select
-                size="sm"
-                value={summaryYear}
-                onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
-              >
-                {renderYearOptions()}
-              </Form.Select>
+            <Form.Select
+              size="sm"
+              value={summaryYear}
+              onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
+            >
+              {renderYearOptions()}
+            </Form.Select>
           </div>
         </Card.Header>
         <Card.Body>
-           {loadingSummary ? (
-             <div className="text-center"><Spinner animation="border" /></div>
-           ) : (
+          {loadingSummary ? (
+            <div className="text-center">
+              <Spinner animation="border" />
+            </div>
+          ) : (
             <Row>
               <Col md={4}>
                 <Card bg="light">
@@ -160,7 +167,7 @@ function ReportsTab() {
                 </Card>
               </Col>
             </Row>
-           )}
+          )}
         </Card.Body>
       </Card>
 

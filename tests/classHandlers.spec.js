@@ -91,7 +91,7 @@ describe('Class Handlers', () => {
 
     it('should throw an error if no ID is provided', async () => {
       await expect(ipcMain.invoke('classes:delete', null)).rejects.toThrow(
-        'A valid class ID is required for deletion.',
+        'معرف الفصل صالح مطلوب للحذف.',
       );
     });
   });
@@ -160,7 +160,7 @@ describe('Class Handlers', () => {
         [1, 10, 1, 11],
       );
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT');
-      expect(log).toHaveBeenCalledWith('Enrollments updated successfully');
+      expect(log).toHaveBeenCalledWith('[Enrollment] ✅ Enrollments updated successfully');
     });
 
     it('should rollback transaction on error', async () => {

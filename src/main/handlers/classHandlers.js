@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
-const { mapGender, mapStatus, mapCategory } = require('../utils/translations');
+const { mapStatus, mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
@@ -114,8 +114,7 @@ function registerClassHandlers() {
   });
 
   ipcMain.handle('classes:delete', (_event, id) => {
-    if (!id || typeof id !== 'number')
-      throw new Error('معرف الفصل صالح مطلوب للحذف.');
+    if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للحذف.');
     const sql = 'DELETE FROM classes WHERE id = ?';
     return db.runQuery(sql, [id]);
   });
@@ -162,7 +161,7 @@ function registerClassHandlers() {
       let classes = await db.allQuery(sql, params);
 
       // Apply translations to status and gender
-      classes = classes.map(classItem => ({
+      classes = classes.map((classItem) => ({
         ...classItem,
         status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender), // class gender uses category mapping (men/women/kids)
@@ -180,7 +179,7 @@ function registerClassHandlers() {
       sql += ' ORDER BY c.name ASC';
       let classes = await db.allQuery(sql, params);
       // Apply translations to status and gender
-      classes = classes.map(classItem => ({
+      classes = classes.map((classItem) => ({
         ...classItem,
         status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
@@ -205,7 +204,7 @@ function registerClassHandlers() {
         `SELECT id, name, min_age, max_age, gender
          FROM age_groups
          WHERE id = ? AND is_active = 1`,
-        [classAgeGroupId]
+        [classAgeGroupId],
       );
 
       const enrolledSql = `
@@ -235,21 +234,25 @@ function registerClassHandlers() {
         return { enrolledStudents, notEnrolledStudents, noAgeGroupWarning: true };
       }
 
-      notEnrolledStudents = notEnrolledStudents.filter(student => {
+      notEnrolledStudents = notEnrolledStudents.filter((student) => {
         const age = calculateAge(student.date_of_birth);
-        
+
         if (age === null) return true;
 
-        const ageInRange = age >= ageGroup.min_age && 
-                          (ageGroup.max_age === null || age <= ageGroup.max_age);
-        
+        const ageInRange =
+          age >= ageGroup.min_age && (ageGroup.max_age === null || age <= ageGroup.max_age);
+
         if (!ageInRange) return false;
 
         if (ageGroup.gender === 'any') return true;
-        
-        const studentGender = student.gender === 'Male' ? 'male_only' : 
-                             student.gender === 'Female' ? 'female_only' : 'any';
-        
+
+        const studentGender =
+          student.gender === 'Male'
+            ? 'male_only'
+            : student.gender === 'Female'
+              ? 'female_only'
+              : 'any';
+
         return ageGroup.gender === studentGender;
       });
 
@@ -267,7 +270,7 @@ function registerClassHandlers() {
       // Track which students were added/removed for charge regeneration
       const oldEnrollments = await db.allQuery(
         'SELECT student_id FROM class_students WHERE class_id = ?',
-        [classId]
+        [classId],
       );
       const oldStudentIds = oldEnrollments.map((e) => e.student_id);
 
@@ -329,22 +332,26 @@ function registerClassHandlers() {
          FROM age_groups
          WHERE is_active = 1
          ORDER BY min_age ASC`,
-        []
+        [],
       );
 
-      const matchingAgeGroups = ageGroups.filter(ag => {
+      const matchingAgeGroups = ageGroups.filter((ag) => {
         if (studentAge === null) return true;
 
-        const ageInRange = studentAge >= ag.min_age && 
-                          (ag.max_age === null || studentAge <= ag.max_age);
-        
+        const ageInRange =
+          studentAge >= ag.min_age && (ag.max_age === null || studentAge <= ag.max_age);
+
         if (!ageInRange) return false;
 
         if (ag.gender === 'any') return true;
-        
-        const mappedGender = studentGender === 'Male' ? 'male_only' : 
-                            studentGender === 'Female' ? 'female_only' : 'any';
-        
+
+        const mappedGender =
+          studentGender === 'Male'
+            ? 'male_only'
+            : studentGender === 'Female'
+              ? 'female_only'
+              : 'any';
+
         return ag.gender === mappedGender;
       });
 
@@ -353,7 +360,7 @@ function registerClassHandlers() {
         return [];
       }
 
-      const ageGroupIds = matchingAgeGroups.map(ag => ag.id);
+      const ageGroupIds = matchingAgeGroups.map((ag) => ag.id);
       const placeholders = ageGroupIds.map(() => '?').join(',');
 
       const sql = `
@@ -369,13 +376,15 @@ function registerClassHandlers() {
 
       let classes = await db.allQuery(sql, ageGroupIds);
 
-      classes = classes.map(classItem => ({
+      classes = classes.map((classItem) => ({
         ...classItem,
         status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
 
-      log(`Found ${classes.length} classes for student (gender: ${studentGender}, age: ${studentAge})`);
+      log(
+        `Found ${classes.length} classes for student (gender: ${studentGender}, age: ${studentAge})`,
+      );
       return classes;
     } catch (error) {
       logError('Error fetching classes for student:', error);

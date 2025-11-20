@@ -77,16 +77,6 @@ async function generateCashLedgerReport(event, { period }) {
   try {
     const { startDate, endDate } = period;
 
-    // Get settings for organization name
-    const nationalName = await db.getQuery(
-      "SELECT value FROM settings WHERE key = 'national_association_name'",
-    );
-    const branchName = await db.getQuery(
-      "SELECT value FROM settings WHERE key = 'local_branch_name'",
-    );
-    const orgName = nationalName?.value || 'الرابطة الوطنية للقرآن الكريم';
-    const branch = branchName?.value || 'الفرع المحلي';
-
     // Get transactions
     const transactions = await db.allQuery(
       `SELECT * FROM transactions 
@@ -138,13 +128,29 @@ async function generateCashLedgerReport(event, { period }) {
 
     // Starting balance section - 3 rows
     worksheet.addRow([]);
-    const cashRow = worksheet.addRow(['السيولة:', '', '', '', '', startingBalance.toFixed(3), 'د.ت']);
+    const cashRow = worksheet.addRow([
+      'السيولة:',
+      '',
+      '',
+      '',
+      '',
+      startingBalance.toFixed(3),
+      'د.ت',
+    ]);
     cashRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
-    
+
     const bankRow = worksheet.addRow(['الرصيد البنكي:', '', '', '', '', '0.000', 'د.ت']);
     bankRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
-    
-    const totalRow = worksheet.addRow(['المجموع:', '', '', '', '', startingBalance.toFixed(3), 'د.ت']);
+
+    const totalRow = worksheet.addRow([
+      'المجموع:',
+      '',
+      '',
+      '',
+      '',
+      startingBalance.toFixed(3),
+      'د.ت',
+    ]);
     totalRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
 
     // Column headers
@@ -257,18 +263,34 @@ async function generateCashLedgerReport(event, { period }) {
 
     // Footer: Ending balance - 3 rows
     worksheet.addRow([]);
-    const endCashRow = worksheet.addRow(['السيولة:', '', '', '', '', runningBalance.toFixed(3), 'د.ت']);
+    const endCashRow = worksheet.addRow([
+      'السيولة:',
+      '',
+      '',
+      '',
+      '',
+      runningBalance.toFixed(3),
+      'د.ت',
+    ]);
     endCashRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
     endCashRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
-    
+
     const endBankRow = worksheet.addRow(['الرصيد البنكي:', '', '', '', '', '0.000', 'د.ت']);
     endBankRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
     endBankRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
-    
-    const endTotalRow = worksheet.addRow(['المجموع:', '', '', '', '', runningBalance.toFixed(3), 'د.ت']);
+
+    const endTotalRow = worksheet.addRow([
+      'المجموع:',
+      '',
+      '',
+      '',
+      '',
+      runningBalance.toFixed(3),
+      'د.ت',
+    ]);
     endTotalRow.font = { name: 'Traditional Arabic', size: 12, bold: true };
     endTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB3B' } };
-    [endCashRow, endBankRow, endTotalRow].forEach(row => {
+    [endCashRow, endBankRow, endTotalRow].forEach((row) => {
       row.eachCell((cell) => {
         cell.border = {
           top: { style: 'thin' },

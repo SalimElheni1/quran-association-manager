@@ -22,7 +22,9 @@ async function migrateStudentFees() {
     await db.initializeDatabase();
 
     // Check if migration has already been run
-    const migrationCheck = await db.getQuery("SELECT id FROM migrations WHERE name = 'student-fee-migration-completed' LIMIT 1");
+    const migrationCheck = await db.getQuery(
+      "SELECT id FROM migrations WHERE name = 'student-fee-migration-completed' LIMIT 1",
+    );
     if (migrationCheck) {
       console.log('✅ Migration has already been completed. Skipping...');
       return;
@@ -48,7 +50,9 @@ async function migrateStudentFees() {
     console.log(`📊 Found ${totalPayments} legacy payments to migrate`);
 
     // Check if legacy tables exist
-    const legacyTableCheck = await db.getQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='payments'");
+    const legacyTableCheck = await db.getQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='payments'",
+    );
     if (!legacyTableCheck) {
       throw new Error('Legacy payments table not found. Is this a fresh installation?');
     }
@@ -64,31 +68,33 @@ async function migrateStudentFees() {
     const migrationCharges = [];
     for (const payment of legacyPayments) {
       // Check if we already created a migration charge for this student
-      let migrationCharge = migrationCharges.find(mc => mc.student_id === payment.student_id);
+      let migrationCharge = migrationCharges.find((mc) => mc.student_id === payment.student_id);
 
       if (!migrationCharge) {
         // Calculate total legacy amount for this student
         const studentTotal = await db.getQuery(
           'SELECT SUM(amount) as total FROM payments WHERE student_id = ?',
-          [payment.student_id]
+          [payment.student_id],
         );
 
         const chargeId = await db.runQuery(
           `INSERT INTO student_fee_charges
            (student_id, charge_type, amount, description, academic_year, charge_date)
            VALUES (?, 'migration_source', ?, 'Migrated from legacy payments', '2024-2025', ?)`,
-          [payment.student_id, studentTotal.total, new Date().toISOString()]
+          [payment.student_id, studentTotal.total, new Date().toISOString()],
         );
 
         migrationCharge = {
           id: chargeId.id,
           student_id: payment.student_id,
           total_amount: studentTotal.total,
-          description: 'Legacy payment migration charge'
+          description: 'Legacy payment migration charge',
         };
         migrationCharges.push(migrationCharge);
 
-        console.log(`   ✓ Created migration charge for student ${payment.student_id}: ${studentTotal.total} د.ت`);
+        console.log(
+          `   ✓ Created migration charge for student ${payment.student_id}: ${studentTotal.total} د.ت`,
+        );
       }
     }
 
@@ -108,11 +114,13 @@ async function migrateStudentFees() {
           legacyPayment.payment_method,
           legacyPayment.notes || 'Migrated from legacy system',
           legacyPayment.created_at,
-          legacyPayment.updated_at
-        ]
+          legacyPayment.updated_at,
+        ],
       );
 
-      console.log(`   ✓ Migrated payment ${legacyPayment.id} → payment ${paymentId.id} (${legacyPayment.amount} د.ت)`);
+      console.log(
+        `   ✓ Migrated payment ${legacyPayment.id} → payment ${paymentId.id} (${legacyPayment.amount} د.ت)`,
+      );
       migratedPayments++;
     }
 
@@ -122,20 +130,26 @@ async function migrateStudentFees() {
 
     for (const legacyPayment of legacyPayments) {
       // Find the corresponding migration charge
-      const migrationCharge = migrationCharges.find(mc => mc.student_id === legacyPayment.student_id);
+      const migrationCharge = migrationCharges.find(
+        (mc) => mc.student_id === legacyPayment.student_id,
+      );
       if (!migrationCharge) {
-        console.log(`⚠️  Could not find migration charge for student ${legacyPayment.student_id}, skipping payment ${legacyPayment.id}`);
+        console.log(
+          `⚠️  Could not find migration charge for student ${legacyPayment.student_id}, skipping payment ${legacyPayment.id}`,
+        );
         continue;
       }
 
       // Get the newly inserted payment ID (we need to fetch it)
       const newPayment = await db.getQuery(
         'SELECT id FROM student_payments WHERE student_id = ? AND amount = ? AND payment_date = ? ORDER BY id DESC LIMIT 1',
-        [legacyPayment.student_id, legacyPayment.amount, legacyPayment.payment_date]
+        [legacyPayment.student_id, legacyPayment.amount, legacyPayment.payment_date],
       );
 
       if (!newPayment) {
-        console.log(`⚠️  Could not find migrated payment record for legacy payment ${legacyPayment.id}`);
+        console.log(
+          `⚠️  Could not find migrated payment record for legacy payment ${legacyPayment.id}`,
+        );
         continue;
       }
 
@@ -143,10 +157,12 @@ async function migrateStudentFees() {
         `INSERT INTO student_payment_breakdown
          (student_payment_id, student_fee_charge_id, amount)
          VALUES (?, ?, ?)`,
-        [newPayment.id, migrationCharge.id, legacyPayment.amount]
+        [newPayment.id, migrationCharge.id, legacyPayment.amount],
       );
 
-      console.log(`   ✓ Created breakdown ${newPayment.id} → charge ${migrationCharge.id} (${legacyPayment.amount} د.ت)`);
+      console.log(
+        `   ✓ Created breakdown ${newPayment.id} → charge ${migrationCharge.id} (${legacyPayment.amount} د.ت)`,
+      );
       breakdownRecords++;
     }
 
@@ -183,7 +199,6 @@ async function migrateStudentFees() {
     console.log('   - Verify payment data in student fees tab');
     console.log('   - Run system tests to ensure everything works');
     console.log('   - Remove migration charges if historical data view is not needed');
-
   } catch (error) {
     await db.runQuery('ROLLBACK;');
     logError('❌ Error during student fee migration:', error);

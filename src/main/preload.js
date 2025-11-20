@@ -207,8 +207,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createAgeGroup: (ageGroupData) => ipcRenderer.invoke('ageGroups:create', ageGroupData),
   updateAgeGroup: (id, ageGroupData) => ipcRenderer.invoke('ageGroups:update', id, ageGroupData),
   deleteAgeGroup: (id) => ipcRenderer.invoke('ageGroups:delete', id),
-  matchStudentToAgeGroups: (studentAge, studentGender) => ipcRenderer.invoke('ageGroups:matchStudent', studentAge, studentGender),
-  validateStudentForClass: (studentAge, studentGender, classAgeGroupId) => ipcRenderer.invoke('ageGroups:validateStudentForClass', studentAge, studentGender, classAgeGroupId),
+  matchStudentToAgeGroups: (studentAge, studentGender) =>
+    ipcRenderer.invoke('ageGroups:matchStudent', studentAge, studentGender),
+  validateStudentForClass: (studentAge, studentGender, classAgeGroupId) =>
+    ipcRenderer.invoke(
+      'ageGroups:validateStudentForClass',
+      studentAge,
+      studentGender,
+      classAgeGroupId,
+    ),
 
   // Dialog API
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
@@ -291,17 +298,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Student Fees API
   studentFeesGetStatus: (studentId) => ipcRenderer.invoke('student-fees:getStatus', studentId),
-  studentFeesGetBalanceSummary: (studentId) => ipcRenderer.invoke('student-fees:getBalanceSummary', studentId),
+  studentFeesGetBalanceSummary: (studentId) =>
+    ipcRenderer.invoke('student-fees:getBalanceSummary', studentId),
   studentFeesGetAll: () => ipcRenderer.invoke('student-fees:getAll'),
-  studentFeesRecordPayment: (paymentDetails) => ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),
-  studentFeesGetPaymentHistory: (studentId, academicYear) => ipcRenderer.invoke('student-fees:getPaymentHistory', { studentId, academicYear }),
-  studentFeesGetClassesWithSpecialFees: (studentId) => ipcRenderer.invoke('student-fees:getClassesWithSpecialFees', studentId),
-  studentFeesTriggerManualGeneration: () => ipcRenderer.invoke('student-fees:triggerManualGeneration'),
-  studentFeesGenerateAllCharges: (academicYear) => ipcRenderer.invoke('student-fees:generateAllCharges', academicYear),
-  studentFeesGenerateAnnualCharges: (academicYear) => ipcRenderer.invoke('student-fees:generateAnnualCharges', academicYear),
-  studentFeesGenerateMonthlyCharges: (data) => ipcRenderer.invoke('student-fees:generateMonthlyCharges', data),
-  studentFeesRefreshStudentCharges: (data) => ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
-  studentFeesRefreshAllStudentCharges: (data) => ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
+  studentFeesRecordPayment: (paymentDetails) =>
+    ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),
+  studentFeesGetPaymentHistory: (studentId, academicYear) =>
+    ipcRenderer.invoke('student-fees:getPaymentHistory', { studentId, academicYear }),
+  studentFeesGetClassesWithSpecialFees: (studentId) =>
+    ipcRenderer.invoke('student-fees:getClassesWithSpecialFees', studentId),
+  studentFeesTriggerManualGeneration: () =>
+    ipcRenderer.invoke('student-fees:triggerManualGeneration'),
+  studentFeesGenerateAllCharges: (academicYear) =>
+    ipcRenderer.invoke('student-fees:generateAllCharges', academicYear),
+  studentFeesGenerateAnnualCharges: (academicYear) =>
+    ipcRenderer.invoke('student-fees:generateAnnualCharges', academicYear),
+  studentFeesGenerateMonthlyCharges: (data) =>
+    ipcRenderer.invoke('student-fees:generateMonthlyCharges', data),
+  studentFeesRefreshStudentCharges: (data) =>
+    ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
+  studentFeesRefreshAllStudentCharges: (data) =>
+    ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
 
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
@@ -385,7 +402,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {number} lines - Number of recent lines to retrieve (default: 100)
    * @returns {Promise<Object>} {success: boolean, logs: string[]}
    */
-  getFilteredLogs: (keyword, lines = 100) => ipcRenderer.invoke('logs:get-filtered', { keyword, lines }),
+  getFilteredLogs: (keyword, lines = 100) =>
+    ipcRenderer.invoke('logs:get-filtered', { keyword, lines }),
 
   /**
    * Clears the application log file

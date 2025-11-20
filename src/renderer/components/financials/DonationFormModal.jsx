@@ -41,16 +41,19 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
 
   const checkUniqueness = useCallback(async (name) => {
     if (!name) return;
-    const { isUnique: unique } = await window.electronAPI.checkInventoryItemUniqueness({ itemName: name });
+    const { isUnique: unique } = await window.electronAPI.checkInventoryItemUniqueness({
+      itemName: name,
+    });
     setIsUnique(unique);
   }, []);
 
   // Fetch inventory items for the dropdown
   useEffect(() => {
     if (show && formData.donation_type === 'In-kind') {
-      window.electronAPI.getInventoryItems()
+      window.electronAPI
+        .getInventoryItems()
         .then(setInventoryItems)
-        .catch(err => toast.error('فشل في تحميل أصناف المخزون.'));
+        .catch((err) => toast.error('فشل في تحميل أصناف المخزون.'));
     }
   }, [show, formData.donation_type]);
 
@@ -92,11 +95,15 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
     setSelectedItemId(itemId);
 
     if (itemId === ADD_NEW_ITEM_VALUE) {
-      setFormData(prev => ({ ...prev, description: '', category: '' }));
+      setFormData((prev) => ({ ...prev, description: '', category: '' }));
     } else {
-      const selected = inventoryItems.find(it => it.id.toString() === itemId);
+      const selected = inventoryItems.find((it) => it.id.toString() === itemId);
       if (selected) {
-        setFormData(prev => ({ ...prev, description: selected.item_name, category: selected.category }));
+        setFormData((prev) => ({
+          ...prev,
+          description: selected.item_name,
+          category: selected.category,
+        }));
       }
     }
   };
@@ -120,7 +127,9 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
     try {
       if (selectedItemId && selectedItemId !== ADD_NEW_ITEM_VALUE) {
         // --- Update existing inventory item ---
-        const itemToUpdate = await window.electronAPI.getInventoryItems().then(items => items.find(i => i.id.toString() === selectedItemId));
+        const itemToUpdate = await window.electronAPI
+          .getInventoryItems()
+          .then((items) => items.find((i) => i.id.toString() === selectedItemId));
         if (!itemToUpdate) throw new Error('لم يتم العثور على الصنف المحدد.');
 
         const newQuantity = Number(itemToUpdate.quantity) + Number(formData.quantity);
@@ -129,7 +138,6 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
         dataToSave.inventory_item_id = itemToUpdate.id;
         toast.success(`تم تحديث كمية "${itemToUpdate.item_name}" بنجاح.`);
         if (onInventoryUpdate) onInventoryUpdate();
-
       } else if (selectedItemId === ADD_NEW_ITEM_VALUE) {
         // --- Add new inventory item ---
         if (!isUnique) {
@@ -154,7 +162,6 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
       }
 
       onSave(dataToSave);
-
     } catch (err) {
       toast.error(err.message || 'حدث خطأ أثناء معالجة التبرع العيني.');
       console.error(err);
@@ -168,7 +175,7 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
         <Form.Select value={selectedItemId} onChange={handleItemSelection}>
           <option value="">اختر صنفاً أو أضف جديداً</option>
           <option value={ADD_NEW_ITEM_VALUE}>إضافة صنف جديد...</option>
-          {inventoryItems.map(item => (
+          {inventoryItems.map((item) => (
             <option key={item.id} value={item.id}>
               {item.item_name} (الكمية الحالية: {item.quantity})
             </option>
@@ -181,7 +188,9 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
         <div className="p-3 mb-3 border rounded">
           <h5>تفاصيل الصنف الجديد</h5>
           <Form.Group className="mb-3">
-            <Form.Label>اسم الصنف الجديد<span className="text-danger">*</span></Form.Label>
+            <Form.Label>
+              اسم الصنف الجديد<span className="text-danger">*</span>
+            </Form.Label>
             <InputGroup hasValidation>
               <Form.Control
                 type="text"
@@ -200,13 +209,23 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
             <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>فئة الصنف</Form.Label>
-                <Form.Control type="text" name="category" value={formData.category} onChange={handleChange} />
+                <Form.Control
+                  type="text"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>قيمة الوحدة التقديرية</Form.Label>
-                <Form.Control type="number" name="unit_value" value={formData.unit_value} onChange={handleChange} />
+                <Form.Control
+                  type="number"
+                  name="unit_value"
+                  value={formData.unit_value}
+                  onChange={handleChange}
+                />
               </Form.Group>
             </Col>
           </Row>
@@ -215,12 +234,20 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
         // --- Field for EXISTING item ---
         <Form.Group className="mb-3">
           <Form.Label>وصف التبرع</Form.Label>
-          <Form.Control as="textarea" rows={2} name="description" value={formData.description} readOnly />
+          <Form.Control
+            as="textarea"
+            rows={2}
+            name="description"
+            value={formData.description}
+            readOnly
+          />
         </Form.Group>
       )}
 
       <Form.Group className="mb-3">
-        <Form.Label>الكمية المتبرع بها<span className="text-danger">*</span></Form.Label>
+        <Form.Label>
+          الكمية المتبرع بها<span className="text-danger">*</span>
+        </Form.Label>
         <Form.Control
           type="number"
           name="quantity"
@@ -241,13 +268,29 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>اسم المتبرع<span className="text-danger">*</span></Form.Label>
-            <Form.Control type="text" name="donor_name" value={formData.donor_name} onChange={handleChange} required />
+            <Form.Label>
+              اسم المتبرع<span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Control
+              type="text"
+              name="donor_name"
+              value={formData.donor_name}
+              onChange={handleChange}
+              required
+            />
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label>نوع التبرع<span className="text-danger">*</span></Form.Label>
-            <Form.Control as="select" name="donation_type" value={formData.donation_type} onChange={handleChange} disabled={isEditMode}>
+            <Form.Label>
+              نوع التبرع<span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Control
+              as="select"
+              name="donation_type"
+              value={formData.donation_type}
+              onChange={handleChange}
+              disabled={isEditMode}
+            >
               <option value="Cash">نقدي</option>
               <option value="In-kind">عيني</option>
             </Form.Control>
@@ -255,25 +298,55 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
 
           {formData.donation_type === 'Cash' ? (
             <Form.Group className="mb-3">
-              <Form.Label>المبلغ<span className="text-danger">*</span></Form.Label>
-              <Form.Control type="number" name="amount" value={formData.amount} onChange={handleChange} required />
+              <Form.Label>
+                المبلغ<span className="text-danger">*</span>
+              </Form.Label>
+              <Form.Control
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                required
+              />
             </Form.Group>
           ) : (
             renderInKindFields()
           )}
 
           <Form.Group className="mb-3">
-            <Form.Label>تاريخ التبرع<span className="text-danger">*</span></Form.Label>
-            <Form.Control type="date" name="donation_date" value={formData.donation_date} onChange={handleChange} required />
+            <Form.Label>
+              تاريخ التبرع<span className="text-danger">*</span>
+            </Form.Label>
+            <Form.Control
+              type="date"
+              name="donation_date"
+              value={formData.donation_date}
+              onChange={handleChange}
+              required
+            />
           </Form.Group>
 
           <Form.Group className="mb-3">
             <Form.Label>ملاحظات إضافية</Form.Label>
-            <Form.Control as="textarea" rows={3} name="notes" value={formData.notes} onChange={handleChange} />
+            <Form.Control
+              as="textarea"
+              rows={3}
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+            />
           </Form.Group>
 
           <div className="d-grid">
-            <Button variant="primary" type="submit" disabled={formData.donation_type === 'In-kind' && selectedItemId === ADD_NEW_ITEM_VALUE && !isUnique}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={
+                formData.donation_type === 'In-kind' &&
+                selectedItemId === ADD_NEW_ITEM_VALUE &&
+                !isUnique
+              }
+            >
               {isEditMode ? 'حفظ التعديلات' : 'إضافة التبرع'}
             </Button>
           </div>

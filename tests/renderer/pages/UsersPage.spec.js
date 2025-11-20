@@ -23,45 +23,58 @@ jest.mock('react-bootstrap', () => ({
   ),
   Spinner: () => <div role="status" data-testid="spinner" />,
   Badge: ({ children, bg }) => <span className={`badge bg-${bg}`}>{children}</span>,
+  InputGroup: Object.assign(
+    ({ children, className }) => <div className={className}>{children}</div>,
+    { Text: ({ children }) => <span>{children}</span> },
+  ),
+  Form: {
+    Control: (props) => <input {...props} />,
+    Select: (props) => <select {...props} />,
+    Label: ({ children }) => <label>{children}</label>,
+    Group: ({ children }) => <div>{children}</div>,
+  },
+  Modal: Object.assign(
+    ({ children, show }) => (show ? <div>{children}</div> : null),
+    {
+      Header: ({ children }) => <div>{children}</div>,
+      Title: ({ children }) => <h2>{children}</h2>,
+      Body: ({ children }) => <div>{children}</div>,
+      Footer: ({ children }) => <div>{children}</div>,
+    },
+  ),
 }));
 
 // Mock child components
-jest.mock(
-  '@renderer/components/UserFormModal',
-  () => {
-    const UserFormModal = ({ show, handleClose, onSaveSuccess, user }) => {
-      if (!show) return null;
-      return (
-        <div data-testid="user-form-modal">
-          <button onClick={handleClose}>Close</button>
-          <button onClick={onSaveSuccess}>Save</button>
-          {user && <div data-testid="editing-user">{user.id}</div>}
-        </div>
-      );
-    };
-    UserFormModal.displayName = 'UserFormModal';
-    return UserFormModal;
-  }
-);
+jest.mock('@renderer/components/UserFormModal', () => {
+  const UserFormModal = ({ show, handleClose, onSaveSuccess, user }) => {
+    if (!show) return null;
+    return (
+      <div data-testid="user-form-modal">
+        <button onClick={handleClose}>Close</button>
+        <button onClick={onSaveSuccess}>Save</button>
+        {user && <div data-testid="editing-user">{user.id}</div>}
+      </div>
+    );
+  };
+  UserFormModal.displayName = 'UserFormModal';
+  return UserFormModal;
+});
 
-jest.mock(
-  '@renderer/components/common/ConfirmationModal',
-  () => {
-    const ConfirmationModal = ({ show, handleClose, handleConfirm, title, body }) => {
-      if (!show) return null;
-      return (
-        <div data-testid="confirmation-modal">
-          <h4>{title}</h4>
-          <p>{body}</p>
-          <button onClick={handleClose}>Close</button>
-          <button onClick={handleConfirm}>Confirm</button>
-        </div>
-      );
-    };
-    ConfirmationModal.displayName = 'ConfirmationModal';
-    return ConfirmationModal;
-  }
-);
+jest.mock('@renderer/components/common/ConfirmationModal', () => {
+  const ConfirmationModal = ({ show, handleClose, handleConfirm, title, body }) => {
+    if (!show) return null;
+    return (
+      <div data-testid="confirmation-modal">
+        <h4>{title}</h4>
+        <p>{body}</p>
+        <button onClick={handleClose}>Close</button>
+        <button onClick={handleConfirm}>Confirm</button>
+      </div>
+    );
+  };
+  ConfirmationModal.displayName = 'ConfirmationModal';
+  return ConfirmationModal;
+});
 
 // Mock electronAPI
 const mockElectronAPI = {

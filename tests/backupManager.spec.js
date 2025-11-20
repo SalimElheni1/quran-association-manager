@@ -21,7 +21,6 @@ describe('backupManager', () => {
   let db;
   let keyManager;
   let PizZip;
-  let fs;
 
   beforeEach(() => {
     jest.clearAllMocks();

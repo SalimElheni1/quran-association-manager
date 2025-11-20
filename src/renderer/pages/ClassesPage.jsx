@@ -239,8 +239,6 @@ function ClassesPage() {
     }
   };
 
-
-
   const renderStatusBadge = (status) => {
     const variants = {
       'قيد الانتظار': 'warning',

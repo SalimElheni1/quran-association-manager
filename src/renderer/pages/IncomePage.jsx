@@ -45,7 +45,7 @@ function IncomePage() {
         refresh();
       }
     };
-    
+
     const handleDataChange = () => refresh();
     window.addEventListener('financial-data-changed', handleDataChange);
 

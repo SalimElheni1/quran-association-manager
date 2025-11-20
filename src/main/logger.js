@@ -25,11 +25,11 @@ const writeToFile = (level, args) => {
   if (logFilePath) {
     try {
       const timestamp = new Date().toISOString();
-      const message = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-      ).join(' ');
+      const message = args
+        .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
+        .join(' ');
       const logLine = `[${timestamp}] [${level}] ${message}\n`;
-      
+
       fs.appendFileSync(logFilePath, logLine, 'utf-8');
     } catch (e) {
       // Silently fail if we can't write to file
@@ -45,7 +45,7 @@ const log = (...args) => {
   if (!app || (app && !app.isPackaged)) {
     console.log(...args);
   }
-  
+
   // Always write to file
   writeToFile('LOG', args);
 };
@@ -54,7 +54,7 @@ const warn = (...args) => {
   if (!app || (app && !app.isPackaged)) {
     console.warn(...args);
   }
-  
+
   // Always write to file
   writeToFile('WARN', args);
 };
@@ -64,7 +64,7 @@ const error = (...args) => {
   // The production crash logger will handle uncaught exceptions,
   // but this is useful for handled errors.
   console.error(...args);
-  
+
   // Always write to file
   writeToFile('ERROR', args);
 };

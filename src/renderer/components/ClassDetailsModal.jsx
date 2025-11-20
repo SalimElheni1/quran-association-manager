@@ -61,8 +61,6 @@ function ClassDetailsModal({ show, handleClose, classData }) {
     completed: 'secondary',
   };
 
-
-
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
@@ -82,10 +80,7 @@ function ClassDetailsModal({ show, handleClose, classData }) {
             isBadge
             badgeVariant={statusVariants[classData.status] || 'light'}
           />
-          <DetailItem
-            label="الفئة العمرية"
-            value={classData.age_group_name || 'غير محدد'}
-          />
+          <DetailItem label="الفئة العمرية" value={classData.age_group_name || 'غير محدد'} />
           <DetailItem label="سعة الفصل" value={classData.capacity ?? 'غير محدد'} />
           <DetailItem label="أوقات الدراسة" value={formatSchedule(classData.schedule)} />
           <DetailItem

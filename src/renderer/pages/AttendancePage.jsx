@@ -230,9 +230,7 @@ function AttendancePage() {
           ) : students.length > 0 ? (
             <div className="attendance-roster">
               <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 className="mb-0">
-                  {isEditMode ? 'تعديل سجل الحضور' : 'عرض سجل الحضور'}
-                </h4>
+                <h4 className="mb-0">{isEditMode ? 'تعديل سجل الحضور' : 'عرض سجل الحضور'}</h4>
                 <div>
                   {isSaved && !isEditMode && (
                     <Button variant="secondary" onClick={() => setIsEditMode(true)}>

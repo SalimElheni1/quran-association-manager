@@ -1,7 +1,3 @@
-const { refreshSettings, getSetting } = require('../src/main/settingsManager');
-const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
-const { log, error: logError } = require('../src/main/logger');
-
 // Mock dependencies
 jest.mock('../src/main/handlers/settingsHandlers', () => ({
   internalGetSettingsHandler: jest.fn(),

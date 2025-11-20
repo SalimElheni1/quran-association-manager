@@ -40,7 +40,7 @@ describe('Student Handlers', () => {
 
       // The test should check the SQL query and the parameters
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('AND (name LIKE ? OR matricule LIKE ?) AND gender = ?'),
+        expect.stringContaining('AND (s.name LIKE ? OR s.matricule LIKE ?) AND s.gender = ?'),
         expect.arrayContaining(['%Ali%', '%Ali%', 'Male']),
       );
     });
@@ -61,7 +61,7 @@ describe('Student Handlers', () => {
       // We expect the filter to happen in JS, so the SQL query should be simple
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining(
-          'SELECT id, matricule, name, date_of_birth, enrollment_date, status, gender FROM students',
+          'SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category\n            FROM students s',
         ),
         [],
       );

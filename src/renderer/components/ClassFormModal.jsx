@@ -73,7 +73,9 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
     const initialData = {
       name: '',
       teacher_id: '',
-      schedule: [{ day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
+      schedule: [
+        { day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' },
+      ],
       start_date: '',
       end_date: '',
       status: 'pending',
@@ -100,7 +102,16 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
         schedule:
           classData.schedule && classData.schedule !== '[]'
             ? JSON.parse(classData.schedule)
-            : [{ day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
+            : [
+                {
+                  day: '',
+                  time: '',
+                  timeMode: '',
+                  prayerTime: '',
+                  customTimeFrom: '',
+                  customTimeTo: '',
+                },
+              ],
       });
     } else {
       setFormData(initialData);
@@ -145,7 +156,10 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
   const addScheduleRow = () => {
     setFormData((prev) => ({
       ...prev,
-      schedule: [...prev.schedule, { day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' }],
+      schedule: [
+        ...prev.schedule,
+        { day: '', time: '', timeMode: '', prayerTime: '', customTimeFrom: '', customTimeTo: '' },
+      ],
     }));
   };
 

@@ -139,11 +139,11 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
             <Form.Select
               value={selectedCategory.value}
               onChange={(e) => {
-                const selected = categoryOptions.find(opt => opt.value === e.target.value);
+                const selected = categoryOptions.find((opt) => opt.value === e.target.value);
                 setSelectedCategory(selected);
               }}
             >
-              {categoryOptions.map(option => (
+              {categoryOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -162,7 +162,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
               required
             >
               <option value="">اختر طالب...</option>
-              {studentOptions.map(option => (
+              {studentOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
