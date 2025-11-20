@@ -13,7 +13,7 @@ function CategoryChart({ title, data = [], variant = 'primary' }) {
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('ar-TN', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(amount || 0);
   };
 

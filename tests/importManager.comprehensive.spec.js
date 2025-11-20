@@ -21,10 +21,7 @@ jest.mock('../src/main/keyManager');
 const fs = require('fs').promises;
 const PizZip = require('pizzip');
 const ExcelJS = require('exceljs');
-const {
-  runQuery,
-  getQuery,
-} = require('../src/db/db');
+const { runQuery, getQuery } = require('../src/db/db');
 
 const { generateMatricule } = require('../src/main/services/matriculeService');
 

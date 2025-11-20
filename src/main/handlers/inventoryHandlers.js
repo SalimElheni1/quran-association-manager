@@ -18,7 +18,7 @@ function createHandler(handler) {
 }
 
 // --- Inventory Handlers ---
-async function handleGetInventoryItems(event, filters = {}) {
+async function handleGetInventoryItems(_, filters = {}) {
   const { search, category, page, limit } = filters;
 
   let sql = 'SELECT * FROM inventory_items WHERE 1=1';
@@ -69,12 +69,12 @@ async function handleGetInventoryItems(event, filters = {}) {
   }
 }
 
-async function handleCheckItemUniqueness(event, { itemName, currentId }) {
+async function handleCheckItemUniqueness() {
   // Allow duplicates for item names as multiple donations/purchases can have same item name
   return { isUnique: true };
 }
 
-async function handleAddInventoryItem(event, item) {
+async function handleAddInventoryItem(_, item) {
   const {
     item_name,
     category,
@@ -113,7 +113,7 @@ async function handleAddInventoryItem(event, item) {
   return getQuery('SELECT * FROM inventory_items WHERE id = ?', [result.id]);
 }
 
-async function handleUpdateInventoryItem(event, item) {
+async function handleUpdateInventoryItem(_, item) {
   const {
     id,
     item_name,
@@ -153,7 +153,7 @@ async function handleUpdateInventoryItem(event, item) {
   return getQuery('SELECT * FROM inventory_items WHERE id = ?', [id]);
 }
 
-async function handleDeleteInventoryItem(event, itemId) {
+async function handleDeleteInventoryItem(_, itemId) {
   await runQuery('DELETE FROM inventory_items WHERE id = ?', [itemId]);
   return { id: itemId };
 }

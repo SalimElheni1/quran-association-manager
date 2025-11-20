@@ -142,10 +142,7 @@ function FinancialExportModal({ show, handleClose }) {
             <Col md={3}>
               <Form.Group>
                 <Form.Label>نوع الفترة</Form.Label>
-                <Form.Select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                >
+                <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                   <option value="all">الكل</option>
                   <option value="month">شهر معين</option>
                   <option value="year">سنة معينة</option>

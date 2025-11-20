@@ -375,7 +375,9 @@ async function initializeDatabase() {
         }
       } catch (err) {
         // Ignore errors if tables don't exist yet - they'll be handled on next migration
-        console.log('[DB_LOG] Memorization tables not found or error seeding, will try on next startup');
+        console.log(
+          '[DB_LOG] Memorization tables not found or error seeding, will try on next startup',
+        );
       }
     }
 

@@ -133,12 +133,7 @@ function DashboardPage() {
             icon="chalkboard-teacher"
             variant="success"
           />
-          <StatCard
-            title="الفصول النشطة"
-            value={stats.classCount}
-            icon="school"
-            variant="info"
-          />
+          <StatCard title="الفصول النشطة" value={stats.classCount} icon="school" variant="info" />
         </Row>
 
         {/* Section for Today's Activities and Quick Actions */}

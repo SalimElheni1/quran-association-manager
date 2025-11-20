@@ -11,45 +11,51 @@ export function useStudents(filters = {}) {
   const [loading, setLoading] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  const fetchStudents = useCallback(async (searchFilters = {}) => {
-    setLoading(true);
-    try {
-      const combinedFilters = { ...filters, ...searchFilters };
-      const data = await window.electronAPI.getStudents(combinedFilters);
-      if (data && data.students) {
-        setStudents(data.students);
-      } else {
+  const fetchStudents = useCallback(
+    async (searchFilters = {}) => {
+      setLoading(true);
+      try {
+        const combinedFilters = { ...filters, ...searchFilters };
+        const data = await window.electronAPI.getStudents(combinedFilters);
+        if (data && data.students) {
+          setStudents(data.students);
+        } else {
+          setStudents([]);
+        }
+      } catch (err) {
+        logError('Error fetching students:', err);
         setStudents([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      logError('Error fetching students:', err);
-      setStudents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.page, filters.limit]);
+    },
+    [filters.page, filters.limit],
+  );
 
-  const searchStudents = useCallback((searchTerm, minCharacters = 2) => {
-    // Clear previous timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
+  const searchStudents = useCallback(
+    (searchTerm, minCharacters = 2) => {
+      // Clear previous timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
 
-    // Don't search if term is too short
-    if (!searchTerm || searchTerm.length < minCharacters) {
-      setStudents([]);
-      setLoading(false);
-      return;
-    }
+      // Don't search if term is too short
+      if (!searchTerm || searchTerm.length < minCharacters) {
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
 
-    // Set new timeout for debounced search
-    const timeoutId = setTimeout(() => {
-      fetchStudents({ searchTerm, limit: 15 }); // Limit results for better UX
-    }, 300); // 300ms debounce
+      // Set new timeout for debounced search
+      const timeoutId = setTimeout(() => {
+        fetchStudents({ searchTerm, limit: 15 }); // Limit results for better UX
+      }, 300); // 300ms debounce
 
-    setSearchTimeout(timeoutId);
-    setLoading(searchTerm.length >= minCharacters); // Show loading only after min characters
-  }, [fetchStudents]);
+      setSearchTimeout(timeoutId);
+      setLoading(searchTerm.length >= minCharacters); // Show loading only after min characters
+    },
+    [fetchStudents],
+  );
 
   // Load all students initially if no search term and no specific filters
   useEffect(() => {

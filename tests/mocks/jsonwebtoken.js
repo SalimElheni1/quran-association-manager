@@ -1,7 +1,7 @@
 // Mocking the jsonwebtoken library
 module.exports = {
   sign: jest.fn(() => 'mock-signed-token'),
-  verify: jest.fn((token, _secret) => {
+  verify: jest.fn((token) => {
     // Return a mock decoded payload.
     // The auth middleware expects an 'id' property.
     if (token === 'mock-jwt-token') {

@@ -36,14 +36,14 @@ describe('Age Group Filtering Tests', () => {
       const birthYear = today.getFullYear() - 15;
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
-      
+
       const formats = [
         `${birthYear}-${month}-${day}`,
         `${birthYear}/${month}/${day}`,
         `${day}-${month}-${birthYear}`,
       ];
-      
-      formats.forEach(format => {
+
+      formats.forEach((format) => {
         const age = calculateAge(format);
         expect(age).toBe(15);
       });
@@ -73,44 +73,49 @@ describe('Age Group Filtering Tests', () => {
 
     it('should accept student within age range', () => {
       const age = calculateAge(calculateBirthDate(8));
-      const inRange = age >= mockAgeGroup.min_age && 
-                     (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
+      const inRange =
+        age >= mockAgeGroup.min_age &&
+        (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
       expect(inRange).toBe(true);
     });
 
     it('should reject student below age range', () => {
       const age = calculateAge(calculateBirthDate(5));
-      const inRange = age >= mockAgeGroup.min_age && 
-                     (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
+      const inRange =
+        age >= mockAgeGroup.min_age &&
+        (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
       expect(inRange).toBe(false);
     });
 
     it('should reject student above age range', () => {
       const age = calculateAge(calculateBirthDate(12));
-      const inRange = age >= mockAgeGroup.min_age && 
-                     (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
+      const inRange =
+        age >= mockAgeGroup.min_age &&
+        (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
       expect(inRange).toBe(false);
     });
 
     it('should accept student at min age boundary', () => {
       const age = calculateAge(calculateBirthDate(6));
-      const inRange = age >= mockAgeGroup.min_age && 
-                     (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
+      const inRange =
+        age >= mockAgeGroup.min_age &&
+        (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
       expect(inRange).toBe(true);
     });
 
     it('should accept student at max age boundary', () => {
       const age = calculateAge(calculateBirthDate(11));
-      const inRange = age >= mockAgeGroup.min_age && 
-                     (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
+      const inRange =
+        age >= mockAgeGroup.min_age &&
+        (mockAgeGroup.max_age === null || age <= mockAgeGroup.max_age);
       expect(inRange).toBe(true);
     });
 
     it('should handle gender policy filtering', () => {
       const maleOnlyGroup = { ...mockAgeGroup, gender: 'male_only' };
-      const maleGender = 'Male' === 'Male' ? 'male_only' : 'female_only';
-      const femaleGender = 'Female' === 'Female' ? 'female_only' : 'male_only';
-      
+      const maleGender = 'male_only';
+      const femaleGender = 'female_only';
+
       expect(maleGender === maleOnlyGroup.gender).toBe(true);
       expect(femaleGender === maleOnlyGroup.gender).toBe(false);
     });

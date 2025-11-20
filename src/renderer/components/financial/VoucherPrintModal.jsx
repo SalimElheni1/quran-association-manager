@@ -20,7 +20,7 @@ function VoucherPrintModal({ show, transaction, onHide }) {
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('ar-TN', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -39,41 +39,68 @@ function VoucherPrintModal({ show, transaction, onHide }) {
             <h3>{title}</h3>
             <p>رقم الوصل: {transaction.voucher_number}</p>
           </div>
-          
+
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>التاريخ:</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{formatDate(transaction.transaction_date)}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                  التاريخ:
+                </td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  {formatDate(transaction.transaction_date)}
+                </td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>الفئة:</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{transaction.category}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                  الفئة:
+                </td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  {transaction.category}
+                </td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>المبلغ:</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontSize: '18px', fontWeight: 'bold' }}>
+                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                  المبلغ:
+                </td>
+                <td
+                  style={{
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                  }}
+                >
                   {formatAmount(transaction.amount)} د.ت
                 </td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>طريقة الدفع:</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                  طريقة الدفع:
+                </td>
                 <td style={{ padding: '10px', border: '1px solid #ddd' }}>
                   {(() => {
                     const method = transaction.payment_method?.toUpperCase();
                     switch (method) {
-                      case 'CASH': return 'نقدي';
-                      case 'CHECK': return 'شيك';
-                      case 'TRANSFER': return 'تحويل بنكي';
-                      default: return method || 'غير محدد';
+                      case 'CASH':
+                        return 'نقدي';
+                      case 'CHECK':
+                        return 'شيك';
+                      case 'TRANSFER':
+                        return 'تحويل بنكي';
+                      default:
+                        return method || 'غير محدد';
                     }
                   })()}
                 </td>
               </tr>
               {transaction.check_number && (
                 <tr>
-                  <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>رقم الشيك:</td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{transaction.check_number}</td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                    رقم الشيك:
+                  </td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                    {transaction.check_number}
+                  </td>
                 </tr>
               )}
               {transaction.related_person_name && (
@@ -81,12 +108,18 @@ function VoucherPrintModal({ show, transaction, onHide }) {
                   <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
                     {isReceipt ? 'المستلم من:' : 'المدفوع إلى:'}
                   </td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>{transaction.related_person_name}</td>
+                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                    {transaction.related_person_name}
+                  </td>
                 </tr>
               )}
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>البيان:</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{transaction.description}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                  البيان:
+                </td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  {transaction.description}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -98,14 +131,25 @@ function VoucherPrintModal({ show, transaction, onHide }) {
             </div>
             <div style={{ textAlign: 'center' }}>
               <p>الختم</p>
-              <div style={{ border: '1px solid #000', width: '100px', height: '100px', marginTop: '10px' }}></div>
+              <div
+                style={{
+                  border: '1px solid #000',
+                  width: '100px',
+                  height: '100px',
+                  marginTop: '10px',
+                }}
+              ></div>
             </div>
           </div>
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>إغلاق</Button>
-        <Button variant="primary" onClick={handlePrint}>طباعة</Button>
+        <Button variant="secondary" onClick={onHide}>
+          إغلاق
+        </Button>
+        <Button variant="primary" onClick={handlePrint}>
+          طباعة
+        </Button>
       </Modal.Footer>
     </Modal>
   );

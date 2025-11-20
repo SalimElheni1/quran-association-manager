@@ -10,11 +10,11 @@ function AccountsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ id: null, name: '' });
   const [categoryToDelete, setCategoryToDelete] = useState(null);
-  
+
   useEffect(() => {
     loadInKindCategories();
   }, []);
-  
+
   const loadInKindCategories = async () => {
     try {
       const cats = await window.electronAPI.getInKindCategories();
@@ -23,17 +23,17 @@ function AccountsPage() {
       logError('Error loading in-kind categories:', err);
     }
   };
-  
+
   const handleAddCategory = () => {
     setCategoryForm({ id: null, name: '' });
     setShowCategoryModal(true);
   };
-  
+
   const handleEditCategory = (cat) => {
     setCategoryForm({ id: cat.id, name: cat.name });
     setShowCategoryModal(true);
   };
-  
+
   const handleSaveCategory = async () => {
     try {
       if (categoryForm.id) {
@@ -50,7 +50,7 @@ function AccountsPage() {
       toast.error('❌ ' + err.message);
     }
   };
-  
+
   const handleDeleteRequest = (cat) => {
     setCategoryToDelete(cat);
     setShowDeleteModal(true);
@@ -91,7 +91,7 @@ function AccountsPage() {
               </tr>
             </thead>
             <tbody>
-              {inKindCategories.map(cat => (
+              {inKindCategories.map((cat) => (
                 <tr key={cat.id}>
                   <td>{cat.name}</td>
                   <td>
@@ -102,10 +102,19 @@ function AccountsPage() {
                   <td>
                     {!cat.is_system && (
                       <>
-                        <Button size="sm" variant="outline-primary" className="me-2" onClick={() => handleEditCategory(cat)}>
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          className="me-2"
+                          onClick={() => handleEditCategory(cat)}
+                        >
                           تعديل
                         </Button>
-                        <Button size="sm" variant="outline-danger" onClick={() => handleDeleteRequest(cat)}>
+                        <Button
+                          size="sm"
+                          variant="outline-danger"
+                          onClick={() => handleDeleteRequest(cat)}
+                        >
                           حذف
                         </Button>
                       </>
@@ -117,7 +126,7 @@ function AccountsPage() {
           </Table>
         </Card.Body>
       </Card>
-      
+
       <Modal show={showCategoryModal} onHide={() => setShowCategoryModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>{categoryForm.id ? 'تعديل فئة' : 'إضافة فئة جديدة'}</Modal.Title>
@@ -134,8 +143,12 @@ function AccountsPage() {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>إلغاء</Button>
-          <Button variant="primary" onClick={handleSaveCategory} disabled={!categoryForm.name}>حفظ</Button>
+          <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>
+            إلغاء
+          </Button>
+          <Button variant="primary" onClick={handleSaveCategory} disabled={!categoryForm.name}>
+            حفظ
+          </Button>
         </Modal.Footer>
       </Modal>
 

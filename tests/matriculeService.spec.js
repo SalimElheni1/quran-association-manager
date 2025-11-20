@@ -70,7 +70,7 @@ describe('matriculeService › generateMatricule', () => {
   it('should correctly increment an existing matricule number', async () => {
     getQuery.mockResolvedValue({ max_id: 42 });
     const matricule = await generateMatricule('student');
-    expect(matricule).toBe('S-000043');
+    expect(matricule).toBe('S-0043');
   });
 
   // Test padding

@@ -23,6 +23,9 @@ async function getSetting(key) {
   const value = settingsCache?.[key];
 
   if (value === undefined || value === null) {
+    if (key === 'adultAgeThreshold') {
+      return 18;
+    }
     return null;
   }
 

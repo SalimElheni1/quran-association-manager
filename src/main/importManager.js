@@ -16,10 +16,22 @@ const {
   getQuery,
   allQuery,
 } = require('../db/db');
-const bcrypt = require('bcryptjs');
 const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
 
+const CLASS_GENDER_MAP = {
+  ذكر: 'male_only',
+  أنثى: 'female_only',
+  مختلط: 'mixed',
+  رجال: 'male_only',
+  نساء: 'female_only',
+  أطفال: 'mixed',
+  male: 'male_only',
+  female: 'female_only',
+  mixed: 'mixed',
+  male_only: 'male_only',
+  female_only: 'female_only',
+};
 
 const mainStore = new Store();
 
@@ -62,14 +74,12 @@ async function executeSqlScriptSafely(sqlScript) {
       // Extract columns from the statement
       const columnsMatch = statement.match(/\(([^)]+)\)\s*VALUES/i);
       if (columnsMatch) {
-        const columns = columnsMatch[1]
-          .split(',')
-          .map((col) => col.trim().replace(/["']/g, ''));
+        const columns = columnsMatch[1].split(',').map((col) => col.trim().replace(/["']/g, ''));
         const currentColumns = tableColumns[tableName];
-        
+
         // Check if all columns exist
         const invalidColumns = columns.filter((col) => !currentColumns.has(col));
-        
+
         if (invalidColumns.length > 0) {
           // Fix the statement by removing invalid columns
           const fixed = fixStatementColumns(statement, columns, invalidColumns);
@@ -80,7 +90,7 @@ async function executeSqlScriptSafely(sqlScript) {
           continue;
         }
       }
-      
+
       validStatements.push(statement);
     } else {
       // Non-INSERT/REPLACE statements (like CREATE, etc.) - execute as-is
@@ -109,25 +119,27 @@ function fixStatementColumns(statement, columns, invalidColumns) {
     if (!valuesMatch) return null;
 
     const values = valuesMatch[1].split(',').map((v) => v.trim());
-    
+
     // Remove invalid columns and their corresponding values
     const validIndices = [];
     const validColumns = [];
-    
+
     columns.forEach((col, idx) => {
       if (!invalidColumns.includes(col)) {
         validIndices.push(idx);
         validColumns.push(`"${col}"`);
       }
     });
-    
+
     const validValues = validIndices.map((idx) => values[idx]);
-    
+
     // Reconstruct the statement
-    const tableMatch = statement.match(/(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(\s]+)["']?/i);
+    const tableMatch = statement.match(
+      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(\s]+)["']?/i,
+    );
     const tableName = tableMatch[1];
     const command = statement.match(/^(REPLACE|INSERT(?:\s+OR\s+REPLACE)?)/i)[0];
-    
+
     return `${command} INTO "${tableName}" (${validColumns.join(', ')}) VALUES (${validValues.join(', ')})`;
   } catch (error) {
     logError('Failed to fix statement:', error);
@@ -223,7 +235,7 @@ async function replaceDatabase(importedDbPath, password) {
       log('Re-enabling foreign key constraints...');
       await dbExec(getDb(), 'PRAGMA foreign_keys = ON');
     }
-    
+
     // Migrate users without roles to user_roles table (for old backups)
     log('Checking for users without role assignments...');
     const usersWithoutRoles = await allQuery(`
@@ -254,7 +266,7 @@ async function replaceDatabase(importedDbPath, password) {
       { name: 'teachers', prefix: 'T-' },
       { name: 'users', prefix: 'U-' },
       { name: 'groups', prefix: 'G-' },
-      { name: 'inventory_items', prefix: 'INV-' }
+      { name: 'inventory_items', prefix: 'INV-' },
     ];
 
     let matriculeFixes = 0;
@@ -277,10 +289,10 @@ async function replaceDatabase(importedDbPath, password) {
           const newMatricule = prefix + number.toString().padStart(4, '0');
 
           // Update the record
-          await runQuery(
-            `UPDATE ${table.name} SET matricule = ? WHERE id = ?`,
-            [newMatricule, record.id]
-          );
+          await runQuery(`UPDATE ${table.name} SET matricule = ? WHERE id = ?`, [
+            newMatricule,
+            record.id,
+          ]);
 
           log(`Converted matricule: ${record.matricule} → ${newMatricule}`);
           matriculeFixes++;
@@ -303,7 +315,7 @@ async function replaceDatabase(importedDbPath, password) {
     } else {
       logWarn('Failed to generate charges after import:', chargeGenResult.message);
     }
-    
+
     mainStore.set('force-relogin-after-restart', true);
     log('Database import successful. The app will now restart.');
     app.relaunch();
@@ -410,19 +422,22 @@ const parseScheduleCell = (raw) => {
     }
 
     // Split on semicolon or pipe
-    const parts = trimmed.split(/;|\|/).map((p) => p.trim()).filter(Boolean);
+    const parts = trimmed
+      .split(/;|\|/)
+      .map((p) => p.trim())
+      .filter(Boolean);
     if (parts.length === 0) return null;
 
     const arabicDayMap = {
-      'الاثنين': 'Monday',
-      'الإثنين': 'Monday',
-      'الثلاثاء': 'Tuesday',
-      'الأربعاء': 'Wednesday',
-      'الخميس': 'Thursday',
-      'الجمعة': 'Friday',
-      'السبت': 'Saturday',
-      'الاحد': 'Sunday',
-      'الأحد': 'Sunday',
+      الاثنين: 'Monday',
+      الإثنين: 'Monday',
+      الثلاثاء: 'Tuesday',
+      الأربعاء: 'Wednesday',
+      الخميس: 'Thursday',
+      الجمعة: 'Friday',
+      السبت: 'Saturday',
+      الاحد: 'Sunday',
+      الأحد: 'Sunday',
     };
 
     const enDayMapLower = {
@@ -518,9 +533,7 @@ async function importExcelData(filePath, selectedSheets) {
     }
 
     const required = REQUIRED_COLUMNS[sheetName] || REQUIRED_COLUMNS[sheetName.slice(0, -1)] || [];
-    const missingColumns = required.filter(
-      (colName) => getColumnIndex(headerRow, colName) === -1,
-    );
+    const missingColumns = required.filter((colName) => getColumnIndex(headerRow, colName) === -1);
 
     if (missingColumns.length > 0) {
       results.errors.push(
@@ -553,7 +566,9 @@ async function importExcelData(filePath, selectedSheets) {
     }
 
     if (processedRows === 0) {
-      results.errors.push(`[${sheetName}]: لم يتم استيراد أي بيانات. يرجى التحقق من البيانات في الورقة.`);
+      results.errors.push(
+        `[${sheetName}]: لم يتم استيراد أي بيانات. يرجى التحقق من البيانات في الورقة.`,
+      );
     }
   }
 
@@ -590,7 +605,9 @@ async function processStudentRow(row, headerRow) {
       guardian_relation: row.getCell(getColumnIndex(headerRow, 'صلة القرابة (طفل)')).value,
       parent_contact: row.getCell(getColumnIndex(headerRow, 'هاتف ولي الأمر (طفل)')).value,
       guardian_email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني للولي (طفل)')).value,
-      emergency_contact_name: row.getCell(getColumnIndex(headerRow, 'جهة الاتصال في حالات الطوارئ (طفل)')).value,
+      emergency_contact_name: row.getCell(
+        getColumnIndex(headerRow, 'جهة الاتصال في حالات الطوارئ (طفل)'),
+      ).value,
       emergency_contact_phone: row.getCell(getColumnIndex(headerRow, 'هاتف الطوارئ (طفل)')).value,
       health_conditions: row.getCell(getColumnIndex(headerRow, 'الحالة الصحية (طفل)')).value,
       school_name: row.getCell(getColumnIndex(headerRow, 'اسم المدرسة (طفل)')).value,
@@ -598,12 +615,15 @@ async function processStudentRow(row, headerRow) {
       educational_level: row.getCell(getColumnIndex(headerRow, 'المستوى التعليمي (راشد)')).value,
       occupation: row.getCell(getColumnIndex(headerRow, 'المهنة (راشد)')).value,
       civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية (راشد)')).value,
-      related_family_members: row.getCell(getColumnIndex(headerRow, 'أفراد العائلة المسجلون (راشد)')).value,
+      related_family_members: row.getCell(
+        getColumnIndex(headerRow, 'أفراد العائلة المسجلون (راشد)'),
+      ).value,
       fee_category: row.getCell(getColumnIndex(headerRow, 'فئة الرسوم')).value,
       sponsor_name: row.getCell(getColumnIndex(headerRow, 'اسم الكفيل')).value,
       sponsor_phone: row.getCell(getColumnIndex(headerRow, 'هاتف الكفيل')).value,
       sponsor_cin: row.getCell(getColumnIndex(headerRow, 'رقم هوية الكفيل')).value,
-      financial_assistance_notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات المساعدة المالية')).value,
+      financial_assistance_notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات المساعدة المالية'))
+        .value,
     };
 
     if (!data.name) return { success: false, message: 'اسم الطالب مطلوب.' };
@@ -646,7 +666,10 @@ async function processStudentRow(row, headerRow) {
     const placeholders = allFields.map(() => '?').join(', ');
     const values = allFields.map((k) => allData[k]);
 
-    await runQuery(`INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+    await runQuery(
+      `INSERT INTO students (${allFields.join(', ')}) VALUES (${placeholders})`,
+      values,
+    );
     return { success: true };
   } catch (error) {
     logError('Error processing student row:', error);
@@ -717,7 +740,10 @@ async function processTeacherRow(row, headerRow) {
     const placeholders = allFields.map(() => '?').join(', ');
     const values = allFields.map((k) => allData[k]);
 
-    await runQuery(`INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`, values);
+    await runQuery(
+      `INSERT INTO teachers (${allFields.join(', ')}) VALUES (${placeholders})`,
+      values,
+    );
     return { success: true };
   } catch (error) {
     logError('Error processing teacher row:', error);
@@ -828,7 +854,11 @@ async function processUserRow(row, headerRow) {
       const allFields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
       const userFields = [...allFields, 'matricule', 'password'];
       const placeholders = userFields.map(() => '?').join(', ');
-      const values = [...allFields.map((k) => data[k]), newMatricule, bcrypt.hashSync(password, 10)];
+      const values = [
+        ...allFields.map((k) => data[k]),
+        newMatricule,
+        require('bcrypt').hashSync(password, 10),
+      ];
 
       const result = await runQuery(
         `INSERT INTO users (${userFields.join(', ')}) VALUES (${placeholders})`,
@@ -871,10 +901,14 @@ async function processClassRow(row, headerRow) {
       }
     } else if (teacherName) {
       // Try to find teacher by name (case-insensitive)
-      teacher = await getQuery('SELECT id FROM teachers WHERE LOWER(name) = LOWER(?)', [teacherName]);
+      teacher = await getQuery('SELECT id FROM teachers WHERE LOWER(name) = LOWER(?)', [
+        teacherName,
+      ]);
       if (!teacher) {
         // Try a LIKE search as fallback
-        const likeMatch = await getQuery('SELECT id FROM teachers WHERE name LIKE ?', [`%${teacherName}%`]);
+        const likeMatch = await getQuery('SELECT id FROM teachers WHERE name LIKE ?', [
+          `%${teacherName}%`,
+        ]);
         if (likeMatch) teacher = likeMatch;
       }
       if (!teacher) {
@@ -921,7 +955,8 @@ async function processClassRow(row, headerRow) {
     try {
       if (data.status) {
         const rawStatus = String(data.status).trim();
-        data.status = CLASS_STATUS_MAP[rawStatus] || CLASS_STATUS_MAP[rawStatus.toLowerCase()] || data.status;
+        data.status =
+          CLASS_STATUS_MAP[rawStatus] || CLASS_STATUS_MAP[rawStatus.toLowerCase()] || data.status;
       }
     } catch (e) {
       /* ignore and keep original */
@@ -1168,7 +1203,9 @@ async function processGroupRow(row, headerRow) {
 
     if (matricule) {
       // Update existing record
-      const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [matricule]);
+      const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [
+        matricule,
+      ]);
       if (!existingGroup) {
         return { success: false, message: `المجموعة بالرقم التعريفي "${matricule}" غير موجودة.` };
       }
@@ -1250,7 +1287,10 @@ async function processInventoryRow(row, headerRow) {
         newTotalValue,
         existingItem.id,
       ]);
-      return { success: true, message: `تم تحديث كمية "${data.item_name}" إلى ${newQuantity} وقيمة إجمالية ${newTotalValue.toFixed(2)}.` };
+      return {
+        success: true,
+        message: `تم تحديث كمية "${data.item_name}" إلى ${newQuantity} وقيمة إجمالية ${newTotalValue.toFixed(2)}.`,
+      };
     }
 
     if (data.condition_status && conditionMap[data.condition_status]) {
@@ -1288,39 +1328,12 @@ const STATUS_MAP_AR_TO_EN = { نشط: 'active', 'غير نشط': 'inactive' };
 const ATTENDANCE_MAP_AR_TO_EN = {
   حاضر: 'present',
   غائب: 'absent',
-  متأخر: 'late',
-  معذور: 'excused',
-};
-
-// Mapping for class-specific gender values (database expects: 'women','men','kids','all')
-const CLASS_GENDER_MAP = {
-  رجال: 'men',
-  الرجل: 'men',
-  ذكر: 'men',
-  رجال: 'men',
-  'الرجال': 'men',
-  men: 'men',
-  رجالًا: 'men',
-
-  نساء: 'women',
-  انثى: 'women',
-  أنثى: 'women',
-  'النساء': 'women',
-  women: 'women',
-
-  اطفال: 'kids',
-  أطفال: 'kids',
-  kids: 'kids',
-
-  الكل: 'all',
-  كل: 'all',
-  all: 'all',
 };
 
 // Mapping for class status values (database uses: 'pending','active','completed')
 const CLASS_STATUS_MAP = {
   'قيد الانتظار': 'pending',
-  'قيد_الانتظار': 'pending',
+  قيد_الانتظار: 'pending',
   pending: 'pending',
   نشط: 'active',
   active: 'active',
@@ -1372,7 +1385,10 @@ async function processStudentFeesRow(row, headerRow) {
       return { success: false, message: 'رقم التعريفي للطالب مطلوب.' };
     }
     if (!data.amount || isNaN(parseFloat(data.amount)) || parseFloat(data.amount) <= 0) {
-      return { success: false, message: `المبلغ غير صالح: "${data.amount}". يجب أن يكون رقماً موجباً.` };
+      return {
+        success: false,
+        message: `المبلغ غير صالح: "${data.amount}". يجب أن يكون رقماً موجباً.`,
+      };
     }
     if (!data.payment_date) {
       return { success: false, message: 'تاريخ الدفع مطلوب.' };
@@ -1382,9 +1398,14 @@ async function processStudentFeesRow(row, headerRow) {
     }
 
     // Validate student exists
-    const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [data.student_matricule]);
+    const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [
+      data.student_matricule,
+    ]);
     if (!student) {
-      return { success: false, message: `الطالب بالرقم التعريفي "${data.student_matricule}" غير موجود.` };
+      return {
+        success: false,
+        message: `الطالب بالرقم التعريفي "${data.student_matricule}" غير موجود.`,
+      };
     }
 
     // Map payment method
@@ -1402,16 +1423,24 @@ async function processStudentFeesRow(row, headerRow) {
     // For SPECIAL payments, validate class exists if class_matricule is provided
     let classId = null;
     if (mappedPaymentType === 'SPECIAL' && data.class_matricule) {
-      const classData = await getQuery('SELECT id FROM classes WHERE matricule = ?', [data.class_matricule]);
+      const classData = await getQuery('SELECT id FROM classes WHERE matricule = ?', [
+        data.class_matricule,
+      ]);
       if (!classData) {
-        return { success: false, message: `الفصل بالرقم التعريفي "${data.class_matricule}" غير موجود.` };
+        return {
+          success: false,
+          message: `الفصل بالرقم التعريفي "${data.class_matricule}" غير موجود.`,
+        };
       }
       classId = data.class_matricule;
     }
 
     // Check for duplicate receipt number
     if (data.receipt_number) {
-      const existingPayment = await getQuery('SELECT id FROM student_payments WHERE receipt_number = ?', [data.receipt_number]);
+      const existingPayment = await getQuery(
+        'SELECT id FROM student_payments WHERE receipt_number = ?',
+        [data.receipt_number],
+      );
       if (existingPayment) {
         return { success: false, message: `رقم الوصل "${data.receipt_number}" موجود بالفعل.` };
       }
@@ -1431,9 +1460,9 @@ async function processStudentFeesRow(row, headerRow) {
     };
 
     // Use the existing recordStudentPayment function
-    const result = await require('./handlers/studentFeeHandlers').recordStudentPayment(
+    await require('./handlers/studentFeeHandlers').recordStudentPayment(
       { sender: { userId: 1 } }, // Mock event with userId
-      paymentDetails
+      paymentDetails,
     );
 
     return { success: true };

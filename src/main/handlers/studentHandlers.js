@@ -18,7 +18,7 @@ const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
-const { translateStudent, mapFeeCategory } = require('../utils/translations');
+const { translateStudent } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth string.
@@ -97,17 +97,6 @@ function registerStudentHandlers() {
   /**
    * Retrieves students from the database with optional filtering.
    * Supports search by name/matricule, gender filtering, and age range filtering.
-   *
-   * @param {Object} _event - IPC event object (unused)
-   * @param {Object} [filters] - Optional filters for student search
-   * @param {string} [filters.searchTerm] - Search term for name or matricule
-   * @param {string} [filters.genderFilter] - Gender filter ('male', 'female', 'all')
-   * @param {string} [filters.statusFilter] - Status filter ('active', 'inactive', 'all')
-   * @param {string} [filters.feeCategoryFilter] - Fee category filter ('CAN_PAY', 'EXEMPT', 'SPONSORED', 'all')
-   * @param {number} [filters.minAgeFilter] - Minimum age filter
-   * @param {number} [filters.maxAgeFilter] - Maximum age filter
-   * @returns {Promise<Array>} Array of student objects with basic information
-   * @throws {Error} If database query fails
    */
   ipcMain.handle(
     'students:get',
@@ -127,7 +116,9 @@ function registerStudentHandlers() {
           LEFT JOIN student_surahs ss ON s.id = ss.student_id
         `;
             const placeholders = filters.surahIds.map(() => '?').join(',');
-            havingClauses.push(`SUM(CASE WHEN ss.surah_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.surahIds.length}`);
+            havingClauses.push(
+              `SUM(CASE WHEN ss.surah_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.surahIds.length}`,
+            );
             params.push(...filters.surahIds);
           }
 
@@ -136,7 +127,9 @@ function registerStudentHandlers() {
           LEFT JOIN student_hizbs sh ON s.id = sh.student_id
         `;
             const placeholders = filters.hizbIds.map(() => '?').join(',');
-            havingClauses.push(`SUM(CASE WHEN sh.hizb_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.hizbIds.length}`);
+            havingClauses.push(
+              `SUM(CASE WHEN sh.hizb_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.hizbIds.length}`,
+            );
             params.push(...filters.hizbIds);
           }
 
@@ -344,7 +337,7 @@ function registerStudentHandlers() {
     requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
       console.log('========== STUDENT ADD HANDLER CALLED ==========');
       console.log('Received student data:', JSON.stringify(studentData, null, 2));
-      
+
       const { groupIds, classIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
         await db.runQuery('BEGIN TRANSACTION;');
@@ -353,12 +346,12 @@ function registerStudentHandlers() {
         const dataWithMatricule = { ...restOfStudentData, matricule };
 
         console.log('[Student Add] Data before validation:', dataWithMatricule);
-        
+
         const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
           abortEarly: false,
           stripUnknown: false,
         });
-        
+
         console.log('[Student Add] Data after validation:', validatedData);
 
         const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
@@ -370,7 +363,7 @@ function registerStudentHandlers() {
         const placeholders = fieldsToInsert.map(() => '?').join(', ');
         const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
         const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-        
+
         console.log('[Student Add] SQL:', sql);
 
         const result = await db.runQuery(sql, params);
@@ -405,42 +398,60 @@ function registerStudentHandlers() {
         }
 
         await db.runQuery('COMMIT;');
-        
+
         console.log('[Student Add] Student created with ID:', studentId);
         console.log('[Student Add] Status:', validatedData.status);
         console.log('[Student Add] Fee Category:', validatedData.fee_category);
-        
+
         // Check database for actual fee_category
-        const studentRecord = await db.getQuery('SELECT fee_category FROM students WHERE id = ?', [studentId]);
+        const studentRecord = await db.getQuery('SELECT fee_category FROM students WHERE id = ?', [
+          studentId,
+        ]);
         console.log('[Student Add] Fee Category in DB:', studentRecord?.fee_category);
-        
+
         // Auto-generate charges for new student
-        if (studentId && validatedData.status === 'active' && (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')) {
+        if (
+          studentId &&
+          validatedData.status === 'active' &&
+          (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')
+        ) {
           console.log('[Student Add] Conditions met - will generate charges');
-          const { generateAnnualFeeCharges, generateMonthlyFeeCharges } = require('./studentFeeHandlers');
+          const {
+            generateAnnualFeeCharges,
+            generateMonthlyFeeCharges,
+          } = require('./studentFeeHandlers');
           const currentDate = new Date();
           const currentYear = currentDate.getFullYear();
           const currentMonth = currentDate.getMonth() + 1;
-          const academicYear = currentMonth >= 9 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
-          
-          console.log(`[Student Enrollment] Generating charges for student ${studentId}, academic year ${academicYear}`);
-          
+          const academicYear =
+            currentMonth >= 9
+              ? `${currentYear}-${currentYear + 1}`
+              : `${currentYear - 1}-${currentYear}`;
+
+          console.log(
+            `[Student Enrollment] Generating charges for student ${studentId}, academic year ${academicYear}`,
+          );
+
           // Generate charges synchronously to ensure they're created
           try {
             await generateAnnualFeeCharges(academicYear, true);
             await generateMonthlyFeeCharges(academicYear, currentMonth, true);
             const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-            const nextAcademicYear = currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
+            const nextAcademicYear =
+              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
             await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
             const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear = nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
+            const monthAfterAcademicYear =
+              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
             await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
-            console.log(`[Student Enrollment] Charges generated successfully for student ${studentId}`);
+            console.log(
+              `[Student Enrollment] Charges generated successfully for student ${studentId}`,
+            );
           } catch (err) {
             logError('Failed to auto-generate charges for new student:', err);
           }
         }
-        
+
         return result;
       } catch (error) {
         await db.runQuery('ROLLBACK;');
@@ -460,10 +471,16 @@ function registerStudentHandlers() {
         await db.runQuery('BEGIN TRANSACTION;');
 
         // Get current student data to check for fee_category and discount changes
-        const currentStudent = await db.getQuery('SELECT fee_category, status, discount_percentage FROM students WHERE id = ?', [id]);
+        const currentStudent = await db.getQuery(
+          'SELECT fee_category, status, discount_percentage FROM students WHERE id = ?',
+          [id],
+        );
         const oldFeeCategory = currentStudent?.fee_category;
         const oldDiscount = currentStudent?.discount_percentage || 0;
-        const newDiscount = restOfStudentData.discount_percentage !== undefined ? restOfStudentData.discount_percentage : oldDiscount;
+        const newDiscount =
+          restOfStudentData.discount_percentage !== undefined
+            ? restOfStudentData.discount_percentage
+            : oldDiscount;
 
         const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
           abortEarly: false,
@@ -520,11 +537,20 @@ function registerStudentHandlers() {
 
         // Check if discount changed and regenerate charges
         const discountChanged = oldDiscount !== newDiscount;
-        if (discountChanged && validatedData.status === 'active' && (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')) {
-          console.log(`[Student Update] Discount changed from ${oldDiscount}% to ${newDiscount}% for student ${id}, regenerating charges`);
+        if (
+          discountChanged &&
+          validatedData.status === 'active' &&
+          (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')
+        ) {
+          console.log(
+            `[Student Update] Discount changed from ${oldDiscount}% to ${newDiscount}% for student ${id}, regenerating charges`,
+          );
           try {
             const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
-            await triggerChargeRegenerationForStudent(id, { regenCurrentMonth: true, regenNextMonth: false });
+            await triggerChargeRegenerationForStudent(id, {
+              regenCurrentMonth: true,
+              regenNextMonth: false,
+            });
             console.log(`[Student Update] Charges regenerated successfully for student ${id}`);
           } catch (err) {
             logError('Failed to regenerate charges after discount change:', err);
@@ -533,30 +559,49 @@ function registerStudentHandlers() {
 
         // Check if fee_category changed from EXEMPT to CAN_PAY and generate charges
         const newFeeCategory = validatedData.fee_category;
-        if (oldFeeCategory === 'EXEMPT' && newFeeCategory === 'CAN_PAY' && validatedData.status === 'active') {
-          console.log(`[Student Update] Fee category changed from EXEMPT to CAN_PAY for student ${id}, generating charges`);
+        if (
+          oldFeeCategory === 'EXEMPT' &&
+          newFeeCategory === 'CAN_PAY' &&
+          validatedData.status === 'active'
+        ) {
+          console.log(
+            `[Student Update] Fee category changed from EXEMPT to CAN_PAY for student ${id}, generating charges`,
+          );
           try {
-            const { generateAnnualFeeCharges, generateMonthlyFeeCharges } = require('./studentFeeHandlers');
+            const {
+              generateAnnualFeeCharges,
+              generateMonthlyFeeCharges,
+            } = require('./studentFeeHandlers');
             const currentDate = new Date();
             const currentYear = currentDate.getFullYear();
             const currentMonth = currentDate.getMonth() + 1;
-            const academicYear = currentMonth >= 9 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+            const academicYear =
+              currentMonth >= 9
+                ? `${currentYear}-${currentYear + 1}`
+                : `${currentYear - 1}-${currentYear}`;
 
-            console.log(`[Student Update] Generating charges for student ${id}, academic year ${academicYear}`);
+            console.log(
+              `[Student Update] Generating charges for student ${id}, academic year ${academicYear}`,
+            );
 
             // Generate charges for the student who changed from EXEMPT to CAN_PAY
             await generateAnnualFeeCharges(academicYear, true);
             await generateMonthlyFeeCharges(academicYear, currentMonth, true);
             const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-            const nextAcademicYear = currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
+            const nextAcademicYear =
+              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
             await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
             const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear = nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
+            const monthAfterAcademicYear =
+              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
             await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
 
             console.log(`[Student Update] Charges generated successfully for student ${id}`);
           } catch (err) {
-            logError(`Failed to auto-generate charges for student ${id} after fee_category change:`, err);
+            logError(
+              `Failed to auto-generate charges for student ${id} after fee_category change:`,
+              err,
+            );
             // Don't fail the update operation if charge generation fails
           }
         }
@@ -619,7 +664,7 @@ function registerStudentHandlers() {
         `SELECT id, name, min_age, max_age, gender, gender_policy
          FROM age_groups
          WHERE id = ? AND is_active = 1`,
-        [ageGroupId]
+        [ageGroupId],
       );
 
       if (!ageGroup) {
@@ -639,7 +684,7 @@ function registerStudentHandlers() {
       const allStudents = await db.allQuery(sql, params);
 
       // Filter students by age and gender
-      const matchingStudents = allStudents.filter(student => {
+      const matchingStudents = allStudents.filter((student) => {
         const age = calculateAge(student.date_of_birth);
 
         // Check age range
@@ -650,12 +695,12 @@ function registerStudentHandlers() {
         // Check gender compatibility
         if (ageGroup.gender !== 'any') {
           const genderMap = {
-            'M': 'male_only',
-            'F': 'female_only',
-            'male': 'male_only',
-            'female': 'female_only',
-            'ذكر': 'male_only',
-            'أنثى': 'female_only'
+            M: 'male_only',
+            F: 'female_only',
+            male: 'male_only',
+            female: 'female_only',
+            ذكر: 'male_only',
+            أنثى: 'female_only',
           };
           const studentGenderMapped = genderMap[student.gender] || 'any';
           if (ageGroup.gender !== studentGenderMapped) return false;
@@ -668,7 +713,7 @@ function registerStudentHandlers() {
         success: true,
         ageGroup,
         students: matchingStudents,
-        count: matchingStudents.length
+        count: matchingStudents.length,
       };
     } catch (error) {
       logError('Error in students:getByAgeGroup handler:', error);

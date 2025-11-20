@@ -12,7 +12,11 @@
  */
 
 const db = require('../db/db');
-const { generateAnnualFeeCharges, generateMonthlyFeeCharges, getCurrentAcademicYear } = require('./handlers/studentFeeHandlers');
+const {
+  generateAnnualFeeCharges,
+  generateMonthlyFeeCharges,
+  getCurrentAcademicYear,
+} = require('./handlers/studentFeeHandlers');
 const { log, error: logError } = require('./logger');
 
 let schedulerIntervalId = null;
@@ -28,7 +32,7 @@ const generatePendingAnnualCharges = async (academicYear) => {
     // Check if we already have annual charges for this year
     const existingCharges = await db.getQuery(
       'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND academic_year = ?',
-      ['ANNUAL', academicYear]
+      ['ANNUAL', academicYear],
     );
 
     if (existingCharges.count > 0) {
@@ -61,7 +65,7 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false
       // Check if monthly charges already exist for this month/year
       const existingCharges = await db.getQuery(
         'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND academic_year = ? AND created_at >= ?',
-        ['MONTHLY', academicYear, `${academicYear}-${month.toString().padStart(2, '0')}-01`]
+        ['MONTHLY', academicYear, `${academicYear}-${month.toString().padStart(2, '0')}-01`],
       );
 
       if (existingCharges.count > 0) {
@@ -95,35 +99,36 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false
 const onAppStartup = async (settings) => {
   try {
     log('[Startup] Checking for missing charges...');
-    
+
     const startMonth = parseInt(settings.academic_year_start_month || 9);
     const genDay = parseInt(settings.charge_generation_day || 25);
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentDay = currentDate.getDate();
     const academicYear = getCurrentAcademicYear(startMonth);
-    
+
     log(`[Startup] Academic year: ${academicYear}, Current month: ${currentMonth}`);
-    
+
     // Check and generate annual charges if needed
     await generatePendingAnnualCharges(academicYear);
     log(`[Startup] Annual charges checked for ${academicYear}`);
-    
+
     // Always ensure current month exists
     await generateMonthlyChargesIfNeeded(academicYear, currentMonth);
     log(`[Startup] Current month (${currentMonth}) charges checked`);
-    
+
     // If past generation day, ensure next month exists
     if (currentDay >= genDay) {
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear = currentMonth === 12 ? 
-        getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1)) : 
-        academicYear;
-      
+      const nextYear =
+        currentMonth === 12
+          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
+          : academicYear;
+
       await generateMonthlyChargesIfNeeded(nextYear, nextMonth);
       log(`[Startup] Next month (${nextMonth}) charges checked (past day ${genDay})`);
     }
-    
+
     log('[Startup] Charge check completed');
   } catch (error) {
     logError('[Startup] Error checking charges:', error);
@@ -149,10 +154,11 @@ const checkAndGenerateCharges = async (settings) => {
     // Only generate next month on/after generation day
     if (currentDay >= genDay) {
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear = currentMonth === 12 ? 
-        getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1)) : 
-        academicYear;
-      
+      const nextYear =
+        currentMonth === 12
+          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
+          : academicYear;
+
       if (await generateMonthlyChargesIfNeeded(nextYear, nextMonth)) {
         log(`[Scheduler] Generated charges for next month (${nextMonth})`);
       } else {

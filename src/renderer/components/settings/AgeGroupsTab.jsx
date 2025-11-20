@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  Button,
-  Modal,
-  Form,
-  Row,
-  Col,
-  Spinner,
-  Table,
-  Badge,
-  Alert,
-} from 'react-bootstrap';
+import { Card, Button, Modal, Form, Row, Col, Spinner, Table, Badge, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
 
@@ -300,9 +289,7 @@ const AgeGroupsTab = () => {
                       </option>
                     ))}
                   </Form.Select>
-                  <Form.Text className="text-muted">
-                    حدد من يمكنه الانضمام لهذه الفئة
-                  </Form.Text>
+                  <Form.Text className="text-muted">حدد من يمكنه الانضمام لهذه الفئة</Form.Text>
                 </Form.Group>
               </Col>
             </Row>

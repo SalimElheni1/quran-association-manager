@@ -1,9 +1,11 @@
 # Project Structure Guide
 
 ## Overview
+
 Clean, organized structure for the Quran Association Manager application.
 
 ## Root Directory
+
 ```
 quran-association-manager/
 ├── docs/                    # All documentation
@@ -19,6 +21,7 @@ quran-association-manager/
 ```
 
 ## Documentation (`docs/`)
+
 ```
 docs/
 ├── archive/                # Archived/legacy code
@@ -39,6 +42,7 @@ docs/
 ## Source Code (`src/`)
 
 ### Database Layer (`src/db/`)
+
 ```
 db/
 ├── migrations/             # Database migrations (001-025)
@@ -52,6 +56,7 @@ db/
 ```
 
 ### Main Process (`src/main/`)
+
 ```
 main/
 ├── handlers/               # IPC handlers by feature
@@ -90,6 +95,7 @@ main/
 ```
 
 ### Renderer Process (`src/renderer/`)
+
 ```
 renderer/
 ├── assets/                 # Fonts, images
@@ -136,7 +142,9 @@ renderer/
 ```
 
 ## Scripts (`scripts/`)
+
 Utility scripts for testing and database operations:
+
 - `init-financial-tables.js`
 - `manual-seeder.js`
 - `run-comprehensive-tests.js`
@@ -144,6 +152,7 @@ Utility scripts for testing and database operations:
 - `test-*.js` (various test scripts)
 
 ## Tests (`tests/`)
+
 ⚠️ **WARNING**: Test suite is currently broken and may have infinite loops.
 Do NOT run tests until fixed.
 
@@ -158,6 +167,7 @@ tests/
 ## Key Files
 
 ### Configuration
+
 - `package.json` - Dependencies and scripts
 - `vite.config.js` - Vite bundler configuration
 - `electron-builder.yml` - Electron builder configuration
@@ -167,6 +177,7 @@ tests/
 - `.prettierrc.js` - Prettier formatting rules
 
 ### Documentation
+
 - `README.md` - Main project documentation
 - `CHANGELOG.md` - Version history
 - `CONTRIBUTING.md` - Contribution guidelines
@@ -176,6 +187,7 @@ tests/
 - `CLEANUP_REPORT.txt` - This cleanup report
 
 ### Ignored Files (`.gitignore`)
+
 - `node_modules/` - Dependencies
 - `dist/`, `release/` - Build output
 - `coverage/` - Test coverage
@@ -187,14 +199,17 @@ tests/
 ## Component Organization
 
 ### Financial System
+
 Two parallel systems currently exist:
 
 **New Unified System** (Active):
+
 - Location: `src/renderer/components/financial/`
 - Handlers: `src/main/handlers/financialHandlers.js`
 - Uses: Unified `transactions` table
 
 **Legacy System** (Deprecated):
+
 - Location: `src/renderer/components/financials/`
 - Handlers: `src/main/handlers/legacyFinancialHandlers.js`
 - Uses: Separate tables (donations, expenses, payments, salaries)
@@ -203,11 +218,14 @@ Two parallel systems currently exist:
 ## Migration Files
 
 ### Naming Convention
+
 Format: `NNN-description.sql`
+
 - NNN: Sequential number (001-025)
 - description: Brief description in kebab-case
 
 ### Current Migrations
+
 - 001-010: Core tables and initial setup
 - 011: Groups tables
 - 012: Inventory tables
@@ -217,6 +235,7 @@ Format: `NNN-description.sql`
 - 022-025: Bug fixes and enhancements
 
 ### Adding New Migrations
+
 1. Create file: `026-your-description.sql`
 2. Write SQL statements
 3. Test thoroughly
@@ -225,24 +244,28 @@ Format: `NNN-description.sql`
 ## Best Practices
 
 ### File Organization
+
 - Group related files in folders
 - Use clear, descriptive names
 - Follow existing naming conventions
 - Keep components small and focused
 
 ### Code Structure
+
 - One component per file
 - Export at bottom of file
 - Import order: external → internal → relative
 - Use absolute imports where possible
 
 ### Documentation
+
 - Update docs when changing structure
 - Document complex logic
 - Keep README.md current
 - Use JSDoc for functions
 
 ### Version Control
+
 - Never commit build artifacts
 - Never commit database files
 - Never commit sensitive data
@@ -251,6 +274,7 @@ Format: `NNN-description.sql`
 ## Common Tasks
 
 ### Adding a New Feature
+
 1. Create handler in `src/main/handlers/`
 2. Register IPC channel in handler file
 3. Expose in `src/main/preload.js`
@@ -260,6 +284,7 @@ Format: `NNN-description.sql`
 7. Update documentation
 
 ### Adding a Database Table
+
 1. Create migration file in `src/db/migrations/`
 2. Update `src/db/schema.js`
 3. Create handlers for CRUD operations
@@ -268,6 +293,7 @@ Format: `NNN-description.sql`
 6. Test thoroughly
 
 ### Fixing a Bug
+
 1. Identify affected files
 2. Write test to reproduce bug
 3. Fix the issue
@@ -278,12 +304,14 @@ Format: `NNN-description.sql`
 ## Maintenance Schedule
 
 ### Regular Tasks
+
 - Weekly: Review and clean logs
 - Monthly: Update dependencies
 - Quarterly: Review and archive old code
 - Yearly: Major cleanup and refactoring
 
 ### Cleanup Checklist
+
 - [ ] Remove unused files
 - [ ] Update documentation
 - [ ] Fix broken tests
@@ -295,12 +323,14 @@ Format: `NNN-description.sql`
 ## Support
 
 ### Getting Help
+
 1. Check documentation in `docs/`
 2. Review `TROUBLESHOOTING.md`
 3. Search GitHub issues
 4. Create new issue with details
 
 ### Reporting Issues
+
 1. Check if already reported
 2. Provide clear description
 3. Include steps to reproduce

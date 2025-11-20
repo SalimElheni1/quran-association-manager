@@ -37,8 +37,8 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
-        setError('اسم المستخدم وكلمة المرور مطلوبان.');
-        return;
+      setError('اسم المستخدم وكلمة المرور مطلوبان.');
+      return;
     }
     setError('');
     setLoading(true);
@@ -55,38 +55,38 @@ function LoginPage({ initialCredentials, onCloseBanner }) {
     <div className="signin-container">
       <InitialCredentialsBanner credentials={initialCredentials} onClose={onCloseBanner} />
       <Card className="signin-card">
-              <Card.Body>
-                <div className="signin-header">
-                  <img src={displayLogo} alt="Logo" className="signin-logo" />
-                  <h1>تسجيل الدخول</h1>
-                </div>
-                {error && <Alert variant="danger">{error}</Alert>}
-                <Form onSubmit={handleSubmit}>
-                  <Form.Group className="mb-3">
-                    <Form.Label htmlFor="username">اسم المستخدم</Form.Label>
-                    <Form.Control
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                    />
-                    <Form.Text className="text-muted">
-                      (يجب أن يكون بالإنجليزية: حروف وأرقام فقط)
-                    </Form.Text>
-                  </Form.Group>
-                  <PasswordInput
-                    name="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="أدخل كلمة المرور"
-                    required
-                  />
-                  <Button variant="primary" type="submit" className="w-100" disabled={loading}>
-                    {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
-                  </Button>
-                </Form>
-              </Card.Body>
+        <Card.Body>
+          <div className="signin-header">
+            <img src={displayLogo} alt="Logo" className="signin-logo" />
+            <h1>تسجيل الدخول</h1>
+          </div>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Form onSubmit={handleSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Label htmlFor="username">اسم المستخدم</Form.Label>
+              <Form.Control
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+              <Form.Text className="text-muted">
+                (يجب أن يكون بالإنجليزية: حروف وأرقام فقط)
+              </Form.Text>
+            </Form.Group>
+            <PasswordInput
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="أدخل كلمة المرور"
+              required
+            />
+            <Button variant="primary" type="submit" className="w-100" disabled={loading}>
+              {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
+            </Button>
+          </Form>
+        </Card.Body>
       </Card>
     </div>
   );

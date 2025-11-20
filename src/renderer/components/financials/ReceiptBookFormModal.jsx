@@ -5,13 +5,13 @@ const RECEIPT_TYPES = [
   { value: 'payment', label: 'رسوم دراسية' },
   { value: 'donation', label: 'تبرعات' },
   { value: 'expense', label: 'مصاريف' },
-  { value: 'salary', label: 'رواتب' }
+  { value: 'salary', label: 'رواتب' },
 ];
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'نشط' },
   { value: 'completed', label: 'مكتمل' },
-  { value: 'cancelled', label: 'ملغي' }
+  { value: 'cancelled', label: 'ملغي' },
 ];
 
 function ReceiptBookFormModal({ show, onHide, onSave, book }) {
@@ -22,7 +22,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
     receipt_type: 'payment',
     issued_date: new Date().toISOString().split('T')[0],
     notes: '',
-    status: 'active'
+    status: 'active',
   });
   const [error, setError] = useState(null);
 
@@ -36,7 +36,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
         receipt_type: book.receipt_type,
         issued_date: book.issued_date.split('T')[0],
         notes: book.notes || '',
-        status: book.status
+        status: book.status,
       });
     } else {
       setFormData({
@@ -46,7 +46,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
         receipt_type: 'payment',
         issued_date: new Date().toISOString().split('T')[0],
         notes: '',
-        status: 'active'
+        status: 'active',
       });
     }
     setError(null);
@@ -86,7 +86,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
       <Form onSubmit={handleSubmit}>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
-          
+
           <Form.Group className="mb-3">
             <Form.Label>رقم الدفتر *</Form.Label>
             <Form.Control
@@ -158,11 +158,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
           {book && (
             <Form.Group className="mb-3">
               <Form.Label>الحالة</Form.Label>
-              <Form.Select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-              >
+              <Form.Select name="status" value={formData.status} onChange={handleChange}>
                 {STATUS_OPTIONS.map((status) => (
                   <option key={status.value} value={status.value}>
                     {status.label}

@@ -29,9 +29,9 @@ function ImportStep({ step, onComplete, result, disabled }) {
     try {
       const result = await window.electronAPI.openFileDialog({
         filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }],
-        properties: ['openFile']
+        properties: ['openFile'],
       });
-      
+
       if (!result.canceled && result.filePaths.length > 0) {
         const filePath = result.filePaths[0];
         const fileName = filePath.split(/[\\/]/).pop();
@@ -52,9 +52,9 @@ function ImportStep({ step, onComplete, result, disabled }) {
       const result = await window.electronAPI.importExcelSequential(filePath, step.id);
       onComplete(step.id, result);
     } catch (error) {
-      onComplete(step.id, { 
-        success: false, 
-        message: error.message || 'حدث خطأ أثناء الاستيراد' 
+      onComplete(step.id, {
+        success: false,
+        message: error.message || 'حدث خطأ أثناء الاستيراد',
       });
     } finally {
       setImporting(false);
@@ -66,11 +66,16 @@ function ImportStep({ step, onComplete, result, disabled }) {
 
   return (
     <Card className={`mb-3 ${isCompleted ? 'border-success' : hasError ? 'border-danger' : ''}`}>
-      <Card.Header className={`${isCompleted ? 'bg-success text-white' : hasError ? 'bg-danger text-white' : 'bg-light'}`}>
+      <Card.Header
+        className={`${isCompleted ? 'bg-success text-white' : hasError ? 'bg-danger text-white' : 'bg-light'}`}
+      >
         <div className="d-flex justify-content-between align-items-center">
           <div className="d-flex align-items-center">
             <div className="me-3">
-              <StepIcon icon={step.icon} className={`fa-2x ${isCompleted ? 'text-white' : hasError ? 'text-white' : 'text-primary'}`} />
+              <StepIcon
+                icon={step.icon}
+                className={`fa-2x ${isCompleted ? 'text-white' : hasError ? 'text-white' : 'text-primary'}`}
+              />
             </div>
             <div>
               <h5 className="mb-0">{step.name}</h5>
@@ -85,7 +90,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
           </div>
         </div>
       </Card.Header>
-      
+
       <Card.Body>
         {/* Step Instructions */}
         <div className="mb-4">
@@ -94,7 +99,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
             الأوراق المطلوبة في هذه الخطوة:
           </h6>
           <div className="row">
-            {step.sheets.map(sheet => (
+            {step.sheets.map((sheet) => (
               <div key={sheet} className="col-md-6 mb-2">
                 <div className="d-flex align-items-center p-2 bg-light rounded">
                   <TableIcon className="me-2 text-success" />
@@ -160,9 +165,7 @@ function ImportStep({ step, onComplete, result, disabled }) {
                 <div className="mt-2">
                   <div>السجلات المستوردة: {result.data?.successCount || 0}</div>
                   {result.data?.errorCount > 0 && (
-                    <div className="text-warning">
-                      السجلات التي فشلت: {result.data.errorCount}
-                    </div>
+                    <div className="text-warning">السجلات التي فشلت: {result.data.errorCount}</div>
                   )}
                   {result.data?.newUsers?.length > 0 && (
                     <div className="mt-2">
@@ -180,7 +183,9 @@ function ImportStep({ step, onComplete, result, disabled }) {
                     <summary>تفاصيل الأخطاء</summary>
                     <ul className="mt-2 mb-0">
                       {result.data.errors.slice(0, 5).map((error, index) => (
-                        <li key={index} className="small">{error}</li>
+                        <li key={index} className="small">
+                          {error}
+                        </li>
                       ))}
                       {result.data.errors.length > 5 && (
                         <li className="small text-muted">

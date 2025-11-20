@@ -10,7 +10,7 @@ async function getStartingBalance(startDate) {
       SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense
      FROM transactions 
      WHERE transaction_date < ?`,
-    [startDate]
+    [startDate],
   );
   const account = await db.getQuery('SELECT initial_balance FROM accounts WHERE id = 1');
   const initialBalance = account?.initial_balance || 0;
@@ -29,13 +29,13 @@ function localizeLibelle(text) {
   if (!text || text === 'undefined' || text === 'null') return '-';
   const map = {
     'Student Fees': 'رسوم الطلبة',
-    'ANNUAL': 'رسوم الطلبة',
-    'MONTHLY': 'رسوم الطلبة',
-    'CASH': 'نقدي',
+    ANNUAL: 'رسوم الطلبة',
+    MONTHLY: 'رسوم الطلبة',
+    CASH: 'نقدي',
     'Bank Transfer': 'تحويل بنكي',
-    'Donation': 'تبرع',
-    'Expense': 'مصروف',
-    'Salary': 'راتب',
+    Donation: 'تبرع',
+    Expense: 'مصروف',
+    Salary: 'راتب',
     'Student Fee': 'رسم طالب',
     'التبرعات النقدية': 'التبرعات النقدية',
     'التبرعات العينية': 'التبرعات العينية',
@@ -43,7 +43,7 @@ function localizeLibelle(text) {
     'مصاريف إدارية': 'مصاريف إدارية',
     'صيانة وتصليح': 'صيانة وتصليح',
     'شراء أصول': 'شراء أصول',
-    'فواتير': 'فواتير',
+    فواتير: 'فواتير',
     'مساعدات اجتماعية': 'مساعدات اجتماعية',
     'مصاريف متنوعة': 'مصاريف متنوعة',
   };
@@ -55,18 +55,31 @@ async function generateCashLedgerReport(event, { period }) {
     const { startDate, endDate } = period;
     const transactions = await db.allQuery(
       `SELECT * FROM transactions WHERE transaction_date BETWEEN ? AND ? AND category != 'التبرعات العينية' ORDER BY transaction_date ASC, id ASC`,
-      [startDate, endDate]
+      [startDate, endDate],
     );
     const startingBalance = await getStartingBalance(startDate);
 
-    const arabicMonths = ['جانفي', 'فيفري', 'مارس', 'أفريل', 'ماي', 'جوان', 'جويلية', 'أوت', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+    const arabicMonths = [
+      'جانفي',
+      'فيفري',
+      'مارس',
+      'أفريل',
+      'ماي',
+      'جوان',
+      'جويلية',
+      'أوت',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
     const startDateObj = new Date(startDate);
     const monthYear = `${arabicMonths[startDateObj.getMonth()]} ${startDateObj.getFullYear()}`;
 
     const { filePath } = await dialog.showSaveDialog({
       title: 'حفظ سجل المحاسبة',
       defaultPath: `سجل-المحاسبة-${monthYear}.xlsx`,
-      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
     });
 
     if (!filePath) return { cancelled: true };
@@ -77,7 +90,12 @@ async function generateCashLedgerReport(event, { period }) {
         paperSize: 9, // A4
         orientation: 'landscape',
         margins: {
-          left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3
+          left: 0.7,
+          right: 0.7,
+          top: 0.75,
+          bottom: 0.75,
+          header: 0.3,
+          footer: 0.3,
         },
         fitToPage: true,
         fitToWidth: 1,
@@ -85,12 +103,12 @@ async function generateCashLedgerReport(event, { period }) {
         horizontalCentered: true,
         verticalCentered: true,
       },
-      views: [{ rightToLeft: true, state: 'frozen', ySplit: 6 }]
+      views: [{ rightToLeft: true, state: 'frozen', ySplit: 6 }],
     });
-    
+
     // Default font
     worksheet.eachRow((row) => {
-        row.font = { name: 'Traditional Arabic', size: 12 };
+      row.font = { name: 'Traditional Arabic', size: 12 };
     });
 
     // Title
@@ -107,7 +125,12 @@ async function generateCashLedgerReport(event, { period }) {
     openingLabelCell.value = 'الرصيد بداية الشهر';
     openingLabelCell.font = { name: 'Traditional Arabic', size: 12, bold: true };
     openingLabelCell.alignment = { horizontal: 'center' };
-    openingLabelCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    openingLabelCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    };
 
     const openCashRow = worksheet.getRow(3);
     openCashRow.getCell('F').value = 'السيولة';
@@ -120,21 +143,43 @@ async function generateCashLedgerReport(event, { period }) {
     openTotalRow.getCell('G').value = startingBalance;
 
     [openCashRow, openBankRow, openTotalRow].forEach((row) => {
-        row.getCell('F').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        row.getCell('G').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        row.getCell('G').numFmt = '#,##0';
-        row.getCell('G').alignment = { horizontal: 'right' };
-        row.getCell('F').font = { name: 'Traditional Arabic', size: 12, bold: false };
-        row.getCell('G').font = { name: 'Traditional Arabic', size: 12, bold: true };
+      row.getCell('F').border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+      row.getCell('G').border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+      row.getCell('G').numFmt = '#,##0';
+      row.getCell('G').alignment = { horizontal: 'right' };
+      row.getCell('F').font = { name: 'Traditional Arabic', size: 12, bold: false };
+      row.getCell('G').font = { name: 'Traditional Arabic', size: 12, bold: true };
     });
-
 
     // Main table headers
     const headerRow = worksheet.getRow(6);
-    headerRow.values = ['رقم التسلسل', 'التاريخ', 'البيان', 'مداخيل', 'مصاريف', 'الرصيد', 'وثيقة الإثبات'];
+    headerRow.values = [
+      'رقم التسلسل',
+      'التاريخ',
+      'البيان',
+      'مداخيل',
+      'مصاريف',
+      'الرصيد',
+      'وثيقة الإثبات',
+    ];
     headerRow.font = { name: 'Traditional Arabic', size: 14, bold: true };
     headerRow.eachCell((cell) => {
-      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
@@ -148,7 +193,7 @@ async function generateCashLedgerReport(event, { period }) {
           libelle: libelle,
           type: t.type,
           amount: 0,
-          vouchers: []
+          vouchers: [],
         };
       }
       acc[key].amount += t.amount || 0;
@@ -168,22 +213,26 @@ async function generateCashLedgerReport(event, { period }) {
 
       let voucherText = '-';
       if (group.vouchers.length > 0) {
-        const sortedVouchers = group.vouchers.map(v => parseInt(v, 10)).sort((a, b) => a - b);
+        const sortedVouchers = group.vouchers.map((v) => parseInt(v, 10)).sort((a, b) => a - b);
         const min = sortedVouchers[0];
         const max = sortedVouchers[sortedVouchers.length - 1];
-        const isConsecutive = sortedVouchers.every((v, i) => i === 0 || v === sortedVouchers[i-1] + 1);
+        const isConsecutive = sortedVouchers.every(
+          (v, i) => i === 0 || v === sortedVouchers[i - 1] + 1,
+        );
 
         const prefix = isIncome ? 'وصل إستلام أموال' : 'إذن بالدفع';
 
         if (sortedVouchers.length > 1 && isConsecutive) {
           voucherText = `${prefix} من عدد :${String(min).padStart(3, '0')} إلى عدد ${String(max).padStart(3, '0')}`;
         } else if (sortedVouchers.length > 0) {
-            voucherText = `${prefix} عدد ${group.vouchers.join(', ')}`;
+          voucherText = `${prefix} عدد ${group.vouchers.join(', ')}`;
         }
       }
-      
+
       if (index < 10) {
-        console.log(`Row ${index + 1}: Type=${group.type}, Libelle=${group.libelle}, Vouchers=${group.vouchers.join(', ')}`);
+        console.log(
+          `Row ${index + 1}: Type=${group.type}, Libelle=${group.libelle}, Vouchers=${group.vouchers.join(', ')}`,
+        );
       }
 
       const row = worksheet.addRow([
@@ -193,18 +242,26 @@ async function generateCashLedgerReport(event, { period }) {
         isIncome ? group.amount : '',
         !isIncome ? group.amount : '',
         runningBalance,
-        voucherText
+        voucherText,
       ]);
 
       row.eachCell((cell, colNum) => {
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
         cell.font = { name: 'Traditional Arabic', size: 12 };
-        
-        if (colNum === 2) { // Date
+
+        if (colNum === 2) {
+          // Date
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        } else if (colNum === 3 || colNum === 7) { // Libelle, Voucher
+        } else if (colNum === 3 || colNum === 7) {
+          // Libelle, Voucher
           cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
-        } else if (colNum >= 4 && colNum <= 6) { // Income, Expense, Balance
+        } else if (colNum >= 4 && colNum <= 6) {
+          // Income, Expense, Balance
           cell.numFmt = '#,##0';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
@@ -218,7 +275,12 @@ async function generateCashLedgerReport(event, { period }) {
     closingLabelCell.value = `> إلى ${formatDateDDMMYYYY(endDate)}`;
     closingLabelCell.font = { name: 'Traditional Arabic', size: 12, bold: true };
     closingLabelCell.alignment = { horizontal: 'center' };
-    closingLabelCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    closingLabelCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    };
 
     const closeCashRow = worksheet.getRow(closingRowIndex + 1);
     closeCashRow.getCell('F').value = 'السيولة';
@@ -231,17 +293,33 @@ async function generateCashLedgerReport(event, { period }) {
     closeTotalRow.getCell('G').value = runningBalance;
 
     [closeCashRow, closeBankRow, closeTotalRow].forEach((row) => {
-        row.getCell('F').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        row.getCell('G').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        row.getCell('G').numFmt = '#,##0';
-        row.getCell('G').alignment = { horizontal: 'right' };
-        row.getCell('F').font = { name: 'Traditional Arabic', size: 12, bold: false };
-        row.getCell('G').font = { name: 'Traditional Arabic', size: 12, bold: true };
+      row.getCell('F').border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+      row.getCell('G').border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+      row.getCell('G').numFmt = '#,##0';
+      row.getCell('G').alignment = { horizontal: 'right' };
+      row.getCell('F').font = { name: 'Traditional Arabic', size: 12, bold: false };
+      row.getCell('G').font = { name: 'Traditional Arabic', size: 12, bold: true };
     });
 
     // Column widths
     worksheet.columns = [
-      { width: 10 }, { width: 14 }, { width: 40 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 30 }
+      { width: 10 },
+      { width: 14 },
+      { width: 40 },
+      { width: 16 },
+      { width: 16 },
+      { width: 18 },
+      { width: 30 },
     ];
 
     await workbook.xlsx.writeFile(filePath);

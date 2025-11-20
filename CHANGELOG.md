@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Created `LICENSE` file with CC BY-NC-SA 4.0 license.
 - Created `CODE_OF_CONDUCT.md` with the Contributor Covenant.
 - Created `CONTRIBUTING.md` with guidelines for contributors.
@@ -15,12 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created `AGENTS.md` to assist AI agents.
 
 ### Changed
+
 - Updated `README.md` to be a more comprehensive entry point.
 - Refined `docs/USAGE.md` and `docs/DEVELOPMENT.md`.
 
 ## [1.0.0] - 2025-09-01
 
 ### Added
+
 - Initial release of the Quran Branch Manager application.
 - Core features include student, teacher, and class management.
 - Attendance tracking and reporting.

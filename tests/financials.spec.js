@@ -13,6 +13,18 @@ jest.mock('electron', () => ({
     getAppPath: jest.fn(() => '/mock/app/path'),
     getPath: jest.fn((name) => `/mock/user/data/${name}`),
   },
+  BrowserWindow: Object.assign(
+    jest.fn(() => ({
+      loadFile: jest.fn().mockResolvedValue(),
+      webContents: {
+        printToPDF: jest.fn().mockResolvedValue(Buffer.from('pdf-data')),
+        send: jest.fn(),
+        on: jest.fn(),
+      },
+      close: jest.fn(),
+    })),
+    { getAllWindows: jest.fn().mockReturnValue([]) },
+  ),
   ipcMain: {
     handle: jest.fn(),
   },

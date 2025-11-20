@@ -46,20 +46,20 @@ function TransactionTable({
     if (transaction.category === 'رسوم الطلاب' && transaction.receipt_type === 'CUSTOM') {
       return 'رسوم الطلاب';
     }
-    
+
     // Use the translated receipt_type from backend if available
     if (transaction.receipt_type_display && transaction.receipt_type_display !== 'CUSTOM') {
       return transaction.receipt_type_display;
     }
-    
+
     // Fallback translations
     const translations = {
       MONTHLY: 'رسوم شهرية',
       ANNUAL: 'رسوم سنوية',
       SPECIAL: 'رسوم خاصة',
-      'رسوم الطلاب': 'رسوم الطلاب'
+      'رسوم الطلاب': 'رسوم الطلاب',
     };
-    
+
     return translations[transaction.receipt_type] || transaction.receipt_type || '-';
   };
 

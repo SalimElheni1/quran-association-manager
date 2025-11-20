@@ -36,14 +36,16 @@
         text-align: center;
         flex: 1;
       }
-      .header-section.left, .header-section.right {
+      .header-section.left,
+      .header-section.right {
         flex: 0 1 150px; /* Do not grow, allow shrinking, base width 150px */
       }
       .header-section img {
         max-height: 50px;
         max-width: 150px;
       }
-      .header-section h4, .header-section h5 {
+      .header-section h4,
+      .header-section h5 {
         margin: 0;
         font-weight: normal;
       }
@@ -86,16 +88,16 @@
   </head>
   <body>
     <header class="header">
-        <div class="header-section right">
-            <img src="{image_national}" alt="National Logo" />
-        </div>
-        <div class="header-section">
-            <h4>{national_association_name}</h4>
-            <h5>{branch_name}</h5>
-        </div>
-        <div class="header-section left">
-            <img src="{image_branch}" alt="Branch Logo" />
-        </div>
+      <div class="header-section right">
+        <img src="{image_national}" alt="National Logo" />
+      </div>
+      <div class="header-section">
+        <h4>{national_association_name}</h4>
+        <h5>{branch_name}</h5>
+      </div>
+      <div class="header-section left">
+        <img src="{image_branch}" alt="Branch Logo" />
+      </div>
     </header>
 
     <div class="footer">

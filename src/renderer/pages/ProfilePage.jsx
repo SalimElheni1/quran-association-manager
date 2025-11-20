@@ -168,7 +168,11 @@ const ProfilePage = () => {
                           <Form.Control
                             type="text"
                             name="roles"
-                            value={profile.roles?.map(role => roleTranslations[role] || role).join(', ') || ''}
+                            value={
+                              profile.roles
+                                ?.map((role) => roleTranslations[role] || role)
+                                .join(', ') || ''
+                            }
                             readOnly
                           />
                         </Form.Group>

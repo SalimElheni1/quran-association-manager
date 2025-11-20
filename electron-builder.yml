@@ -24,7 +24,7 @@ compression: maximum
 nodeGypRebuild: false
 buildDependenciesFromSource: false
 win:
-  target: 
+  target:
     target: nsis
     arch: [x64]
   icon: release/.icon-ico/icon.ico

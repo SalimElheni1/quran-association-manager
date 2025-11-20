@@ -8,19 +8,19 @@ const RECEIPT_TYPES = {
   payment: 'رسوم دراسية',
   donation: 'تبرعات',
   expense: 'مصاريف',
-  salary: 'رواتب'
+  salary: 'رواتب',
 };
 
 const STATUS_VARIANTS = {
   active: 'success',
   completed: 'secondary',
-  cancelled: 'danger'
+  cancelled: 'danger',
 };
 
 const STATUS_LABELS = {
   active: 'نشط',
   completed: 'مكتمل',
-  cancelled: 'ملغي'
+  cancelled: 'ملغي',
 };
 
 function ReceiptBooksTab() {
@@ -153,9 +153,7 @@ function ReceiptBooksTab() {
                     {progress.used} / {progress.total} ({progress.percentage}%)
                   </td>
                   <td>
-                    <Badge bg={STATUS_VARIANTS[book.status]}>
-                      {STATUS_LABELS[book.status]}
-                    </Badge>
+                    <Badge bg={STATUS_VARIANTS[book.status]}>{STATUS_LABELS[book.status]}</Badge>
                   </td>
                   <td>{new Date(book.issued_date).toLocaleDateString()}</td>
                   <td>
