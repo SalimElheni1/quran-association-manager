@@ -79,10 +79,23 @@ function registerSystemHandlers() {
         }
 
         const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
+        const sheetNameMap = {
+          students: 'الطلاب',
+          teachers: 'المعلمون',
+          admins: 'المستخدمون',
+          users: 'المستخدمون',
+          classes: 'الفصول',
+          attendance: 'الحضور',
+          'student-fees': 'رسوم الطلاب',
+          expenses: 'المصاريف',
+          income: 'المداخيل',
+          inventory: 'المخزون',
+        };
+        const sheetName = sheetNameMap[exportType] || 'Exported Data';
         if (format === 'pdf') {
           await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
         } else if (format === 'xlsx') {
-          await exportManager.generateXlsx(columns, data, filePath, headerData);
+          await exportManager.generateXlsx(columns, data, filePath, sheetName);
         } else if (format === 'docx') {
           await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
         } else {
@@ -93,6 +106,18 @@ function registerSystemHandlers() {
       return { success: true, message: `Export saved to ${filePath}` };
     } catch (error) {
       logError(`Error during export (${exportType}, ${format}):`, error);
+      // Show error toast notification to user
+      try {
+        const mainWindow = require('../index').mainWindow;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            'ui:show-error-toast',
+            `فشل في تصدير ${exportType}: ${error.message}`,
+          );
+        }
+      } catch (toastError) {
+        logError('Error showing error toast:', toastError);
+      }
       return { success: false, message: `Export failed: ${error.message}` };
     }
   });
@@ -276,6 +301,44 @@ function registerSystemHandlers() {
     } catch (error) {
       logError('Error getting log file path:', error);
       return { success: false, message: error.message };
+    }
+  });
+
+  // ========================================================================
+  // UI NOTIFICATION APIs
+  // ========================================================================
+
+  /**
+   * Shows an error toast notification in the renderer process
+   * @param {Object} event IPC event
+   * @param {string} message Error message to display
+   */
+  ipcMain.on('ui:show-error-toast', (event, message) => {
+    try {
+      // Forward to renderer process main window
+      const mainWindow = require('../index').mainWindow;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ui:show-error-toast', message);
+      }
+    } catch (error) {
+      logError('Error showing error toast:', error);
+    }
+  });
+
+  /**
+   * Shows a success toast notification in the renderer process
+   * @param {Object} event IPC event
+   * @param {string} message Success message to display
+   */
+  ipcMain.on('ui:show-success-toast', (event, message) => {
+    try {
+      // Forward to renderer process main window
+      const mainWindow = require('../index').mainWindow;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ui:show-success-toast', message);
+      }
+    } catch (error) {
+      logError('Error showing success toast:', error);
     }
   });
 }

@@ -21,6 +21,7 @@ import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import { showErrorToast, showSuccessToast } from '@renderer/utils/toast';
 
 // Lazy load heavy pages
 const StudentsPage = React.lazy(() => import('@renderer/pages/StudentsPage'));
@@ -53,6 +54,45 @@ function App() {
    * @type {Object|null}
    */
   const [initialCredentials, setInitialCredentials] = useState(null);
+
+  /**
+   * Effect hook to set up IPC event listeners for toast notifications.
+   * Listens for error and success toast events from the main process.
+   */
+  useEffect(() => {
+    // Listen for error toast events
+    const handleErrorToast = (event, message) => {
+      showErrorToast(message);
+    };
+
+    // Listen for success toast events
+    const handleSuccessToast = (event, message) => {
+      showSuccessToast(message);
+    };
+
+    // Set up listeners
+    // Note: In Electron, we need to use the global api directly since we're in a sandboxed context
+    try {
+      // Using the electron renderer process API directly since preload API is for invoking main process
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.on('ui:show-error-toast', handleErrorToast);
+      ipcRenderer.on('ui:show-success-toast', handleSuccessToast);
+    } catch (e) {
+      // Fallback: try using the window methods if electron API import fails
+      console.warn('Could not set up toast IPC listeners directly:', e.message);
+    }
+
+    // Cleanup listeners on unmount
+    return () => {
+      try {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.removeListener('ui:show-error-toast', handleErrorToast);
+        ipcRenderer.removeListener('ui:show-success-toast', handleSuccessToast);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    };
+  }, []);
 
   /**
    * Effect hook to fetch initial credentials from the main process.

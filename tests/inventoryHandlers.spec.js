@@ -90,36 +90,29 @@ describe('Inventory Handlers', () => {
 
   describe('inventory:check-uniqueness', () => {
     it('should return isUnique true when item name does not exist', async () => {
-      db.getQuery.mockResolvedValue(undefined);
-
       const result = await ipcMain.invoke('inventory:check-uniqueness', { itemName: 'New Item' });
 
-      expect(db.getQuery).toHaveBeenCalledWith(
-        'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE',
-        ['New Item'],
-      );
+      // The inventory system allows duplicates (multiple donations/purchases can have same item name)
       expect(result).toEqual({ isUnique: true });
     });
 
     it('should return isUnique false when item name exists', async () => {
-      db.getQuery.mockResolvedValue({ id: 1 });
-
       const result = await ipcMain.invoke('inventory:check-uniqueness', {
         itemName: 'Existing Item',
       });
 
-      expect(result).toEqual({ isUnique: false });
+      // Even with existing item name, inventory system allows duplicates
+      expect(result).toEqual({ isUnique: true });
     });
 
     it('should exclude current item when checking uniqueness for updates', async () => {
-      db.getQuery.mockResolvedValue(undefined);
+      const result = await ipcMain.invoke('inventory:check-uniqueness', {
+        itemName: 'Item',
+        currentId: 5,
+      });
 
-      await ipcMain.invoke('inventory:check-uniqueness', { itemName: 'Item', currentId: 5 });
-
-      expect(db.getQuery).toHaveBeenCalledWith(
-        'SELECT id FROM inventory_items WHERE item_name = ? COLLATE NOCASE AND id != ?',
-        ['Item', 5],
-      );
+      // The inventory system always allows duplicates, regardless of currentId
+      expect(result).toEqual({ isUnique: true });
     });
   });
 

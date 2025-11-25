@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
 
 const ExportModal = ({
@@ -97,23 +98,32 @@ const ExportModal = ({
 
       if (result.success) {
         setMessage({ type: 'success', text: `تم تصدير الملف بنجاح!` });
+        toast.success('تم تصدير الملف بنجاح!');
       } else {
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
+          const errorMsg = 'فشل تصدير DOCX: ملف القالب "export_template_v2.docx" غير موجود.';
           setMessage({
             type: 'warning',
-            text: 'فشل تصدير DOCX: ملف القالب "export_template_v2.docx" غير موجود.',
+            text: errorMsg,
           });
+          toast.error(errorMsg);
         } else if (result.message.includes('TEMPLATE_INVALID')) {
+          const errorMsg = 'فشل تصدير DOCX: ملف القالب تالف أو فارغ.';
           setMessage({
             type: 'warning',
-            text: 'فشل تصدير DOCX: ملف القالب تالف أو فارغ.',
+            text: errorMsg,
           });
+          toast.error(errorMsg);
         } else {
-          setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+          const errorMsg = `فشل التصدير: ${result.message}`;
+          setMessage({ type: 'danger', text: errorMsg });
+          toast.error(errorMsg);
         }
       }
     } catch (error) {
-      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
+      const errorMsg = `حدث خطأ: ${error.message}`;
+      setMessage({ type: 'danger', text: errorMsg });
+      toast.error(errorMsg);
       logError('Export failed:', error);
     }
   };
@@ -225,9 +235,10 @@ const ExportModal = ({
         <Button variant="success" onClick={() => handleExport('docx')} disabled={isExportDisabled}>
           تصدير إلى DOCX
         </Button>
-        <Button variant="danger" onClick={() => handleExport('pdf')} disabled={isExportDisabled}>
+        {/* PDF export disabled temporarily due to font rendering issues - will be fixed in future release */}
+        {/* <Button variant="danger" onClick={() => handleExport('pdf')} disabled={isExportDisabled}>
           تصدير إلى PDF
-        </Button>
+        </Button> */}
       </Modal.Footer>
     </Modal>
   );

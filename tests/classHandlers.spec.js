@@ -130,16 +130,46 @@ describe('Class Handlers', () => {
   });
 
   describe('classes:getEnrollmentData', () => {
-    it('should fetch enrollment data for a "kids" class', async () => {
-      db.getQuery.mockResolvedValue({ value: '16' }); // adult_age_threshold
+    it('should fetch enrollment data for a class with age group', async () => {
+      const mockAgeGroup = {
+        id: 1,
+        name: 'Kids Group',
+        min_age: 8,
+        max_age: 12,
+        gender: 'male_only',
+      };
+
+      db.getQuery.mockResolvedValue(mockAgeGroup);
       db.allQuery.mockResolvedValue([]); // enrolled and notEnrolled
 
-      await ipcMain.invoke('classes:getEnrollmentData', { classId: 1, classGender: 'kids' });
+      const result = await ipcMain.invoke('classes:getEnrollmentData', {
+        classId: 1,
+        classAgeGroupId: 1,
+      });
 
+      // Check that the function calls database queries for enrolled and not enrolled students
+      expect(db.allQuery).toHaveBeenCalled();
+      // The actual implementation filters by age in JavaScript, not SQL
       const notEnrolledCall = db.allQuery.mock.calls.find((call) =>
-        call[0].includes('s.date_of_birth > ?'),
+        call[0].includes('LEFT JOIN class_students'),
       );
       expect(notEnrolledCall).toBeDefined();
+      expect(result).toHaveProperty('enrolledStudents');
+      expect(result).toHaveProperty('notEnrolledStudents');
+    });
+
+    it('should return warning when no age group is set', async () => {
+      db.getQuery.mockResolvedValue(null); // No age group found
+      db.allQuery.mockResolvedValue([]); // enrolled and notEnrolled
+
+      const result = await ipcMain.invoke('classes:getEnrollmentData', {
+        classId: 1,
+        classAgeGroupId: 999,
+      });
+
+      expect(result).toHaveProperty('noAgeGroupWarning', true);
+      expect(result).toHaveProperty('enrolledStudents');
+      expect(result).toHaveProperty('notEnrolledStudents');
     });
   });
 

@@ -23,7 +23,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
         // Automatically start import after file selection
         setTimeout(() => handleImport(result.filePaths[0]), 500);
       } else {
-        console.log('File selection cancelled or no file selected:', result);
+        // File selection cancelled or no file selected
       }
     } catch (err) {
       setError('خطأ في اختيار الملف: ' + err.message);
@@ -33,16 +33,9 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
   const handleImport = async (importFilePath = null) => {
     const pathToUse = importFilePath || filePath;
     if (!pathToUse || selectedSheets.length === 0) {
-      console.log(
-        'Import cancelled: filePath=',
-        pathToUse,
-        'selectedSheets length=',
-        selectedSheets.length,
-      );
+      // Import cancelled
       return;
     }
-
-    console.log('Starting import with path:', pathToUse, 'and sheets:', selectedSheets);
 
     setLoading(true);
     setError(null);
@@ -50,9 +43,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
     setCurrentStep('import');
 
     try {
-      console.log('Calling API...');
       const response = await window.electronAPI.importExcel(pathToUse, selectedSheets);
-      console.log('API response:', response);
 
       if (response.success) {
         setResult(response.data);

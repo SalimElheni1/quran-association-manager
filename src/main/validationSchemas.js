@@ -102,8 +102,8 @@ const classValidationSchema = Joi.object({
     .when('fee_type', {
       is: 'special',
       then: Joi.number().positive().required().messages({
-        'number.positive': 'المعلوم الشهري يجب أن يكون موجباً',
-        'any.required': 'المعلوم الشهري مطلوب عند اختيار معلوم خاص',
+        'number.positive': 'المعلم الشهري يجب أن يكون موجباً',
+        'any.required': 'المعلم الشهري مطلوب عند اختيار معلوم خاص',
       }),
       otherwise: Joi.number().positive().allow(null, ''),
     }),
@@ -242,13 +242,9 @@ const transactionValidationSchema = Joi.object({
     'any.only': 'طريقة الدفع غير صالحة',
     'any.required': 'طريقة الدفع مطلوبة',
   }),
-  voucher_number: Joi.when('category', {
-    is: 'التبرعات العينية',
-    then: Joi.string().allow(null, ''),
-    otherwise: Joi.string().required().messages({
-      'string.empty': 'رقم الوصل مطلوب',
-      'any.required': 'رقم الوصل مطلوب',
-    }),
+  voucher_number: Joi.string().required().messages({
+    'string.empty': 'رقم الوصل مطلوب',
+    'any.required': 'رقم الوصل مطلوب',
   }),
   check_number: Joi.string().when('payment_method', {
     is: 'CHECK',

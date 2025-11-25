@@ -41,7 +41,6 @@ function ExpensesPage() {
     const handleImportCompleted = (payload) => {
       // Check if expense data was imported (UI sheet name is 'المصاريف')
       if (payload.sheets && payload.sheets.includes('المصاريف')) {
-        console.log('Expenses page: Import completed, refreshing data');
         refresh();
       }
     };

@@ -10,16 +10,19 @@ const path = require('path');
 const fs = require('fs');
 
 // Mock the studentFeeHandlers to control its behavior
-let callCount = 0;
-jest.mock('../src/main/handlers/studentFeeHandlers', () => ({
-  checkAndGenerateChargesForAllStudents: jest.fn().mockImplementation(() => {
-    callCount++;
-    if (callCount === 1) {
-      return Promise.reject(new Error('First call error'));
-    }
-    return Promise.resolve({ success: true, studentsProcessed: 10 });
-  }),
-}));
+jest.mock('../src/main/handlers/studentFeeHandlers', () => {
+  // Use a simple counter function that doesn't rely on closure
+  let callCount = 0;
+  return {
+    checkAndGenerateChargesForAllStudents: jest.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.reject(new Error('First call error'));
+      }
+      return Promise.resolve({ success: true, studentsProcessed: 10 });
+    }),
+  };
+});
 
 describe('settings:update IPC Handler - Comprehensive Transaction Test', () => {
   let handlers = {};
@@ -31,7 +34,7 @@ describe('settings:update IPC Handler - Comprehensive Transaction Test', () => {
       fs.unlinkSync(dbPath);
     }
 
-    await db.init(dbPath);
+    await db.initializeTestDatabase(dbPath);
     await db.runQuery(
       `CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -50,7 +53,7 @@ describe('settings:update IPC Handler - Comprehensive Transaction Test', () => {
   });
 
   afterAll(async () => {
-    await db.close();
+    await db.closeDatabase();
     const dbPath = path.join(__dirname, 'test-settings-db.sqlite');
     if (fs.existsSync(dbPath)) {
       fs.unlinkSync(dbPath);
@@ -59,7 +62,7 @@ describe('settings:update IPC Handler - Comprehensive Transaction Test', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    callCount = 0; // Reset call count for each test
+    // Note: callCount is managed within the mock itself
 
     // Clear settings table
     await db.runQuery('DELETE FROM settings');
