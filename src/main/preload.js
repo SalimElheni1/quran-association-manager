@@ -386,6 +386,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearInitialCredentials: () => ipcRenderer.invoke('clear-initial-credentials'),
 
   // ========================================================================
+  // UI NOTIFICATION APIs
+  // ========================================================================
+
+  /**
+   * Shows an error toast notification
+   * @param {string} message Error message to display
+   */
+  showErrorToast: (message) => ipcRenderer.send('ui:show-error-toast', message),
+
+  /**
+   * Shows a success toast notification
+   * @param {string} message Success message to display
+   */
+  showSuccessToast: (message) => ipcRenderer.send('ui:show-success-toast', message),
+
+  // ========================================================================
   // TESTING & DEBUGGING APIs
   // ========================================================================
 

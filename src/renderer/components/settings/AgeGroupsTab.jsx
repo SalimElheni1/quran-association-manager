@@ -33,7 +33,6 @@ const AgeGroupsTab = () => {
     try {
       setLoading(true);
       const response = await window.electronAPI.getAgeGroups();
-      console.log('fetchAgeGroups response:', response);
       if (response.success) {
         setAgeGroups(response.ageGroups);
       } else {
@@ -98,7 +97,6 @@ const AgeGroupsTab = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    console.log('handleSubmit called');
 
     try {
       const data = {
@@ -107,29 +105,19 @@ const AgeGroupsTab = () => {
         max_age: formData.max_age ? parseInt(formData.max_age) : null,
       };
 
-      console.log('Submitting data:', data);
-
       let response;
       if (editingGroup) {
-        console.log('Updating age group:', editingGroup.id);
         response = await window.electronAPI.updateAgeGroup(editingGroup.id, data);
       } else {
-        console.log('Creating new age group');
         response = await window.electronAPI.createAgeGroup(data);
       }
 
-      console.log('Backend response:', response);
-      console.log('Response type:', typeof response);
-      console.log('Response.success:', response?.success);
-
       if (response && response.success === true) {
-        console.log('Success! Closing modal');
         toast.success(response.message);
         setShowModal(false);
         setSaving(false);
         await fetchAgeGroups();
       } else {
-        console.log('Not successful. Response:', response);
         toast.error(response?.message || 'حدث خطأ في حفظ الفئة العمرية');
         setSaving(false);
       }

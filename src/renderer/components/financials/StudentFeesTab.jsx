@@ -87,7 +87,6 @@ const StudentFeesTab = () => {
 
     // Listen for settings updates to refresh charges
     const handleSettingsUpdated = () => {
-      console.log('[StudentFeesTab] Settings updated, refreshing students...');
       setTimeout(() => {
         loadStudents();
         checkFeesConfiguration();
@@ -117,7 +116,6 @@ const StudentFeesTab = () => {
     const handleImportCompleted = (payload) => {
       // Check if student fees data was imported
       if (payload.sheets && payload.sheets.includes('رسوم الطلاب')) {
-        console.log('StudentFeesTab: Import completed, refreshing data');
         loadStudents();
       }
     };
@@ -207,7 +205,6 @@ const StudentFeesTab = () => {
     try {
       setLoading(true);
       const studentsWithFees = await window.electronAPI.studentFeesGetAll();
-      console.log('[StudentFeesTab] Loaded students:', studentsWithFees.length);
       setStudents(studentsWithFees);
       setCurrentPage(1);
     } catch (err) {

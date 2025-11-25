@@ -41,7 +41,6 @@ function IncomePage() {
     const handleImportCompleted = (payload) => {
       // Check if income data was imported (UI sheet name is 'المداخيل')
       if (payload.sheets && payload.sheets.includes('المداخيل')) {
-        console.log('Income page: Import completed, refreshing data');
         refresh();
       }
     };

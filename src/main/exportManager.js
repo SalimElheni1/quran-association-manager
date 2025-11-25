@@ -7,6 +7,93 @@ const docx = require('docx');
 const { allQuery } = require('../db/db');
 const { getSetting } = require('./settingsManager');
 
+// Initialize pdfmake with fonts
+let pdfMake;
+let arabicFontAvailable = false;
+
+console.log('=== Initializing pdfMake and fonts ===');
+
+try {
+  pdfMake = require('pdfmake/build/pdfmake');
+  if (!pdfMake.fonts) pdfMake.fonts = {};
+
+  const fonts = {
+    Roboto: {
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf',
+    },
+  };
+
+  // Try to load Arabic fonts with fallback chain
+  let arabicFontLoaded = false;
+
+  // Try Cairo fonts first
+  try {
+    const cairoRegularPath = require.resolve(
+      '@fontsource/cairo-play/files/cairo-play-arabic-400-normal.woff2',
+    );
+    const cairoBoldPath = require.resolve(
+      '@fontsource/cairo-play/files/cairo-play-arabic-700-normal.woff2',
+    );
+    fonts.Arabic = {
+      normal: cairoRegularPath,
+      bold: cairoBoldPath,
+      italics: cairoRegularPath,
+      bolditalics: cairoBoldPath,
+    };
+    arabicFontLoaded = true;
+    console.log('✓ Cairo Arabic fonts configured');
+  } catch (cairoError) {
+    // Fallback to Amiri
+    try {
+      const amiriRegularPath = require.resolve(
+        '@fontsource/amiri/files/amiri-latin-400-normal.woff2',
+      );
+      const amiriBoldPath = require.resolve('@fontsource/amiri/files/amiri-latin-700-normal.woff2');
+      fonts.Arabic = {
+        normal: amiriRegularPath,
+        bold: amiriBoldPath,
+        italics: amiriRegularPath,
+        bolditalics: amiriBoldPath,
+      };
+      arabicFontLoaded = true;
+      console.log('✓ Amiri fonts configured (fallback)');
+    } catch (amiriError) {
+      // Fallback to Noto Sans Arabic
+      try {
+        const notoRegularPath = require.resolve(
+          '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2',
+        );
+        const notoBoldPath = require.resolve(
+          '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2',
+        );
+        fonts.Arabic = {
+          normal: notoRegularPath,
+          bold: notoBoldPath,
+          italics: notoRegularPath,
+          bolditalics: notoBoldPath,
+        };
+        arabicFontLoaded = true;
+        console.log('✓ Noto Sans Arabic fonts configured (fallback)');
+      } catch (notoError) {
+        console.warn('✗ No Arabic fonts available, using Roboto only');
+        arabicFontAvailable = false;
+      }
+    }
+  }
+
+  // Use pdfMake.setFonts() with filesystem paths (correct approach for Node.js/Electron)
+  pdfMake.setFonts(fonts);
+  arabicFontAvailable = arabicFontLoaded;
+
+  console.log(`PDF font initialization complete. Arabic fonts available: ${arabicFontAvailable}`);
+} catch (error) {
+  console.warn('pdfmake not available:', error.message);
+  pdfMake = null;
+}
+
 /**
  * Calculates age from date of birth string.
  * Uses the same logic as the frontend and studentHandlers.
@@ -250,7 +337,14 @@ async function fetchExportData({ type, fields, options = {} }) {
         query = `SELECT ${fieldSelection} FROM students s ORDER BY s.name`;
       }
 
-      return await allQuery(query, params);
+      const results = await allQuery(query, params);
+      // Format date fields from timestamps to YYYY-MM-DD
+      return results.map((row) => {
+        if (row.date_of_birth && typeof row.date_of_birth === 'number') {
+          row.date_of_birth = new Date(row.date_of_birth).toISOString().split('T')[0];
+        }
+        return row;
+      });
     }
     case 'teachers': {
       // Validate teacher fields against teachers table
@@ -290,27 +384,41 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'admins': {
-      // Validate admin/user fields against users table
+      // For admins export: join with user_roles and roles tables to get role names
       const userCols = await getTableColumns('users');
       const allowedU = [];
       const omittedU = [];
+
       for (const mf of mappedFields) {
         if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
           allowedU.push(mf);
           continue;
         }
-        if (userCols.has(mf)) {
+        if (mf === 'role') {
+          // Role comes from roles table, add alias
+          allowedU.push('r.name as role');
+        } else if (userCols.has(mf)) {
           allowedU.push(mf);
         } else {
           omittedU.push(mf);
         }
       }
-      if (omittedU.length > 0)
+
+      if (omittedU.length > 0) {
         console.warn('Export: omitted non-existing user columns:', omittedU.join(', '));
-      if (allowedU.length === 0)
+      }
+
+      if (allowedU.length === 0) {
         throw new Error('No valid user/admin fields available for export.');
+      }
+
       const fieldSelectionU = allowedU.join(', ');
-      query = `SELECT ${fieldSelectionU} FROM users WHERE role = 'Branch Admin' OR role = 'Superadmin' ORDER BY username`;
+      query = `SELECT ${fieldSelectionU}
+               FROM users u
+               JOIN user_roles ur ON u.id = ur.user_id
+               JOIN roles r ON ur.role_id = r.id
+               WHERE r.name IN ('Branch Admin', 'Superadmin')
+               ORDER BY u.username`;
       return allQuery(query, params);
     }
     case 'attendance': {
@@ -330,7 +438,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       query = `SELECT ${selectedFields}
                FROM attendance a
                JOIN students s ON s.id = a.student_id
-               JOIN classes c ON c.id = a.class_id`;
+               LEFT JOIN classes c ON c.id = a.class_id`;
       const whereClauses = ['a.date BETWEEN ? AND ?'];
       const params = [options.startDate, options.endDate];
 
@@ -471,7 +579,7 @@ async function fetchExportData({ type, fields, options = {} }) {
         date: 'transaction_date as date',
         description: 'description',
         amount: 'amount',
-        category_name: 'category as category_name',
+        category: 'category as category_name',
         payment_method: 'payment_method',
       };
 
@@ -490,12 +598,76 @@ async function fetchExportData({ type, fields, options = {} }) {
                ORDER BY transaction_date DESC`;
       return allQuery(query, params);
     }
+    case 'income': {
+      const incomeFieldMaps = {
+        date: 'transaction_date as date',
+        description: 'description',
+        amount: 'amount',
+        category: 'category',
+        payment_method: 'payment_method',
+        type: 'type',
+        receipt_type: 'receipt_type',
+        check_number: 'check_number',
+        voucher_number: 'voucher_number',
+        related_person_name: 'related_person_name',
+      };
+
+      const incomeSelectedFields = fields
+        .map((f) => incomeFieldMaps[f])
+        .filter(Boolean)
+        .join(', ');
+
+      if (!incomeSelectedFields) {
+        throw new Error('No valid income fields selected.');
+      }
+
+      query = `SELECT ${incomeSelectedFields}
+               FROM transactions
+               WHERE type = 'INCOME'
+               ORDER BY transaction_date DESC`;
+      return allQuery(query, params);
+    }
     default:
       throw new Error(`Invalid export type: ${type}`);
   }
 }
 
 // --- Data Localization ---
+function humanizeSchedule(scheduleJson) {
+  if (!scheduleJson) return '';
+
+  try {
+    // Parse JSON if it's a string
+    const schedule = typeof scheduleJson === 'string' ? JSON.parse(scheduleJson) : scheduleJson;
+
+    if (!Array.isArray(schedule) || schedule.length === 0) return '';
+
+    // Arabic day name mapping
+    const arabicDays = {
+      Monday: 'الإثنين',
+      Tuesday: 'الثلاثاء',
+      Wednesday: 'الأربعاء',
+      Thursday: 'الخميس',
+      Friday: 'الجمعة',
+      Saturday: 'السبت',
+      Sunday: 'الأحد',
+    };
+
+    // Humanize each schedule entry
+    const humanizedParts = schedule.map((entry) => {
+      const arabicDay = arabicDays[entry.day] || entry.day;
+      const time = entry.time || '';
+      return `${arabicDay} ${time}`;
+    });
+
+    // Join with semicolon and space
+    return humanizedParts.join('; ');
+  } catch (e) {
+    // If parsing fails, return original string
+    return scheduleJson;
+  }
+}
+
 function localizeData(data) {
   const genderMap = {
     Male: 'ذكر',
@@ -513,6 +685,22 @@ function localizeData(data) {
     absent: 'غائب',
     late: 'متأخر',
   };
+  const civilStatusMap = {
+    single: 'أعزب',
+    Single: 'أعزب',
+    married: 'متزوج',
+    Married: 'متزوج',
+    divorced: 'مطلق',
+    Divorced: 'مطلق',
+    widowed: 'أرمل',
+    Widowed: 'أرمل',
+  };
+  const feeCategories = {
+    CAN_PAY: 'يستطيع الدفع',
+    CANNOT_PAY: 'لا يستطيع الدفع',
+    SPONSORED: 'مكفول',
+    EXEMPT: 'معفى',
+  };
   const specializationMap = {
     Taajoed: 'تجويد',
     Tajweed: 'تجويد',
@@ -529,7 +717,7 @@ function localizeData(data) {
   const roleMap = {
     'Branch Admin': 'مدير فرع',
     Superadmin: 'مدير عام',
-    FinanceManager: 'مدير مالي',
+    Finance_manager: 'مدير مالي',
     SessionSupervisor: 'مشرف جلسات',
     BranchManager: 'مدير فرع',
     Admin: 'مدير',
@@ -573,6 +761,26 @@ function localizeData(data) {
       out.payment_type = paymentTypeMap[out.payment_type];
     if (out.donation_type && donationTypeMap[out.donation_type])
       out.donation_type = donationTypeMap[out.donation_type];
+    if (out.civil_status && civilStatusMap[out.civil_status]) {
+      out.civil_status = civilStatusMap[out.civil_status];
+    }
+    if (out.fee_category && feeCategories[out.fee_category])
+      out.fee_category = feeCategories[out.fee_category];
+
+    // Format dates as YYYY-MM-DD if they're timestamps
+    if (out.date_of_birth && typeof out.date_of_birth === 'number') {
+      out.date_of_birth = new Date(out.date_of_birth).toISOString().split('T')[0];
+    }
+    if (out.payment_date && typeof out.payment_date === 'number') {
+      out.payment_date = new Date(out.payment_date).toISOString().split('T')[0];
+    }
+    if (out.transaction_date && typeof out.transaction_date === 'number') {
+      out.transaction_date = new Date(out.transaction_date).toISOString().split('T')[0];
+    }
+
+    // Humanize schedule field for classes export
+    if (out.schedule) out.schedule = humanizeSchedule(out.schedule);
+
     return out;
   });
 }
@@ -580,129 +788,186 @@ function localizeData(data) {
 // --- PDF Generation ---
 async function generatePdf(title, columns, data, outputPath, headerData) {
   const localizedData = localizeData(data);
-  let templateHtml = fs.readFileSync(
-    path.resolve(__dirname, 'export_templates/report_template.html'),
-    'utf8',
+
+  const fontToUse = pdfMake && pdfMake.fonts && pdfMake.fonts.Arabic ? 'Arabic' : 'Roboto';
+  console.log(`[PDF] Generating PDF with font: ${fontToUse}`);
+  // Create pdfmake document definition
+  const docDefinition = {
+    pageOrientation: columns.length > 4 ? 'landscape' : 'portrait',
+    pageSize: 'A4',
+    pageMargins: [40, 60, 40, 40], // left, top, right, bottom
+
+    // Font configuration - use Arabic font if available, fallback to Roboto
+    // Check if Arabic font is actually registered (which means files are in VFS)
+    defaultStyle: {
+      font: pdfMake && pdfMake.fonts && pdfMake.fonts.Arabic ? 'Arabic' : 'Roboto',
+      fontSize: 10,
+      alignment: 'right', // RTL default alignment
+    },
+
+    styles: {
+      header: {
+        fontSize: 16,
+        bold: true,
+        alignment: 'center',
+        margin: [0, 0, 0, 10],
+      },
+      subheader: {
+        fontSize: 14,
+        bold: true,
+        alignment: 'center',
+        margin: [0, 0, 0, 5],
+      },
+      title: {
+        fontSize: 18,
+        bold: true,
+        alignment: 'center',
+        margin: [0, 20, 0, 15],
+      },
+      tableHeader: {
+        fontSize: 11,
+        bold: true,
+        fillColor: '#2980b9',
+        color: 'white',
+        alignment: 'center',
+      },
+      tableCell: {
+        fontSize: 9,
+        margin: [4, 4, 4, 4],
+      },
+      tableCellCenter: {
+        fontSize: 9,
+        margin: [4, 4, 4, 4],
+        alignment: 'center',
+      },
+      tableCellRight: {
+        fontSize: 9,
+        margin: [4, 4, 4, 4],
+        alignment: 'right',
+      },
+    },
+
+    content: [],
+  };
+
+  // Add header content
+  if (headerData?.nationalAssociationName) {
+    docDefinition.content.push({
+      text: headerData.nationalAssociationName,
+      style: 'header',
+    });
+  }
+
+  if (headerData?.localBranchName) {
+    docDefinition.content.push({
+      text: headerData.localBranchName,
+      style: 'subheader',
+    });
+  }
+
+  // Add main title
+  docDefinition.content.push({
+    text: title,
+    style: 'title',
+  });
+
+  // Prepare table data
+  const tableHeaders = columns.map((col) => ({
+    text: col.header,
+    style: 'tableHeader',
+  }));
+
+  const tableBody = localizedData.map((row) =>
+    columns.map((col, index) => {
+      const value = row[col.key] || '';
+      const isIdColumn = index === 0 && (col.key === 'matricule' || col.key === 'id');
+
+      return {
+        text: String(value),
+        style: isIdColumn ? 'tableCellCenter' : 'tableCellRight',
+      };
+    }),
   );
 
-  const headers = columns.map((c) => `<th>${c.header}</th>`).join('');
-  const rows = localizedData
-    .map((item) => {
-      const cells = columns.map((c) => `<td>${item[c.key] || ''}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    })
-    .join('');
+  // Create table definition
+  const tableWidths = columns.map(() => 'auto'); // Auto-width columns
 
-  const getBase64Image = (imagePath) => {
-    if (!imagePath) return '';
-    const candidates = [];
+  const table = {
+    table: {
+      headerRows: 1,
+      widths: tableWidths,
+      body: [
+        tableHeaders, // Header row
+        ...tableBody, // Data rows
+      ],
+    },
+    layout: {
+      fillColor: (rowIndex) => {
+        // Alternate row colors
+        return rowIndex % 2 === 1 ? '#f5f5f5' : null;
+      },
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => '#aaa',
+      vLineColor: () => '#aaa',
+      paddingLeft: () => 8,
+      paddingRight: () => 8,
+      paddingTop: () => 4,
+      paddingBottom: () => 4,
+    },
+  };
+
+  docDefinition.content.push(table);
+
+  // Generate and save PDF
+  return new Promise((resolve, reject) => {
     try {
-      if (path.isAbsolute(imagePath)) {
-        candidates.push(imagePath);
-      } else {
-        // user-uploaded files live under userData (internalCopyLogoAsset returns a relative path)
+      if (!pdfMake) {
+        throw new Error('PDF generation library not available');
+      }
+
+      // Create and generate PDF document
+      const pdfDoc = pdfMake.createPdf(docDefinition);
+      // Generate PDF buffer
+      pdfDoc.getBuffer((buffer, error) => {
         try {
-          const userDataPath = app.getPath('userData');
-          candidates.push(path.resolve(userDataPath, imagePath));
-        } catch (e) {
-          // ignore
+          if (error) {
+            console.error('PDF generation error:', error.message);
+            reject(new Error(`PDF generation failed: ${error.message}`));
+            return;
+          }
+
+          if (!buffer || buffer.length === 0) {
+            reject(new Error('PDF generation produced empty buffer'));
+            return;
+          }
+
+          try {
+            // Write PDF to file
+            fs.writeFileSync(outputPath, buffer);
+            console.log(`✓ PDF generated successfully: ${outputPath}`);
+            resolve();
+          } catch (writeError) {
+            console.error('PDF file write error:', writeError.message);
+            reject(new Error(`Failed to save PDF file: ${writeError.message}`));
+          }
+        } catch (callbackError) {
+          console.error('PDF generation callback error:', callbackError.message);
+          reject(new Error(`PDF generation callback error: ${callbackError.message}`));
         }
-        candidates.push(path.resolve(process.cwd(), 'public', imagePath));
-        candidates.push(path.resolve(__dirname, '..', 'public', imagePath));
-        candidates.push(path.resolve(__dirname, imagePath));
-      }
-    } catch (e) {
-      candidates.push(imagePath);
+      });
+    } catch (error) {
+      console.error('PDF generation setup error:', error);
+      reject(new Error(`PDF generation failed: ${error.message}`));
     }
-
-    for (const p of candidates) {
-      if (!p) continue;
-      try {
-        if (fs.existsSync(p)) {
-          const buffer = fs.readFileSync(p);
-          if (!buffer || buffer.length === 0) continue;
-          const ext = path.extname(p).toLowerCase();
-          const mimeType =
-            ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
-          return `data:${mimeType};base64,${buffer.toString('base64')}`;
-        }
-      } catch (err) {
-        continue;
-      }
-    }
-    return '';
-  };
-
-  const titleMap = {
-    students: 'تقرير الطلاب',
-    teachers: 'تقرير المعلمين',
-    admins: 'تقرير المستخدمين',
-    attendance: 'تقرير الحضور',
-  };
-  const exportType = title.split(' ')[0].toLowerCase();
-  const arabicTitle = titleMap[exportType] || title;
-
-  const gregorianDate = new Date().toLocaleDateString('ar-TN-u-ca-gregory', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
   });
-  const hijriDate = new Intl.DateTimeFormat('ar-TN-u-ca-islamic', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
-
-  const replacements = {
-    '{report_title}': arabicTitle,
-    '{date}': `${gregorianDate} م / ${hijriDate}`,
-    '{table_headers}': headers,
-    '{table_rows}': rows,
-    '{national_association_name}': headerData.nationalAssociationName || '',
-    '{branch_name}': headerData.regionalAssociationName || headerData.localBranchName || '',
-    '{image_national}': getBase64Image(headerData.nationalLogoPath),
-    '{image_branch}': getBase64Image(headerData.regionalLocalLogoPath),
-  };
-
-  for (const [key, value] of Object.entries(replacements)) {
-    templateHtml = templateHtml.replace(
-      new RegExp(key.replace(/}/g, '\\}').replace(/{/g, '\\{'), 'g'),
-      value,
-    );
-  }
-
-  const tempHtmlPath = path.join(os.tmpdir(), `report-${Date.now()}.html`);
-  fs.writeFileSync(tempHtmlPath, templateHtml);
-
-  const win = new BrowserWindow({
-    show: false,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  });
-
-  try {
-    await win.loadFile(tempHtmlPath);
-
-    const landscape = columns.length > 4;
-    const pdfData = await win.webContents.printToPDF({
-      printBackground: true,
-      pageSize: 'A4',
-      landscape,
-    });
-
-    fs.writeFileSync(outputPath, pdfData);
-  } finally {
-    win.close();
-    if (fs.existsSync(tempHtmlPath)) {
-      fs.unlinkSync(tempHtmlPath);
-    }
-  }
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(columns, data, outputPath) {
+async function generateXlsx(columns, data, outputPath, sheetName = 'Exported Data') {
   const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Exported Data');
+  const worksheet = workbook.addWorksheet(sheetName);
   worksheet.views = [{ rightToLeft: true }];
 
   // Define table structure first
@@ -1089,7 +1354,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
         { header: 'رقم الهاتف', key: 'contact_info', width: 20 },
         { header: 'البريد الإلكتروني', key: 'email', width: 25 },
         { header: 'الحالة', key: 'status', width: 15 },
-        { header: 'مستوى الحفظ', key: 'memorization_level', width: 20 },
         { header: 'ملاحظات', key: 'notes', width: 30 },
         { header: 'اسم ولي الأمر (طفل)', key: 'parent_name', width: 25 },
         { header: 'صلة القرابة (طفل)', key: 'guardian_relation', width: 15 },
@@ -1122,7 +1386,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
           email: 'fatima.ahmed@example.com',
           address: 'حي السلام، شارع المدرسة، رقم 15',
           status: 'نشط',
-          memorization_level: 'جزء عم',
           notes: 'طالبة مجتهدة في المدرسة',
           parent_name: 'أحمد محمد',
           guardian_relation: 'أب',
@@ -1149,7 +1412,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
           email: 'mohamed.ali@example.com',
           address: 'حي النور، شارع الجامع، رقم 8',
           status: 'نشط',
-          memorization_level: 'جزء تبارك',
           notes: 'يحب المشاركة في الأنشطة الجماعية',
           parent_name: 'علي حسن',
           guardian_relation: 'أب',
@@ -1176,7 +1438,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
           email: 'ahmed.mahmoud@example.com',
           address: 'حي الجامعة، شارع الطلبة، رقم 25',
           status: 'نشط',
-          memorization_level: 'ختمة كاملة',
           notes: 'طالب في كلية الشريعة، يساعد في التدريس أحياناً',
           educational_level: 'جامعي',
           occupation: 'طالب',
@@ -1198,7 +1459,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
           email: 'khadeeja.salem@example.com',
           address: 'حي الوحدة، شارع النساء، رقم 12',
           status: 'نشط',
-          memorization_level: '10 أجزاء',
           notes: 'معلمة في المدرسة، ملتزمة بالحضور',
           educational_level: 'جامعي',
           occupation: 'معلمة',
@@ -1220,7 +1480,6 @@ async function generateExcelTemplate(outputPath, options = {}) {
           email: 'omar.abdullah@example.com',
           address: 'حي الشيوخ، شارع المسجد، رقم 5',
           status: 'نشط',
-          memorization_level: 'ختمات متعددة',
           notes: 'شيخ كبير، له دور كبير في الجمعية',
           educational_level: 'ثانوي',
           occupation: 'متقاعد',
@@ -1518,7 +1777,9 @@ async function generateExcelTemplate(outputPath, options = {}) {
   const sheetsToGenerate = singleSheetName
     ? sheets.filter(
         (s) =>
-          s.name === singleSheetName || (s.name === 'المعلمون' && singleSheetName === 'المعلمين'),
+          s.name === singleSheetName ||
+          (s.name === 'المعلمون' && singleSheetName === 'المعلمين') ||
+          (s.name === 'المستخدمون' && singleSheetName === 'المستخدمين'),
       )
     : sheets;
 

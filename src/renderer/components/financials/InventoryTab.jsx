@@ -81,7 +81,6 @@ function InventoryTab() {
     const handleImportCompleted = (payload) => {
       // Check if inventory data was imported (UI sheet name is 'الجرد')
       if (payload.sheets && payload.sheets.includes('الجرد')) {
-        console.log('InventoryTab: Import completed, refreshing data');
         fetchItems();
       }
     };

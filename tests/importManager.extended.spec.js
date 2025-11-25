@@ -234,7 +234,7 @@ describe('importManager - Extended Tests', () => {
       mockWorkbook.getWorksheet.mockReturnValue(undefined); // Simulate sheet not found
       const results = await importExcelData('file.xlsx', ['الطلاب']);
       expect(results.successCount).toBe(0);
-      expect(results.errorCount).toBe(0);
+      expect(results.errorCount).toBe(1);
       // We can't directly test the log, but we ensure no errors occurred
     });
 
@@ -519,10 +519,9 @@ describe('importManager - Extended Tests', () => {
 
       const { processUserRow } = require('../src/main/importManager');
 
-      // We expect the whole operation to fail and throw an error
-      await expect(processUserRow(mockRow, mockHeaderRow)).rejects.toThrow(
-        'Role "NonExistentRole" not found.',
-      );
+      const result = await processUserRow(mockRow, mockHeaderRow);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Role "NonExistentRole" not found');
 
       // Verify that the transaction was started and rolled back, but not committed.
       expect(runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');

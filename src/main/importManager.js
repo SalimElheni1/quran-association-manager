@@ -20,17 +20,21 @@ const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
 
 const CLASS_GENDER_MAP = {
-  ذكر: 'male_only',
-  أنثى: 'female_only',
-  مختلط: 'mixed',
-  رجال: 'male_only',
-  نساء: 'female_only',
-  أطفال: 'mixed',
-  male: 'male_only',
-  female: 'female_only',
-  mixed: 'mixed',
-  male_only: 'male_only',
-  female_only: 'female_only',
+  ذكر: 'men',
+  أنثى: 'women',
+  مختلط: 'all',
+  رجال: 'men',
+  نساء: 'women',
+  أطفال: 'kids',
+  male: 'men',
+  female: 'women',
+  mixed: 'all',
+  male_only: 'men',
+  female_only: 'women',
+  kids: 'kids',
+  all: 'all',
+  women: 'women',
+  men: 'men',
 };
 
 const mainStore = new Store();
@@ -359,7 +363,9 @@ const getCellValueByHeader = (headerRow, dataRow, headerText) => {
   if (!idx || idx < 1) return null;
   try {
     const cell = dataRow.getCell(idx);
-    return cell ? cell.value : null;
+    if (!cell) return null;
+    // Handle hyperlinks which have a .text property
+    return cell.value?.text || cell.value;
   } catch (e) {
     // Defensive: if ExcelJS throws for any reason, return null so import can continue gracefully
     logWarn(`Failed to read cell for header "${headerText}": ${e.message}`);
@@ -578,52 +584,62 @@ async function importExcelData(filePath, selectedSheets) {
 
 async function processStudentRow(row, headerRow) {
   try {
-    const genderCell = row.getCell(getColumnIndex(headerRow, 'الجنس'));
-    if (genderCell && genderCell.value) {
-      genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
+    const genderIdx = getColumnIndex(headerRow, 'الجنس');
+    if (genderIdx > 0) {
+      const genderCell = row.getCell(genderIdx);
+      if (genderCell && genderCell.value) {
+        genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
+      }
     }
 
-    const statusCell = row.getCell(getColumnIndex(headerRow, 'الحالة'));
-    if (statusCell && statusCell.value) {
-      statusCell.value = STATUS_MAP_AR_TO_EN[statusCell.value] || statusCell.value;
+    const statusIdx = getColumnIndex(headerRow, 'الحالة');
+    if (statusIdx > 0) {
+      const statusCell = row.getCell(statusIdx);
+      if (statusCell && statusCell.value) {
+        statusCell.value = STATUS_MAP_AR_TO_EN[statusCell.value] || statusCell.value;
+      }
     }
 
-    const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+    const civilStatusIdx = getColumnIndex(headerRow, 'الحالة الاجتماعية (راشد)');
+    if (civilStatusIdx > 0) {
+      const civilStatusCell = row.getCell(civilStatusIdx);
+      if (civilStatusCell && civilStatusCell.value) {
+        const civilStatusMap = {'أعزب': 'single', 'متزوج': 'married', 'مطلق': 'divorced', 'أرمل': 'widowed'};
+        civilStatusCell.value = civilStatusMap[civilStatusCell.value] || civilStatusCell.value;
+      }
+    }
+
+    const matricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي');
 
     const data = {
-      name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
-      date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-      gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
-      address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
-      contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-      email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
-      status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
-      national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-      memorization_level: row.getCell(getColumnIndex(headerRow, 'مستوى الحفظ')).value,
-      notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
-      parent_name: row.getCell(getColumnIndex(headerRow, 'اسم ولي الأمر (طفل)')).value,
-      guardian_relation: row.getCell(getColumnIndex(headerRow, 'صلة القرابة (طفل)')).value,
-      parent_contact: row.getCell(getColumnIndex(headerRow, 'هاتف ولي الأمر (طفل)')).value,
-      guardian_email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني للولي (طفل)')).value,
-      emergency_contact_name: row.getCell(
-        getColumnIndex(headerRow, 'جهة الاتصال في حالات الطوارئ (طفل)'),
-      ).value,
-      emergency_contact_phone: row.getCell(getColumnIndex(headerRow, 'هاتف الطوارئ (طفل)')).value,
-      health_conditions: row.getCell(getColumnIndex(headerRow, 'الحالة الصحية (طفل)')).value,
-      school_name: row.getCell(getColumnIndex(headerRow, 'اسم المدرسة (طفل)')).value,
-      grade_level: row.getCell(getColumnIndex(headerRow, 'المستوى الدراسي (طفل)')).value,
-      educational_level: row.getCell(getColumnIndex(headerRow, 'المستوى التعليمي (راشد)')).value,
-      occupation: row.getCell(getColumnIndex(headerRow, 'المهنة (راشد)')).value,
-      civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية (راشد)')).value,
-      related_family_members: row.getCell(
-        getColumnIndex(headerRow, 'أفراد العائلة المسجلون (راشد)'),
-      ).value,
-      fee_category: row.getCell(getColumnIndex(headerRow, 'فئة الرسوم')).value,
-      sponsor_name: row.getCell(getColumnIndex(headerRow, 'اسم الكفيل')).value,
-      sponsor_phone: row.getCell(getColumnIndex(headerRow, 'هاتف الكفيل')).value,
-      sponsor_cin: row.getCell(getColumnIndex(headerRow, 'رقم هوية الكفيل')).value,
-      financial_assistance_notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات المساعدة المالية'))
-        .value,
+      name: getCellValueByHeader(headerRow, row, 'الاسم واللقب'),
+      date_of_birth: getCellValueByHeader(headerRow, row, 'تاريخ الميلاد'),
+      gender: getCellValueByHeader(headerRow, row, 'الجنس'),
+      address: getCellValueByHeader(headerRow, row, 'العنوان'),
+      contact_info: getCellValueByHeader(headerRow, row, 'رقم الهاتف'),
+      email: getCellValueByHeader(headerRow, row, 'البريد الإلكتروني'),
+      status: getCellValueByHeader(headerRow, row, 'الحالة'),
+      national_id: getCellValueByHeader(headerRow, row, 'رقم الهوية'),
+      memorization_level: getCellValueByHeader(headerRow, row, 'مستوى الحفظ'),
+      notes: getCellValueByHeader(headerRow, row, 'ملاحظات'),
+      parent_name: getCellValueByHeader(headerRow, row, 'اسم ولي الأمر (طفل)'),
+      guardian_relation: getCellValueByHeader(headerRow, row, 'صلة القرابة (طفل)'),
+      parent_contact: getCellValueByHeader(headerRow, row, 'هاتف ولي الأمر (طفل)'),
+      guardian_email: getCellValueByHeader(headerRow, row, 'البريد الإلكتروني للولي (طفل)'),
+      emergency_contact_name: getCellValueByHeader(headerRow, row, 'جهة الاتصال في حالات الطوارئ (طفل)'),
+      emergency_contact_phone: getCellValueByHeader(headerRow, row, 'هاتف الطوارئ (طفل)'),
+      health_conditions: getCellValueByHeader(headerRow, row, 'الحالة الصحية (طفل)'),
+      school_name: getCellValueByHeader(headerRow, row, 'اسم المدرسة (طفل)'),
+      grade_level: getCellValueByHeader(headerRow, row, 'المستوى الدراسي (طفل)'),
+      educational_level: getCellValueByHeader(headerRow, row, 'المستوى التعليمي (راشد)'),
+      occupation: getCellValueByHeader(headerRow, row, 'المهنة (راشد)'),
+      civil_status: getCellValueByHeader(headerRow, row, 'الحالة الاجتماعية (راشد)'),
+      related_family_members: getCellValueByHeader(headerRow, row, 'أفراد العائلة المسجلون (راشد)'),
+      fee_category: getCellValueByHeader(headerRow, row, 'فئة الرسوم'),
+      sponsor_name: getCellValueByHeader(headerRow, row, 'اسم الكفيل'),
+      sponsor_phone: getCellValueByHeader(headerRow, row, 'هاتف الكفيل'),
+      sponsor_cin: getCellValueByHeader(headerRow, row, 'رقم هوية الكفيل'),
+      financial_assistance_notes: getCellValueByHeader(headerRow, row, 'ملاحظات المساعدة المالية'),
     };
 
     if (!data.name) return { success: false, message: 'اسم الطالب مطلوب.' };
@@ -679,26 +695,29 @@ async function processStudentRow(row, headerRow) {
 
 async function processTeacherRow(row, headerRow) {
   try {
-    const genderCell = row.getCell(getColumnIndex(headerRow, 'الجنس'));
-    if (genderCell && genderCell.value) {
-      genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
+    const genderIdx = getColumnIndex(headerRow, 'الجنس');
+    if (genderIdx > 0) {
+      const genderCell = row.getCell(genderIdx);
+      if (genderCell && genderCell.value) {
+        genderCell.value = GENDER_MAP_AR_TO_EN[genderCell.value] || genderCell.value;
+      }
     }
 
-    const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+    const matricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي');
 
     const data = {
-      name: row.getCell(getColumnIndex(headerRow, 'الاسم واللقب')).value,
-      national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-      contact_info: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-      email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value?.text,
-      gender: row.getCell(getColumnIndex(headerRow, 'الجنس')).value,
-      address: row.getCell(getColumnIndex(headerRow, 'العنوان')).value,
-      date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-      educational_level: row.getCell(getColumnIndex(headerRow, 'المستوى التعليمي')).value,
-      specialization: row.getCell(getColumnIndex(headerRow, 'التخصص')).value,
-      years_of_experience: row.getCell(getColumnIndex(headerRow, 'سنوات الخبرة')).value,
-      availability: row.getCell(getColumnIndex(headerRow, 'أوقات التوفر')).value,
-      notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
+      name: getCellValueByHeader(headerRow, row, 'الاسم واللقب'),
+      national_id: getCellValueByHeader(headerRow, row, 'رقم الهوية'),
+      contact_info: getCellValueByHeader(headerRow, row, 'رقم الهاتف'),
+      email: getCellValueByHeader(headerRow, row, 'البريد الإلكتروني'),
+      gender: getCellValueByHeader(headerRow, row, 'الجنس'),
+      address: getCellValueByHeader(headerRow, row, 'العنوان'),
+      date_of_birth: getCellValueByHeader(headerRow, row, 'تاريخ الميلاد'),
+      educational_level: getCellValueByHeader(headerRow, row, 'المستوى التعليمي'),
+      specialization: getCellValueByHeader(headerRow, row, 'التخصص'),
+      years_of_experience: getCellValueByHeader(headerRow, row, 'سنوات الخبرة'),
+      availability: getCellValueByHeader(headerRow, row, 'أوقات التوفر'),
+      notes: getCellValueByHeader(headerRow, row, 'ملاحظات'),
     };
 
     if (!data.name) return { success: false, message: 'اسم المعلم مطلوب.' };
@@ -753,10 +772,10 @@ async function processTeacherRow(row, headerRow) {
 
 async function processUserRow(row, headerRow) {
   try {
-    const matricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي'))?.value;
+    const matricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي');
 
     // Get the role from the template (might be in English)
-    const roleValue = row.getCell(getColumnIndex(headerRow, 'الدور'))?.value;
+    const roleValue = getCellValueByHeader(headerRow, row, 'الدور');
     // Map common role names to database format if needed
     const roleMappings = {
       Superadmin: 'Superadmin',
@@ -771,20 +790,20 @@ async function processUserRow(row, headerRow) {
     const mappedRole = roleMappings[roleValue] || roleValue;
 
     const data = {
-      username: row.getCell(getColumnIndex(headerRow, 'اسم المستخدم')).value,
-      first_name: row.getCell(getColumnIndex(headerRow, 'الاسم الأول')).value,
-      last_name: row.getCell(getColumnIndex(headerRow, 'اللقب')).value,
-      employment_type: row.getCell(getColumnIndex(headerRow, 'نوع التوظيف')).value,
-      date_of_birth: row.getCell(getColumnIndex(headerRow, 'تاريخ الميلاد')).value,
-      national_id: row.getCell(getColumnIndex(headerRow, 'رقم الهوية')).value,
-      email: row.getCell(getColumnIndex(headerRow, 'البريد الإلكتروني')).value,
-      phone_number: row.getCell(getColumnIndex(headerRow, 'رقم الهاتف')).value,
-      occupation: row.getCell(getColumnIndex(headerRow, 'المهنة')).value,
-      civil_status: row.getCell(getColumnIndex(headerRow, 'الحالة الاجتماعية')).value,
-      start_date: row.getCell(getColumnIndex(headerRow, 'تاريخ البدء')).value,
-      end_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الانتهاء')).value,
-      status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
-      notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
+      username: getCellValueByHeader(headerRow, row, 'اسم المستخدم'),
+      first_name: getCellValueByHeader(headerRow, row, 'الاسم الأول'),
+      last_name: getCellValueByHeader(headerRow, row, 'اللقب'),
+      employment_type: getCellValueByHeader(headerRow, row, 'نوع التوظيف'),
+      date_of_birth: getCellValueByHeader(headerRow, row, 'تاريخ الميلاد'),
+      national_id: getCellValueByHeader(headerRow, row, 'رقم الهوية'),
+      email: getCellValueByHeader(headerRow, row, 'البريد الإلكتروني'),
+      phone_number: getCellValueByHeader(headerRow, row, 'رقم الهاتف'),
+      occupation: getCellValueByHeader(headerRow, row, 'المهنة'),
+      civil_status: getCellValueByHeader(headerRow, row, 'الحالة الاجتماعية'),
+      start_date: getCellValueByHeader(headerRow, row, 'تاريخ البدء'),
+      end_date: getCellValueByHeader(headerRow, row, 'تاريخ الانتهاء'),
+      status: getCellValueByHeader(headerRow, row, 'الحالة'),
+      notes: getCellValueByHeader(headerRow, row, 'ملاحظات'),
     };
 
     if (
@@ -857,7 +876,7 @@ async function processUserRow(row, headerRow) {
       const values = [
         ...allFields.map((k) => data[k]),
         newMatricule,
-        require('bcrypt').hashSync(password, 10),
+        require('bcryptjs').hashSync(password, 10),
       ];
 
       const result = await runQuery(
@@ -1142,14 +1161,16 @@ async function processTransactionRow(row, headerRow) {
 }
 
 async function processAttendanceRow(row, headerRow) {
-  const statusAr = row.getCell(getColumnIndex(headerRow, 'الحالة'))?.value;
-  if (statusAr) {
-    row.getCell(getColumnIndex(headerRow, 'الحالة')).value =
-      ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
+  const statusIdx = getColumnIndex(headerRow, 'الحالة');
+  if (statusIdx > 0) {
+    const statusAr = row.getCell(statusIdx)?.value;
+    if (statusAr) {
+      row.getCell(statusIdx).value = ATTENDANCE_MAP_AR_TO_EN[statusAr] || statusAr;
+    }
   }
 
-  const studentMatricule = row.getCell(getColumnIndex(headerRow, 'الرقم التعريفي للطالب'))?.value;
-  const className = row.getCell(getColumnIndex(headerRow, 'اسم الفصل')).value;
+  const studentMatricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي للطالب');
+  const className = getCellValueByHeader(headerRow, row, 'اسم الفصل');
   if (!studentMatricule || !className) {
     return { success: false, message: 'الرقم التعريفي للطالب واسم الفصل مطلوبان.' };
   }
@@ -1165,8 +1186,8 @@ async function processAttendanceRow(row, headerRow) {
   const data = {
     student_id: student.id,
     class_id: classData.id,
-    date: row.getCell(getColumnIndex(headerRow, 'التاريخ')).value,
-    status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
+    date: getCellValueByHeader(headerRow, row, 'التاريخ'),
+    status: getCellValueByHeader(headerRow, row, 'الحالة'),
   };
   if (!data.date || !data.status) return { success: false, message: 'التاريخ والحالة مطلوبان.' };
   const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
@@ -1178,21 +1199,19 @@ async function processAttendanceRow(row, headerRow) {
 
 async function processGroupRow(row, headerRow) {
   try {
-    const matriculeIndex = getColumnIndex(headerRow, 'الرقم التعريفي');
-    const nameIndex = getColumnIndex(headerRow, 'اسم المجموعة');
-    const descriptionIndex = getColumnIndex(headerRow, 'الوصف');
-    const categoryIndex = getColumnIndex(headerRow, 'الفئة');
+    const matricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي');
+    const name = getCellValueByHeader(headerRow, row, 'اسم المجموعة');
+    const description = getCellValueByHeader(headerRow, row, 'الوصف');
+    const category = getCellValueByHeader(headerRow, row, 'الفئة');
 
-    if (nameIndex === -1 || categoryIndex === -1) {
+    if (!name || !category) {
       return { success: false, message: 'عمود اسم المجموعة أو الفئة غير موجود.' };
     }
 
-    const matricule = matriculeIndex !== -1 ? row.getCell(matriculeIndex)?.value : null;
-
     const data = {
-      name: row.getCell(nameIndex).value,
-      description: descriptionIndex !== -1 ? row.getCell(descriptionIndex).value : null,
-      category: row.getCell(categoryIndex).value,
+      name,
+      description,
+      category,
     };
 
     if (!data.name || !data.category) {
@@ -1252,15 +1271,15 @@ async function processInventoryRow(row, headerRow) {
     };
 
     const data = {
-      item_name: row.getCell(getColumnIndex(headerRow, 'اسم العنصر')).value,
-      category: row.getCell(getColumnIndex(headerRow, 'الفئة')).value,
-      quantity: row.getCell(getColumnIndex(headerRow, 'الكمية')).value,
-      unit_value: row.getCell(getColumnIndex(headerRow, 'قيمة الوحدة')).value,
-      acquisition_date: row.getCell(getColumnIndex(headerRow, 'تاريخ الاقتناء')).value,
-      acquisition_source: row.getCell(getColumnIndex(headerRow, 'مصدر الاقتناء')).value,
-      condition_status: row.getCell(getColumnIndex(headerRow, 'الحالة')).value,
-      location: row.getCell(getColumnIndex(headerRow, 'موقع التخزين')).value,
-      notes: row.getCell(getColumnIndex(headerRow, 'ملاحظات')).value,
+      item_name: getCellValueByHeader(headerRow, row, 'اسم العنصر'),
+      category: getCellValueByHeader(headerRow, row, 'الفئة'),
+      quantity: getCellValueByHeader(headerRow, row, 'الكمية'),
+      unit_value: getCellValueByHeader(headerRow, row, 'قيمة الوحدة'),
+      acquisition_date: getCellValueByHeader(headerRow, row, 'تاريخ الاقتناء'),
+      acquisition_source: getCellValueByHeader(headerRow, row, 'مصدر الاقتناء'),
+      condition_status: getCellValueByHeader(headerRow, row, 'الحالة'),
+      location: getCellValueByHeader(headerRow, row, 'موقع التخزين'),
+      notes: getCellValueByHeader(headerRow, row, 'ملاحظات'),
     };
 
     if (
@@ -1343,10 +1362,15 @@ const CLASS_STATUS_MAP = {
 
 async function processStudentFeesRow(row, headerRow) {
   try {
-    // Helper function to get and trim cell values
-    const getTrimmedCellValue = (headerText) => {
+    // Helper function to get and trim cell values, preserving leading zeros for receipt numbers
+    const getTrimmedCellValue = (headerText, preserveLeadingZeros = false) => {
       const cell = row.getCell(getColumnIndex(headerRow, headerText));
-      return cell && cell.value ? String(cell.value).trim() : null;
+      if (!cell || !cell.value) return null;
+      const value = cell.value;
+      if (preserveLeadingZeros && typeof value === 'number') {
+        return String(value).padStart(3, '0');
+      }
+      return String(value).trim();
     };
 
     // Payment method mapping
@@ -1375,8 +1399,8 @@ async function processStudentFeesRow(row, headerRow) {
       payment_type: getTrimmedCellValue('نوع الدفعة'),
       class_matricule: getTrimmedCellValue('رقم تعريفي الفصل'),
       academic_year: getTrimmedCellValue('السنة الدراسية'),
-      receipt_number: getTrimmedCellValue('رقم الوصل'),
-      check_number: getTrimmedCellValue('رقم الشيك'),
+      receipt_number: getTrimmedCellValue('رقم الوصل', true),
+      check_number: getTrimmedCellValue('رقم الشيك', true),
       notes: getTrimmedCellValue('ملاحظات'),
     };
 
@@ -1435,8 +1459,19 @@ async function processStudentFeesRow(row, headerRow) {
       classId = data.class_matricule;
     }
 
-    // Check for duplicate receipt number
-    if (data.receipt_number) {
+    if (!data.receipt_number) {
+      const year = new Date(data.payment_date).getFullYear();
+      const lastPayment = await getQuery(
+        'SELECT receipt_number FROM student_payments WHERE receipt_number LIKE ? ORDER BY id DESC LIMIT 1',
+        [`RCP-${year}-%`]
+      );
+      let sequence = 1;
+      if (lastPayment?.receipt_number) {
+        const lastSeq = parseInt(lastPayment.receipt_number.split('-')[2]);
+        sequence = lastSeq + 1;
+      }
+      data.receipt_number = `RCP-${year}-${sequence.toString().padStart(4, '0')}`;
+    } else {
       const existingPayment = await getQuery(
         'SELECT id FROM student_payments WHERE receipt_number = ?',
         [data.receipt_number],

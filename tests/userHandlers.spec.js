@@ -39,7 +39,7 @@ describe('userHandlers', () => {
       db.allQuery.mockResolvedValue(mockUsers);
       const result = await handlers['users:get'](null, {});
       expect(db.allQuery).toHaveBeenCalled();
-      expect(result[0].roles).toEqual(['Administrator', 'Superadmin']);
+      expect(result.users[0].roles).toEqual(['Administrator', 'Superadmin']);
     });
   });
 

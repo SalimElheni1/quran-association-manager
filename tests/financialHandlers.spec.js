@@ -165,4 +165,11 @@ describe('financialHandlers', () => {
       expect(totalValue).toBe(0);
     });
   });
+
+  // ============================================
+  // NOTE: Sponsor payment tracking is handled in studentFeeHandlers.js
+  // which records student payments with sponsor_name and sponsor_phone.
+  // See tests/studentFeeHandlers.spec.js for sponsor payment tests.
+  // These legacy financial handlers don't include sponsor tracking.
+  // ============================================
 });

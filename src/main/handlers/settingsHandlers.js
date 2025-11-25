@@ -77,14 +77,20 @@ const defaultSettings = {
 const internalGetSettingsHandler = async () => {
   const results = await db.allQuery('SELECT key, value FROM settings');
   const dbSettings = results.reduce((acc, { key, value }) => {
+    // Convert snake_case keys to camelCase for compatibility
+    let camelKey = key;
+    if (key === 'adult_age_threshold') {
+      camelKey = 'adultAgeThreshold';
+    }
+
     if (value === 'true') {
-      acc[key] = true;
+      acc[camelKey] = true;
     } else if (value === 'false') {
-      acc[key] = false;
+      acc[camelKey] = false;
     } else if (!isNaN(value) && value !== null && value !== undefined && value.trim() !== '') {
-      acc[key] = Number(value);
+      acc[camelKey] = Number(value);
     } else {
-      acc[key] = value;
+      acc[camelKey] = value;
     }
     return acc;
   }, {});
@@ -133,6 +139,9 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   const validatedData = await settingsValidationSchema.validateAsync(filteredData);
 
   try {
+    // Start transaction
+    await db.runQuery('BEGIN TRANSACTION;');
+
     for (const [key, value] of Object.entries(validatedData)) {
       const dbValue = value === null || value === undefined ? '' : String(value);
       await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
@@ -140,8 +149,17 @@ const internalUpdateSettingsHandler = async (settingsData) => {
         dbValue,
       ]);
     }
+
+    // Commit transaction
+    await db.runQuery('COMMIT;');
     return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
   } catch (error) {
+    // Rollback on error
+    try {
+      await db.runQuery('ROLLBACK;');
+    } catch (rollbackError) {
+      logError('Failed to rollback transaction:', rollbackError);
+    }
     logError('Failed to update settings:', error);
     throw new Error('فشل تحديث الإعدادات.');
   }
@@ -179,7 +197,7 @@ function registerSettingsHandlers(refreshSettings) {
       log(`[Settings] Update result: ${JSON.stringify(result)}`);
 
       if (result.success) {
-        log('Settings updated, restarting backup and fee charge schedulers...');
+        log('Settings updated, restarting backup scheduler...');
         const { settings: newSettings } = await internalGetSettingsHandler();
 
         log(`[Settings] New settings loaded: ${JSON.stringify(newSettings)}`);

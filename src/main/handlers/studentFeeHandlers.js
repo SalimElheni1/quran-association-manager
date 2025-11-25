@@ -263,9 +263,9 @@ async function generateMonthlyFeeCharges(
         await db.runQuery(
           `
           INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-          VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+          VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', 'MONTHLY')
         `,
-          [student.id, chargeDate, description, totalMonthlyFee, academicYear, 'MONTHLY'],
+          [student.id, chargeDate, description, totalMonthlyFee, academicYear],
         );
       }
     }
