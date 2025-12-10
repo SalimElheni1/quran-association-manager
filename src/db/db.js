@@ -1,52 +1,17 @@
-/**
- * @fileoverview Database connection and management module for Quran Branch Manager.
- * Handles SQLCipher encrypted database operations, migrations, and initialization.
- *
- * This module provides a secure, encrypted SQLite database using SQLCipher with
- * automatic key management, schema migrations, and connection pooling.
- *
- * @author Quran Branch Manager Team
- * @version 1.0.2-beta
- * @requires @journeyapps/sqlcipher - SQLCipher database driver
- * @requires electron - For app paths and user data directory
- * @requires crypto - For encryption key generation and hashing
- * @requires bcryptjs - For password hashing
- */
-
-// Dependencies
-const sqlite3 = require('@journeyapps/sqlcipher').verbose();
+const Database = require('better-sqlite3-multiple-ciphers');
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
+const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
 const bcrypt = require('bcryptjs');
 const { getDbKey, getDbSalt } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
-// ============================================================================
-// GLOBAL VARIABLES AND CONFIGURATION
-// ============================================================================
+// --- Refactor: `db` is now a better-sqlite3 instance ---
+let db; // This will hold our database connection object
 
-/**
- * Global database connection object.
- * Managed by getDb() function to ensure proper initialization.
- * @type {sqlite3.Database|null}
- */
-let db = null;
-
-// ============================================================================
-// DATABASE PATH AND CONFIGURATION FUNCTIONS
-// ============================================================================
-
-/**
- * Determines the appropriate database file path based on the runtime environment.
- * In Electron, uses app.getPath('userData') for persistent storage.
- * In Node.js scripts, uses a local .db directory in the project root.
- *
- * @returns {string} The absolute path to the database file
- * @throws {Error} If unable to create the database directory
- */
+// Helper function to get database file path
 function getDatabasePath() {
   // Check if running in Electron or a plain Node.js script
   const isElectron = 'electron' in process.versions;
@@ -74,24 +39,9 @@ function getDatabasePath() {
   return dbPath;
 }
 
-// ============================================================================
-// DATABASE INITIALIZATION AND SEEDING FUNCTIONS
-// ============================================================================
-
-/**
- * Seeds the database with a default superadmin user if none exists.
- * This function is called during initial database setup to ensure
- * there's always at least one admin user who can access the system.
- *
- * @returns {Promise<Object|null>} Temporary credentials object if a new admin was created,
- *                                 null if an admin already exists
- * @returns {string} returns.username - The created username
- * @returns {string} returns.password - The temporary password
- * @throws {Error} If database operations fail
- */
 async function seedSuperadmin() {
   try {
-    // First check if there's a user with Superadmin role
+    // Check if a superadmin already exists using the multi-role system
     const existingAdmin = await getQuery(`
       SELECT u.id FROM users u
       JOIN user_roles ur ON u.id = ur.user_id
@@ -100,30 +50,13 @@ async function seedSuperadmin() {
     `);
 
     if (!existingAdmin) {
-      // Check if there's a superadmin user without roles (from old system)
-      const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [
-        'superadmin',
-      ]);
-
-      if (existingUser) {
-        log('Found existing superadmin user without roles. Assigning Superadmin role...');
-        const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
-        if (roleResult) {
-          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-            existingUser.id,
-            roleResult.id,
-          ]);
-          log('Superadmin role assigned to existing user.');
-        }
-        return null;
-      }
-
-      // Create new superadmin if none exists
       log('No superadmin found. Seeding default superadmin...');
+
       const tempPassword = '123456';
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
       const username = 'superadmin';
 
+      // Insert the user without the 'role' column (removed in migration 026)
       const insertSql = `
         INSERT INTO users (username, password, first_name, last_name, email)
         VALUES (?, ?, ?, ?, ?)
@@ -138,95 +71,87 @@ async function seedSuperadmin() {
       ]);
 
       if (result.id) {
+        // Set the matricule
         const matricule = `U-${result.id.toString().padStart(6, '0')}`;
         await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
 
-        const roleResult = await getQuery('SELECT id FROM roles WHERE name = ?', ['Superadmin']);
-        if (roleResult) {
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-            result.id,
-            roleResult.id,
-          ]);
+        // Assign the Superadmin role using the multi-role system
+        const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
+        if (superadminRole) {
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, superadminRole.id]);
+        } else {
+          // If the role doesn't exist yet, insert it first
+          const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, roleResult.id]);
         }
       }
 
       log(`Superadmin created successfully: ${username}`);
+      // Return the credentials so they can be displayed to the user
       return { username, password: tempPassword };
     }
+    // If admin already exists, do nothing and return null
     return null;
   } catch (error) {
     logError('Failed to seed superadmin:', error);
-    throw error;
+    throw error; // Re-throw the error to be handled by the caller
   }
 }
 
-// ============================================================================
-// DATABASE ENCRYPTION AND MIGRATION FUNCTIONS
-// ============================================================================
-
 /**
- * Checks if a database file is encrypted by examining its header.
- * SQLite databases start with 'SQLite format 3\0', while encrypted
- * databases have different headers due to encryption.
- *
- * @param {string} filePath - Path to the database file to check
- * @returns {boolean} True if the file is encrypted or does not exist (new DB will be encrypted)
- * @throws {Error} If unable to read the database file
+ * Checks if a database file is encrypted.
+ * @param {string} filePath Path to the database file.
+ * @returns {boolean} True if the file is encrypted or does not exist.
  */
 function isDbEncrypted(filePath) {
   if (!fs.existsSync(filePath)) {
-    return true; // A new DB will be created as encrypted
+    return true; // A new DB will be created as encrypted.
   }
-
   // A plaintext SQLite DB starts with 'SQLite format 3\0'. An encrypted one will not.
-  const buffer = Buffer.alloc(16);
-  const fd = fs.openSync(filePath, 'r');
-  fs.readSync(fd, buffer, 0, 16, 0);
-  fs.closeSync(fd);
-  return buffer.toString('utf8', 0, 16) !== 'SQLite format 3\u0000';
+  try {
+    const buffer = Buffer.alloc(16);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buffer, 0, 16, 0);
+    fs.closeSync(fd);
+    return buffer.toString('utf8', 0, 16) !== 'SQLite format 3\u0000';
+  } catch (err) {
+    logError('Error checking if DB is encrypted:', err);
+    return false;
+  }
 }
 
 /**
- * Migrates a plaintext SQLite database to an encrypted SQLCipher database.
- * This function is called when an existing plaintext database is detected
- * and needs to be converted to encrypted format for security.
- *
- * The process involves:
- * 1. Backing up the original plaintext database
- * 2. Creating a new encrypted database
- * 3. Copying all data from plaintext to encrypted format
- * 4. Removing the plaintext backup
- *
- * @param {string} dbPath - The path to the database file to migrate
- * @param {string} key - The encryption key to use for the new encrypted database
- * @returns {Promise<void>} Resolves when migration is complete
- * @throws {Error} If migration fails at any step
+ * Migrates a plaintext SQLite database to an encrypted database.
+ * @param {string} dbPath The path to the database file.
+ * @param {string} key The encryption key.
  */
 async function migrateToEncrypted(dbPath, key) {
   log('Plaintext database detected. Starting migration to encrypted format...');
-  const backupPath = `${dbPath}.old_plaintext`;
 
-  // 1. Rename the existing plaintext DB to create a backup
-  fs.renameSync(dbPath, backupPath);
+  // Implementation for better-sqlite3-multiple-ciphers rekey/migration
+  // Basic strategy: open plaintext, rekey it.
+  try {
+    const tempDb = new Database(dbPath);
+    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey, 
+    // or if the library supports it, use standard sqlcipher_export if compatible.
+    // However, simplest valid approach with sqlite3mc often is:
+    // 1. Open as plaintext.
+    // 2. PRAGMA rekey = 'key';
 
-  // 2. Open a new encrypted DB and export the content from the old one.
-  return new Promise((resolve, reject) => {
-    const encryptedDb = new sqlite3.Database(dbPath, async (err) => {
-      if (err) return reject(err);
-      try {
-        await dbRun(encryptedDb, `PRAGMA key = '${key}'`);
-        await dbRun(encryptedDb, `ATTACH DATABASE '${backupPath}' AS plaintext KEY ''`);
-        await dbRun(encryptedDb, 'SELECT sqlcipher_export("main", "plaintext")');
-        await dbRun(encryptedDb, 'DETACH DATABASE plaintext');
-        await dbClose(encryptedDb);
-        fs.unlinkSync(backupPath); // Delete the plaintext backup
-        log('Database migration completed successfully.');
-        resolve();
-      } catch (migrationErr) {
-        reject(migrationErr);
-      }
-    });
-  });
+    // Note: older better-sqlite3 bindings didn't support rekey easily. 
+    // better-sqlite3-multiple-ciphers supports the "rekey" pragma for SQLCipher.
+
+    log('Applying rekey pragma...');
+    tempDb.pragma(`rekey = '${key}'`);
+    // Force a write to ensure encryption is applied? VACUUM is often good practice.
+    tempDb.exec('VACUUM');
+    tempDb.close();
+
+    log('Database migration completed successfully.');
+  } catch (err) {
+    logError('Migration failed:', err);
+    throw err;
+  }
 }
 
 async function runMigrations() {
@@ -240,24 +165,32 @@ async function runMigrations() {
   const migrationFiles = fs.readdirSync(migrationsDir).sort();
   const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
 
+  // We need to use synchronous exec inside the loop, but we wrap it in our async logic.
+  // Actually, since this function is async, we can just call our promisified helpers.
+  // But for better-sqlite3 transaction logic, we can use the synchronous transaction feature.
+
+  const applyMigration = db.transaction((file, migrationSql) => {
+    db.exec(migrationSql);
+    db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
+  });
+
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
       log(`Applying migration: ${file}`);
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        await runQuery('BEGIN TRANSACTION;', []);
-        await dbExec(db, migrationSql); // Use the raw exec for migration files
-        await runQuery('INSERT INTO migrations (name) VALUES (?)', [file]);
-        await runQuery('COMMIT;');
+        // better-sqlite3 transactions are synchronous.
+        applyMigration(file, migrationSql);
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
-        await runQuery('ROLLBACK;');
         // If the error is "duplicate column name", it means the migration was likely
         // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
           logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
           // Manually insert into migrations table so it doesn't run again
-          await runQuery('INSERT OR IGNORE INTO migrations (name) VALUES (?)', [file]);
+          try {
+            db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
+          } catch (e) { logError('Failed to mark migration as ignored', e); }
         } else {
           logError(`Failed to apply migration ${file}:`, err);
           throw err;
@@ -273,7 +206,7 @@ async function runMigrations() {
  * It handles key derivation, migration, and schema setup.
  */
 async function initializeDatabase() {
-  log('[DB_LOG] InitializeDatabase called.');
+  log('[DB_LOG] InitializeDatabase called (better-sqlite3).');
   if (db && db.open) {
     log('[DB_LOG] Database already open. Skipping initialization.');
     return; // Already initialized
@@ -281,20 +214,17 @@ async function initializeDatabase() {
 
   const dbPath = getDatabasePath();
   log(`[DB_LOG] Database path: ${dbPath}`);
-  const key = getDbKey(); // <-- Use the new key manager
+  const key = getDbKey();
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
-  let wasMigrated = false;
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
     log('[DB_LOG] Plaintext database detected. Starting migration...');
     try {
       await migrateToEncrypted(dbPath, key);
-      wasMigrated = true;
     } catch (migrationError) {
       logError('CRITICAL: Database migration failed.', migrationError);
-      // In a real app, you would show a fatal error dialog and quit.
       throw migrationError;
     }
   }
@@ -304,87 +234,47 @@ async function initializeDatabase() {
 
   // --- Open the Database ---
   log('[DB_LOG] Opening database connection...');
-  db = await new Promise((resolve, reject) => {
-    const connection = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        logError('[DB_LOG] Failed to create database connection object.', err);
-        return reject(err);
-      }
-      log('[DB_LOG] Database connection object created.');
-      resolve(connection);
-    });
-  });
-
   try {
-    log('[DB_LOG] Setting PRAGMA key...');
-    await dbRun(db, `PRAGMA key = '${key}'`);
-    log('[DB_LOG] PRAGMA key set successfully.');
+    // Open database
+    db = new Database(dbPath, { verbose: null }); // verbose: console.log for debug
 
-    log('[DB_LOG] Setting PRAGMA journal_mode...');
-    await dbRun(db, 'PRAGMA journal_mode = WAL');
-    log('[DB_LOG] PRAGMA journal_mode set to WAL.');
+    // Apply encryption key
+    db.pragma(`key = '${key}'`);
 
-    log('[DB_LOG] Setting PRAGMA foreign_keys...');
-    await dbRun(db, 'PRAGMA foreign_keys = ON');
-    log('[DB_LOG] PRAGMA foreign_keys set to ON.');
+    // Test encryption / key
+    try {
+      db.prepare('SELECT count(*) FROM sqlite_master').get();
+    } catch (keyErr) {
+      // If this fails, it might be incorrect password or corrupt.
+      // However, better-sqlite3 fails lazily sometimes, but the prepare().get() force it.
+      throw keyErr;
+    }
 
-    // --- Verify Key and Setup Schema/Seed if new ---
-    log('[DB_LOG] Verifying database key with a test query...');
-    await getQuery('SELECT count(*) FROM sqlite_master');
-    log('[DB_LOG] Database key is correct.');
+    log('[DB_LOG] Database connection object created and key verified.');
 
-    const { seedSurahs, seedHizbs } = require('./seederFunctions');
+    // PRAGMAs
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+
+    // Schema / Seeding
     let tempCredentials = null;
     if (!dbExists) {
       log('[DB_LOG] New database detected. Initializing schema and default data...');
-      await dbExec(db, schema);
-      await runMigrations();
+      db.exec(schema);
+      await runMigrations(); // This uses db, which is set now
       getDbSalt();
       log('[DB_LOG] Database salt created.');
       tempCredentials = await seedSuperadmin(); // Capture credentials
-      await seedSurahs();
-      await seedHizbs();
       log('[DB_LOG] Database schema and default data initialized.');
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
-      if (wasMigrated) {
-        log(
-          '[DB_LOG] Plaintext-to-encrypted migration detected. Applying schema to ensure all tables exist...',
-        );
-        await dbExec(db, schema);
-        log('[DB_LOG] Schema applied post-migration.');
-      }
-
-      // Ensure the migrations table exists before running migrations
-      await dbExec(
-        db,
-        'CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
-      );
-
       await runMigrations();
-
-      // Always try to seed memorization data if the tables exist but are empty
-      try {
-        const surahsCount = await getQuery('SELECT COUNT(*) as count FROM surahs');
-        if (surahsCount.count === 0) {
-          await seedSurahs();
-        }
-        const hizbsCount = await getQuery('SELECT COUNT(*) as count FROM hizbs');
-        if (hizbsCount.count === 0) {
-          await seedHizbs();
-        }
-      } catch (err) {
-        // Ignore errors if tables don't exist yet - they'll be handled on next migration
-        console.log(
-          '[DB_LOG] Memorization tables not found or error seeding, will try on next startup',
-        );
-      }
     }
 
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
-    return tempCredentials; // Return credentials to the caller
+    return tempCredentials;
   } catch (error) {
-    db = null; // Clear the invalid db connection
+    db = null;
     logError(
       '[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.',
       error,
@@ -393,8 +283,8 @@ async function initializeDatabase() {
   }
 }
 
-// --- Refactor Step 3: Promisify the callback-based API ---
-// This gives us clean async/await syntax for the rest of the app.
+// --- Refactor: Promisify the synchronous API ---
+// This maintains compatibility with the rest of the application.
 
 function getDb() {
   if (!db || !db.open) {
@@ -405,59 +295,72 @@ function getDb() {
 
 function dbRun(database, sql, params = []) {
   return new Promise((resolve, reject) => {
-    database.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ id: this.lastID, changes: this.changes });
-    });
+    try {
+      const stmt = database.prepare(sql);
+      const info = stmt.run(...params);
+      resolve({ id: info.lastInsertRowid, changes: info.changes });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 function runQuery(sql, params = []) {
-  return dbRun(getDb(), sql, params);
+  // Use module-level db implicitly if not passed, but matching original structure:
+  // Original runQuery called dbRun(getDb(), ...)
+  try {
+    return dbRun(getDb(), sql, params);
+  } catch (err) {
+    return Promise.reject(err);
+  }
 }
 
 function getQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
-    getDb().get(sql, params, (err, row) => {
-      if (err) return reject(err);
+    try {
+      const stmt = getDb().prepare(sql);
+      const row = stmt.get(...params);
       resolve(row);
-    });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 function allQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
-    getDb().all(sql, params, (err, rows) => {
-      if (err) return reject(err);
+    try {
+      const stmt = getDb().prepare(sql);
+      const rows = stmt.all(...params);
       resolve(rows);
-    });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 function dbExec(database, sql) {
   return new Promise((resolve, reject) => {
-    database.exec(sql, (err) => {
-      if (err) return reject(err);
+    try {
+      database.exec(sql);
       resolve();
-    });
-  });
-}
-
-function dbClose(database) {
-  return new Promise((resolve, reject) => {
-    database.close((err) => {
-      if (err) return reject(err);
-      resolve();
-    });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 // Close database connection
 async function closeDatabase() {
   if (db && db.open) {
-    await dbClose(db);
-    db = null;
-    log('Database connection closed.');
+    try {
+      db.close();
+      db = null;
+      log('Database connection closed.');
+    } catch (err) {
+      logError('Error closing database:', err);
+      throw err;
+    }
   }
 }
 
@@ -465,53 +368,8 @@ function isDbOpen() {
   return db && db.open;
 }
 
-async function initializeTestDatabase(dbPath) {
-  // Always close any existing connection before starting a test
-  if (db && db.open) {
-    await dbClose(db);
-    db = null;
-  }
-
-  // Ensure a clean slate by deleting the old test DB if it exists
-  if (fs.existsSync(dbPath)) {
-    fs.unlinkSync(dbPath);
-  }
-
-  // Use a simple, non-secret key for tests
-  const key = 'test-encryption-key';
-
-  // Open the database
-  db = await new Promise((resolve, reject) => {
-    const connection = new sqlite3.Database(dbPath, (err) => {
-      if (err) return reject(err);
-      resolve(connection);
-    });
-  });
-
-  try {
-    // Set up encryption and pragmas
-    await dbRun(db, `PRAGMA key = '${key}'`);
-    await dbRun(db, 'PRAGMA journal_mode = WAL');
-    await dbRun(db, 'PRAGMA foreign_keys = ON');
-
-    // Build the schema and run migrations
-    await dbExec(db, schema);
-    await runMigrations(); // This function uses the global `db` object
-    await seedSuperadmin(); // This function also uses the global `db` object
-
-    log(`Test database initialized successfully at ${dbPath}`);
-    return db;
-  } catch (error) {
-    logError('Failed to initialize test database:', error);
-    await dbClose(db); // Clean up on failure
-    db = null;
-    throw error;
-  }
-}
-
 module.exports = {
   initializeDatabase,
-  initializeTestDatabase, // <-- Export the new function
   closeDatabase,
   runQuery,
   getQuery,

@@ -218,9 +218,24 @@ async function replaceDatabase(importedDbPath, password) {
     setDbSalt(newSalt);
     log('Salt configuration updated from backup.');
 
+    // Delete main DB file
     if (fsSync.existsSync(currentDbPath)) {
       log(`Deleting old database file at ${currentDbPath}...`);
       await unlinkWithRetry(currentDbPath);
+    }
+
+    // Delete WAL file if exists
+    const walPath = `${currentDbPath}-wal`;
+    if (fsSync.existsSync(walPath)) {
+      log(`Deleting old WAL file at ${walPath}...`);
+      await unlinkWithRetry(walPath);
+    }
+
+    // Delete SHM file if exists
+    const shmPath = `${currentDbPath}-shm`;
+    if (fsSync.existsSync(shmPath)) {
+      log(`Deleting old SHM file at ${shmPath}...`);
+      await unlinkWithRetry(shmPath);
     }
     log('Initializing new database with imported salt...');
     await initializeDatabase(password);
@@ -604,7 +619,7 @@ async function processStudentRow(row, headerRow) {
     if (civilStatusIdx > 0) {
       const civilStatusCell = row.getCell(civilStatusIdx);
       if (civilStatusCell && civilStatusCell.value) {
-        const civilStatusMap = {'أعزب': 'single', 'متزوج': 'married', 'مطلق': 'divorced', 'أرمل': 'widowed'};
+        const civilStatusMap = { 'أعزب': 'single', 'متزوج': 'married', 'مطلق': 'divorced', 'أرمل': 'widowed' };
         civilStatusCell.value = civilStatusMap[civilStatusCell.value] || civilStatusCell.value;
       }
     }
