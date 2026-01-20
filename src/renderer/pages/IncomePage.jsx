@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import TransactionTable from '@renderer/components/financial/TransactionTable';
 import TransactionFilters from '@renderer/components/financial/TransactionFilters';
 import TransactionModal from '@renderer/components/financial/TransactionModal';
-import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
@@ -27,7 +26,6 @@ function IncomePage() {
   const { hasPermission } = usePermissions();
   const [filters, setFilters] = useState({ type: 'INCOME', page: 1, limit: 25 });
   const [showModal, setShowModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
@@ -106,11 +104,6 @@ function IncomePage() {
     }
   };
 
-  const handlePrint = (transaction) => {
-    setSelectedTransaction(transaction);
-    setShowPrintModal(true);
-  };
-
   return (
     <div className="page-container">
       <div className="page-header">
@@ -143,7 +136,6 @@ function IncomePage() {
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
-            onPrint={handlePrint}
             pagination={pagination}
             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
             onPageSizeChange={(pageSize, page) =>
@@ -161,12 +153,6 @@ function IncomePage() {
         onSave={handleSave}
         defaultCategory="التبرعات النقدية"
         customTitle={!selectedTransaction ? 'إضافة مدخول' : undefined}
-      />
-
-      <VoucherPrintModal
-        show={showPrintModal}
-        transaction={selectedTransaction}
-        onHide={() => setShowPrintModal(false)}
       />
 
       <ConfirmationModal

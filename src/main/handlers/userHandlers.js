@@ -128,7 +128,21 @@ function registerUserHandlers() {
         // Convert empty email to null for UNIQUE constraint
         if (validatedData.email === '') validatedData.email = null;
 
+        // Convert non-SQLite-bindable types for compatibility
+        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+        for (const key of Object.keys(validatedData)) {
+          const value = validatedData[key];
+          if (typeof value === 'boolean') {
+            // Convert booleans to integers (0/1)
+            validatedData[key] = value ? 1 : 0;
+          } else if (value instanceof Date) {
+            // Convert Date objects to ISO strings
+            validatedData[key] = value.toISOString();
+          }
+        }
+
         const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
+
         if (fieldsToInsert.length === 0) throw new Error('No valid user fields to insert.');
 
         const placeholders = fieldsToInsert.map(() => '?').join(', ');
@@ -179,10 +193,26 @@ function registerUserHandlers() {
 
         if (validatedData.password) {
           validatedData.password = bcrypt.hashSync(validatedData.password, 10);
+        } else {
+          // If password is empty (e.g. from frontend edit form), don't update it
+          delete validatedData.password;
         }
 
         // Convert empty email to null for UNIQUE constraint
         if (validatedData.email === '') validatedData.email = null;
+
+        // Convert non-SQLite-bindable types for compatibility
+        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+        for (const key of Object.keys(validatedData)) {
+          const value = validatedData[key];
+          if (typeof value === 'boolean') {
+            // Convert booleans to integers (0/1)
+            validatedData[key] = value ? 1 : 0;
+          } else if (value instanceof Date) {
+            // Convert Date objects to ISO strings
+            validatedData[key] = value.toISOString();
+          }
+        }
 
         const fieldsToUpdate = userFields.filter(
           (field) => field !== 'matricule' && validatedData[field] !== undefined,
