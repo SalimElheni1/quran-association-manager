@@ -706,7 +706,7 @@ function registerFinancialHandlers() {
   );
   ipcMain.handle(
     'transactions:delete',
-    requireRoles(['Superadmin', 'Administrator'])(handleDeleteTransaction),
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleDeleteTransaction),
   );
 
   // Reports

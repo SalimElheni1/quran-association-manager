@@ -171,7 +171,7 @@ function UsersPage() {
   const roleTranslations = {
     Superadmin: 'مدير النظام',
     Administrator: 'الهيئة المديرة',
-    FinanceManager: 'الهيئة المديرة - المالية',
+    FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };
 
@@ -236,7 +236,7 @@ function UsersPage() {
             <option value="all">الدور (الكل)</option>
             <option value="Superadmin">مدير النظام</option>
             <option value="Administrator">الهيئة المديرة</option>
-            <option value="FinanceManager">الهيئة المديرة - المالية</option>
+            <option value="FinanceManager">مسؤول مالي</option>
             <option value="SessionSupervisor">مشرف حصص</option>
           </Form.Select>
         </div>
