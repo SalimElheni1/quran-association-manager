@@ -4,8 +4,7 @@
 
 This application was developed to replace manual, paper-based workflows, offering a digital solution tailored to the needs of organizations like the National Quran Association in Tunisia.
 
-![Screenshot of the application dashboard](public/assets/logos/icon.png)
-_(Note: This is a placeholder image. A real screenshot should be added here.)_
+![Application Dashboard](public/assets/screenshots/Screenshot%20from%202026-01-23%2022-52-24.png)
 
 ## ✨ Features
 
@@ -18,6 +17,20 @@ _(Note: This is a placeholder image. A real screenshot should be added here.)_
 - **Offline-First:** The application is designed to work seamlessly without an internet connection, storing all data locally and securely on your computer.
 - **Arabic Language Support:** A full Right-to-Left (RTL) interface designed for Arabic-speaking users.
 - **Data Backup & Export:** Tools to back up the database and export data for external use.
+
+## 📸 Gallery
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-17.png" alt="Screenshot 1" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-49.png" alt="Screenshot 2" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-54.png" alt="Screenshot 3" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-45-27.png" alt="Screenshot 4" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-47-56.png" alt="Screenshot 5" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-49-50.png" alt="Screenshot 6" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-50-39.png" alt="Screenshot 7" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-51-50.png" alt="Screenshot 8" />
+  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-52-11.png" alt="Screenshot 9" />
+</div>
 
 ## 🚀 Getting Started
 
@@ -54,30 +67,41 @@ npm run dist
 
 The installer will be located in the `release/` directory. For more details, see the [Build and Packaging documentation](docs/BUILD_AND_PACKAGING.md).
 
-## 📚 Documentation
-
-We provide comprehensive documentation to help you understand, use, and contribute to the project.
-
-| File                                                         | Description                                         |
-| :----------------------------------------------------------- | :-------------------------------------------------- |
-| **User & Contributor Docs**                                  |                                                     |
-| [`docs/USAGE.md`](docs/USAGE.md)                             | A detailed user guide for all application features. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)                         | Guidelines for contributing to the project.         |
-| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)                   | Our community standards and code of conduct.        |
-| [`CHANGELOG.md`](CHANGELOG.md)                               | A log of all notable changes to the project.        |
-| **Developer Docs**                                           |                                                     |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)                 | In-depth technical documentation for developers.    |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)               | Application architecture and design patterns.       |
-| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md)             | Complete IPC API reference documentation.           |
-| [`docs/TESTING.md`](docs/TESTING.md)                         | Comprehensive testing guide and best practices.     |
-| [`docs/SECURITY.md`](docs/SECURITY.md)                       | Security architecture and best practices.           |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)                   | Complete deployment and distribution guide.         |
-| [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)         | Common issues and solutions guide.                  |
-| [`docs/BUILD_AND_PACKAGING.md`](docs/BUILD_AND_PACKAGING.md) | Instructions for building the app from source.      |
-
-## 🤝 Contributing
-
-Contributions are welcome! We value our community and appreciate any help, from reporting bugs to submitting new features. Please read our [**Contributing Guidelines**](CONTRIBUTING.md) to get started.
+## 🏁 من هنا نبدأ (Start Here)
+ 
+ **مرحباً بكم في تطبيق مدير الفروع القرآنية!**
+ 
+ هذا التطبيق مصمم لتسهيل إدارة الجمعيات القرآنية. إليكم الروابط الأساسية:
+ 
+ - **📖 [دليل المستخدم (عربي)](docs/user/manual.md):** شرح شامل لكيفية استخدام البرنامج (إضافة طلاب، تسجيل حضور، مالية).
+ - **💰 [الدليل المالي (عربي)](docs/user/financial.md):** شرح خاص للنظام المالي الموحد.
+ - **🔧 [حل المشاكل (عربي)](docs/user/troubleshooting.md):** ماذا تفعل إذا واجهت مشكلة؟
+ 
+ ---
+ 
+ ## 📚 Documentation (For Developers)
+ 
+ Comprehensive documentation for developers and contributors.
+ 
+ | File | Description |
+ | :--- | :--- |
+ | **Setup & Guides** | |
+ | [`docs/dev/setup/development.md`](docs/dev/setup/development.md) | Setup Guide & Workflow. |
+ | [`docs/dev/setup/building.md`](docs/dev/setup/building.md) | Build & Release Instructions. |
+ | [`docs/dev/setup/testing.md`](docs/dev/setup/testing.md) | Testing Guide (Jest/Playwright). |
+ | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution Guidelines. |
+ | **Technical Specs** | |
+ | [`docs/dev/specs/architecture.md`](docs/dev/specs/architecture.md) | System Architecture. |
+ | [`docs/dev/specs/api.md`](docs/dev/specs/api.md) | IPC API Reference. |
+ | [`docs/dev/specs/security.md`](docs/dev/specs/security.md) | Security Protocol. |
+ | [`docs/dev/specs/financial-spec.md`](docs/dev/specs/financial-spec.md) | Financial Module Specification. |
+ | **References** | |
+ | [`docs/dev/reference/project-structure.md`](docs/dev/reference/project-structure.md) | Codebase Directory Map. |
+ | [`docs/dev/troubleshooting.md`](docs/dev/troubleshooting.md) | Developer Troubleshooting. |
+ 
+ ## 🤝 Contributing
+ 
+ Contributions are welcome! Please read our [**Contributing Guidelines**](CONTRIBUTING.md) to get started.
 
 To ensure a welcoming and inclusive environment, all contributors are expected to adhere to our [**Code of Conduct**](CODE_OF_CONDUCT.md).
 

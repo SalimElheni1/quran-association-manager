@@ -25,7 +25,7 @@ Have an idea for a new feature or an improvement? Open an issue to discuss your 
     ```bash
     git checkout -b feature/your-feature-name
     ```
-4.  **Set Up Development Environment:** Follow the instructions in the [DEVELOPMENT.md](docs/DEVELOPMENT.md) file to set up your local development environment, install dependencies, and run the application.
+4.  **Set Up Development Environment:** Follow the instructions in the [docs/dev/setup/development.md](docs/dev/setup/development.md) file to set up your local development environment, install dependencies, and run the application.
 5.  **Make Your Changes:** Implement your feature or fix the bug. Ensure your code adheres to the project's coding standards and best practices.
 6.  **Test Your Changes:** Run all relevant tests to ensure your changes work as expected and do not introduce regressions.
     ```bash
