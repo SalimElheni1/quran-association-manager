@@ -837,10 +837,10 @@ test('adding income transaction updates account balance', async () => {
 ## References
 
 ### Internal Documents
-- `docs/DEVELOPMENT.md` - Development guidelines
-- `docs/ARCHITECTURE.md` - Overall system architecture
-- `docs/API_REFERENCE.md` - IPC API documentation
-- `docs/TESTING.md` - Testing guidelines
+- `docs/dev/setup/development.md` - Development guidelines
+- `docs/dev/specs/architecture.md` - Overall system architecture
+- `docs/dev/specs/api.md` - IPC API documentation
+- `docs/dev/setup/testing.md` - Testing guidelines
 
 ### External Resources
 - SQLite Documentation: https://www.sqlite.org/docs.html

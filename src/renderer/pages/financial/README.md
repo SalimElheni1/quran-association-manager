@@ -36,6 +36,5 @@
 
 ## Documentation
 
-- User Guide: `docs/FINANCIAL_USER_GUIDE.md`
-- Technical: `docs/FINANCIAL_SYSTEM_REDESIGN.md`
-- Complete: `docs/FINANCIAL_IMPLEMENTATION_COMPLETE.md`
+- User Guide: `docs/user/financial.md`
+- Technical: `docs/dev/specs/financial-spec.md`

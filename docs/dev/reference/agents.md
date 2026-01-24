@@ -28,8 +28,8 @@ The source code is located in the `src/` directory, with a clear separation betw
   - `src/db/schema.js`: The **single source of truth** for the database schema.
   - `src/db/migrations/`: Contains SQL scripts for applying changes to the database schema.
 - `docs/`: Contains all project documentation.
-  - `DEVELOPMENT.md`: The most comprehensive technical guide.
-  - `USAGE.md`: The user guide.
+   - `docs/user/`: Arabic manuals for end-users.
+   - `docs/dev/`: English technical specifications and guides.
 
 ## Development Workflow
 

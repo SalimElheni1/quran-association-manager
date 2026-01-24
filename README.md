@@ -65,7 +65,7 @@ To build the application and create a distributable installer for your platform:
 npm run dist
 ```
 
-The installer will be located in the `release/` directory. For more details, see the [Build and Packaging documentation](docs/BUILD_AND_PACKAGING.md).
+The installer will be located in the `release/` directory. For more details, see the [Build and Packaging documentation](docs/dev/setup/building.md).
 
 ## 🏁 من هنا نبدأ (Start Here)
  
