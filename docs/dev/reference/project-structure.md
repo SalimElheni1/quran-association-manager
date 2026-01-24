@@ -21,148 +21,143 @@ quran-association-manager/
 ```
 
 ## Documentation (`docs/`)
-
-```
-docs/
-├── archive/                # Archived/legacy code
-│   └── legacy-migrations/  # Old migration scripts
-├── API_REFERENCE.md        # IPC API documentation
-├── ARCHITECTURE.md         # System architecture
-├── BUILD_AND_PACKAGING.md  # Build instructions
-├── DEPLOYMENT.md           # Deployment guide
-├── DEVELOPMENT.md          # Developer guide
-├── FINANCIAL_SYSTEM_SPECIFICATION.md
-├── FINANCIAL_USER_GUIDE.md
-├── SECURITY.md             # Security practices
-├── TESTING.md              # Testing guide
-├── TROUBLESHOOTING.md      # Common issues
-└── USAGE.md                # User guide
-```
-
-## Source Code (`src/`)
-
-### Database Layer (`src/db/`)
-
-```
-db/
-├── migrations/             # Database migrations (001-025)
-│   ├── 001-update-users-table.sql
-│   ├── 002-fix-user-role-constraint.sql
-│   ├── ...
-│   └── 025-add-transaction-matricule.sql
-├── db.js                   # Database connection
-├── schema.js               # Schema definitions
-└── seederFunctions.js      # Seed data functions
-```
-
-### Main Process (`src/main/`)
-
-```
-main/
-├── handlers/               # IPC handlers by feature
-│   ├── attendanceHandlers.js
-│   ├── authHandlers.js
-│   ├── classHandlers.js
-│   ├── dashboardHandlers.js
-│   ├── financialHandlers.js      # New unified system
-│   ├── legacyFinancialHandlers.js # Legacy system (to be removed)
-│   ├── groupHandlers.js
-│   ├── importHandlers.js
-│   ├── inventoryHandlers.js
-│   ├── receiptHandlers.js
-│   ├── settingsHandlers.js
-│   ├── studentHandlers.js
-│   ├── systemHandlers.js
-│   ├── teacherHandlers.js
-│   └── userHandlers.js
-├── services/               # Business logic services
-│   ├── financialExportService.js
-│   ├── matriculeService.js
-│   └── voucherService.js
-├── export_templates/       # Export templates
-├── __mocks__/             # Test mocks
-├── authMiddleware.js       # Authentication
-├── backupManager.js        # Database backup
-├── exportManager.js        # Export functionality
-├── importManager.js        # Import functionality
-├── keyManager.js           # Encryption keys
-├── logger.js               # Logging utility
-├── preload.js              # Electron preload script
-├── settingsManager.js      # Settings management
-├── utils.js                # Utility functions
-├── validationSchemas.js    # Joi validation schemas
-└── index.js                # Main entry point
-```
-
-### Renderer Process (`src/renderer/`)
-
-```
-renderer/
-├── assets/                 # Fonts, images
-├── components/             # React components
-│   ├── about/             # About page components
-│   ├── common/            # Shared components
-│   ├── financial/         # New financial system UI
-│   ├── financials/        # Legacy financial system UI (to be removed)
-│   └── icons/             # Icon components
-├── contexts/              # React contexts
-│   └── AuthContext.jsx
-├── data/                  # Static data
-│   └── onboardingContent.js
-├── hooks/                 # Custom React hooks
-│   ├── useAccounts.js
-│   ├── useCategories.js
-│   ├── useFinancialSummary.js
-│   ├── usePermissions.js
-│   └── useTransactions.js
-├── layouts/               # Layout components
-│   └── MainLayout.jsx
-├── pages/                 # Page components
-│   ├── financial/         # Financial module pages
-│   ├── AboutPage.jsx
-│   ├── AccountsPage.jsx
-│   ├── AttendancePage.jsx
-│   ├── ClassesPage.jsx
-│   ├── DashboardPage.jsx
-│   ├── ExpensesPage.jsx
-│   ├── ExportsPage.jsx
-│   ├── FinancialDashboard.jsx
-│   ├── FinancialsPage.jsx
-│   ├── IncomePage.jsx
-│   ├── LoginPage.jsx
-│   ├── ProfilePage.jsx
-│   ├── SettingsPage.jsx
-│   ├── StudentsPage.jsx
-│   ├── TeachersPage.jsx
-│   └── UsersPage.jsx
-├── styles/                # CSS/SCSS files
-├── utils/                 # Utility functions
-├── App.jsx                # Main App component
-└── index.jsx              # Entry point
-```
-
-## Scripts (`scripts/`)
-
-Utility scripts for testing and database operations:
-
-- `init-financial-tables.js`
-- `manual-seeder.js`
-- `run-comprehensive-tests.js`
-- `setup-pre-migration-db.js`
-- `test-*.js` (various test scripts)
-
-## Tests (`tests/`)
-
-⚠️ **WARNING**: Test suite is currently broken and may have infinite loops.
-Do NOT run tests until fixed.
-
-```
-tests/
-├── mocks/                 # Test mocks
-├── renderer/              # Renderer process tests
-├── *.spec.js             # Test files
-└── COMPREHENSIVE_TESTS_README.md
-```
+ 
+ ```
+ docs/
+ ├── user/                   # 🟢 Arabic User Documentation
+ │   ├── manual.md           # User Guide (translated USAGE.md)
+ │   ├── financial.md        # Financial Guide
+ │   └── troubleshooting.md  # User Troubleshooting
+ └── dev/                    # 🔵 English Developer Documentation
+     ├── setup/              # Setup, Building, Testing, Deployment
+     ├── specs/              # Architecture, API, Security, Specs
+     ├── reference/          # Project Structure, Agents, Maps
+     └── troubleshooting.md  # Developer Troubleshooting
+ ```
+ 
+ ## Source Code (`src/`)
+ 
+ ### Database Layer (`src/db/`)
+ 
+ ```
+ db/
+ ├── migrations/             # Database migrations (001-025)
+ │   ├── 001-update-users-table.sql
+ │   ├── 002-fix-user-role-constraint.sql
+ │   ├── ...
+ │   └── 025-add-transaction-matricule.sql
+ ├── db.js                   # Database connection
+ ├── schema.js               # Schema definitions
+ └── seederFunctions.js      # Seed data functions
+ ```
+ 
+ ### Main Process (`src/main/`)
+ 
+ ```
+ main/
+ ├── handlers/               # IPC handlers by feature
+ │   ├── attendanceHandlers.js
+ │   ├── authHandlers.js
+ │   ├── classHandlers.js
+ │   ├── dashboardHandlers.js
+ │   ├── financialHandlers.js      # New unified system
+ │   ├── legacyFinancialHandlers.js # Legacy system (to be removed)
+ │   ├── groupHandlers.js
+ │   ├── importHandlers.js
+ │   ├── inventoryHandlers.js
+ │   ├── receiptHandlers.js
+ │   ├── settingsHandlers.js
+ │   ├── studentHandlers.js
+ │   ├── systemHandlers.js
+ │   ├── teacherHandlers.js
+ │   └── userHandlers.js
+ ├── services/               # Business logic services
+ │   ├── financialExportService.js
+ │   ├── matriculeService.js
+ │   └── voucherService.js
+ ├── export_templates/       # Export templates
+ ├── __mocks__/             # Test mocks
+ ├── authMiddleware.js       # Authentication
+ ├── backupManager.js        # Database backup
+ ├── exportManager.js        # Export functionality
+ ├── importManager.js        # Import functionality
+ ├── keyManager.js           # Encryption keys
+ ├── logger.js               # Logging utility
+ ├── preload.js              # Electron preload script
+ ├── settingsManager.js      # Settings management
+ ├── utils.js                # Utility functions
+ ├── validationSchemas.js    # Joi validation schemas
+ └── index.js                # Main entry point
+ ```
+ 
+ ### Renderer Process (`src/renderer/`)
+ 
+ ```
+ renderer/
+ ├── assets/                 # Fonts, images
+ ├── components/             # React components
+ │   ├── about/             # About page components
+ │   ├── common/            # Shared components
+ │   ├── financial/         # New financial system UI
+ │   ├── financials/        # Legacy financial system UI (to be removed)
+ │   └── icons/             # Icon components
+ ├── contexts/              # React contexts
+ │   └── AuthContext.jsx
+ ├── data/                  # Static data
+ │   └── onboardingContent.js
+ ├── hooks/                 # Custom React hooks
+ │   ├── useAccounts.js
+ │   ├── useCategories.js
+ │   ├── useFinancialSummary.js
+ │   ├── usePermissions.js
+ │   └── useTransactions.js
+ ├── layouts/               # Layout components
+ │   └── MainLayout.jsx
+ ├── pages/                 # Page components
+ │   ├── financial/         # Financial module pages
+ │   ├── AboutPage.jsx
+ │   ├── AccountsPage.jsx
+ │   ├── AttendancePage.jsx
+ │   ├── ClassesPage.jsx
+ │   ├── DashboardPage.jsx
+ │   ├── ExpensesPage.jsx
+ │   ├── ExportsPage.jsx
+ │   ├── FinancialDashboard.jsx
+ │   ├── FinancialsPage.jsx
+ │   ├── IncomePage.jsx
+ │   ├── LoginPage.jsx
+ │   ├── ProfilePage.jsx
+ │   ├── SettingsPage.jsx
+ │   ├── StudentsPage.jsx
+ │   ├── TeachersPage.jsx
+ │   └── UsersPage.jsx
+ ├── styles/                # CSS/SCSS files
+ ├── utils/                 # Utility functions
+ ├── App.jsx                # Main App component
+ └── index.jsx              # Entry point
+ ```
+ 
+ ## Scripts (`scripts/`)
+ 
+ Utility scripts for testing and database operations:
+ 
+ - `init-financial-tables.js`
+ - `manual-seeder.js`
+ - `run-comprehensive-tests.js`
+ - `setup-pre-migration-db.js`
+ - `test-*.js` (various test scripts)
+ 
+ ## Tests (`tests/`)
+ 
+ ✅ **STATUS**: Test suite is enhanced and stable (560+ tests).
+ 
+ ```
+ tests/
+ ├── mocks/                 # Test mocks
+ ├── renderer/              # Renderer process tests
+ ├── *.spec.js             # Test files
+ └── COMPREHENSIVE_TESTS_README.md
+ ```
 
 ## Key Files
 
