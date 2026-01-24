@@ -1,10 +1,9 @@
 # Troubleshooting Guide
 
-This document provides solutions to common issues encountered when developing, building, or using the Quran Branch Manager application.
+This document provides solutions to common issues encountered when developing, building, or maintaining the Quran Branch Manager application.
 
 ## Table of Contents
 
-- [General Issues](#general-issues)
 - [Development Issues](#development-issues)
 - [Build Issues](#build-issues)
 - [Runtime Issues](#runtime-issues)
@@ -15,64 +14,7 @@ This document provides solutions to common issues encountered when developing, b
 - [Network Issues](#network-issues)
 - [Logging and Debugging](#logging-and-debugging)
 
-## General Issues
-
-### Application Won't Start
-
-#### Symptoms
-- Application window doesn't appear
-- Process starts but no UI
-- Immediate crash on startup
-
-#### Solutions
-1. **Check Node.js Version**
-   ```bash
-   node --version  # Should be 22.x or later
-   npm --version   # Should be 10.x or later
-   ```
-
-2. **Clear Application Data**
-   ```bash
-   # Windows
-   rmdir /s "%APPDATA%\quran-branch-manager"
-   
-   # macOS
-   rm -rf ~/Library/Application\ Support/quran-branch-manager
-   
-   # Linux
-   rm -rf ~/.config/quran-branch-manager
-   ```
-
-3. **Check Permissions**
-   - Ensure the application has read/write permissions
-   - Run as administrator if necessary (Windows)
-   - Check file ownership (Linux/macOS)
-
-### White Screen on Startup
-
-#### Symptoms
-- Application window appears but shows blank/white screen
-- No content loads
-
-#### Solutions
-1. **Check Developer Console**
-   ```javascript
-   // In development, open DevTools
-   Ctrl+Shift+I (Windows/Linux)
-   Cmd+Option+I (macOS)
-   ```
-
-2. **Clear Browser Cache**
-   ```bash
-   # Clear Electron cache
-   rm -rf ~/Library/Caches/quran-branch-manager  # macOS
-   rm -rf %LOCALAPPDATA%\quran-branch-manager    # Windows
-   rm -rf ~/.cache/quran-branch-manager          # Linux
-   ```
-
-3. **Check Network Connectivity**
-   - Ensure localhost:3000 is accessible (development)
-   - Check firewall settings
+> **Note for End Users:** If you are looking for help with using the application (e.g., login issues, white screen), please refer to the [User Troubleshooting Guide](../../user/troubleshooting.md).
 
 ## Development Issues
 
