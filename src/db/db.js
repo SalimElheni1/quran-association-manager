@@ -246,8 +246,29 @@ async function initializeDatabase() {
       db.prepare('SELECT count(*) FROM sqlite_master').get();
     } catch (keyErr) {
       // If this fails, it might be incorrect password or corrupt.
-      // However, better-sqlite3 fails lazily sometimes, but the prepare().get() force it.
-      throw keyErr;
+      if (keyErr.code === 'SQLITE_NOTADB') {
+        log('[DB_LOG] Standard open failed (NOTADB). Attempting legacy compatibility mode (v3)...');
+        try {
+          // Re-open fresh execution context might be cleaner, but pragma usually works on session.
+          // However, for safety against library state, checking if clean pragma works.
+          // Some implementations require compatibility BEFORE key, or vice versa?
+          // Usually: pragma key; pragma compatibility;
+
+          // Let's try closing and reopening to be 100% sure we have a clean slate.
+          db.close();
+          db = new Database(dbPath, { verbose: null });
+          db.pragma(`key = '${key}'`);
+          db.pragma('cipher_compatibility = 3');
+
+          db.prepare('SELECT count(*) FROM sqlite_master').get();
+          log('[DB_LOG] Legacy compatibility mode (v3) successful.');
+        } catch (retryErr) {
+          logError('[DB_LOG] Legacy compatibility mode failed.', retryErr);
+          throw keyErr; // Throw original error
+        }
+      } else {
+        throw keyErr;
+      }
     }
 
     log('[DB_LOG] Database connection object created and key verified.');
