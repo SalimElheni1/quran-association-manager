@@ -241,6 +241,18 @@ async function initializeDatabase() {
     // Apply encryption key
     db.pragma(`key = '${key}'`);
 
+    // DIAGNOSTIC START: Check if encryption is actually working
+    try {
+      const cipherVersion = db.pragma('cipher_version', { simple: true });
+      log(`[DB_LOG] Cipher version: ${cipherVersion}`);
+      if (!cipherVersion) {
+        logError('FATAL: Database encryption support missing. The native module may not be linked correctly.');
+      }
+    } catch (verErr) {
+      logError('[DB_LOG] Failed to query cipher version:', verErr);
+    }
+    // DIAGNOSTIC END
+
     // Test encryption / key
     try {
       db.prepare('SELECT count(*) FROM sqlite_master').get();
@@ -249,12 +261,6 @@ async function initializeDatabase() {
       if (keyErr.code === 'SQLITE_NOTADB') {
         log('[DB_LOG] Standard open failed (NOTADB). Attempting legacy compatibility mode (v3)...');
         try {
-          // Re-open fresh execution context might be cleaner, but pragma usually works on session.
-          // However, for safety against library state, checking if clean pragma works.
-          // Some implementations require compatibility BEFORE key, or vice versa?
-          // Usually: pragma key; pragma compatibility;
-
-          // Let's try closing and reopening to be 100% sure we have a clean slate.
           db.close();
           db = new Database(dbPath, { verbose: null });
           db.pragma(`key = '${key}'`);
@@ -264,7 +270,21 @@ async function initializeDatabase() {
           log('[DB_LOG] Legacy compatibility mode (v3) successful.');
         } catch (retryErr) {
           logError('[DB_LOG] Legacy compatibility mode failed.', retryErr);
-          throw keyErr; // Throw original error
+
+          // NEW FALLBACK: Try Migrating (v3 -> v4)
+          log('[DB_LOG] Attempting automatic cipher migration (v3 -> v4)...');
+          try {
+            db.close();
+            db = new Database(dbPath, { verbose: null });
+            db.pragma(`key = '${key}'`);
+            db.pragma('cipher_migrate');
+
+            db.prepare('SELECT count(*) FROM sqlite_master').get();
+            log('[DB_LOG] Cipher migration successful.');
+          } catch (migrateErr) {
+            logError('[DB_LOG] Cipher migration failed.', migrateErr);
+            throw keyErr; // Throw original error after exhausting options
+          }
         }
       } else {
         throw keyErr;

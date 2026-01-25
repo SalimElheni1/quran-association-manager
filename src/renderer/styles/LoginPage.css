@@ -36,12 +36,9 @@
 
 /* Styles for the InitialCredentialsBanner */
 .initial-credentials-banner {
-  position: absolute;
   top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 800px;
+  width: 100%;
+  max-width: 50%;
   z-index: 1050; /* Ensure it's above other elements */
   animation: fadeInDown 0.5s ease-in-out;
 }
