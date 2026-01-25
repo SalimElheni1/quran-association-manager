@@ -1,6 +1,6 @@
 {
   "name": "quran-branch-manager",
-  "version": "1.2.2-beta",
+  "version": "1.2.3",
   "description": "Desktop application for managing Quran association branches.",
   "main": "src/main/index.js",
   "author": "Salim Elheni",
@@ -14,13 +14,14 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",
     "arabic-reshaper": "^1.1.0",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3-multiple-ciphers": "^12.5.0",
+    "better-sqlite3-multiple-ciphers": "^12.6.2",
     "bootstrap": "^5.3.3",
     "docx": "^9.5.1",
     "docxtemplater": "^3.66.2",

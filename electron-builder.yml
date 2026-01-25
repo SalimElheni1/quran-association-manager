@@ -19,10 +19,11 @@ directories:
   output: release
   buildResources: build
 asar:
-  smartUnpack: false
+  smartUnpack: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/better-sqlite3-multiple-ciphers/**"
 compression: maximum
-nodeGypRebuild: false
-buildDependenciesFromSource: false
 win:
   target:
     target: nsis
