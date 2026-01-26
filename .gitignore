@@ -1,38 +1,8 @@
-# Node
-node_modules/
-node_modules-old/
-# Build output
-dist/
-release/
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
-.env
-
-# OS-specific
-.DS_Store
-
-# Database files
-*.sqlite
-*.sqlite-journal
-*.db
-.db/
-out/
-
-# Test Coverage Reports
-coverage/
-lcov.info
-*.lcov
-
-# Build artifacts
-lib/
-*.deb
-*.bat
-
-# Analysis tools
-.codeboarding/
+```
+# Documentation files
+SOLUTION_SUMMARY.md
+api_specification.md
+database_schema_evolution.md
+implementation_guide.md
+web_app_proposal.md
+```
