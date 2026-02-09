@@ -37,8 +37,8 @@ const chainable = {
   ref: jest.fn((ref) => `ref:${ref}`),
 
   // These are now plain mocks, to be implemented by tests as needed.
-  validateAsync: jest.fn(),
-  validate: jest.fn(),
+  validateAsync: jest.fn().mockImplementation(async (val) => val),
+  validate: jest.fn().mockImplementation((val) => ({ value: val })),
 };
 
 // The actual mock that Jest will use.

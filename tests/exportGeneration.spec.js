@@ -20,6 +20,7 @@ jest.mock('../src/main/exportManager', () => ({
 jest.mock('electron', () => ({
   ipcMain: {
     handle: jest.fn(),
+    on: jest.fn(),
   },
   dialog: {
     showSaveDialog: jest.fn().mockResolvedValue({ filePath: 'test.pdf' }),
@@ -76,7 +77,7 @@ describe('Export Generation Handler', () => {
     );
   });
 
-  it('should pass headerData to generateXlsx', async () => {
+  it('should pass sheetName to generateXlsx', async () => {
     const options = {
       exportType: 'teachers',
       format: 'xlsx',
@@ -85,12 +86,11 @@ describe('Export Generation Handler', () => {
     };
     dialog.showSaveDialog.mockResolvedValue({ filePath: 'test.xlsx' });
     await exportGenerateHandler({}, options);
-    const expectedHeaderData = await exportManager.getExportHeaderData();
     expect(exportManager.generateXlsx).toHaveBeenCalledWith(
       options.columns,
       expect.any(Array),
       'test.xlsx',
-      expectedHeaderData,
+      'المعلمون',
     );
   });
 

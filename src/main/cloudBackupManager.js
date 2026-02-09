@@ -1,27 +1,26 @@
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
-const { app } = require('electron');
+const { app, shell } = require('electron');
 const { log, error: logError } = require('./logger');
 
 /**
- * cloudBackupManager.js
+ * cloudBackupManager.js (Google Drive Implementation Prototype)
  *
- * Handles uploading, listing, and downloading database backups from the cloud.
+ * Handles connecting to Google Drive and managing backups within a dedicated folder.
  *
  * NOTE: This is an architectural prototype. Currently, it uses a local simulation
- * ('cloud_vault' folder in userData) to demonstrate the workflow.
+ * ('google_drive_simulation' folder in userData) to demonstrate the workflow.
  *
  * TO BE PRODUCTION READY:
- * 1. Replace the file system operations (copyFile, readFile) with HTTP requests.
- * 2. In uploadBackup, use fetch or axios to POST the .qdb file to your backend/S3.
- * 3. In listCloudBackups, fetch the metadata list from your API.
- * 4. In downloadBackup, download the file via a GET request to your storage provider.
- * 5. Use settings.cloud_secret_key to sign requests or as an Authorization header.
+ * 1. Use 'googleapis' and 'google-auth-library' for real OAuth and Drive API.
+ * 2. Implement the OAuth2 flow to get access and refresh tokens.
+ * 3. In uploadBackup, use drive.files.create with a multipart upload.
+ * 4. In listCloudBackups, use drive.files.list with a query for the specific folder.
  */
 
 // Simulation storage location (inside userData)
-const getMockStoragePath = () => path.join(app.getPath('userData'), 'cloud_vault');
+const getMockDrivePath = () => path.join(app.getPath('userData'), 'google_drive_simulation');
 
 async function ensureDirectory(dir) {
   const fsSync = require('fs');
@@ -31,45 +30,58 @@ async function ensureDirectory(dir) {
 }
 
 /**
- * Uploads a local backup file to the cloud.
+ * Simulates connecting to a Google account.
+ * In production, this would open a browser for OAuth.
+ * @returns {Promise<{success: boolean, email: string}>}
+ */
+const connectGoogle = async () => {
+  log('Google Drive: Starting connection flow...');
+
+  // PRODUCTION HINT:
+  // const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES });
+  // await shell.openExternal(authUrl);
+  // Then start a local server to listen for the redirect code.
+
+  // SIMULATION: Just wait a bit and return a mock email
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  const mockEmail = `branch-${os.hostname().toLowerCase()}@gmail.com`;
+  log(`Google Drive: Connected to ${mockEmail}`);
+
+  return { success: true, email: mockEmail };
+};
+
+/**
+ * Simulates disconnecting from Google.
+ */
+const disconnectGoogle = async () => {
+  log('Google Drive: Disconnected.');
+  return { success: true };
+};
+
+/**
+ * Uploads a local backup file to Google Drive.
  * @param {string} filePath - Path to the local .qdb file.
  * @param {Object} settings - Application settings containing cloud config.
  * @returns {Promise<{success: boolean, message: string}>}
  */
 const uploadBackup = async (filePath, settings) => {
   try {
-    if (!settings.cloud_backup_enabled) {
-      log('Cloud backup is disabled. Skipping upload.');
-      return { success: false, message: 'Cloud backup is disabled.' };
+    if (!settings.cloud_backup_enabled || !settings.google_connected) {
+      log('Google Drive backup is disabled or not connected. Skipping upload.');
+      return { success: false, message: 'Google Drive backup is disabled or not connected.' };
     }
 
-    if (!settings.cloud_association_key) {
-      logError('Cloud upload failed: Association key is missing.');
-      return { success: false, message: 'Association key is missing.' };
-    }
+    log(`Google Drive: Uploading ${path.basename(filePath)} to branch folder...`);
 
-    log(`Cloud backup: Starting upload for ${path.basename(filePath)}...`);
-
-    /**
-     * PRODUCTION IMPLEMENTATION HINT:
-     * const formData = new FormData();
-     * formData.append('file', fs.createReadStream(filePath));
-     * await axios.post(`${API_URL}/upload`, formData, {
-     *   headers: {
-     *     'Authorization': `Bearer ${settings.cloud_secret_key}`,
-     *     'X-Association-Key': settings.cloud_association_key
-     *   }
-     * });
-     */
-
-    const storagePath = getMockStoragePath();
-    const assocDir = path.join(storagePath, settings.cloud_association_key);
-    await ensureDirectory(assocDir);
+    const drivePath = getMockDrivePath();
+    const branchDir = path.join(drivePath, settings.google_account_email || 'default-branch');
+    await ensureDirectory(branchDir);
 
     const fileName = path.basename(filePath);
-    const destPath = path.join(assocDir, fileName);
+    const destPath = path.join(branchDir, fileName);
 
-    // Copy file to mock storage
+    // Copy file to mock drive
     await fs.copyFile(filePath, destPath);
 
     // Create metadata file
@@ -79,54 +91,46 @@ const uploadBackup = async (filePath, settings) => {
       timestamp: new Date().toISOString(),
       size: stats.size,
       deviceName: os.hostname(),
-      associationKey: settings.cloud_association_key,
+      accountEmail: settings.google_account_email,
     };
 
     await fs.writeFile(`${destPath}.metadata.json`, JSON.stringify(metadata, null, 2));
 
-    log(`Cloud backup: Upload successful for ${fileName}`);
-    return { success: true, message: 'تم رفع النسخة الاحتياطية إلى السحابة بنجاح.' };
+    log(`Google Drive: Upload successful for ${fileName}`);
+    return { success: true, message: 'تم رفع النسخة الاحتياطية إلى Google Drive بنجاح.' };
   } catch (error) {
-    logError('Cloud backup upload failed:', error);
-    return { success: false, message: `فشل الرفع إلى السحابة: ${error.message}` };
+    logError('Google Drive upload failed:', error);
+    return { success: false, message: `فشل الرفع إلى Google Drive: ${error.message}` };
   }
 };
 
 /**
- * Lists all backups available in the cloud for the current association.
+ * Lists all backups available on Google Drive for the current account.
  * @param {Object} settings - Application settings.
  * @returns {Promise<Array>} List of backup metadata objects.
  */
 const listCloudBackups = async (settings) => {
   try {
-    if (!settings.cloud_association_key) {
+    if (!settings.google_connected || !settings.google_account_email) {
       return [];
     }
 
-    log(`Cloud backup: Fetching list for association ${settings.cloud_association_key}...`);
+    log(`Google Drive: Fetching list for ${settings.google_account_email}...`);
 
-    /**
-     * PRODUCTION IMPLEMENTATION HINT:
-     * const response = await fetch(`${API_URL}/list?assocKey=${settings.cloud_association_key}`, {
-     *   headers: { 'Authorization': `Bearer ${settings.cloud_secret_key}` }
-     * });
-     * return await response.json();
-     */
-
-    const storagePath = getMockStoragePath();
-    const assocDir = path.join(storagePath, settings.cloud_association_key);
+    const drivePath = getMockDrivePath();
+    const branchDir = path.join(drivePath, settings.google_account_email);
 
     const fsSync = require('fs');
-    if (!fsSync.existsSync(assocDir)) {
+    if (!fsSync.existsSync(branchDir)) {
       return [];
     }
 
-    const files = await fs.readdir(assocDir);
+    const files = await fs.readdir(branchDir);
     const backups = [];
 
     for (const file of files) {
       if (file.endsWith('.metadata.json')) {
-        const content = await fs.readFile(path.join(assocDir, file), 'utf8');
+        const content = await fs.readFile(path.join(branchDir, file), 'utf8');
         backups.push(JSON.parse(content));
       }
     }
@@ -134,52 +138,45 @@ const listCloudBackups = async (settings) => {
     // Sort by newest first
     return backups.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   } catch (error) {
-    logError('Failed to list cloud backups:', error);
+    logError('Failed to list Google Drive backups:', error);
     return [];
   }
 };
 
 /**
- * Downloads a backup from the cloud to a local temporary directory.
+ * Downloads a backup from Google Drive.
  * @param {string} fileName - Name of the file to download.
  * @param {Object} settings - Application settings.
  * @returns {Promise<string>} Path to the downloaded local file.
  */
 const downloadBackup = async (fileName, settings) => {
   try {
-    if (!settings.cloud_association_key) {
-      throw new Error('Association key is missing.');
+    if (!settings.google_connected) {
+      throw new Error('Google account not connected.');
     }
 
-    log(`Cloud backup: Downloading ${fileName}...`);
+    log(`Google Drive: Downloading ${fileName}...`);
 
-    /**
-     * PRODUCTION IMPLEMENTATION HINT:
-     * const response = await fetch(`${API_URL}/download/${fileName}`, {
-     *   headers: { 'Authorization': `Bearer ${settings.cloud_secret_key}` }
-     * });
-     * const buffer = await response.buffer();
-     * await fs.writeFile(destPath, buffer);
-     */
+    const drivePath = getMockDrivePath();
+    const srcPath = path.join(drivePath, settings.google_account_email, fileName);
 
-    const storagePath = getMockStoragePath();
-    const srcPath = path.join(storagePath, settings.cloud_association_key, fileName);
-
-    const tempDir = path.join(app.getPath('temp'), 'quran-branch-manager-downloads');
+    const tempDir = path.join(app.getPath('temp'), 'quran-branch-manager-gdrive');
     await ensureDirectory(tempDir);
 
     const destPath = path.join(tempDir, fileName);
     await fs.copyFile(srcPath, destPath);
 
-    log(`Cloud backup: Downloaded to ${destPath}`);
+    log(`Google Drive: Downloaded to ${destPath}`);
     return destPath;
   } catch (error) {
-    logError('Failed to download cloud backup:', error);
+    logError('Failed to download from Google Drive:', error);
     throw error;
   }
 };
 
 module.exports = {
+  connectGoogle,
+  disconnectGoogle,
   uploadBackup,
   listCloudBackups,
   downloadBackup,
