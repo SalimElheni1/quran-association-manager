@@ -272,6 +272,26 @@ function registerSystemHandlers() {
     }
   });
 
+  ipcMain.handle('backup:googleConnect', async () => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.connectGoogle();
+    } catch (error) {
+      logError('Error in backup:googleConnect IPC wrapper:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('backup:googleDisconnect', async () => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.disconnectGoogle();
+    } catch (error) {
+      logError('Error in backup:googleDisconnect IPC wrapper:', error);
+      throw error;
+    }
+  });
+
   // Log management handlers for testing
   ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {
     try {

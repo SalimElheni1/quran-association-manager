@@ -4,7 +4,6 @@ const Store = require('electron-store');
 const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
-const backupManager = require('../backupManager');
 const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
 
@@ -53,8 +52,8 @@ const settingsValidationSchema = Joi.object({
   academic_year_start_month: Joi.number().integer().min(1).max(12),
   charge_generation_day: Joi.number().integer().min(1).max(28),
   cloud_backup_enabled: Joi.boolean(),
-  cloud_association_key: Joi.string().allow(''),
-  cloud_secret_key: Joi.string().allow(''),
+  google_account_email: Joi.string().email().allow(''),
+  google_connected: Joi.boolean(),
 });
 
 const defaultSettings = {
@@ -68,8 +67,8 @@ const defaultSettings = {
   backup_frequency: 'daily',
   president_full_name: '',
   cloud_backup_enabled: false,
-  cloud_association_key: '',
-  cloud_secret_key: '',
+  google_account_email: '',
+  google_connected: false,
 
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
@@ -209,6 +208,7 @@ function registerSettingsHandlers(refreshSettings) {
         log(`[Settings] New settings loaded: ${JSON.stringify(newSettings)}`);
 
         if (newSettings) {
+          const backupManager = require('../backupManager');
           backupManager.startScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
 

@@ -39,6 +39,7 @@ const SettingsPage = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCloudHelp, setShowCloudHelp] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -58,7 +59,7 @@ const SettingsPage = () => {
             }
           }
 
-          if (loadedSettings && loadedSettings.cloud_association_key) {
+          if (loadedSettings && loadedSettings.google_connected) {
             fetchCloudBackups(loadedSettings);
           }
         } else {
@@ -83,7 +84,7 @@ const SettingsPage = () => {
 
   const fetchCloudBackups = async (currentSettings) => {
     const settingsToUse = currentSettings || settings;
-    if (!settingsToUse?.cloud_association_key) return;
+    if (!settingsToUse?.google_connected) return;
 
     setIsLoadingCloudBackups(true);
     try {
@@ -218,7 +219,7 @@ const SettingsPage = () => {
 
   const handleDownloadCloudBackup = async (fileName) => {
     setIsDownloading(true);
-    toast.info('جارٍ تحميل النسخة من السحابة...');
+    toast.info('جارٍ تحميل النسخة من Google Drive...');
     try {
       const filePath = await window.electronAPI.downloadCloudBackup(fileName, settings);
       toast.success('تم التحميل بنجاح. يرجى تأكيد الهوية للمتابعة في الاستيراد.');
@@ -227,6 +228,42 @@ const SettingsPage = () => {
       toast.error(`فشل التحميل: ${err.message}`);
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    setIsConnectingGoogle(true);
+    try {
+      const result = await window.electronAPI.connectGoogle();
+      if (result.success) {
+        const newSettings = {
+          ...settings,
+          google_connected: true,
+          google_account_email: result.email,
+        };
+        setSettings(newSettings);
+        toast.success(`تم الربط بحساب ${result.email} بنجاح.`);
+        fetchCloudBackups(newSettings);
+      }
+    } catch (err) {
+      toast.error(`فشل الربط بـ Google: ${err.message}`);
+    } finally {
+      setIsConnectingGoogle(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      await window.electronAPI.disconnectGoogle();
+      setSettings({
+        ...settings,
+        google_connected: false,
+        google_account_email: '',
+      });
+      setCloudBackups([]);
+      toast.info('تم إلغاء الربط بحساب Google.');
+    } catch (err) {
+      toast.error(`فشل إلغاء الربط: ${err.message}`);
     }
   };
 
@@ -665,12 +702,12 @@ const SettingsPage = () => {
                         <hr />
                         <hr />
                         <div className="d-flex align-items-center mt-4 mb-2">
-                          <h5 className="mb-0">النسخ الاحتياطي السحابي (Cloud)</h5>
+                          <h5 className="mb-0">النسخ الاحتياطي السحابي (Google Drive)</h5>
                           <Button
                             variant="link"
                             className="p-0 ms-2 text-info"
                             onClick={() => setShowCloudHelp(true)}
-                            title="كيفية الحصول على المفاتيح؟"
+                            title="كيفية الربط والاشتراك؟"
                           >
                             <FiHelpCircle size={20} />
                           </Button>
@@ -679,44 +716,60 @@ const SettingsPage = () => {
                           <Form.Check
                             type="switch"
                             id="cloud-backup-enabled-switch"
-                            label="تفعيل النسخ الاحتياطي السحابي"
+                            label="تفعيل النسخ الاحتياطي التلقائي للسحابة"
                             name="cloud_backup_enabled"
                             checked={settings.cloud_backup_enabled || false}
                             onChange={handleChange}
+                            disabled={!settings.google_connected}
                           />
                           <Form.Text className="text-muted">
-                            عند التفعيل، سيتم رفع نسخة من قاعدة البيانات إلى السحابة تلقائياً عند كل
-                            عملية نسخ احتياطي.
+                            عند التفعيل، سيتم رفع نسخة من قاعدة البيانات إلى Google Drive تلقائياً
+                            عند كل عملية نسخ احتياطي ناجحة.
                           </Form.Text>
                         </Form.Group>
 
-                        <Row>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                              <Form.Label>معرف الجمعية السحابي (Association Key)</Form.Label>
-                              <Form.Control
-                                type="text"
-                                name="cloud_association_key"
-                                value={settings.cloud_association_key || ''}
-                                onChange={handleChange}
-                                placeholder="مثال: ASSOC-12345"
-                              />
-                            </Form.Group>
-                          </Col>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                              <Form.Label>المفتاح السري (Secret Key)</Form.Label>
-                              <Form.Control
-                                type="password"
-                                name="cloud_secret_key"
-                                value={settings.cloud_secret_key || ''}
-                                onChange={handleChange}
-                              />
-                            </Form.Group>
-                          </Col>
-                        </Row>
+                        <div className="border rounded p-3 mb-3 bg-light">
+                          {!settings.google_connected ? (
+                            <div className="text-center py-2">
+                              <p className="mb-3 text-muted">
+                                لم يتم ربط أي حساب Google لتخزين النسخ الاحتياطية.
+                              </p>
+                              <Button
+                                variant="outline-danger"
+                                onClick={handleConnectGoogle}
+                                disabled={isConnectingGoogle}
+                              >
+                                {isConnectingGoogle ? (
+                                  <Spinner size="sm" className="me-2" />
+                                ) : (
+                                  <Image
+                                    src="https://www.google.com/favicon.ico"
+                                    width={16}
+                                    className="me-1 ms-1"
+                                  />
+                                )}
+                                الربط مع حساب Google
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <span className="badge bg-success mb-1">متصل</span>
+                                <br />
+                                <strong>{settings.google_account_email}</strong>
+                              </div>
+                              <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={handleDisconnectGoogle}
+                              >
+                                إلغاء الربط
+                              </Button>
+                            </div>
+                          )}
+                        </div>
 
-                        {settings.cloud_association_key && (
+                        {settings.google_connected && (
                           <div className="mt-3">
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <h6>النسخ المتوفرة في السحابة</h6>
@@ -822,32 +875,36 @@ const SettingsPage = () => {
 
       <Modal show={showCloudHelp} onHide={() => setShowCloudHelp(false)} centered size="lg">
         <Modal.Header closeButton className="bg-info text-white">
-          <Modal.Title>دليل الحصول على مفاتيح الربط السحابي</Modal.Title>
+          <Modal.Title>دليل ربط حساب Google للنسخ الاحتياطي</Modal.Title>
         </Modal.Header>
         <Modal.Body dir="rtl">
-          <h5>كيف أحصل على معرف الجمعية والمفتاح السري؟</h5>
-          <p>للحصول على بيانات الربط السحابي، يرجى اتباع الخطوات التالية:</p>
+          <h5>كيفية استخدام Google Drive لحفظ بيانات الفرع؟</h5>
+          <p>
+            تتيح لك هذه الميزة حفظ نسخ احتياطية من بيانات فرعك في حساب Google خاص بالفرع، مما يسهل
+            استرجاعها أو فتحها من أجهزة أخرى.
+          </p>
           <ol>
             <li className="mb-2">
-              <strong>التواصل مع الإدارة المركزية:</strong> قم بالاتصال بقسم المعلوماتية في الرابطة
-              الوطنية للقرآن الكريم.
+              <strong>حساب البريد الإلكتروني:</strong> يُفضل استخدام بريد Gmail مخصص للفرع (مثلاً:
+              quran.branch.name@gmail.com). إذا لم يكن للفرع بريد، يرجى إنشاء واحد جديد.
             </li>
             <li className="mb-2">
-              <strong>تزويد بيانات الفرع:</strong> سيُطلب منك تزويد اسم الفرع المحلي والمعرف الخاص
-              به (Matricule) الموجود في صفحة بيانات الجمعية.
+              <strong>الربط مع التطبيق:</strong> اضغط على زر "الربط مع حساب Google" وقم بتسجيل الدخول
+              في المتصفح ومنح الأذونات اللازمة.
             </li>
             <li className="mb-2">
-              <strong>استلام المفاتيح:</strong> ستتلقى ملفاً يحتوي على "معرف الجمعية السحابي"
-              و"المفتاح السري" الخاص بفرعكم فقط.
+              <strong>تخزين البيانات:</strong> سيقوم التطبيق بإنشاء مجلد خاص بالنسخ الاحتياطية داخل
+              Google Drive الخاص بك. لن يتمكن أي شخص آخر من الوصول إليه إلا إذا شاركت بيانات الدخول
+              معه.
             </li>
             <li className="mb-2">
-              <strong>تفعيل المزامنة:</strong> قم بإدخال هذه المفاتيح في هذه الصفحة وتفعيل خيار "النسخ
-              الاحتياطي السحابي".
+              <strong>استيراد البيانات:</strong> عند الحاجة لفتح البيانات من حاسوب آخر، قم بربط نفس
+              الحساب في الحاسوب الجديد وستظهر قائمة النسخ السحابية للاستيراد.
             </li>
           </ol>
-          <Alert variant="warning">
-            <strong>تنبيه أمني:</strong> لا تقم بمشاركة "المفتاح السري" مع أي شخص خارج إدارة الفرع،
-            فهو يمنح الوصول الكامل لنسخ قاعدة البيانات الخاصة بكم في السحابة.
+          <Alert variant="info">
+            <strong>ملاحظة:</strong> هذه العملية تضمن خصوصية بيانات فرعكم، حيث يتم تخزينها في
+            مساحتكم الخاصة وليس في خوادم خارجية تابعة للجمعية الوطنية.
           </Alert>
         </Modal.Body>
         <Modal.Footer>

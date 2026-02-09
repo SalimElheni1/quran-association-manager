@@ -229,6 +229,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listCloudBackups: (settings) => ipcRenderer.invoke('backup:listCloud', settings),
   downloadCloudBackup: (fileName, settings) =>
     ipcRenderer.invoke('backup:downloadCloud', fileName, settings),
+  connectGoogle: () => ipcRenderer.invoke('backup:googleConnect'),
+  disconnectGoogle: () => ipcRenderer.invoke('backup:googleDisconnect'),
 
   // User Management API (for Superadmin)
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),
