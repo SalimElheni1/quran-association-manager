@@ -15,8 +15,10 @@ import {
   Tab,
   InputGroup,
   Image,
+  Modal,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
+import { FiHelpCircle } from 'react-icons/fi';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 
@@ -35,6 +37,7 @@ const SettingsPage = () => {
   const [isLoadingCloudBackups, setIsLoadingCloudBackups] = useState(false);
   const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCloudHelp, setShowCloudHelp] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
   useEffect(() => {
@@ -661,7 +664,17 @@ const SettingsPage = () => {
                         </div>
                         <hr />
                         <hr />
-                        <h5 className="mt-4">النسخ الاحتياطي السحابي (Cloud)</h5>
+                        <div className="d-flex align-items-center mt-4 mb-2">
+                          <h5 className="mb-0">النسخ الاحتياطي السحابي (Cloud)</h5>
+                          <Button
+                            variant="link"
+                            className="p-0 ms-2 text-info"
+                            onClick={() => setShowCloudHelp(true)}
+                            title="كيفية الحصول على المفاتيح؟"
+                          >
+                            <FiHelpCircle size={20} />
+                          </Button>
+                        </div>
                         <Form.Group className="mb-3">
                           <Form.Check
                             type="switch"
@@ -806,6 +819,43 @@ const SettingsPage = () => {
         title="تأكيد استيراد قاعدة البيانات"
         body="لأسباب أمنية، يرجى إدخال كلمة المرور الحالية للمتابعة. سيتم استخدامها للتحقق من توافق قاعدة البيانات المستوردة."
       />
+
+      <Modal show={showCloudHelp} onHide={() => setShowCloudHelp(false)} centered size="lg">
+        <Modal.Header closeButton className="bg-info text-white">
+          <Modal.Title>دليل الحصول على مفاتيح الربط السحابي</Modal.Title>
+        </Modal.Header>
+        <Modal.Body dir="rtl">
+          <h5>كيف أحصل على معرف الجمعية والمفتاح السري؟</h5>
+          <p>للحصول على بيانات الربط السحابي، يرجى اتباع الخطوات التالية:</p>
+          <ol>
+            <li className="mb-2">
+              <strong>التواصل مع الإدارة المركزية:</strong> قم بالاتصال بقسم المعلوماتية في الرابطة
+              الوطنية للقرآن الكريم.
+            </li>
+            <li className="mb-2">
+              <strong>تزويد بيانات الفرع:</strong> سيُطلب منك تزويد اسم الفرع المحلي والمعرف الخاص
+              به (Matricule) الموجود في صفحة بيانات الجمعية.
+            </li>
+            <li className="mb-2">
+              <strong>استلام المفاتيح:</strong> ستتلقى ملفاً يحتوي على "معرف الجمعية السحابي"
+              و"المفتاح السري" الخاص بفرعكم فقط.
+            </li>
+            <li className="mb-2">
+              <strong>تفعيل المزامنة:</strong> قم بإدخال هذه المفاتيح في هذه الصفحة وتفعيل خيار "النسخ
+              الاحتياطي السحابي".
+            </li>
+          </ol>
+          <Alert variant="warning">
+            <strong>تنبيه أمني:</strong> لا تقم بمشاركة "المفتاح السري" مع أي شخص خارج إدارة الفرع،
+            فهو يمنح الوصول الكامل لنسخ قاعدة البيانات الخاصة بكم في السحابة.
+          </Alert>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCloudHelp(false)}>
+            إغلاق
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };
