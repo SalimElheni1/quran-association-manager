@@ -209,7 +209,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (_event, { password, userId }) => {
+  ipcMain.handle('db:import', async (_event, { password, userId, filePath }) => {
     if (!password || !userId) {
       return { success: false, message: 'بيانات المصادقة غير كاملة.' };
     }
@@ -222,15 +222,20 @@ function registerSystemHandlers() {
       if (!isMatch) {
         return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
       }
-      const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: 'Select Database to Import',
-        properties: ['openFile'],
-        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
-      });
-      if (canceled || !filePaths || !filePaths[0]) {
-        return { success: false, message: 'لم يتم تحديد أي ملف.' };
+
+      let importedDbPath = filePath;
+      if (!importedDbPath) {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+          title: 'Select Database to Import',
+          properties: ['openFile'],
+          filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+        });
+        if (canceled || !filePaths || !filePaths[0]) {
+          return { success: false, message: 'لم يتم تحديد أي ملف.' };
+        }
+        importedDbPath = filePaths[0];
       }
-      const importedDbPath = filePaths[0];
+
       const validationResult = await importManager.validateDatabaseFile(importedDbPath);
       if (!validationResult.isValid) {
         return { success: false, message: validationResult.message };
@@ -246,6 +251,26 @@ function registerSystemHandlers() {
   });
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
+
+  ipcMain.handle('backup:listCloud', async (_event, settings) => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.listCloudBackups(settings);
+    } catch (error) {
+      logError('Error in backup:listCloud IPC wrapper:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('backup:downloadCloud', async (_event, fileName, settings) => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.downloadBackup(fileName, settings);
+    } catch (error) {
+      logError('Error in backup:downloadCloud IPC wrapper:', error);
+      throw error;
+    }
+  });
 
   // Log management handlers for testing
   ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {

@@ -30,6 +30,9 @@ const SettingsPage = () => {
   const [backupStatus, setBackupStatus] = useState(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [cloudBackups, setCloudBackups] = useState([]);
+  const [isLoadingCloudBackups, setIsLoadingCloudBackups] = useState(false);
   const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
@@ -51,6 +54,10 @@ const SettingsPage = () => {
               setBackupStatus(backupStatusResponse.status);
             }
           }
+
+          if (loadedSettings && loadedSettings.cloud_association_key) {
+            fetchCloudBackups(loadedSettings);
+          }
         } else {
           setError(settingsResponse.message);
         }
@@ -69,6 +76,21 @@ const SettingsPage = () => {
       ...settings,
       [name]: type === 'checkbox' ? checked : value,
     });
+  };
+
+  const fetchCloudBackups = async (currentSettings) => {
+    const settingsToUse = currentSettings || settings;
+    if (!settingsToUse?.cloud_association_key) return;
+
+    setIsLoadingCloudBackups(true);
+    try {
+      const backups = await window.electronAPI.listCloudBackups(settingsToUse);
+      setCloudBackups(backups || []);
+    } catch (err) {
+      log('Failed to fetch cloud backups:', err);
+    } finally {
+      setIsLoadingCloudBackups(false);
+    }
   };
 
   const handleFileSelect = async (fieldName) => {
@@ -145,12 +167,15 @@ const SettingsPage = () => {
     }
   };
 
-  const handleImportDb = () => {
-    setShowPasswordModal(true);
+  const handleImportDb = (filePath = null) => {
+    // If filePath is provided, we are importing a downloaded cloud backup
+    setShowPasswordModal(filePath || true);
   };
 
   const handlePasswordConfirm = async (password) => {
+    const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
     setShowPasswordModal(false);
+
     if (!password) {
       toast.warn('تم إلغاء عملية الاستيراد.');
       return;
@@ -160,10 +185,23 @@ const SettingsPage = () => {
     toast.info('بدء عملية استيراد قاعدة البيانات...');
 
     try {
-      const result = await window.electronAPI.importDatabase({ password, userId: user.id });
+      let result;
+      if (downloadedFilePath) {
+        // Special internal import for downloaded cloud backup
+        // For now, we reuse the importDatabase but we might need a way to pass the path
+        // Actually, the current importDatabase opens a dialog.
+        // I need a new IPC handler for importing from a specific path.
+        result = await window.electronAPI.importDatabase({
+          password,
+          userId: user.id,
+          filePath: downloadedFilePath,
+        });
+      } else {
+        result = await window.electronAPI.importDatabase({ password, userId: user.id });
+      }
 
       if (result.success) {
-        toast.success(result.message, { autoClose: false }); // Keep message open
+        toast.success(result.message, { autoClose: false });
       } else {
         toast.error(`فشل الاستيراد: ${result.message}`);
       }
@@ -172,6 +210,20 @@ const SettingsPage = () => {
       error(err);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleDownloadCloudBackup = async (fileName) => {
+    setIsDownloading(true);
+    toast.info('جارٍ تحميل النسخة من السحابة...');
+    try {
+      const filePath = await window.electronAPI.downloadCloudBackup(fileName, settings);
+      toast.success('تم التحميل بنجاح. يرجى تأكيد الهوية للمتابعة في الاستيراد.');
+      handleImportDb(filePath);
+    } catch (err) {
+      toast.error(`فشل التحميل: ${err.message}`);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -608,6 +660,102 @@ const SettingsPage = () => {
                           )}
                         </div>
                         <hr />
+                        <hr />
+                        <h5 className="mt-4">النسخ الاحتياطي السحابي (Cloud)</h5>
+                        <Form.Group className="mb-3">
+                          <Form.Check
+                            type="switch"
+                            id="cloud-backup-enabled-switch"
+                            label="تفعيل النسخ الاحتياطي السحابي"
+                            name="cloud_backup_enabled"
+                            checked={settings.cloud_backup_enabled || false}
+                            onChange={handleChange}
+                          />
+                          <Form.Text className="text-muted">
+                            عند التفعيل، سيتم رفع نسخة من قاعدة البيانات إلى السحابة تلقائياً عند كل
+                            عملية نسخ احتياطي.
+                          </Form.Text>
+                        </Form.Group>
+
+                        <Row>
+                          <Col md={6}>
+                            <Form.Group className="mb-3">
+                              <Form.Label>معرف الجمعية السحابي (Association Key)</Form.Label>
+                              <Form.Control
+                                type="text"
+                                name="cloud_association_key"
+                                value={settings.cloud_association_key || ''}
+                                onChange={handleChange}
+                                placeholder="مثال: ASSOC-12345"
+                              />
+                            </Form.Group>
+                          </Col>
+                          <Col md={6}>
+                            <Form.Group className="mb-3">
+                              <Form.Label>المفتاح السري (Secret Key)</Form.Label>
+                              <Form.Control
+                                type="password"
+                                name="cloud_secret_key"
+                                value={settings.cloud_secret_key || ''}
+                                onChange={handleChange}
+                              />
+                            </Form.Group>
+                          </Col>
+                        </Row>
+
+                        {settings.cloud_association_key && (
+                          <div className="mt-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h6>النسخ المتوفرة في السحابة</h6>
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => fetchCloudBackups()}
+                                disabled={isLoadingCloudBackups}
+                              >
+                                {isLoadingCloudBackups ? <Spinner size="sm" /> : 'تحديث القائمة'}
+                              </Button>
+                            </div>
+                            <div
+                              className="border rounded p-2 bg-light"
+                              style={{ maxHeight: '200px', overflowY: 'auto' }}
+                            >
+                              {cloudBackups.length === 0 ? (
+                                <p className="text-center text-muted my-3">
+                                  لا توجد نسخ احتياطية في السحابة حالياً.
+                                </p>
+                              ) : (
+                                <ul className="list-group list-group-flush">
+                                  {cloudBackups.map((backup, index) => (
+                                    <li
+                                      key={index}
+                                      className="list-group-item bg-transparent d-flex justify-content-between align-items-center"
+                                    >
+                                      <div>
+                                        <strong>{new Date(backup.timestamp).toLocaleString()}</strong>
+                                        <br />
+                                        <small className="text-muted">
+                                          الجهاز: {backup.deviceName} | الحجم:{' '}
+                                          {(backup.size / 1024 / 1024).toFixed(2)} MB
+                                        </small>
+                                      </div>
+                                      <Button
+                                        variant="outline-success"
+                                        size="sm"
+                                        onClick={() => handleDownloadCloudBackup(backup.fileName)}
+                                        disabled={isDownloading || isImporting}
+                                      >
+                                        {isDownloading ? <Spinner size="sm" /> : 'استيراد'}
+                                      </Button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <hr />
                         <div className="mt-3">
                           <h5 className="text-danger">منطقة الخطر</h5>
                           <p>
@@ -616,8 +764,8 @@ const SettingsPage = () => {
                           </p>
                           <Button
                             variant="danger"
-                            onClick={handleImportDb}
-                            disabled={isImporting || isBackingUp}
+                            onClick={() => handleImportDb()}
+                            disabled={isImporting || isBackingUp || isDownloading}
                           >
                             {isImporting ? (
                               <>

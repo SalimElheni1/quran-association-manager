@@ -93,7 +93,23 @@ const runBackup = async (settings, backupFilePath) => {
     // 5. Write the package to the destination
     await fs.writeFile(backupFilePath, zipContent);
 
-    const message = `Backup completed successfully.`;
+    // 6. Optional: Upload to cloud
+    let cloudMessage = '';
+    if (settings.cloud_backup_enabled) {
+      try {
+        const cloudBackupManager = require('./cloudBackupManager');
+        const cloudResult = await cloudBackupManager.uploadBackup(backupFilePath, settings);
+        if (cloudResult.success) {
+          cloudMessage = ' (تم الرفع للسحابة)';
+        } else {
+          cloudMessage = ` (فشل الرفع للسحابة: ${cloudResult.message})`;
+        }
+      } catch (cloudError) {
+        cloudMessage = ` (خطأ في الرفع للسحابة: ${cloudError.message})`;
+      }
+    }
+
+    const message = `Backup completed successfully.${cloudMessage}`;
     store.set('last_backup_status', {
       success: true,
       message,
