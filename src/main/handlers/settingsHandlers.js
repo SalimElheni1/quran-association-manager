@@ -52,6 +52,9 @@ const settingsValidationSchema = Joi.object({
   kids_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
   academic_year_start_month: Joi.number().integer().min(1).max(12),
   charge_generation_day: Joi.number().integer().min(1).max(28),
+  cloud_backup_enabled: Joi.boolean(),
+  cloud_association_key: Joi.string().allow(''),
+  cloud_secret_key: Joi.string().allow(''),
 });
 
 const defaultSettings = {
@@ -64,6 +67,9 @@ const defaultSettings = {
   backup_enabled: false,
   backup_frequency: 'daily',
   president_full_name: '',
+  cloud_backup_enabled: false,
+  cloud_association_key: '',
+  cloud_secret_key: '',
 
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,

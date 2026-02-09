@@ -226,6 +226,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
+  listCloudBackups: (settings) => ipcRenderer.invoke('backup:listCloud', settings),
+  downloadCloudBackup: (fileName, settings) =>
+    ipcRenderer.invoke('backup:downloadCloud', fileName, settings),
 
   // User Management API (for Superadmin)
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),
