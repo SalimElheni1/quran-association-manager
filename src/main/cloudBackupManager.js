@@ -1,175 +1,457 @@
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
-const { app, shell } = require('electron');
+const zlib = require('zlib');
+const { pipeline } = require('stream/promises');
+const { createReadStream, createWriteStream } = require('fs');
+const { app, shell, BrowserWindow, safeStorage } = require('electron');
+const { google } = require('googleapis');
+const http = require('http');
+const url = require('url');
+const Store = require('electron-store');
 const { log, error: logError } = require('./logger');
+const crypto = require('crypto');
+
+const store = new Store();
+
+// Connectivity tracking
+let isOnline = true;
 
 /**
- * cloudBackupManager.js (Google Drive Implementation Prototype)
- *
- * Handles connecting to Google Drive and managing backups within a dedicated folder.
- *
- * NOTE: This is an architectural prototype. Currently, it uses a local simulation
- * ('google_drive_simulation' folder in userData) to demonstrate the workflow.
- *
- * TO BE PRODUCTION READY:
- * 1. Use 'googleapis' and 'google-auth-library' for real OAuth and Drive API.
- * 2. Implement the OAuth2 flow to get access and refresh tokens.
- * 3. In uploadBackup, use drive.files.create with a multipart upload.
- * 4. In listCloudBackups, use drive.files.list with a query for the specific folder.
+ * Securely stores tokens using Electron's safeStorage.
  */
-
-// Simulation storage location (inside userData)
-const getMockDrivePath = () => path.join(app.getPath('userData'), 'google_drive_simulation');
-
-async function ensureDirectory(dir) {
-  const fsSync = require('fs');
-  if (!fsSync.existsSync(dir)) {
-    await fs.mkdir(dir, { recursive: true });
+const saveTokensSecurely = (tokens) => {
+  try {
+    const tokensStr = JSON.stringify(tokens);
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(tokensStr);
+      store.set('google_tokens_encrypted', encrypted.toString('base64'));
+      store.delete('google_tokens'); // Clean up old plain text tokens
+    } else {
+      log('Warning: safeStorage encryption not available. Falling back to plain text.');
+      store.set('google_tokens', tokens);
+    }
+  } catch (err) {
+    logError('Failed to save tokens securely:', err);
   }
-}
-
-/**
- * Simulates connecting to a Google account.
- * In production, this would open a browser for OAuth.
- * @returns {Promise<{success: boolean, email: string}>}
- */
-const connectGoogle = async () => {
-  log('Google Drive: Starting connection flow...');
-
-  // PRODUCTION HINT:
-  // const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES });
-  // await shell.openExternal(authUrl);
-  // Then start a local server to listen for the redirect code.
-
-  // SIMULATION: Just wait a bit and return a mock email
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  const mockEmail = `branch-${os.hostname().toLowerCase()}@gmail.com`;
-  log(`Google Drive: Connected to ${mockEmail}`);
-
-  return { success: true, email: mockEmail };
 };
 
 /**
- * Simulates disconnecting from Google.
+ * Retrieves securely stored tokens.
+ */
+const getTokensSecurely = () => {
+  try {
+    const encryptedBase64 = store.get('google_tokens_encrypted');
+    if (encryptedBase64 && safeStorage.isEncryptionAvailable()) {
+      const encrypted = Buffer.from(encryptedBase64, 'base64');
+      const decrypted = safeStorage.decryptString(encrypted);
+      return JSON.parse(decrypted);
+    }
+    return store.get('google_tokens'); // Fallback to plain text if no encrypted ones
+  } catch (err) {
+    logError('Failed to retrieve tokens securely:', err);
+    return null;
+  }
+};
+
+/**
+ * cloudBackupManager.js (Google Drive Implementation)
+ *
+ * Handles connecting to Google Drive, managing backups, and history.
+ */
+
+// SCOPES for Google Drive API
+const SCOPES = [
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/userinfo.email'
+];
+
+// Google API Credentials (should be in .env)
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001';
+
+const oauth2Client = new google.auth.OAuth2(
+  CLIENT_ID,
+  CLIENT_SECRET,
+  REDIRECT_URI
+);
+
+// Load existing tokens if any
+const tokens = getTokensSecurely();
+if (tokens) {
+  oauth2Client.setCredentials(tokens);
+}
+
+// Listen for token refresh
+oauth2Client.on('tokens', (newTokens) => {
+  const currentTokens = getTokensSecurely() || {};
+  saveTokensSecurely({ ...currentTokens, ...newTokens });
+  log('Google Drive: Tokens refreshed and saved securely.');
+});
+
+/**
+ * Generates a code verifier and challenge for PKCE.
+ */
+const generatePKCE = () => {
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto
+    .createHash('sha256')
+    .update(verifier)
+    .digest('base64url');
+  return { verifier, challenge };
+};
+
+/**
+ * Starts the OAuth2 flow to connect a Google account.
+ * Opens the system browser for login and starts a local server to listen for the redirect.
+ * @returns {Promise<{success: boolean, email: string}>}
+ */
+const connectGoogle = async () => {
+  return new Promise((resolve, reject) => {
+    const { verifier, challenge } = generatePKCE();
+
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+      prompt: 'consent',
+      code_challenge: challenge,
+      code_challenge_method: 'S256'
+    });
+
+    log('Google Drive: Opening auth URL with PKCE...');
+    shell.openExternal(authUrl);
+
+    const server = http.createServer(async (req, res) => {
+      try {
+        if (req.url.startsWith('/?code=')) {
+          const queryObject = url.parse(req.url, true).query;
+          const code = queryObject.code;
+
+          res.end('Authentication successful! You can close this window and return to the app.');
+          server.close();
+
+          const { tokens } = await oauth2Client.getToken({
+            code,
+            codeVerifier: verifier
+          });
+          oauth2Client.setCredentials(tokens);
+          saveTokensSecurely(tokens);
+
+          // Get user email
+          const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+          const userInfo = await oauth2.userinfo.get();
+          const email = userInfo.data.email;
+
+          log(`Google Drive: Connected to ${email}`);
+          resolve({ success: true, email });
+        }
+      } catch (error) {
+        logError('Google Drive: Auth failed:', error);
+        res.end('Authentication failed. Please check the logs.');
+        server.close();
+        reject(error);
+      }
+    }).listen(3001, () => {
+      log('Google Drive: Local server listening for OAuth redirect on port 3001...');
+    });
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      server.close();
+      reject(new Error('Authentication timed out.'));
+    }, 5 * 60 * 1000);
+  });
+};
+
+/**
+ * Disconnects the Google account.
  */
 const disconnectGoogle = async () => {
+  store.delete('google_tokens');
+  store.delete('google_tokens_encrypted');
+  oauth2Client.setCredentials(null);
   log('Google Drive: Disconnected.');
   return { success: true };
 };
 
 /**
+ * Compresses a file using Gzip.
+ * @param {string} sourcePath
+ * @param {string} destPath
+ */
+const compressFile = async (sourcePath, destPath) => {
+  const gzip = zlib.createGzip();
+  const source = createReadStream(sourcePath);
+  const destination = createWriteStream(destPath);
+  await pipeline(source, gzip, destination);
+};
+
+/**
+ * Decompresses a file using Gzip.
+ * @param {string} sourcePath
+ * @param {string} destPath
+ */
+const decompressFile = async (sourcePath, destPath) => {
+  const gunzip = zlib.createGunzip();
+  const source = createReadStream(sourcePath);
+  const destination = createWriteStream(destPath);
+  await pipeline(source, gunzip, destination);
+};
+
+/**
  * Uploads a local backup file to Google Drive.
  * @param {string} filePath - Path to the local .qdb file.
- * @param {Object} settings - Application settings containing cloud config.
- * @returns {Promise<{success: boolean, message: string}>}
+ * @param {Object} settings - Application settings.
+ * @returns {Promise<{success: boolean, backup: Object}>}
  */
 const uploadBackup = async (filePath, settings) => {
+  const fileName = path.basename(filePath);
+  const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+  let userEmail = 'Unknown';
   try {
-    if (!settings.cloud_backup_enabled || !settings.google_connected) {
-      log('Google Drive backup is disabled or not connected. Skipping upload.');
-      return { success: false, message: 'Google Drive backup is disabled or not connected.' };
-    }
-
-    log(`Google Drive: Uploading ${path.basename(filePath)} to branch folder...`);
-
-    const drivePath = getMockDrivePath();
-    const branchDir = path.join(drivePath, settings.google_account_email || 'default-branch');
-    await ensureDirectory(branchDir);
-
-    const fileName = path.basename(filePath);
-    const destPath = path.join(branchDir, fileName);
-
-    // Copy file to mock drive
-    await fs.copyFile(filePath, destPath);
-
-    // Create metadata file
-    const stats = await fs.stat(filePath);
-    const metadata = {
-      fileName,
-      timestamp: new Date().toISOString(),
-      size: stats.size,
-      deviceName: os.hostname(),
-      accountEmail: settings.google_account_email,
-    };
-
-    await fs.writeFile(`${destPath}.metadata.json`, JSON.stringify(metadata, null, 2));
-
-    log(`Google Drive: Upload successful for ${fileName}`);
-    return { success: true, message: 'تم رفع النسخة الاحتياطية إلى Google Drive بنجاح.' };
-  } catch (error) {
-    logError('Google Drive upload failed:', error);
-    return { success: false, message: `فشل الرفع إلى Google Drive: ${error.message}` };
+    const userInfo = await oauth2.userinfo.get();
+    userEmail = userInfo.data.email;
+  } catch (e) {
+    // Ignore, might be offline
   }
-};
 
-/**
- * Lists all backups available on Google Drive for the current account.
- * @param {Object} settings - Application settings.
- * @returns {Promise<Array>} List of backup metadata objects.
- */
-const listCloudBackups = async (settings) => {
   try {
-    if (!settings.google_connected || !settings.google_account_email) {
-      return [];
-    }
-
-    log(`Google Drive: Fetching list for ${settings.google_account_email}...`);
-
-    const drivePath = getMockDrivePath();
-    const branchDir = path.join(drivePath, settings.google_account_email);
-
-    const fsSync = require('fs');
-    if (!fsSync.existsSync(branchDir)) {
-      return [];
-    }
-
-    const files = await fs.readdir(branchDir);
-    const backups = [];
-
-    for (const file of files) {
-      if (file.endsWith('.metadata.json')) {
-        const content = await fs.readFile(path.join(branchDir, file), 'utf8');
-        backups.push(JSON.parse(content));
-      }
-    }
-
-    // Sort by newest first
-    return backups.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  } catch (error) {
-    logError('Failed to list Google Drive backups:', error);
-    return [];
-  }
-};
-
-/**
- * Downloads a backup from Google Drive.
- * @param {string} fileName - Name of the file to download.
- * @param {Object} settings - Application settings.
- * @returns {Promise<string>} Path to the downloaded local file.
- */
-const downloadBackup = async (fileName, settings) => {
-  try {
-    if (!settings.google_connected) {
+    if (!getTokensSecurely()) {
       throw new Error('Google account not connected.');
     }
 
-    log(`Google Drive: Downloading ${fileName}...`);
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const fileName = path.basename(filePath);
+    const compressedPath = `${filePath}.gz`;
 
-    const drivePath = getMockDrivePath();
-    const srcPath = path.join(drivePath, settings.google_account_email, fileName);
+    log(`Google Drive: Compressing ${fileName}...`);
+    await compressFile(filePath, compressedPath);
 
+    log(`Google Drive: Uploading ${fileName}.gz...`);
+    const fileMetadata = {
+      name: `${fileName}.gz`,
+      description: 'Quran Branch Manager Database Backup'
+    };
+    const media = {
+      mimeType: 'application/gzip',
+      body: createReadStream(compressedPath)
+    };
+
+    const response = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id, name, webViewLink, size'
+    });
+
+    const file = response.data;
+
+    // Set permissions to "anyone with link" for permanent shareable link
+    await drive.permissions.create({
+      fileId: file.id,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone'
+      }
+    });
+
+    // Get the updated link
+    const updatedFile = await drive.files.get({
+      fileId: file.id,
+      fields: 'webViewLink'
+    });
+
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+
+    const backupRecord = {
+      id: crypto.randomUUID ? crypto.randomUUID() : require('uuid').v4(),
+      name: fileName,
+      driveFileId: file.id,
+      shareableLink: updatedFile.data.webViewLink,
+      createdAt: new Date().toISOString(),
+      size: (await fs.stat(compressedPath)).size,
+      createdBy: userInfo.data.email
+    };
+
+    // Store in history
+    const history = store.get('cloud_backups') || [];
+    const finalRecord = { ...backupRecord, status: 'success' };
+
+    // Check if we are updating a pending record
+    const pendingIndex = history.findIndex((b) => b.name === fileName && b.status === 'pending');
+    if (pendingIndex !== -1) {
+      history[pendingIndex] = finalRecord;
+    } else {
+      history.unshift(finalRecord);
+    }
+    store.set('cloud_backups', history);
+
+    // Cleanup compressed file
+    await fs.unlink(compressedPath);
+
+    log(`Google Drive: Upload successful. ID: ${file.id}`);
+    return { success: true, backup: finalRecord };
+  } catch (error) {
+    logError('Google Drive: Upload failed:', error);
+
+    // If it looks like a network error, queue it
+    if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT' || error.message.includes('network')) {
+      log('Network error detected. Queueing cloud backup for later retry.');
+
+      const backupRecord = {
+        id: crypto.randomUUID ? crypto.randomUUID() : require('uuid').v4(),
+        name: fileName,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        size: (await fs.stat(filePath)).size,
+        createdBy: userEmail,
+        localPath: filePath
+      };
+
+      const history = store.get('cloud_backups') || [];
+      store.set('cloud_backups', [backupRecord, ...history]);
+
+      queueCloudBackup(filePath, backupRecord.id);
+      return { success: false, message: 'Offline: Backup queued for retry.', queued: true };
+    }
+
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Queues a backup for later upload.
+ */
+const queueCloudBackup = (filePath, recordId) => {
+  const queue = store.get('cloud_backup_queue') || [];
+  if (!queue.some(item => item.recordId === recordId)) {
+    queue.push({ filePath, recordId });
+    store.set('cloud_backup_queue', queue);
+  }
+};
+
+/**
+ * Processes the cloud backup queue.
+ */
+const processQueue = async () => {
+  const queue = store.get('cloud_backup_queue') || [];
+  if (queue.length === 0) return;
+
+  log(`Google Drive: Processing queue (${queue.length} items)...`);
+  const remaining = [];
+
+  for (const item of queue) {
+    const { filePath, recordId } = item;
+    try {
+      // Check if file still exists
+      try {
+        await fs.access(filePath);
+      } catch (e) {
+        log(`Queue: File ${filePath} no longer exists. Removing from queue.`);
+        // Mark record as failed or remove it
+        const history = store.get('cloud_backups') || [];
+        store.set('cloud_backups', history.filter(b => b.id !== recordId));
+        continue;
+      }
+
+      const result = await uploadBackup(filePath, { cloud_backup_enabled: true });
+      if (!result.success && result.queued) {
+        remaining.push(item);
+      } else if (result.success) {
+        log(`Queue: Successfully uploaded ${filePath}`);
+        // Notify renderer
+        const { mainWindow } = require('./index');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+           mainWindow.webContents.send('ui:show-success-toast', 'تم رفع النسخة المؤجلة للسحابة بنجاح.');
+        }
+      } else {
+        log(`Queue: Failed to upload ${filePath}: ${result.message}`);
+        remaining.push(filePath);
+      }
+    } catch (err) {
+      logError(`Queue: Unexpected error processing ${filePath}:`, err);
+      remaining.push(filePath);
+    }
+  }
+
+  store.set('cloud_backup_queue', remaining);
+};
+
+// Start background queue processor
+setInterval(() => {
+  // Simple check for online status (can be improved)
+  processQueue();
+}, 15 * 60 * 1000); // Every 15 minutes
+
+/**
+ * Lists backups from history.
+ */
+const listCloudBackups = async () => {
+  return store.get('cloud_backups') || [];
+};
+
+/**
+ * Downloads a backup from Google Drive and decompresses it.
+ * @param {string} fileId - Drive file ID.
+ * @param {string} fileName - Original file name.
+ * @returns {Promise<string>} Path to the decompressed local file.
+ */
+const downloadBackup = async (fileId, fileName) => {
+  try {
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
     const tempDir = path.join(app.getPath('temp'), 'quran-branch-manager-gdrive');
-    await ensureDirectory(tempDir);
+    if (!require('fs').existsSync(tempDir)) {
+      await fs.mkdir(tempDir, { recursive: true });
+    }
 
+    const compressedPath = path.join(tempDir, `${fileName}.gz`);
     const destPath = path.join(tempDir, fileName);
-    await fs.copyFile(srcPath, destPath);
 
-    log(`Google Drive: Downloaded to ${destPath}`);
+    log(`Google Drive: Downloading file ID ${fileId}...`);
+    const res = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' });
+    const dest = createWriteStream(compressedPath);
+
+    await pipeline(res.data, dest);
+
+    log(`Google Drive: Decompressing...`);
+    await decompressFile(compressedPath, destPath);
+
+    // Cleanup compressed file
+    await fs.unlink(compressedPath);
+
     return destPath;
   } catch (error) {
-    logError('Failed to download from Google Drive:', error);
+    logError('Google Drive: Download failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Deletes a backup from Google Drive and local history.
+ * @param {string} id - Local backup record ID.
+ */
+const deleteBackup = async (id) => {
+  try {
+    const history = store.get('cloud_backups') || [];
+    const backup = history.find(b => b.id === id);
+    if (!backup) throw new Error('Backup not found in history.');
+
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    log(`Google Drive: Deleting file ID ${backup.driveFileId}...`);
+
+    try {
+      await drive.files.delete({ fileId: backup.driveFileId });
+    } catch (e) {
+      logError('Google Drive: Could not delete from Drive (it might be already gone):', e);
+    }
+
+    const newHistory = history.filter(b => b.id !== id);
+    store.set('cloud_backups', newHistory);
+
+    return { success: true };
+  } catch (error) {
+    logError('Google Drive: Delete failed:', error);
     throw error;
   }
 };
@@ -180,4 +462,5 @@ module.exports = {
   uploadBackup,
   listCloudBackups,
   downloadBackup,
+  deleteBackup,
 };

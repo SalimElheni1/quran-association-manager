@@ -16,9 +16,14 @@ import {
   InputGroup,
   Image,
   Modal,
+  Table,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import { FiHelpCircle } from 'react-icons/fi';
+import InfoIcon from '@renderer/components/icons/InfoIcon';
+import CopyIcon from '@renderer/components/icons/CopyIcon';
+import DownloadIcon from '@renderer/components/icons/DownloadIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
+import ExternalLinkIcon from '@renderer/components/icons/ExternalLinkIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 
@@ -35,11 +40,14 @@ const SettingsPage = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [cloudBackups, setCloudBackups] = useState([]);
   const [isLoadingCloudBackups, setIsLoadingCloudBackups] = useState(false);
-  const [isUploading, setIsUploading] = useState(null); // Can be 'national' or 'regional'
+  const [isUploading, setIsUploading] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCloudHelp, setShowCloudHelp] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(null); // id of backup to delete
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(null); // backup object to restore
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -49,9 +57,6 @@ const SettingsPage = () => {
           const loadedSettings = settingsResponse.settings;
           setSettings(loadedSettings);
 
-          // Only fetch the backup status if a backup path is already configured.
-          // This prevents showing a stale status from a previous configuration
-          // if the user is setting up backups for the first time or after a reset.
           if (loadedSettings && loadedSettings.backup_path) {
             const backupStatusResponse = await window.electronAPI.getBackupStatus();
             if (backupStatusResponse.success) {
@@ -59,9 +64,7 @@ const SettingsPage = () => {
             }
           }
 
-          if (loadedSettings && loadedSettings.google_connected) {
-            fetchCloudBackups(loadedSettings);
-          }
+          fetchCloudBackups();
         } else {
           setError(settingsResponse.message);
         }
@@ -82,13 +85,10 @@ const SettingsPage = () => {
     });
   };
 
-  const fetchCloudBackups = async (currentSettings) => {
-    const settingsToUse = currentSettings || settings;
-    if (!settingsToUse?.google_connected) return;
-
+  const fetchCloudBackups = async () => {
     setIsLoadingCloudBackups(true);
     try {
-      const backups = await window.electronAPI.listCloudBackups(settingsToUse);
+      const backups = await window.electronAPI.listCloudBackups();
       setCloudBackups(backups || []);
     } catch (err) {
       log('Failed to fetch cloud backups:', err);
@@ -105,7 +105,6 @@ const SettingsPage = () => {
         setSettings({ ...settings, [fieldName]: response.path });
         toast.success('تم تحميل الشعار بنجاح.');
       } else if (response.message !== 'No file selected.') {
-        // Don't show error if user just cancelled the dialog
         toast.error(`فشل تحميل الشعار: ${response.message}`);
       }
     } catch (err) {
@@ -129,18 +128,14 @@ const SettingsPage = () => {
       const filteredSettings = { ...settings };
       delete filteredSettings.adultAgeThreshold;
       delete filteredSettings.adult_age_threshold;
-      log('[SettingsPage] Submitting settings:', filteredSettings);
       const response = await window.electronAPI.updateSettings(filteredSettings);
-      log('[SettingsPage] Response:', response);
       if (response.success) {
-        toast.success(response.message, { autoClose: 5000 });
-        // Emit event to notify other components
+        toast.success(response.message);
         window.dispatchEvent(new Event('settings-updated'));
       } else {
         toast.error(response.message);
       }
     } catch (err) {
-      error('[SettingsPage] Error:', err);
       toast.error(err.message);
     } finally {
       setIsSubmitting(false);
@@ -152,15 +147,16 @@ const SettingsPage = () => {
     toast.info('بدء عملية النسخ الاحتياطي...');
     try {
       const response = await window.electronAPI.runBackup({
+        ...settings,
         backup_path: settings.backup_path,
       });
       if (response.success) {
         toast.success(response.message);
-        // Refresh backup status
         const statusResponse = await window.electronAPI.getBackupStatus();
         if (statusResponse.success) {
           setBackupStatus(statusResponse.status);
         }
+        fetchCloudBackups();
       } else {
         toast.error(response.message);
       }
@@ -171,9 +167,38 @@ const SettingsPage = () => {
     }
   };
 
-  const handleImportDb = (filePath = null) => {
-    // If filePath is provided, we are importing a downloaded cloud backup
-    setShowPasswordModal(filePath || true);
+  const handleCopyLink = (link) => {
+    navigator.clipboard.writeText(link);
+    toast.success('تم نسخ الرابط إلى الحافظة.');
+  };
+
+  const handleDeleteCloudBackup = async () => {
+    const id = showDeleteModal;
+    setShowDeleteModal(null);
+    try {
+      await window.electronAPI.deleteCloudBackup(id);
+      toast.success('تم حذف النسخة بنجاح.');
+      fetchCloudBackups();
+    } catch (err) {
+      toast.error(`فشل الحذف: ${err.message}`);
+    }
+  };
+
+  const handleRestoreFromCloud = async () => {
+    const backup = showRestoreConfirm;
+    setShowRestoreConfirm(null);
+
+    setIsDownloading(true);
+    toast.info('جارٍ تحميل النسخة من Google Drive وفك ضغطها...');
+    try {
+      const filePath = await window.electronAPI.downloadCloudBackup(backup.driveFileId, backup.name);
+      toast.success('تم التحميل والتحقق بنجاح. يرجى تأكيد هويتك للمتابعة في الاستبدال.');
+      setShowPasswordModal(filePath);
+    } catch (err) {
+      toast.error(`فشل التحميل: ${err.message}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handlePasswordConfirm = async (password) => {
@@ -186,48 +211,27 @@ const SettingsPage = () => {
     }
 
     setIsImporting(true);
-    toast.info('بدء عملية استيراد قاعدة البيانات...');
+    toast.info('بدء استبدال قاعدة البيانات...');
 
     try {
-      let result;
-      if (downloadedFilePath) {
-        // Special internal import for downloaded cloud backup
-        // For now, we reuse the importDatabase but we might need a way to pass the path
-        // Actually, the current importDatabase opens a dialog.
-        // I need a new IPC handler for importing from a specific path.
-        result = await window.electronAPI.importDatabase({
-          password,
-          userId: user.id,
-          filePath: downloadedFilePath,
-        });
-      } else {
-        result = await window.electronAPI.importDatabase({ password, userId: user.id });
-      }
+      const result = await window.electronAPI.importDatabase({
+        password,
+        userId: user.id,
+        filePath: downloadedFilePath,
+      });
 
       if (result.success) {
-        toast.success(result.message, { autoClose: false });
+        toast.success('تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.', {
+          autoClose: 3000,
+          onClose: () => window.electronAPI.relaunchApp()
+        });
       } else {
-        toast.error(`فشل الاستيراد: ${result.message}`);
+        toast.error(`فشل الاستبدال: ${result.message}`);
       }
     } catch (err) {
       toast.error(`حدث خطأ فادح: ${err.message}`);
-      error(err);
     } finally {
       setIsImporting(false);
-    }
-  };
-
-  const handleDownloadCloudBackup = async (fileName) => {
-    setIsDownloading(true);
-    toast.info('جارٍ تحميل النسخة من Google Drive...');
-    try {
-      const filePath = await window.electronAPI.downloadCloudBackup(fileName, settings);
-      toast.success('تم التحميل بنجاح. يرجى تأكيد الهوية للمتابعة في الاستيراد.');
-      handleImportDb(filePath);
-    } catch (err) {
-      toast.error(`فشل التحميل: ${err.message}`);
-    } finally {
-      setIsDownloading(false);
     }
   };
 
@@ -236,17 +240,16 @@ const SettingsPage = () => {
     try {
       const result = await window.electronAPI.connectGoogle();
       if (result.success) {
-        const newSettings = {
+        setSettings({
           ...settings,
           google_connected: true,
           google_account_email: result.email,
-        };
-        setSettings(newSettings);
+        });
         toast.success(`تم الربط بحساب ${result.email} بنجاح.`);
-        fetchCloudBackups(newSettings);
+        fetchCloudBackups();
       }
     } catch (err) {
-      toast.error(`فشل الربط بـ Google: ${err.message}`);
+      toast.error(`فشل الربط: ${err.message}`);
     } finally {
       setIsConnectingGoogle(false);
     }
@@ -267,597 +270,241 @@ const SettingsPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Container className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" />
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container>
-        <Alert variant="danger">{error}</Alert>
-      </Container>
-    );
-  }
+  if (loading) return <Container className="d-flex justify-content-center align-items-center vh-100"><Spinner animation="border" /></Container>;
+  if (error) return <Container><Alert variant="danger">{error}</Alert></Container>;
 
   return (
     <Container fluid="lg" className="py-4">
       <Row className="justify-content-center">
-        <Col lg={10}>
-          <Card>
-            <Card.Header as="h3" className="text-center bg-primary text-white">
-              إعدادات النظام
+        <Col lg={11}>
+          <Card className="shadow-sm">
+            <Card.Header as="h4" className="text-center bg-primary text-white py-3">
+              إعدادات النظام والنسخ الاحتياطي
             </Card.Header>
-            <Card.Body>
+            <Card.Body className="p-4">
               <Form onSubmit={handleSubmit}>
-                <Tabs
-                  activeKey={activeTab}
-                  onSelect={(k) => setActiveTab(k)}
-                  id="settings-tabs"
-                  className="mb-3"
-                  fill
-                >
+                <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-4 custom-tabs" fill>
                   <Tab eventKey="association" title="بيانات الجمعية/الفرع">
-                    <Card className="border-0">
-                      <Card.Body>
+                    <Row>
+                      <Col md={6}>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الجمعية الوطنية</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="national_association_name"
-                            value={settings.national_association_name || ''}
-                            onChange={handleChange}
-                          />
+                          <Form.Control type="text" name="national_association_name" value={settings.national_association_name || ''} onChange={handleChange} />
                         </Form.Group>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الفرع الجهوي</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="regional_association_name"
-                            value={settings.regional_association_name || ''}
-                            onChange={handleChange}
-                          />
+                          <Form.Control type="text" name="regional_association_name" value={settings.regional_association_name || ''} onChange={handleChange} />
                         </Form.Group>
+                      </Col>
+                      <Col md={6}>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الفرع المحلي</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="local_branch_name"
-                            value={settings.local_branch_name || ''}
-                            onChange={handleChange}
-                          />
+                          <Form.Control type="text" name="local_branch_name" value={settings.local_branch_name || ''} onChange={handleChange} />
                         </Form.Group>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الرئيس الكامل</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="president_full_name"
-                            value={settings.president_full_name || ''}
-                            onChange={handleChange}
-                          />
+                          <Form.Control type="text" name="president_full_name" value={settings.president_full_name || ''} onChange={handleChange} />
                         </Form.Group>
-                      </Card.Body>
-                    </Card>
+                      </Col>
+                    </Row>
                   </Tab>
 
                   <Tab eventKey="branding" title="الهوية البصرية">
-                    <Card className="border-0">
-                      <Card.Body>
-                        <Form.Group className="mb-3">
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group className="mb-4">
                           <Form.Label>شعار الجمعية الوطنية</Form.Label>
                           <InputGroup>
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => handleFileSelect('national_logo_path')}
-                              disabled={isUploading === 'national_logo_path'}
-                            >
-                              {isUploading === 'national_logo_path' ? (
-                                <>
-                                  <Spinner as="span" animation="border" size="sm" />
-                                  {' جارٍ التحميل...'}
-                                </>
-                              ) : (
-                                'اختر ملف الشعار...'
-                              )}
+                            <Button variant="outline-primary" onClick={() => handleFileSelect('national_logo_path')} disabled={isUploading === 'national_logo_path'}>
+                              {isUploading === 'national_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
                             </Button>
-                            <Form.Control
-                              type="text"
-                              value={settings.national_logo_path || ''}
-                              readOnly
-                            />
+                            <Form.Control type="text" value={settings.national_logo_path || ''} readOnly />
                           </InputGroup>
                           {settings.national_logo_path && (
-                            <Image
-                              src={`safe-image://${settings.national_logo_path}`}
-                              thumbnail
-                              className="mt-2"
-                              style={{ maxHeight: '100px' }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                log('Failed to load image:', settings.national_logo_path);
-                              }}
-                            />
+                            <div className="mt-3 p-2 border rounded text-center bg-light">
+                              <Image src={`safe-image://${settings.national_logo_path}`} style={{ maxHeight: '120px', maxWidth: '100%' }} />
+                            </div>
                           )}
                         </Form.Group>
-                        <Form.Group className="mb-3">
-                          <Form.Label>شعار الفرع الجهوي/المحلي</Form.Label>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group className="mb-4">
+                          <Form.Label>شعار الفرع المحلي</Form.Label>
                           <InputGroup>
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => handleFileSelect('regional_local_logo_path')}
-                              disabled={isUploading === 'regional_local_logo_path'}
-                            >
-                              {isUploading === 'regional_local_logo_path' ? (
-                                <>
-                                  <Spinner as="span" animation="border" size="sm" />
-                                  {' جارٍ التحميل...'}
-                                </>
-                              ) : (
-                                'اختر ملف الشعار...'
-                              )}
+                            <Button variant="outline-primary" onClick={() => handleFileSelect('regional_local_logo_path')} disabled={isUploading === 'regional_local_logo_path'}>
+                              {isUploading === 'regional_local_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
                             </Button>
-                            <Form.Control
-                              type="text"
-                              value={settings.regional_local_logo_path || ''}
-                              readOnly
-                            />
+                            <Form.Control type="text" value={settings.regional_local_logo_path || ''} readOnly />
                           </InputGroup>
                           {settings.regional_local_logo_path && (
-                            <Image
-                              src={`safe-image://${settings.regional_local_logo_path}`}
-                              thumbnail
-                              className="mt-2"
-                              style={{ maxHeight: '100px' }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
+                            <div className="mt-3 p-2 border rounded text-center bg-light">
+                              <Image src={`safe-image://${settings.regional_local_logo_path}`} style={{ maxHeight: '120px', maxWidth: '100%' }} />
+                            </div>
                           )}
                         </Form.Group>
-                      </Card.Body>
+                      </Col>
+                    </Row>
+                  </Tab>
+
+                  <Tab eventKey="general" title="إعدادات الرسوم">
+                    <Card className="border-0 bg-light p-3">
+                      <Row>
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Label>الرسم السنوي (د.ت)</Form.Label>
+                            <Form.Control type="number" name="annual_fee" value={settings.annual_fee || ''} onChange={handleChange} step="0.01" />
+                          </Form.Group>
+                        </Col>
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Label>الرسم الشهري (د.ت)</Form.Label>
+                            <Form.Control type="number" name="standard_monthly_fee" value={settings.standard_monthly_fee || ''} onChange={handleChange} step="0.01" />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                      <Alert variant="info" className="small py-2 mb-0">
+                        <InfoIcon size={16} className="me-1 ms-1" /> يتم استخدام هذه القيم لحساب مطالبات الطلاب تلقائياً.
+                      </Alert>
                     </Card>
                   </Tab>
-                  <Tab eventKey="general" title="إعدادات عامة">
-                    <Card className="border-0">
-                      <Card.Body>
-                        <h6>إعدادات الرسوم الدراسية</h6>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            الرسوم السنوية
-                          </Form.Label>
-                          <Col sm={8}>
-                            <InputGroup>
-                              <Form.Control
-                                type="number"
-                                name="annual_fee"
-                                value={settings.annual_fee || ''}
-                                onChange={handleChange}
-                                min="0"
-                                step="0.01"
-                              />
-                              <InputGroup.Text>د.ت</InputGroup.Text>
-                            </InputGroup>
-                            <Form.Text className="text-muted">
-                              الرسم السنوي الذي سيتم تطبيقه على الطلاب الذين يمكن أن يدفعوا.
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            الرسوم الشهرية
-                          </Form.Label>
-                          <Col sm={8}>
-                            <InputGroup>
-                              <Form.Control
-                                type="number"
-                                name="standard_monthly_fee"
-                                value={settings.standard_monthly_fee || ''}
-                                onChange={handleChange}
-                                min="0"
-                                step="0.01"
-                              />
-                              <InputGroup.Text>د.ت</InputGroup.Text>
-                            </InputGroup>
-                            <Form.Text className="text-muted">
-                              الرسم الشهري الذي سيتم تطبيقه على الطلاب المسجلين في الفصول.
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Alert variant="warning" className="mb-3">
-                          <strong>⚠️ تحذير مهم حول تغيير الرسوم:</strong>
-                          <ul className="mb-0 mt-2">
-                            <li>
-                              تغيير الرسوم السنوية أو الشهرية <strong>لن يؤثر</strong> على الرسوم
-                              المولدة مسبقاً
-                            </li>
-                            <li>الطلاب الذين دفعوا بالفعل لن يتأثروا بهذا التغيير</li>
-                            <li>
-                              الرسوم الجديدة ستطبق فقط على الطلاب الجدد أو عند توليد رسوم جديدة
-                            </li>
-                            <li>لضمان الاتساق، يُفضل تغيير الرسوم في بداية السنة الدراسية</li>
-                          </ul>
-                        </Alert>
-                        <hr />
-                        <h6>نظام الدفع حسب نوع الفصل</h6>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            نظام الدفع للرجال
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Select
-                              name="men_payment_frequency"
-                              value={settings.men_payment_frequency || 'MONTHLY'}
-                              onChange={handleChange}
-                            >
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">
-                              يطبق على الطلاب المسجلين في فصول الرجال
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            نظام الدفع للنساء
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Select
-                              name="women_payment_frequency"
-                              value={settings.women_payment_frequency || 'MONTHLY'}
-                              onChange={handleChange}
-                            >
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">
-                              يطبق على الطلاب المسجلين في فصول النساء
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            نظام الدفع للأطفال
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Select
-                              name="kids_payment_frequency"
-                              value={settings.kids_payment_frequency || 'MONTHLY'}
-                              onChange={handleChange}
-                            >
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">
-                              يطبق على الطلاب المسجلين في فصول الأطفال
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <hr />
-                        <h6>إعدادات السنة الدراسية والتوليد التلقائي</h6>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            شهر بداية السنة الدراسية
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Select
-                              name="academic_year_start_month"
-                              value={settings.academic_year_start_month || 9}
-                              onChange={handleChange}
-                            >
-                              <option value="1">يناير</option>
-                              <option value="2">فبراير</option>
-                              <option value="3">مارس</option>
-                              <option value="4">أبريل</option>
-                              <option value="5">مايو</option>
-                              <option value="6">يونيو</option>
-                              <option value="7">يوليو</option>
-                              <option value="8">أغسطس</option>
-                              <option value="9">سبتمبر (افتراضي)</option>
-                              <option value="10">أكتوبر</option>
-                              <option value="11">نوفمبر</option>
-                              <option value="12">ديسمبر</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">
-                              يحدد متى تبدأ السنة الدراسية (مثال: سبتمبر 2024 = سنة 2024-2025)
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={4}>
-                            يوم توليد رسوم الشهر القادم
-                          </Form.Label>
-                          <Col sm={8}>
-                            <Form.Control
-                              type="number"
-                              name="charge_generation_day"
-                              value={settings.charge_generation_day || 25}
-                              onChange={handleChange}
-                              min="1"
-                              max="28"
-                            />
-                            <Form.Text className="text-muted">
-                              سيتم توليد رسوم الشهر القادم تلقائياً في هذا اليوم من كل شهر (افتراضي:
-                              25)
-                            </Form.Text>
-                          </Col>
-                        </Form.Group>
-                        <Alert variant="info" className="mt-3">
-                          <strong>ℹ️ معلومة هامة:</strong>
-                          <ul className="mb-0 mt-2">
-                            <li>سيتم توليد الرسوم تلقائياً كل شهر. لا حاجة للتوليد اليدوي.</li>
-                            <li>
-                              عند تحديد الرسوم لأول مرة، سيتم إنشاء رسوم الشهر الحالي لجميع الطلاب.
-                            </li>
-                            <li>الخصومات الدائمة للطلاب ستطبق تلقائياً على جميع الرسوم.</li>
-                          </ul>
-                        </Alert>
-                      </Card.Body>
-                    </Card>
-                  </Tab>
+
                   <Tab eventKey="age-groups" title="فئات عمرية">
                     <AgeGroupsTab />
                   </Tab>
+
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
-                    <Card className="border-0">
-                      <Card.Body>
-                        <Form.Group className="mb-3">
-                          <Form.Label>مسار حفظ النسخ الاحتياطي</Form.Label>
-                          <InputGroup>
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => handleDirectorySelect('backup_path')}
-                            >
-                              اختر مجلد...
-                            </Button>
-                            <Form.Control type="text" value={settings.backup_path || ''} readOnly />
-                          </InputGroup>
-                          {!settings.backup_path && (
-                            <Form.Text className="text-muted">
-                              يجب تحديد مسار لحفظ النسخ الاحتياطية لتفعيل خيارات النسخ التلقائي
-                              واليدوي.
-                            </Form.Text>
-                          )}
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                          <Form.Check
-                            type="switch"
-                            id="backup-enabled-switch"
-                            label="تفعيل النسخ الاحتياطي التلقائي"
-                            name="backup_enabled"
-                            checked={settings.backup_enabled || false}
-                            onChange={handleChange}
-                            disabled={!settings.backup_path}
-                          />
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                          <Form.Label>جدولة النسخ الاحتياطي</Form.Label>
-                          <Form.Select
-                            name="backup_frequency"
-                            value={settings.backup_frequency || 'daily'}
-                            onChange={handleChange}
-                            disabled={!settings.backup_enabled || !settings.backup_path}
-                          >
-                            <option value="daily">يوميًا</option>
-                            <option value="weekly">أسبوعيًا</option>
-                            <option value="monthly">شهريًا</option>
-                          </Form.Select>
-                        </Form.Group>
-
-                        <h5 className="mt-4">تنبيهات النسخ الاحتياطي</h5>
-                        <Form.Group className="mb-3">
-                          <Form.Check
-                            type="switch"
-                            id="backup-reminder-enabled-switch"
-                            label="تفعيل التنبيهات لعمل نسخ احتياطية"
-                            name="backup_reminder_enabled"
-                            checked={settings.backup_reminder_enabled || false}
-                            onChange={handleChange}
-                          />
-                        </Form.Group>
-                        <Form.Group as={Row} className="mb-3">
-                          <Form.Label column sm={8}>
-                            تذكيري بعد مرور (أيام)
-                          </Form.Label>
-                          <Col sm={4}>
-                            <Form.Control
-                              type="number"
-                              name="backup_reminder_frequency_days"
-                              value={settings.backup_reminder_frequency_days || 7}
-                              onChange={handleChange}
-                              disabled={!settings.backup_reminder_enabled}
-                              min="1"
-                              max="365"
-                            />
-                          </Col>
-                        </Form.Group>
-                        <hr />
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                          <Button
-                            variant="info"
-                            onClick={handleRunBackup}
-                            disabled={isBackingUp || !settings.backup_path || isImporting}
-                          >
-                            {isBackingUp ? (
-                              <>
-                                <Spinner as="span" animation="border" size="sm" />
-                                {' جارٍ النسخ...'}
-                              </>
-                            ) : (
-                              'نسخ احتياطي فوري'
-                            )}
-                          </Button>
-                          {backupStatus && settings.backup_path && (
-                            <small
-                              className={backupStatus.success ? 'text-success' : 'text-danger'}
-                            >
-                              آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()} (
-                              {backupStatus.success ? 'نجحت' : 'فشلت'})
-                            </small>
-                          )}
-                        </div>
-                        <hr />
-                        <hr />
-                        <div className="d-flex align-items-center mt-4 mb-2">
-                          <h5 className="mb-0">النسخ الاحتياطي السحابي (Google Drive)</h5>
-                          <Button
-                            variant="link"
-                            className="p-0 ms-2 text-info"
-                            onClick={() => setShowCloudHelp(true)}
-                            title="كيفية الربط والاشتراك؟"
-                          >
-                            <FiHelpCircle size={20} />
-                          </Button>
-                        </div>
-                        <Form.Group className="mb-3">
-                          <Form.Check
-                            type="switch"
-                            id="cloud-backup-enabled-switch"
-                            label="تفعيل النسخ الاحتياطي التلقائي للسحابة"
-                            name="cloud_backup_enabled"
-                            checked={settings.cloud_backup_enabled || false}
-                            onChange={handleChange}
-                            disabled={!settings.google_connected}
-                          />
-                          <Form.Text className="text-muted">
-                            عند التفعيل، سيتم رفع نسخة من قاعدة البيانات إلى Google Drive تلقائياً
-                            عند كل عملية نسخ احتياطي ناجحة.
-                          </Form.Text>
-                        </Form.Group>
-
-                        <div className="border rounded p-3 mb-3 bg-light">
-                          {!settings.google_connected ? (
-                            <div className="text-center py-2">
-                              <p className="mb-3 text-muted">
-                                لم يتم ربط أي حساب Google لتخزين النسخ الاحتياطية.
-                              </p>
-                              <Button
-                                variant="outline-danger"
-                                onClick={handleConnectGoogle}
-                                disabled={isConnectingGoogle}
-                              >
-                                {isConnectingGoogle ? (
-                                  <Spinner size="sm" className="me-2" />
-                                ) : (
-                                  <Image
-                                    src="https://www.google.com/favicon.ico"
-                                    width={16}
-                                    className="me-1 ms-1"
-                                  />
-                                )}
-                                الربط مع حساب Google
+                    <Row>
+                      <Col lg={5}>
+                        <Card className="h-100 shadow-none border">
+                          <Card.Body>
+                            <h6>الإعدادات المحلية</h6>
+                            <Form.Group className="mb-3">
+                              <Form.Label className="small text-muted">مسار حفظ النسخ الاحتياطي</Form.Label>
+                              <InputGroup size="sm">
+                                <Button variant="secondary" onClick={() => handleDirectorySelect('backup_path')}>اختيار...</Button>
+                                <Form.Control type="text" value={settings.backup_path || ''} readOnly />
+                              </InputGroup>
+                            </Form.Group>
+                            <Form.Check type="switch" label="تفعيل النسخ التلقائي" name="backup_enabled" checked={settings.backup_enabled || false} onChange={handleChange} disabled={!settings.backup_path} className="mb-3" />
+                            <Row>
+                              <Col md={6}>
+                                <Form.Group className="mb-4">
+                                  <Form.Label className="small">تكرار النسخ</Form.Label>
+                                  <Form.Select size="sm" name="backup_frequency" value={settings.backup_frequency || 'daily'} onChange={handleChange} disabled={!settings.backup_enabled}>
+                                    <option value="daily">يوميًا</option>
+                                    <option value="weekly">أسبوعيًا</option>
+                                    <option value="monthly">شهريًا</option>
+                                  </Form.Select>
+                                </Form.Group>
+                              </Col>
+                              <Col md={6}>
+                                <Form.Group className="mb-4">
+                                  <Form.Label className="small">توقيت النسخ</Form.Label>
+                                  <Form.Control size="sm" type="time" name="backup_time" value={settings.backup_time || '02:00'} onChange={handleChange} disabled={!settings.backup_enabled} />
+                                </Form.Group>
+                              </Col>
+                            </Row>
+                            <div className="d-grid gap-2">
+                              <Button variant="info" size="sm" onClick={handleRunBackup} disabled={isBackingUp || !settings.backup_path}>
+                                {isBackingUp ? <Spinner size="sm" className="me-2" /> : 'نسخ احتياطي فوري الآن'}
+                              </Button>
+                              <Button variant="outline-danger" size="sm" onClick={() => handleImportDb()} disabled={isImporting || isBackingUp}>
+                                استيراد قاعدة بيانات محلية
                               </Button>
                             </div>
-                          ) : (
-                            <div className="d-flex justify-content-between align-items-center">
-                              <div>
-                                <span className="badge bg-success mb-1">متصل</span>
+                            {backupStatus && (
+                              <div className="mt-3 small text-center text-muted border-top pt-2">
+                                آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()}
                                 <br />
-                                <strong>{settings.google_account_email}</strong>
+                                <span className={backupStatus.success ? 'text-success' : 'text-danger'}>
+                                  الحالة: {backupStatus.success ? 'ناجحة' : 'فاشلة'}
+                                </span>
                               </div>
-                              <Button
-                                variant="outline-secondary"
-                                size="sm"
-                                onClick={handleDisconnectGoogle}
-                              >
-                                إلغاء الربط
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </Card.Body>
+                        </Card>
+                      </Col>
 
-                        {settings.google_connected && (
-                          <div className="mt-3">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <h6>النسخ المتوفرة في السحابة</h6>
-                              <Button
-                                variant="outline-primary"
-                                size="sm"
-                                onClick={() => fetchCloudBackups()}
-                                disabled={isLoadingCloudBackups}
-                              >
-                                {isLoadingCloudBackups ? <Spinner size="sm" /> : 'تحديث القائمة'}
-                              </Button>
+                      <Col lg={7}>
+                        <Card className="h-100 shadow-none border">
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <h6>النسخ السحابي (Google Drive)</h6>
+                              <Button variant="link" className="p-0 text-info" onClick={() => setShowCloudHelp(true)} title="كيفية الربط والاشتراك؟"><InfoIcon size={18} /></Button>
                             </div>
-                            <div
-                              className="border rounded p-2 bg-light"
-                              style={{ maxHeight: '200px', overflowY: 'auto' }}
-                            >
-                              {cloudBackups.length === 0 ? (
-                                <p className="text-center text-muted my-3">
-                                  لا توجد نسخ احتياطية في السحابة حالياً.
-                                </p>
+
+                            <div className="mb-4">
+                              {!settings.google_connected ? (
+                                <div className="text-center p-3 border rounded bg-light">
+                                  <p className="small text-muted mb-3">اربط حساب Gmail الخاص بالفرع لمشاركة النسخ بين الأجهزة.</p>
+                                  <Button variant="outline-danger" size="sm" onClick={handleConnectGoogle} disabled={isConnectingGoogle}>
+                                    {isConnectingGoogle ? <Spinner size="sm" /> : <Image src="https://www.google.com/favicon.ico" width={14} className="me-2 ms-2" />}
+                                    ربط حساب Google
+                                  </Button>
+                                </div>
                               ) : (
-                                <ul className="list-group list-group-flush">
-                                  {cloudBackups.map((backup, index) => (
-                                    <li
-                                      key={index}
-                                      className="list-group-item bg-transparent d-flex justify-content-between align-items-center"
-                                    >
-                                      <div>
-                                        <strong>{new Date(backup.timestamp).toLocaleString()}</strong>
-                                        <br />
-                                        <small className="text-muted">
-                                          الجهاز: {backup.deviceName} | الحجم:{' '}
-                                          {(backup.size / 1024 / 1024).toFixed(2)} MB
-                                        </small>
-                                      </div>
-                                      <Button
-                                        variant="outline-success"
-                                        size="sm"
-                                        onClick={() => handleDownloadCloudBackup(backup.fileName)}
-                                        disabled={isDownloading || isImporting}
-                                      >
-                                        {isDownloading ? <Spinner size="sm" /> : 'استيراد'}
-                                      </Button>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <div className="p-2 border rounded bg-light d-flex justify-content-between align-items-center">
+                                  <div className="small overflow-hidden text-nowrap">
+                                    <span className="badge bg-success me-2 ms-2">متصل</span>
+                                    <strong>{settings.google_account_email}</strong>
+                                  </div>
+                                  <Button variant="link" size="sm" className="text-muted p-0" onClick={handleDisconnectGoogle}>إلغاء</Button>
+                                </div>
                               )}
                             </div>
-                          </div>
-                        )}
 
-                        <hr />
-                        <div className="mt-3">
-                          <h5 className="text-danger">منطقة الخطر</h5>
-                          <p>
-                            استيراد قاعدة بيانات سيستبدل جميع البيانات الحالية. سيتم أخذ نسخة
-                            احتياطية من بياناتك الحالية قبل المتابعة.
-                          </p>
-                          <Button
-                            variant="danger"
-                            onClick={() => handleImportDb()}
-                            disabled={isImporting || isBackingUp || isDownloading}
-                          >
-                            {isImporting ? (
-                              <>
-                                <Spinner as="span" animation="border" size="sm" />
-                                {' جارٍ الاستيراد...'}
-                              </>
-                            ) : (
-                              'استيراد قاعدة بيانات'
-                            )}
-                          </Button>
-                        </div>
-                      </Card.Body>
-                    </Card>
+                            <Form.Check type="switch" label="رفع تلقائي للسحابة عند كل نسخة ناجحة" name="cloud_backup_enabled" checked={settings.cloud_backup_enabled || false} onChange={handleChange} disabled={!settings.google_connected} className="mb-3 small" />
+
+                            <div className="d-flex justify-content-between align-items-center mb-2 border-top pt-3">
+                              <h6 className="mb-0 small font-weight-bold">تاريخ النسخ السحابية</h6>
+                              <Button variant="link" size="sm" className="p-0" onClick={fetchCloudBackups} disabled={isLoadingCloudBackups}>
+                                {isLoadingCloudBackups ? <Spinner size="sm" /> : 'تحديث'}
+                              </Button>
+                            </div>
+
+                            <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                              <Table hover responsive size="sm" className="small align-middle">
+                                <thead className="table-light sticky-top">
+                                  <tr>
+                                    <th>التاريخ</th>
+                                    <th>الحجم</th>
+                                    <th>الإجراءات</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {cloudBackups.length === 0 ? (
+                                    <tr><td colSpan="3" className="text-center py-4 text-muted">لا توجد نسخ سحابية.</td></tr>
+                                  ) : (
+                                    cloudBackups.map(backup => (
+                                      <tr key={backup.id} className={backup.status === 'pending' ? 'table-warning' : ''}>
+                                        <td>
+                                          {new Date(backup.createdAt).toLocaleString()}
+                                          {backup.status === 'pending' && <span className="badge bg-warning text-dark ms-2 ms-2">انتظار</span>}
+                                        </td>
+                                        <td>{(backup.size / 1024 / 1024).toFixed(2)} MB</td>
+                                        <td>
+                                          <div className="d-flex gap-2 justify-content-end">
+                                            <Button variant="outline-primary" size="sm" className="p-1" title="استرجاع" onClick={() => setShowRestoreConfirm(backup)} disabled={isDownloading || backup.status === 'pending'}><DownloadIcon size={16} /></Button>
+                                            <Button variant="outline-info" size="sm" className="p-1" title="نسخ رابط المشاركة" onClick={() => handleCopyLink(backup.shareableLink)} disabled={backup.status === 'pending'}><CopyIcon size={16} /></Button>
+                                            <Button variant="outline-danger" size="sm" className="p-1" title="حذف" onClick={() => setShowDeleteModal(backup.id)}><TrashIcon size={16} /></Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </Table>
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
                   </Tab>
                 </Tabs>
 
                 <div className="d-grid mt-4">
                   <Button variant="primary" type="submit" size="lg" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Spinner as="span" animation="border" size="sm" />
-                        {' جارٍ الحفظ...'}
-                      </>
-                    ) : (
-                      'حفظ التغييرات'
-                    )}
+                    {isSubmitting ? <Spinner size="sm" className="me-2" /> : 'حفظ جميع التغييرات'}
                   </Button>
                 </div>
               </Form>
@@ -865,52 +512,88 @@ const SettingsPage = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={!!showDeleteModal} onHide={() => setShowDeleteModal(null)} centered>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title size="sm">تأكيد حذف النسخة الاحتياطية</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center py-4">
+          <TrashIcon size={48} className="text-danger mb-3" />
+          <p>هل أنت متأكد من رغبتك في حذف هذه النسخة الاحتياطية من Google Drive ومن سجل التطبيق؟</p>
+          <p className="text-muted small">هذا الإجراء لا يمكن التراجع عنه.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(null)}>إلغاء</Button>
+          <Button variant="danger" onClick={handleDeleteCloudBackup}>حذف نهائي</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Restore Confirmation Modal */}
+      <Modal show={!!showRestoreConfirm} onHide={() => setShowRestoreConfirm(null)} centered>
+        <Modal.Header closeButton className="bg-warning text-dark">
+          <Modal.Title>تنبيه: استرجاع قاعدة بيانات</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="py-4">
+          <div className="text-center mb-3">
+             <ExternalLinkIcon size={48} className="text-warning mb-2" />
+          </div>
+          <Alert variant="danger">
+            <strong>⚠️ تحذير شديد:</strong> سيتم استبدال جميع البيانات الحالية بالبيانات الموجودة في النسخة المختارة. جميع التغييرات غير المحفوظة في السحابة ستضيع للأبد.
+          </Alert>
+          <div className="p-3 border rounded bg-light small mt-3">
+            <strong>تفاصيل النسخة:</strong><br />
+            - التاريخ: {showRestoreConfirm && new Date(showRestoreConfirm.createdAt).toLocaleString()}<br />
+            - المالك: {showRestoreConfirm && showRestoreConfirm.createdBy}<br />
+            - الحجم: {showRestoreConfirm && (showRestoreConfirm.size / 1024 / 1024).toFixed(2)} MB
+          </div>
+          <p className="mt-3">هل تود المتابعة؟ سيطلب منك إدخال كلمة المرور للتأكيد النهائي.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRestoreConfirm(null)}>إلغاء</Button>
+          <Button variant="warning" onClick={handleRestoreFromCloud}>تحميل واسترجاع</Button>
+        </Modal.Footer>
+      </Modal>
+
       <PasswordPromptModal
-        show={showPasswordModal}
+        show={!!showPasswordModal}
         onHide={() => setShowPasswordModal(false)}
         onConfirm={handlePasswordConfirm}
-        title="تأكيد استيراد قاعدة البيانات"
-        body="لأسباب أمنية، يرجى إدخال كلمة المرور الحالية للمتابعة. سيتم استخدامها للتحقق من توافق قاعدة البيانات المستوردة."
+        title="الخطوة الأخيرة: تأكيد الهوية"
+        body="يرجى إدخال كلمة المرور الخاصة بك لتأكيد استبدال قاعدة البيانات وإعادة تشغيل التطبيق."
       />
 
+      {/* Help Modal */}
       <Modal show={showCloudHelp} onHide={() => setShowCloudHelp(false)} centered size="lg">
         <Modal.Header closeButton className="bg-info text-white">
-          <Modal.Title>دليل ربط حساب Google للنسخ الاحتياطي</Modal.Title>
+          <Modal.Title>دليل مشاركة البيانات سحابياً</Modal.Title>
         </Modal.Header>
         <Modal.Body dir="rtl">
-          <h5>كيفية استخدام Google Drive لحفظ بيانات الفرع؟</h5>
-          <p>
-            تتيح لك هذه الميزة حفظ نسخ احتياطية من بيانات فرعك في حساب Google خاص بالفرع، مما يسهل
-            استرجاعها أو فتحها من أجهزة أخرى.
-          </p>
+          <h5>كيف يعمل النسخ السحابي؟</h5>
+          <p>تم تصميم هذا النظام لتمكين فروع الجمعية من مزامنة البيانات يدوياً عبر Google Drive دون الحاجة لخوادم مركزية.</p>
           <ol>
-            <li className="mb-2">
-              <strong>حساب البريد الإلكتروني:</strong> يُفضل استخدام بريد Gmail مخصص للفرع (مثلاً:
-              quran.branch.name@gmail.com). إذا لم يكن للفرع بريد، يرجى إنشاء واحد جديد.
+            <li className="mb-3">
+              <strong>حساب Google:</strong> ننصح بإنشاء حساب Gmail مخصص للفرع. اربط التطبيق بهذا الحساب في جميع أجهزتكم.
             </li>
-            <li className="mb-2">
-              <strong>الربط مع التطبيق:</strong> اضغط على زر "الربط مع حساب Google" وقم بتسجيل الدخول
-              في المتصفح ومنح الأذونات اللازمة.
+            <li className="mb-3">
+              <strong>الرفع (Upload):</strong> عند تفعيل "الرفع التلقائي"، يتم ضغط قاعدة البيانات ورفعها للسحابة عند كل نسخة احتياطية.
             </li>
-            <li className="mb-2">
-              <strong>تخزين البيانات:</strong> سيقوم التطبيق بإنشاء مجلد خاص بالنسخ الاحتياطية داخل
-              Google Drive الخاص بك. لن يتمكن أي شخص آخر من الوصول إليه إلا إذا شاركت بيانات الدخول
-              معه.
+            <li className="mb-3">
+              <strong>المشاركة (Share):</strong> يمكنك نسخ "رابط المشاركة" وإرساله لمسؤول آخر. الرابط دائم ولا تنتهي صلاحيته.
             </li>
-            <li className="mb-2">
-              <strong>استيراد البيانات:</strong> عند الحاجة لفتح البيانات من حاسوب آخر، قم بربط نفس
-              الحساب في الحاسوب الجديد وستظهر قائمة النسخ السحابية للاستيراد.
+            <li className="mb-3">
+              <strong>الاسترجاع (Restore):</strong> في الحاسوب الآخر، ابحث عن النسخة في القائمة واضغط "استرجاع". سيقوم التطبيق بتحميلها، فك ضغطها، استبدال البيانات المحلية، ثم إعادة التشغيل تلقائياً.
             </li>
           </ol>
-          <Alert variant="info">
-            <strong>ملاحظة:</strong> هذه العملية تضمن خصوصية بيانات فرعكم، حيث يتم تخزينها في
-            مساحتكم الخاصة وليس في خوادم خارجية تابعة للجمعية الوطنية.
+          <Alert variant="warning">
+            <strong>تنبيه:</strong> SQLite لا يدعم المزامنة اللحظية. لذا يجب أن يتفق فريق العمل على أن يقوم شخص واحد فقط بإدخال البيانات في وقت واحد، ثم يرفع النسخة، ويقوم الآخرون باسترجاعها قبل البدء بعملهم.
+          </Alert>
+          <Alert variant="danger" className="mt-3">
+            <strong>أمن البيانات:</strong> رابط المشاركة يمنح صلاحية القراءة لأي شخص يملكه. لا تشارك الرابط إلا مع الأشخاص الموثوق بهم في الجمعية.
           </Alert>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCloudHelp(false)}>
-            إغلاق
-          </Button>
+          <Button variant="secondary" onClick={() => setShowCloudHelp(false)}>فهمت ذلك</Button>
         </Modal.Footer>
       </Modal>
     </Container>

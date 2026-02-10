@@ -227,8 +227,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
   listCloudBackups: (settings) => ipcRenderer.invoke('backup:listCloud', settings),
-  downloadCloudBackup: (fileName, settings) =>
-    ipcRenderer.invoke('backup:downloadCloud', fileName, settings),
+  downloadCloudBackup: (fileId, fileName) =>
+    ipcRenderer.invoke('backup:downloadCloud', fileId, fileName),
+  deleteCloudBackup: (id) => ipcRenderer.invoke('backup:deleteCloud', id),
   connectGoogle: () => ipcRenderer.invoke('backup:googleConnect'),
   disconnectGoogle: () => ipcRenderer.invoke('backup:googleDisconnect'),
 
@@ -437,4 +438,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @returns {Promise<Object>} {success: boolean, path: string}
    */
   getLogFilePath: () => ipcRenderer.invoke('logs:get-file-path'),
+
+  /**
+   * Relaunches the application
+   */
+  relaunchApp: () => ipcRenderer.invoke('app:relaunch'),
 });

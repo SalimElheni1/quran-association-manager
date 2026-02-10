@@ -262,12 +262,22 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:downloadCloud', async (_event, fileName, settings) => {
+  ipcMain.handle('backup:downloadCloud', async (_event, fileId, fileName) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.downloadBackup(fileName, settings);
+      return await cloudBackupManager.downloadBackup(fileId, fileName);
     } catch (error) {
       logError('Error in backup:downloadCloud IPC wrapper:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('backup:deleteCloud', async (_event, id) => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.deleteBackup(id);
+    } catch (error) {
+      logError('Error in backup:deleteCloud IPC wrapper:', error);
       throw error;
     }
   });
@@ -385,6 +395,11 @@ function registerSystemHandlers() {
     } catch (error) {
       logError('Error showing success toast:', error);
     }
+  });
+
+  ipcMain.handle('app:relaunch', () => {
+    app.relaunch();
+    app.exit(0);
   });
 }
 
