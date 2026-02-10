@@ -68,6 +68,7 @@ const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 const backupManager = require('./backupManager');
+const cloudBackupManager = require('./cloudBackupManager');
 const {
   startScheduler: startFeeChargeScheduler,
   stopScheduler: stopFeeChargeScheduler,
@@ -207,6 +208,8 @@ const initializeApp = async () => {
       if (settings) {
         // Start backup scheduler
         backupManager.startScheduler(settings);
+        // Start cloud backup scheduler
+        cloudBackupManager.startCloudBackupScheduler(settings);
         // Start fee charge scheduler
         startFeeChargeScheduler(settings);
         // Run startup check for missing charges (handles offline app scenario)
@@ -421,6 +424,7 @@ app.on('will-quit', async () => {
   try {
     // Stop automated schedulers
     backupManager.stopScheduler();
+    cloudBackupManager.stopCloudBackupScheduler();
     stopFeeChargeScheduler();
     log('Schedulers stopped successfully.');
   } catch (error) {

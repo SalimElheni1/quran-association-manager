@@ -6,6 +6,7 @@ const fs = require('fs');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
+const cloudBackupManager = require('../cloudBackupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
@@ -246,6 +247,80 @@ function registerSystemHandlers() {
   });
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
+
+  // Cloud backup handlers
+  ipcMain.handle('cloud-backup:initiate-auth', async () => {
+    try {
+      return await cloudBackupManager.initiateGoogleAuth();
+    } catch (error) {
+      logError('Error in cloud-backup:initiate-auth IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:exchange-code', async (_event, { authCode, codeVerifier }) => {
+    try {
+      return await cloudBackupManager.exchangeCodeForToken(authCode, codeVerifier);
+    } catch (error) {
+      logError('Error in cloud-backup:exchange-code IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:run', async (_event, settings) => {
+    try {
+      return await cloudBackupManager.performManualCloudBackup(settings);
+    } catch (error) {
+      logError('Error in cloud-backup:run IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:get-history', () => {
+    try {
+      return cloudBackupManager.getCloudBackups();
+    } catch (error) {
+      logError('Error in cloud-backup:get-history IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:delete', async (_event, { fileId }) => {
+    try {
+      return await cloudBackupManager.deleteCloudBackup(fileId);
+    } catch (error) {
+      logError('Error in cloud-backup:delete IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:restore', async (_event, { fileId, password, userId }) => {
+    try {
+      return await cloudBackupManager.restoreFromCloudBackup(fileId, password, userId);
+    } catch (error) {
+      logError('Error in cloud-backup:restore IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:is-authenticated', async () => {
+    try {
+      const authenticated = await cloudBackupManager.isAuthenticatedWithGoogle();
+      return { success: true, authenticated };
+    } catch (error) {
+      logError('Error in cloud-backup:is-authenticated IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('cloud-backup:sign-out', async () => {
+    try {
+      return await cloudBackupManager.signOutFromGoogle();
+    } catch (error) {
+      logError('Error in cloud-backup:sign-out IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
 
   // Log management handlers for testing
   ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {

@@ -5,6 +5,7 @@ const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
 const backupManager = require('../backupManager');
+const cloudBackupManager = require('../cloudBackupManager');
 const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
 
@@ -41,6 +42,8 @@ const settingsValidationSchema = Joi.object({
 
   backup_reminder_enabled: Joi.boolean(),
   backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
+  cloud_backup_enabled: Joi.boolean(),
+  cloud_backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
   annual_fee: Joi.number().min(0).allow(null),
   standard_monthly_fee: Joi.number().min(0).allow(null),
   auto_charge_generation_enabled: Joi.boolean(),
@@ -67,6 +70,8 @@ const defaultSettings = {
 
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
+  cloud_backup_enabled: false,
+  cloud_backup_frequency: 'daily',
   annual_fee: 0,
   standard_monthly_fee: 0,
   auto_charge_generation_enabled: true,
@@ -204,6 +209,7 @@ function registerSettingsHandlers(refreshSettings) {
 
         if (newSettings) {
           backupManager.startScheduler(newSettings);
+          cloudBackupManager.startCloudBackupScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
 
           const newAnnualFee = parseFloat(newSettings.annual_fee || '0');

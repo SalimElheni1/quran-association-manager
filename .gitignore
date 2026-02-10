@@ -1,38 +1,70 @@
-# Node
-node_modules/
-node_modules-old/
-# Build output
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
 dist/
-release/
+build/
+target/
 
-# Logs
+# Dependencies
+.venv/
+venv/
+node_modules/
+.julia/
+.zig-cache/
+zig-cache/
+
+# Logs and temp files
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.tmp
+*.swp
+*.swo
 
-# Environment variables
+# Environment
 .env
+.env.local
+.env.*
 
-# OS-specific
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
 .DS_Store
+Thumbs.db
 
-# Database files
-*.sqlite
-*.sqlite-journal
-*.db
-.db/
-out/
-
-# Test Coverage Reports
+# Testing and coverage
+.coverage
 coverage/
-lcov.info
-*.lcov
+htmlcov/
+.pytest_cache/
+.mypy_cache/
 
-# Build artifacts
-lib/
+# Archives
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
 *.deb
-*.bat
-
-# Analysis tools
-.codeboarding/
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
