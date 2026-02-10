@@ -138,21 +138,56 @@ let schedulerIntervalId = null;
  */
 const isBackupDue = (settings) => {
   const lastBackup = store.get('last_backup_status');
+  const now = new Date();
+
   if (!lastBackup?.timestamp) {
     return true; // No backup has ever run
   }
 
-  const lastBackupTime = new Date(lastBackup.timestamp).getTime();
-  const now = Date.now();
-  const diffHours = (now - lastBackupTime) / (1000 * 60 * 60);
+  const lastBackupDate = new Date(lastBackup.timestamp);
+  const diffHours = (now.getTime() - lastBackupDate.getTime()) / (1000 * 60 * 60);
 
+  // Check if specific time is set (e.g., "14:30")
+  if (settings.backup_time) {
+    const [hours, minutes] = settings.backup_time.split(':').map(Number);
+    const scheduledTimeToday = new Date(now);
+    scheduledTimeToday.setHours(hours, minutes, 0, 0);
+
+    // If it's too early today, don't run yet if we've run recently
+    if (now < scheduledTimeToday) {
+       // Only allow if it's been more than a full cycle
+       switch (settings.backup_frequency) {
+        case 'daily': return diffHours >= 24;
+        case 'weekly': return diffHours >= 24 * 7;
+        case 'monthly': return diffHours >= 24 * 30;
+        default: return false;
+      }
+    }
+
+    // It's after the scheduled time today.
+    // Have we already run today?
+    const hasRunToday = lastBackupDate.toDateString() === now.toDateString();
+    if (hasRunToday) {
+      // Even if it's after the time, if we already ran today, we wait for next cycle or tomorrow
+       switch (settings.backup_frequency) {
+        case 'weekly': return diffHours >= 24 * 7;
+        case 'monthly': return diffHours >= 24 * 30;
+        default: return false; // Daily should wait for tomorrow
+      }
+    }
+
+    // It's after the time and we haven't run today.
+    return true;
+  }
+
+  // Fallback to frequency-only logic
   switch (settings.backup_frequency) {
     case 'daily':
       return diffHours >= 24;
     case 'weekly':
       return diffHours >= 24 * 7;
     case 'monthly':
-      return diffHours >= 24 * 30; // Approximation
+      return diffHours >= 24 * 30;
     default:
       return false;
   }

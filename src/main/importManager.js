@@ -336,9 +336,7 @@ async function replaceDatabase(importedDbPath, password) {
     }
 
     mainStore.set('force-relogin-after-restart', true);
-    log('Database import successful. The app will now restart.');
-    app.relaunch();
-    app.quit();
+    log('Database import successful. Waiting for renderer to relaunch app.');
     return {
       success: true,
       message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
