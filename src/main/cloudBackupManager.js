@@ -67,13 +67,13 @@ const SCOPES = [
 ];
 
 // Google API Credentials (should be in .env)
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001';
 
 const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
+  CLIENT_ID || 'PENDING',
+  CLIENT_SECRET || 'PENDING',
   REDIRECT_URI
 );
 
@@ -108,6 +108,11 @@ const generatePKCE = () => {
  * @returns {Promise<{success: boolean, email: string}>}
  */
 const connectGoogle = async () => {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    logError('Google Drive: Credentials missing. Please check .env or build config.');
+    throw new Error('إعدادات Google Cloud غير مكتملة. يرجى مراجعة ملف الإعدادات (Credentials missing).');
+  }
+
   return new Promise((resolve, reject) => {
     const { verifier, challenge } = generatePKCE();
 
@@ -367,11 +372,11 @@ const processQueue = async () => {
         }
       } else {
         log(`Queue: Failed to upload ${filePath}: ${result.message}`);
-        remaining.push(filePath);
+        remaining.push(item);
       }
     } catch (err) {
       logError(`Queue: Unexpected error processing ${filePath}:`, err);
-      remaining.push(filePath);
+      remaining.push(item);
     }
   }
 
