@@ -246,10 +246,10 @@ async function initializeDatabase() {
       const cipherVersion = db.pragma('cipher_version', { simple: true });
       log(`[DB_LOG] Cipher version: ${cipherVersion}`);
       if (!cipherVersion) {
-        logError('FATAL: Database encryption support missing. The native module may not be linked correctly.');
+        logWarn('[DB_LOG] Database encryption support missing or native module not offering cipher_version.');
       }
     } catch (verErr) {
-      logError('[DB_LOG] Failed to query cipher version:', verErr);
+      logWarn('[DB_LOG] Failed to query cipher version (Normal if not using multiple-ciphers build):', verErr.message);
     }
     // DIAGNOSTIC END
 
@@ -409,6 +409,36 @@ function isDbOpen() {
   return db && db.open;
 }
 
+/**
+ * Executes an async callback within a transaction.
+ * Handles nested calls by only starting/committing at the top level.
+ * Uses manual BEGIN/COMMIT since better-sqlite3 transaction() doesn't support async.
+ * @param {Function} callback - Async function containing DB operations
+ * @returns {Promise<any>}
+ */
+async function withTransaction(callback) {
+  if (!db || !db.open) throw new Error('Database not initialized');
+
+  const isTopLevel = !db.inTransaction;
+
+  if (isTopLevel) {
+    db.prepare('BEGIN').run();
+  }
+
+  try {
+    const result = await callback();
+    if (isTopLevel) {
+      db.prepare('COMMIT').run();
+    }
+    return result;
+  } catch (err) {
+    if (isTopLevel && db.inTransaction) {
+      db.prepare('ROLLBACK').run();
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   initializeDatabase,
   closeDatabase,
@@ -419,4 +449,5 @@ module.exports = {
   getDatabasePath,
   isDbOpen,
   dbExec,
+  withTransaction,
 };

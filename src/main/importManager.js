@@ -1,10 +1,12 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const PizZip = require('pizzip');
+const path = require('path');
 const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
 const { log, error: logError, warn: logWarn } = require('./logger');
+const backupManager = require('./backupManager');
 const {
   getDatabasePath,
   isDbOpen,
@@ -192,6 +194,24 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
 
 async function replaceDatabase(importedDbPath, password) {
   const currentDbPath = getDatabasePath();
+
+  // Auto-backup safeguard
+  try {
+    const settings = mainStore.get('settings') || {};
+    if (settings.backup_path) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = path.join(settings.backup_path, `pre-import-backup-${timestamp}.qdb`);
+      log(`Creating safeguard backup before import at: ${backupPath}`);
+      // Disable cloud upload for this safeguard backup to avoid cluttering cloud storage
+      await backupManager.runBackup({ ...settings, cloud_backup_enabled: false }, backupPath);
+    } else {
+      logWarn('Skipping auto-backup before import: No backup path configured.');
+    }
+  } catch (e) {
+    logError('Failed to create auto-backup before import:', e);
+    // Proceed with import even if backup fails, but user is warned effectively by the log if they check.
+  }
+
   try {
     if (isDbOpen()) {
       await closeDatabase();

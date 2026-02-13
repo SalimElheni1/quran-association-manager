@@ -93,39 +93,30 @@ const runBackup = async (settings, backupFilePath) => {
     // 5. Write the package to the destination
     await fs.writeFile(backupFilePath, zipContent);
 
-    // 6. Optional: Upload to cloud
-    let cloudMessage = '';
-    if (settings.cloud_backup_enabled) {
-      try {
-        const cloudBackupManager = require('./cloudBackupManager');
-        const cloudResult = await cloudBackupManager.uploadBackup(backupFilePath, settings);
-        if (cloudResult.success) {
-          cloudMessage = ' (تم الرفع للسحابة)';
-        } else {
-          cloudMessage = ` (فشل الرفع للسحابة: ${cloudResult.message})`;
-        }
-      } catch (cloudError) {
-        cloudMessage = ` (خطأ في الرفع للسحابة: ${cloudError.message})`;
-      }
-    }
+    // Ensure it's flushed/written before getting stats
+    const stats = await fs.stat(backupFilePath);
+    const fileSize = stats.size;
+    log(`Backup file written: ${backupFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
-    const message = `Backup completed successfully.${cloudMessage}`;
+    const message = `Backup completed successfully.`;
     store.set('last_backup_status', {
       success: true,
       message,
       timestamp: new Date().toISOString(),
     });
     log(message, `Path: ${backupFilePath}`);
-    return { success: true, message };
+
+    // Local backup logic only. Cloud backup logic is now entirely separate
+    // and handled by cloudBackupManager.js via its own scheduler or IPC handlers.
+    return {
+      success: true,
+      message: `تم إنشاء النسخة الاحتياطية بنجاح في: ${backupFilePath}`,
+      filePath: backupFilePath,
+      size: fileSize,
+    };
   } catch (error) {
-    const message = `Failed to create SQL backup: ${error.message}`;
-    store.set('last_backup_status', {
-      success: false,
-      message,
-      timestamp: new Date().toISOString(),
-    });
-    logError(message);
-    return { success: false, message };
+    logError('Detailed backup error:', error);
+    return { success: false, message: `فشل النسخة الاحتياطية: ${error.message}` };
   }
 };
 
@@ -155,8 +146,8 @@ const isBackupDue = (settings) => {
 
     // If it's too early today, don't run yet if we've run recently
     if (now < scheduledTimeToday) {
-       // Only allow if it's been more than a full cycle
-       switch (settings.backup_frequency) {
+      // Only allow if it's been more than a full cycle
+      switch (settings.backup_frequency) {
         case 'daily': return diffHours >= 24;
         case 'weekly': return diffHours >= 24 * 7;
         case 'monthly': return diffHours >= 24 * 30;
@@ -169,7 +160,7 @@ const isBackupDue = (settings) => {
     const hasRunToday = lastBackupDate.toDateString() === now.toDateString();
     if (hasRunToday) {
       // Even if it's after the time, if we already ran today, we wait for next cycle or tomorrow
-       switch (settings.backup_frequency) {
+      switch (settings.backup_frequency) {
         case 'weekly': return diffHours >= 24 * 7;
         case 'monthly': return diffHours >= 24 * 30;
         default: return false; // Daily should wait for tomorrow

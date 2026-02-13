@@ -52,6 +52,7 @@ const settingsValidationSchema = Joi.object({
   academic_year_start_month: Joi.number().integer().min(1).max(12),
   charge_generation_day: Joi.number().integer().min(1).max(28),
   cloud_backup_enabled: Joi.boolean(),
+  cloud_backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
   google_account_email: Joi.string().email().allow(''),
   google_connected: Joi.boolean(),
 });
@@ -67,6 +68,7 @@ const defaultSettings = {
   backup_frequency: 'daily',
   president_full_name: '',
   cloud_backup_enabled: false,
+  cloud_backup_frequency: 'daily',
   google_account_email: '',
   google_connected: false,
 
@@ -209,7 +211,10 @@ function registerSettingsHandlers(refreshSettings) {
 
         if (newSettings) {
           const backupManager = require('../backupManager');
+          const cloudBackupManager = require('../cloudBackupManager');
+
           backupManager.startScheduler(newSettings);
+          cloudBackupManager.startCloudScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
 
           const newAnnualFee = parseFloat(newSettings.annual_fee || '0');

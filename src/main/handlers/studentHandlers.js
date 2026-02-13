@@ -344,8 +344,22 @@ function registerStudentHandlers() {
 
         const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
           abortEarly: false,
-          stripUnknown: false,
+          stripUnknown: true,
         });
+
+        // Convert non-SQLite-bindable types for compatibility
+        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+        for (const key of Object.keys(validatedData)) {
+          const value = validatedData[key];
+          if (typeof value === 'boolean') {
+            // Convert booleans to integers (0/1)
+            validatedData[key] = value ? 1 : 0;
+          } else if (value instanceof Date) {
+            // Convert Date objects to ISO strings (YYYY-MM-DD for dates or full ISO for timestamps)
+            // If it's just a date field, ISO string split by T is usually safer for SQLite DATE type
+            validatedData[key] = value.toISOString();
+          }
+        }
 
         const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
         if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
@@ -454,8 +468,18 @@ function registerStudentHandlers() {
 
         const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
           abortEarly: false,
-          stripUnknown: false,
+          stripUnknown: true,
         });
+
+        // Convert non-SQLite-bindable types for compatibility
+        for (const key of Object.keys(validatedData)) {
+          const value = validatedData[key];
+          if (typeof value === 'boolean') {
+            validatedData[key] = value ? 1 : 0;
+          } else if (value instanceof Date) {
+            validatedData[key] = value.toISOString();
+          }
+        }
 
         // Ensure matricule is not updatable
         const fieldsToUpdate = studentFields.filter(

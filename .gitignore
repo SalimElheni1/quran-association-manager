@@ -35,4 +35,4 @@ lib/
 *.bat
 
 # Analysis tools
-.codeboarding/
+.codeboarding/src/main/config/credentials.js
