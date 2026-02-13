@@ -78,8 +78,22 @@ function registerClassHandlers() {
     try {
       const validatedData = await classValidationSchema.validateAsync(classData, {
         abortEarly: false,
-        stripUnknown: false,
+        stripUnknown: true,
       });
+
+      // Convert non-SQLite-bindable types for compatibility
+      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+      for (const key of Object.keys(validatedData)) {
+        const value = validatedData[key];
+        if (typeof value === 'boolean') {
+          // Convert booleans to integers (0/1)
+          validatedData[key] = value ? 1 : 0;
+        } else if (value instanceof Date) {
+          // Convert Date objects to ISO strings
+          validatedData[key] = value.toISOString();
+        }
+      }
+
       const fieldsToInsert = classFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
@@ -98,8 +112,19 @@ function registerClassHandlers() {
     try {
       const validatedData = await classValidationSchema.validateAsync(classData, {
         abortEarly: false,
-        stripUnknown: false,
+        stripUnknown: true,
       });
+
+      // Convert non-SQLite-bindable types for compatibility
+      for (const key of Object.keys(validatedData)) {
+        const value = validatedData[key];
+        if (typeof value === 'boolean') {
+          validatedData[key] = value ? 1 : 0;
+        } else if (value instanceof Date) {
+          validatedData[key] = value.toISOString();
+        }
+      }
+
       const fieldsToUpdate = classFields.filter((field) => validatedData[field] !== undefined);
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];

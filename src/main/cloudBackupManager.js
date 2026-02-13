@@ -60,16 +60,19 @@ const getTokensSecurely = () => {
  * Handles connecting to Google Drive, managing backups, and history.
  */
 
-// SCOPES for Google Drive API
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
-  'https://www.googleapis.com/auth/userinfo.email'
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/drive.metadata.readonly' // Added for better metadata access
 ];
 
-// Google API Credentials (should be in .env)
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001';
+// Google API Credentials
+// Loaded from secure config (environment in dev, embedded in prod)
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = require('./config/credentials');
+
+const CLIENT_ID = GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = GOOGLE_CLIENT_SECRET;
+const REDIRECT_URI = GOOGLE_REDIRECT_URI;
 
 const oauth2Client = new google.auth.OAuth2(
   CLIENT_ID,
@@ -200,12 +203,163 @@ const decompressFile = async (sourcePath, destPath) => {
 };
 
 /**
+ * Checks if an error is network/connectivity related.
+ */
+const isNetworkError = (error) => {
+  if (!error) return false;
+  return error.code === 'ENOTFOUND' ||
+    error.code === 'ETIMEDOUT' ||
+    error.code === 'ECONNREFUSED' ||
+    error.code === 'EAI_AGAIN' || // DNS failed
+    (error.message && (
+      error.message.toLowerCase().includes('network') ||
+      error.message.toLowerCase().includes('fetch') ||
+      error.message.toLowerCase().includes('getaddrinfo') ||
+      error.message.toLowerCase().includes('dns')
+    ));
+};
+
+const ARABIC_OFFLINE_MESSAGE = 'فشل الاتصال بخدمات Google. يرجى التحقق من اتصالك بالإنترنت.';
+const ARABIC_OFFLINE_QUEUED_MESSAGE = 'فشل الاتصال بخدمات Google. يرجى التحقق من اتصالك بالإنترنت. تم وضع النسخة في قائمة الانتظار للرفع التلقائي لاحقاً.';
+
+/**
+ * Finds or creates the dedicated backup folder on Google Drive.
+ * @param {Object} drive - Google Drive instance.
+ * @returns {Promise<string>} Folder ID.
+ */
+const getOrCreateBackupFolder = async (drive) => {
+  const folderName = 'AlRabita_Digital_Backups';
+  try {
+    // Search for the folder
+    const response = await drive.files.list({
+      q: `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name)',
+      spaces: 'drive'
+    });
+
+    if (response.data.files && response.data.files.length > 0) {
+      return response.data.files[0].id;
+    }
+
+    // Create it if not found
+    log(`Google Drive: Creating dedicated folder '${folderName}'...`);
+    const folderMetadata = {
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder'
+    };
+
+    const folder = await drive.files.create({
+      resource: folderMetadata,
+      fields: 'id'
+    });
+
+    return folder.data.id;
+  } catch (error) {
+    logError('Google Drive: Failed to get or create backup folder:', error);
+    if (isNetworkError(error)) {
+      throw new Error(ARABIC_OFFLINE_MESSAGE);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Synchronizes the cloud manifest file.
+ * @param {Object} drive - Google Drive instance.
+ * @param {string} folderId - ID of the dedicated folder.
+ * @param {string} operation - 'add' or 'delete'.
+ * @param {Object} backupData - Data to add or remove.
+ */
+const syncWithManifest = async (drive, folderId, operation, backupData) => {
+  const manifestName = 'manifest.json';
+  let manifestId = null;
+  let manifestContent = { backups: [] };
+
+  try {
+    // 1. Find manifest file
+    const search = await drive.files.list({
+      q: `name = '${manifestName}' and '${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name)',
+      spaces: 'drive'
+    });
+
+    if (search.data.files && search.data.files.length > 0) {
+      manifestId = search.data.files[0].id;
+      const res = await drive.files.get({ fileId: manifestId, alt: 'media' });
+      let incoming = res.data;
+
+      if (typeof incoming === 'string') {
+        try {
+          manifestContent = JSON.parse(incoming);
+        } catch (e) {
+          logError('Failed to parse manifest string:', e);
+          manifestContent = { backups: [] };
+        }
+      } else if (typeof incoming === 'object' && incoming !== null) {
+        manifestContent = incoming;
+      }
+    }
+
+    // Ensure backups array exists
+    if (!manifestContent.backups || !Array.isArray(manifestContent.backups)) {
+      manifestContent.backups = [];
+    }
+
+    // 2. Update content
+    if (operation === 'add') {
+      manifestContent.backups = [backupData, ...manifestContent.backups].slice(0, 50);
+    } else if (operation === 'delete') {
+      const initialCount = manifestContent.backups.length;
+      // backupData should be the id (UUID) or driveFileId
+      manifestContent.backups = manifestContent.backups.filter(b => b.driveFileId !== backupData && b.id !== backupData);
+      log(`Manifest sync [delete]: Initial count ${initialCount}, Final count ${manifestContent.backups.length}`);
+    }
+
+    // 3. Upload back
+    const media = {
+      mimeType: 'application/json',
+      body: JSON.stringify(manifestContent, null, 2)
+    };
+
+    if (manifestId) {
+      await drive.files.update({
+        fileId: manifestId,
+        media: media,
+        fields: 'id'
+      });
+      log(`Google Drive: Manifest updated (ID: ${manifestId})`);
+    } else {
+      const created = await drive.files.create({
+        resource: {
+          name: manifestName,
+          parents: [folderId]
+        },
+        media: media,
+        fields: 'id'
+      });
+      log(`Google Drive: New manifest created (ID: ${created.data.id})`);
+    }
+
+    // Also update local store for immediate UI refresh
+    store.set('cloud_backups', manifestContent.backups);
+    return manifestContent.backups;
+  } catch (error) {
+    logError('Google Drive: Failed to sync manifest:', error);
+    if (isNetworkError(error)) {
+      throw new Error(ARABIC_OFFLINE_MESSAGE);
+    }
+    throw error;
+  }
+};
+
+/**
  * Uploads a local backup file to Google Drive.
  * @param {string} filePath - Path to the local .qdb file.
  * @param {Object} settings - Application settings.
+ * @param {string} createdBy - Friendly name of the user who initiated the backup.
  * @returns {Promise<{success: boolean, backup: Object}>}
  */
-const uploadBackup = async (filePath, settings) => {
+const uploadBackup = async (filePath, settings, createdBy = 'مستخدم التطبيق') => {
   const fileName = path.basename(filePath);
   const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
   let userEmail = 'Unknown';
@@ -222,16 +376,19 @@ const uploadBackup = async (filePath, settings) => {
     }
 
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
-    const fileName = path.basename(filePath);
     const compressedPath = `${filePath}.gz`;
 
     log(`Google Drive: Compressing ${fileName}...`);
     await compressFile(filePath, compressedPath);
 
-    log(`Google Drive: Uploading ${fileName}.gz...`);
+    log(`Google Drive: Ensuring dedicated folder exists...`);
+    const folderId = await getOrCreateBackupFolder(drive);
+
+    log(`Google Drive: Uploading ${fileName}.gz to folder ${folderId}...`);
     const fileMetadata = {
       name: `${fileName}.gz`,
-      description: 'Quran Branch Manager Database Backup'
+      description: 'Quran Branch Manager Database Backup',
+      parents: [folderId]
     };
     const media = {
       mimeType: 'application/gzip',
@@ -261,42 +418,32 @@ const uploadBackup = async (filePath, settings) => {
       fields: 'webViewLink'
     });
 
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const userInfo = await oauth2.userinfo.get();
-
     const backupRecord = {
       id: crypto.randomUUID ? crypto.randomUUID() : require('uuid').v4(),
       name: fileName,
       driveFileId: file.id,
       shareableLink: updatedFile.data.webViewLink,
       createdAt: new Date().toISOString(),
-      size: (await fs.stat(compressedPath)).size,
-      createdBy: userInfo.data.email
+      size: (require('fs').statSync(compressedPath)).size,
+      createdBy: createdBy
     };
 
-    // Store in history
-    const history = store.get('cloud_backups') || [];
+    // Update shared manifest and local history
+    await syncWithManifest(drive, folderId, 'add', backupRecord);
+
     const finalRecord = { ...backupRecord, status: 'success' };
 
-    // Check if we are updating a pending record
-    const pendingIndex = history.findIndex((b) => b.name === fileName && b.status === 'pending');
-    if (pendingIndex !== -1) {
-      history[pendingIndex] = finalRecord;
-    } else {
-      history.unshift(finalRecord);
-    }
-    store.set('cloud_backups', history);
-
     // Cleanup compressed file
-    await fs.unlink(compressedPath);
+    if (require('fs').existsSync(compressedPath)) {
+      await fs.unlink(compressedPath);
+    }
 
     log(`Google Drive: Upload successful. ID: ${file.id}`);
     return { success: true, backup: finalRecord };
   } catch (error) {
     logError('Google Drive: Upload failed:', error);
 
-    // If it looks like a network error, queue it
-    if (error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT' || error.message.includes('network')) {
+    if (isNetworkError(error)) {
       log('Network error detected. Queueing cloud backup for later retry.');
 
       const backupRecord = {
@@ -304,8 +451,8 @@ const uploadBackup = async (filePath, settings) => {
         name: fileName,
         status: 'pending',
         createdAt: new Date().toISOString(),
-        size: (await fs.stat(filePath)).size,
-        createdBy: userEmail,
+        size: (require('fs').statSync(filePath)).size,
+        createdBy: createdBy,
         localPath: filePath
       };
 
@@ -313,10 +460,14 @@ const uploadBackup = async (filePath, settings) => {
       store.set('cloud_backups', [backupRecord, ...history]);
 
       queueCloudBackup(filePath, backupRecord.id);
-      return { success: false, message: 'Offline: Backup queued for retry.', queued: true };
+      return {
+        success: false,
+        message: ARABIC_OFFLINE_QUEUED_MESSAGE,
+        queued: true
+      };
     }
 
-    return { success: false, message: error.message };
+    return { success: false, message: `تعذر إتمام العملية: ${error.message}` };
   }
 };
 
@@ -363,7 +514,7 @@ const processQueue = async () => {
         // Notify renderer
         const { mainWindow } = require('./index');
         if (mainWindow && !mainWindow.isDestroyed()) {
-           mainWindow.webContents.send('ui:show-success-toast', 'تم رفع النسخة المؤجلة للسحابة بنجاح.');
+          mainWindow.webContents.send('ui:show-success-toast', 'تم رفع النسخة المؤجلة للسحابة بنجاح.');
         }
       } else {
         log(`Queue: Failed to upload ${filePath}: ${result.message}`);
@@ -385,10 +536,58 @@ setInterval(() => {
 }, 15 * 60 * 1000); // Every 15 minutes
 
 /**
- * Lists backups from history.
+ * Lists backups by fetching the shared manifest from Google Drive.
  */
 const listCloudBackups = async () => {
-  return store.get('cloud_backups') || [];
+  try {
+    if (!getTokensSecurely()) {
+      return { success: true, backups: store.get('cloud_backups') || [] };
+    }
+
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const folderId = await getOrCreateBackupFolder(drive);
+
+    const manifestName = 'manifest.json';
+    const search = await drive.files.list({
+      q: `name = '${manifestName}' and '${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name)',
+      spaces: 'drive'
+    });
+
+    if (search.data.files && search.data.files.length > 0) {
+      const manifestId = search.data.files[0].id;
+      const res = await drive.files.get({ fileId: manifestId, alt: 'media' });
+      let content = res.data;
+
+      if (typeof content === 'string') {
+        try {
+          content = JSON.parse(content);
+        } catch (e) {
+          content = { backups: [] };
+        }
+      } else if (typeof content === 'object' && content !== null) {
+        // Already an object
+      } else {
+        content = { backups: [] };
+      }
+
+      const backups = content.backups || [];
+      store.set('cloud_backups', backups);
+      return { success: true, backups };
+    }
+
+    // Manifest not found on Drive: clear local cache to stay in sync
+    store.set('cloud_backups', []);
+    return { success: true, backups: [] };
+  } catch (error) {
+    logError('Google Drive: List failed (fallback to local):', error);
+
+    if (isNetworkError(error)) {
+      return { success: false, message: ARABIC_OFFLINE_MESSAGE, backups: store.get('cloud_backups') || [] };
+    }
+
+    return { success: false, message: error.message, backups: store.get('cloud_backups') || [] };
+  }
 };
 
 /**
@@ -420,10 +619,59 @@ const downloadBackup = async (fileId, fileName) => {
     // Cleanup compressed file
     await fs.unlink(compressedPath);
 
-    return destPath;
+    return { success: true, path: destPath };
   } catch (error) {
     logError('Google Drive: Download failed:', error);
-    throw error;
+    if (isNetworkError(error)) {
+      return { success: false, message: ARABIC_OFFLINE_MESSAGE };
+    }
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Downloads a backup from a shared Google Drive Link.
+ * @param {string} link - Google Drive shareable link.
+ * @returns {Promise<string>} Path to the decompressed local file.
+ */
+const downloadFromLink = async (link) => {
+  try {
+    let fileId = null;
+    const patterns = [
+      /request=([^&]+)/,
+      /file\/d\/([^/]+)/,
+      /id=([^&]+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = link.match(pattern);
+      if (match && match[1]) {
+        fileId = match[1];
+        break;
+      }
+    }
+
+    if (!fileId) {
+      return { success: false, message: 'تعذر استخراج معرف الملف من الرابط.' };
+    }
+
+    try {
+      const drive = google.drive({ version: 'v3', auth: oauth2Client });
+      const fileMeta = await drive.files.get({ fileId, fields: 'name' });
+      return await downloadBackup(fileId, fileMeta.data.name.replace('.gz', ''));
+    } catch (e) {
+      if (getTokensSecurely()) {
+        return await downloadBackup(fileId, 'imported_backup.qdb');
+      } else {
+        return { success: false, message: 'يرجى ربط حساب Google أولاً لاستخدام هذه الميزة.' };
+      }
+    }
+  } catch (error) {
+    logError('Google Drive: Import from link failed:', error);
+    if (isNetworkError(error)) {
+      return { success: false, message: ARABIC_OFFLINE_MESSAGE };
+    }
+    return { success: false, message: error.message };
   }
 };
 
@@ -438,6 +686,8 @@ const deleteBackup = async (id) => {
     if (!backup) throw new Error('Backup not found in history.');
 
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    const folderId = await getOrCreateBackupFolder(drive);
+
     log(`Google Drive: Deleting file ID ${backup.driveFileId}...`);
 
     try {
@@ -446,13 +696,110 @@ const deleteBackup = async (id) => {
       logError('Google Drive: Could not delete from Drive (it might be already gone):', e);
     }
 
-    const newHistory = history.filter(b => b.id !== id);
-    store.set('cloud_backups', newHistory);
+    log(`Google Drive: File deleted ID ${backup.driveFileId}`);
 
-    return { success: true };
+    // Update shared manifest and local history
+    await syncWithManifest(drive, folderId, 'delete', id);
+
+    return { success: true, message: 'تم حذف النسخة بنجاح.' };
   } catch (error) {
     logError('Google Drive: Delete failed:', error);
-    throw error;
+    if (isNetworkError(error)) {
+      return { success: false, message: ARABIC_OFFLINE_MESSAGE };
+    }
+    return { success: false, message: `فشل الحذف: ${error.message}` };
+  }
+};
+
+let cloudSchedulerId = null;
+
+/**
+ * Checks if a cloud backup is due.
+ */
+const isCloudBackupDue = (settings) => {
+  if (!settings.cloud_backup_enabled) return false;
+
+  const history = store.get('cloud_backups') || [];
+  const lastCloudBackup = history.find(b => b.status === 'success');
+  const now = new Date();
+
+  if (!lastCloudBackup) return true;
+
+  const lastDate = new Date(lastCloudBackup.createdAt);
+  const diffHours = (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60);
+
+  // Use cloud-specific frequency if it exists, otherwise fallback to global/local one
+  const frequency = settings.cloud_backup_frequency || settings.backup_frequency || 'daily';
+
+  switch (frequency) {
+    case 'daily': return diffHours >= 24;
+    case 'weekly': return diffHours >= 24 * 7;
+    case 'monthly': return diffHours >= 24 * 30;
+    default: return false;
+  }
+};
+
+/**
+ * Starts the cloud-specific scheduler.
+ */
+const startCloudScheduler = (settings) => {
+  if (cloudSchedulerId) clearInterval(cloudSchedulerId);
+
+  if (!settings.cloud_backup_enabled) {
+    log('Cloud backup scheduler disabled.');
+    return;
+  }
+
+  log(`Cloud backup scheduler started. Frequency: ${settings.cloud_backup_frequency || settings.backup_frequency || 'daily'}`);
+
+  // Process queue immediately on start
+  processQueue();
+
+  // Check every 30 minutes for overdue cloud backups
+  cloudSchedulerId = setInterval(async () => {
+    if (isCloudBackupDue(settings)) {
+      log('Scheduled cloud backup is due. Triggering now...');
+      // We need a path for the temporary backup.
+      // We can use the systemHandlers:backup:runCloud logic here indirectly or just trigger it.
+      // But we are in main process, so we call backupManager to get the file first.
+      const backupManager = require('./backupManager');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const tempPath = path.join(app.getPath('temp'), `auto-cloud-backup-${timestamp}.qdb`);
+
+      // 1. Create the database file (locally in temp)
+      const localResult = await backupManager.runBackup({ ...settings }, tempPath);
+
+      if (localResult.success) {
+        log('Auto-cloud backup file created. Starting upload...');
+        // 2. Upload it to the cloud
+        await uploadBackup(tempPath, settings, 'النظام');
+      } else {
+        logError('Auto-cloud backup local creation failed:', localResult.message);
+      }
+
+      // 3. Cleanup temp file
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+      } catch (e) {
+        logWarn(`Auto-cloud backup cleanup error: ${e.message}`);
+      }
+    }
+
+    // Also process any pending queue
+    processQueue();
+  }, 30 * 60 * 1000);
+};
+
+/**
+ * Stops the cloud-specific scheduler.
+ */
+const stopCloudScheduler = () => {
+  if (cloudSchedulerId) {
+    clearInterval(cloudSchedulerId);
+    cloudSchedulerId = null;
+    log('Cloud backup scheduler stopped.');
   }
 };
 
@@ -462,5 +809,10 @@ module.exports = {
   uploadBackup,
   listCloudBackups,
   downloadBackup,
+  downloadFromLink,
   deleteBackup,
+  startCloudScheduler,
+  stopCloudScheduler,
+  isCloudBackupDue,
+  processQueue
 };

@@ -17,6 +17,8 @@ import {
   Image,
   Modal,
   Table,
+  OverlayTrigger,
+  Tooltip,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import InfoIcon from '@renderer/components/icons/InfoIcon';
@@ -41,13 +43,37 @@ const SettingsPage = () => {
   const [cloudBackups, setCloudBackups] = useState([]);
   const [isLoadingCloudBackups, setIsLoadingCloudBackups] = useState(false);
   const [isUploading, setIsUploading] = useState(null);
+  const [isDeletingCloud, setIsDeletingCloud] = useState(null); // stores backup id being deleted
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCloudHelp, setShowCloudHelp] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(null); // id of backup to delete
-  const [showRestoreConfirm, setShowRestoreConfirm] = useState(null); // backup object to restore
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  const formatSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  useEffect(() => {
+    const handleStatusChange = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, []);
+ // backup object to restore
+
+  const [showImportLinkModal, setShowImportLinkModal] = useState(false);
+  const [importLink, setImportLink] = useState('');
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -88,8 +114,13 @@ const SettingsPage = () => {
   const fetchCloudBackups = async () => {
     setIsLoadingCloudBackups(true);
     try {
-      const backups = await window.electronAPI.listCloudBackups();
-      setCloudBackups(backups || []);
+      const result = await window.electronAPI.listCloudBackups();
+      if (result.success) {
+        setCloudBackups(result.backups || []);
+      } else {
+        log('Failed to fetch cloud backups:', result.message);
+        setCloudBackups(result.backups || []); // Still show cached history
+      }
     } catch (err) {
       log('Failed to fetch cloud backups:', err);
     } finally {
@@ -146,10 +177,7 @@ const SettingsPage = () => {
     setIsBackingUp(true);
     toast.info('بدء عملية النسخ الاحتياطي...');
     try {
-      const response = await window.electronAPI.runBackup({
-        ...settings,
-        backup_path: settings.backup_path,
-      });
+      const response = await window.electronAPI.runBackup(settings);
       if (response.success) {
         toast.success(response.message);
         const statusResponse = await window.electronAPI.getBackupStatus();
@@ -167,6 +195,32 @@ const SettingsPage = () => {
     }
   };
 
+  const handleRunCloudBackup = async () => {
+    if (!settings.google_connected) {
+      toast.warn('يرجى ربط حساب Google أولاً.');
+      return;
+    }
+    setIsBackingUp(true);
+    toast.info('بدء النسخ السحابي...');
+    const creatorName = (user?.first_name && user?.last_name) 
+      ? `${user.first_name} ${user.last_name}` 
+      : (user?.username || 'مستخدم التطبيق');
+
+    try {
+      const res = await window.electronAPI.runCloudBackup(settings, creatorName);
+      if (res.success) {
+        toast.success('تم النسخ والرفع للسحابة بنجاح!');
+        fetchCloudBackups();
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      toast.error(`فشل النسخ السحابي: ${err.message}`);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
   const handleCopyLink = (link) => {
     navigator.clipboard.writeText(link);
     toast.success('تم نسخ الرابط إلى الحافظة.');
@@ -175,12 +229,19 @@ const SettingsPage = () => {
   const handleDeleteCloudBackup = async () => {
     const id = showDeleteModal;
     setShowDeleteModal(null);
+    setIsDeletingCloud(id);
     try {
-      await window.electronAPI.deleteCloudBackup(id);
-      toast.success('تم حذف النسخة بنجاح.');
-      fetchCloudBackups();
+      const result = await window.electronAPI.deleteCloudBackup(id);
+      if (result.success) {
+        toast.success(result.message || 'تم حذف النسخة بنجاح.');
+        fetchCloudBackups();
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       toast.error(`فشل الحذف: ${err.message}`);
+    } finally {
+      setIsDeletingCloud(null);
     }
   };
 
@@ -191,9 +252,13 @@ const SettingsPage = () => {
     setIsDownloading(true);
     toast.info('جارٍ تحميل النسخة من Google Drive وفك ضغطها...');
     try {
-      const filePath = await window.electronAPI.downloadCloudBackup(backup.driveFileId, backup.name);
-      toast.success('تم التحميل والتحقق بنجاح. يرجى تأكيد هويتك للمتابعة في الاستبدال.');
-      setShowPasswordModal(filePath);
+      const result = await window.electronAPI.downloadCloudBackup(backup.driveFileId, backup.name);
+      if (result.success) {
+        toast.success('تم التحميل والتحقق بنجاح. يرجى تأكيد هويتك للمتابعة في الاستبدال.');
+        setShowPasswordModal(result.path);
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       toast.error(`فشل التحميل: ${err.message}`);
     } finally {
@@ -235,6 +300,41 @@ const SettingsPage = () => {
     }
   };
 
+  const handleImportDb = async () => {
+    const response = await window.electronAPI.openFileDialog({
+      filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+      properties: ['openFile']
+    });
+    
+    if (response.canceled || !response.filePaths || response.filePaths.length === 0) {
+      return;
+    }
+
+    const filePath = response.filePaths[0];
+    setShowPasswordModal(filePath);
+  };
+
+  const handleImportFromLink = async () => {
+    if (!importLink) return;
+    setShowImportLinkModal(false);
+    setIsDownloading(true);
+    toast.info('جارٍ تحميل النسخة من الرابط...');
+    try {
+      const result = await window.electronAPI.downloadCloudBackupFromLink(importLink);
+      if (result.success) {
+        toast.success('تم التحميل بنجاح. يرجى تأكيد هويتك.');
+        setShowPasswordModal(result.path);
+        setImportLink('');
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error(`فشل التحميل من الرابط: ${err.message}`);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const handleConnectGoogle = async () => {
     setIsConnectingGoogle(true);
     try {
@@ -247,6 +347,8 @@ const SettingsPage = () => {
         });
         toast.success(`تم الربط بحساب ${result.email} بنجاح.`);
         fetchCloudBackups();
+      } else {
+        toast.error(result.message);
       }
     } catch (err) {
       toast.error(`فشل الربط: ${err.message}`);
@@ -257,14 +359,18 @@ const SettingsPage = () => {
 
   const handleDisconnectGoogle = async () => {
     try {
-      await window.electronAPI.disconnectGoogle();
-      setSettings({
-        ...settings,
-        google_connected: false,
-        google_account_email: '',
-      });
-      setCloudBackups([]);
-      toast.info('تم إلغاء الربط بحساب Google.');
+      const result = await window.electronAPI.disconnectGoogle();
+      if (result.success) {
+        setSettings({
+          ...settings,
+          google_connected: false,
+          google_account_email: '',
+        });
+        setCloudBackups([]);
+        toast.info(result.message || 'تم إلغاء الربط بحساب Google.');
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       toast.error(`فشل إلغاء الربط: ${err.message}`);
     }
@@ -373,11 +479,14 @@ const SettingsPage = () => {
                   </Tab>
 
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
-                    <Row>
-                      <Col lg={5}>
-                        <Card className="h-100 shadow-none border">
+                    <Row className="g-4">
+                      {/* Local Backup Section */}
+                      <Col md={12}>
+                        <Card className="shadow-sm border">
                           <Card.Body>
-                            <h6>الإعدادات المحلية</h6>
+                            <div className="d-flex align-items-center mb-3 text-primary border-bottom pb-2">
+                              <h5 className="mb-0">النسخ الاحتياطي المحلي</h5>
+                            </div>
                             <Form.Group className="mb-3">
                               <Form.Label className="small text-muted">مسار حفظ النسخ الاحتياطي</Form.Label>
                               <InputGroup size="sm">
@@ -405,9 +514,6 @@ const SettingsPage = () => {
                               </Col>
                             </Row>
                             <div className="d-grid gap-2">
-                              <Button variant="info" size="sm" onClick={handleRunBackup} disabled={isBackingUp || !settings.backup_path}>
-                                {isBackingUp ? <Spinner size="sm" className="me-2" /> : 'نسخ احتياطي فوري الآن'}
-                              </Button>
                               <Button variant="outline-danger" size="sm" onClick={() => handleImportDb()} disabled={isImporting || isBackingUp}>
                                 استيراد قاعدة بيانات محلية
                               </Button>
@@ -425,41 +531,120 @@ const SettingsPage = () => {
                         </Card>
                       </Col>
 
-                      <Col lg={7}>
-                        <Card className="h-100 shadow-none border">
-                          <Card.Body>
-                            <div className="d-flex justify-content-between align-items-center mb-3">
-                              <h6>النسخ السحابي (Google Drive)</h6>
+                      {/* Cloud Backup Section */}
+                      <Col md={12}>
+                        <Card className="shadow-sm border position-relative">
+                          <Card.Body className="position-relative">
+                            <div className="d-flex justify-content-between align-items-center mb-3 text-primary border-bottom pb-2">
+                              <h5 className="mb-0">النسخ السحابي (Google Drive)</h5>
                               <Button variant="link" className="p-0 text-info" onClick={() => setShowCloudHelp(true)} title="كيفية الربط والاشتراك؟"><InfoIcon size={18} /></Button>
                             </div>
+
+                            {!isOnline && (
+                              <Alert variant="danger" dismissible onClose={() => {}} className="py-2 small mb-3 border-0 shadow-sm d-flex align-items-center justify-content-between">
+                                <div>
+                                  <i className="bi bi-wifi-off me-2 ms-2"></i>
+                                  <strong>عذراً:</strong> لا يمكنك إجراء عمليات سحابية وأنت غير متصل بالإنترنت.
+                                </div>
+                              </Alert>
+                            )}
 
                             <div className="mb-4">
                               {!settings.google_connected ? (
                                 <div className="text-center p-3 border rounded bg-light">
                                   <p className="small text-muted mb-3">اربط حساب Gmail الخاص بالفرع لمشاركة النسخ بين الأجهزة.</p>
-                                  <Button variant="outline-danger" size="sm" onClick={handleConnectGoogle} disabled={isConnectingGoogle}>
-                                    {isConnectingGoogle ? <Spinner size="sm" /> : <Image src="https://www.google.com/favicon.ico" width={14} className="me-2 ms-2" />}
-                                    ربط حساب Google
-                                  </Button>
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip id="offline-tooltip">أنت غير متصل بالإنترنت، لا يمكن تنفيذ هذا الإجراء</Tooltip>}
+                                    trigger={!isOnline ? ['hover', 'focus'] : []}
+                                  >
+                                    <span className="d-inline-block">
+                                      <Button variant="outline-danger" size="sm" onClick={handleConnectGoogle} disabled={isConnectingGoogle || !isOnline}>
+                                        {isConnectingGoogle ? <Spinner size="sm" /> : <Image src="https://www.google.com/favicon.ico" width={14} className="me-2 ms-2" />}
+                                        ربط حساب Google
+                                      </Button>
+                                    </span>
+                                  </OverlayTrigger>
                                 </div>
                               ) : (
                                 <div className="p-2 border rounded bg-light d-flex justify-content-between align-items-center">
                                   <div className="small overflow-hidden text-nowrap">
-                                    <span className="badge bg-success me-2 ms-2">متصل</span>
-                                    <strong>{settings.google_account_email}</strong>
+                                    <span className={`badge ${isOnline ? 'bg-success' : 'bg-secondary'} me-2 ms-2`}>
+                                      {isOnline ? 'متصل' : 'غير متصل (مؤقت)'}
+                                    </span>
+                                    <strong className={!isOnline ? 'text-muted' : ''}>{settings.google_account_email}</strong>
                                   </div>
-                                  <Button variant="link" size="sm" className="text-muted p-0" onClick={handleDisconnectGoogle}>إلغاء</Button>
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip id="offline-tooltip">أنت غير متصل بالإنترنت</Tooltip>}
+                                    trigger={!isOnline ? ['hover', 'focus'] : []}
+                                  >
+                                    <span className="d-inline-block">
+                                      <Button variant="link" size="sm" className="text-muted p-0" onClick={handleDisconnectGoogle} disabled={!isOnline}>إلغاء</Button>
+                                    </span>
+                                  </OverlayTrigger>
                                 </div>
                               )}
                             </div>
 
-                            <Form.Check type="switch" label="رفع تلقائي للسحابة عند كل نسخة ناجحة" name="cloud_backup_enabled" checked={settings.cloud_backup_enabled || false} onChange={handleChange} disabled={!settings.google_connected} className="mb-3 small" />
+                            <Form.Check type="switch" label="تفعيل النسخ السحابي التلقائي" name="cloud_backup_enabled" checked={settings.cloud_backup_enabled || false} onChange={handleChange} disabled={!settings.google_connected || !isOnline} className="mb-3 small font-weight-bold" />
+                            
+                            <Row className="mb-3">
+                              <Col md={6}>
+                                <Form.Group>
+                                  <Form.Label className="small">تكرار النسخ السحابي</Form.Label>
+                                  <Form.Select size="sm" name="cloud_backup_frequency" value={settings.cloud_backup_frequency || 'daily'} onChange={handleChange} disabled={!settings.cloud_backup_enabled}>
+                                    <option value="daily">يوميًا</option>
+                                    <option value="weekly">أسبوعيًا</option>
+                                    <option value="monthly">شهريًا</option>
+                                  </Form.Select>
+                                </Form.Group>
+                              </Col>
+                              <Col md={6}>
+                                <Form.Label className="small">ملاحظة</Form.Label>
+                                <div className="small text-muted mt-1">يعمل بشكل مستقل عن النسخ المحلي.</div>
+                              </Col>
+                            </Row>
 
                             <div className="d-flex justify-content-between align-items-center mb-2 border-top pt-3">
                               <h6 className="mb-0 small font-weight-bold">تاريخ النسخ السحابية</h6>
-                              <Button variant="link" size="sm" className="p-0" onClick={fetchCloudBackups} disabled={isLoadingCloudBackups}>
-                                {isLoadingCloudBackups ? <Spinner size="sm" /> : 'تحديث'}
-                              </Button>
+                              <div className="d-flex gap-2">
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={<Tooltip id="offline-tooltip">أنت غير متصل بالإنترنت</Tooltip>}
+                                  trigger={!isOnline ? ['hover', 'focus'] : []}
+                                >
+                                  <span className="d-inline-block">
+                                    <Button variant="outline-success" size="sm" onClick={() => handleRunCloudBackup()} disabled={isBackingUp || !settings.google_connected || !isOnline}>
+                                      {isBackingUp ? <Spinner size="sm" /> : 'نسخ ورفع'}
+                                    </Button>
+                                  </span>
+                                </OverlayTrigger>
+
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={<Tooltip id="offline-tooltip">أنت غير متصل بالإنترنت</Tooltip>}
+                                  trigger={!isOnline ? ['hover', 'focus'] : []}
+                                >
+                                  <span className="d-inline-block">
+                                    <Button variant="outline-primary" size="sm" onClick={() => setShowImportLinkModal(true)} disabled={isImporting || !isOnline}>
+                                      استيراد من رابط
+                                    </Button>
+                                  </span>
+                                </OverlayTrigger>
+
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={<Tooltip id="offline-tooltip">أنت غير متصل بالإنترنت</Tooltip>}
+                                  trigger={!isOnline ? ['hover', 'focus'] : []}
+                                >
+                                  <span className="d-inline-block">
+                                    <Button variant="link" size="sm" className="p-0" onClick={fetchCloudBackups} disabled={isLoadingCloudBackups || !isOnline}>
+                                      {isLoadingCloudBackups ? <Spinner size="sm" /> : 'تحديث'}
+                                    </Button>
+                                  </span>
+                                </OverlayTrigger>
+                              </div>
                             </div>
 
                             <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
@@ -467,13 +652,14 @@ const SettingsPage = () => {
                                 <thead className="table-light sticky-top">
                                   <tr>
                                     <th>التاريخ</th>
+                                    <th>بواسطة</th>
                                     <th>الحجم</th>
                                     <th>الإجراءات</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {cloudBackups.length === 0 ? (
-                                    <tr><td colSpan="3" className="text-center py-4 text-muted">لا توجد نسخ سحابية.</td></tr>
+                                    <tr><td colSpan="4" className="text-center py-4 text-muted">لا توجد نسخ سحابية.</td></tr>
                                   ) : (
                                     cloudBackups.map(backup => (
                                       <tr key={backup.id} className={backup.status === 'pending' ? 'table-warning' : ''}>
@@ -481,12 +667,37 @@ const SettingsPage = () => {
                                           {new Date(backup.createdAt).toLocaleString()}
                                           {backup.status === 'pending' && <span className="badge bg-warning text-dark ms-2 ms-2">انتظار</span>}
                                         </td>
-                                        <td>{(backup.size / 1024 / 1024).toFixed(2)} MB</td>
+                                        <td className="text-muted" style={{ fontSize: '0.8rem' }}>
+                                          <div className="fw-bold text-dark">{backup.createdBy || 'مستخدم التطبيق'}</div>
+                                        </td>
+                                        <td>{formatSize(backup.size)}</td>
                                         <td>
                                           <div className="d-flex gap-2 justify-content-end">
-                                            <Button variant="outline-primary" size="sm" className="p-1" title="استرجاع" onClick={() => setShowRestoreConfirm(backup)} disabled={isDownloading || backup.status === 'pending'}><DownloadIcon size={16} /></Button>
-                                            <Button variant="outline-info" size="sm" className="p-1" title="نسخ رابط المشاركة" onClick={() => handleCopyLink(backup.shareableLink)} disabled={backup.status === 'pending'}><CopyIcon size={16} /></Button>
-                                            <Button variant="outline-danger" size="sm" className="p-1" title="حذف" onClick={() => setShowDeleteModal(backup.id)}><TrashIcon size={16} /></Button>
+                                            <OverlayTrigger placement="top" overlay={<Tooltip>استرجاع</Tooltip>} trigger={!isOnline ? ['hover', 'focus'] : []}>
+                                              <span className="d-inline-block">
+                                                <Button variant="outline-primary" size="sm" className="p-1" onClick={() => setShowRestoreConfirm(backup)} disabled={isDownloading || backup.status === 'pending' || !isOnline}><DownloadIcon size={16} /></Button>
+                                              </span>
+                                            </OverlayTrigger>
+
+                                            <OverlayTrigger placement="top" overlay={<Tooltip>نسخ الرابط</Tooltip>} trigger={!isOnline ? ['hover', 'focus'] : []}>
+                                              <span className="d-inline-block">
+                                                <Button variant="outline-info" size="sm" className="p-1" onClick={() => handleCopyLink(backup.shareableLink)} disabled={backup.status === 'pending' || !isOnline}><CopyIcon size={16} /></Button>
+                                              </span>
+                                            </OverlayTrigger>
+
+                                            <OverlayTrigger placement="top" overlay={<Tooltip>حذف</Tooltip>} trigger={!isOnline ? ['hover', 'focus'] : []}>
+                                              <span className="d-inline-block">
+                                                <Button 
+                                                  variant="outline-danger" 
+                                                  size="sm" 
+                                                  className="p-1" 
+                                                  onClick={() => setShowDeleteModal(backup.id)} 
+                                                  disabled={!isOnline || isDeletingCloud === backup.id}
+                                                >
+                                                  {isDeletingCloud === backup.id ? <Spinner size="sm" /> : <TrashIcon size={16} />}
+                                                </Button>
+                                              </span>
+                                            </OverlayTrigger>
                                           </div>
                                         </td>
                                       </tr>
@@ -544,8 +755,8 @@ const SettingsPage = () => {
           <div className="p-3 border rounded bg-light small mt-3">
             <strong>تفاصيل النسخة:</strong><br />
             - التاريخ: {showRestoreConfirm && new Date(showRestoreConfirm.createdAt).toLocaleString()}<br />
-            - المالك: {showRestoreConfirm && showRestoreConfirm.createdBy}<br />
-            - الحجم: {showRestoreConfirm && (showRestoreConfirm.size / 1024 / 1024).toFixed(2)} MB
+            - المنشئ: {showRestoreConfirm && (showRestoreConfirm.createdBy || 'مستخدم التطبيق')}<br />
+            - الحجم: {showRestoreConfirm && formatSize(showRestoreConfirm.size)}
           </div>
           <p className="mt-3">هل تود المتابعة؟ سيطلب منك إدخال كلمة المرور للتأكيد النهائي.</p>
         </Modal.Body>
@@ -562,6 +773,30 @@ const SettingsPage = () => {
         title="الخطوة الأخيرة: تأكيد الهوية"
         body="يرجى إدخال كلمة المرور الخاصة بك لتأكيد استبدال قاعدة البيانات وإعادة تشغيل التطبيق."
       />
+
+      <Modal show={showImportLinkModal} onHide={() => setShowImportLinkModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title size="sm">استيراد نسخة سحابية من رابط</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>رابط المشاركة (Google Drive Link)</Form.Label>
+            <Form.Control 
+              type="text" 
+              placeholder="https://drive.google.com/..." 
+              value={importLink} 
+              onChange={(e) => setImportLink(e.target.value)} 
+            />
+            <Form.Text className="text-muted">
+              يرجى التأكد من أن الرابط صالح ومتاح للمشاركة.
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImportLinkModal(false)}>إلغاء</Button>
+          <Button variant="primary" onClick={handleImportFromLink} disabled={!importLink}>تحميل واستيراد</Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Help Modal */}
       <Modal show={showCloudHelp} onHide={() => setShowCloudHelp(false)} centered size="lg">

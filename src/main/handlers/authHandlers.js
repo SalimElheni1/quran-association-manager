@@ -202,6 +202,8 @@ function registerAuthHandlers() {
         user: {
           id: user.id,
           username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
           roles: userRoles,
           need_guide: !!user.need_guide, // Ensure need_guide is passed to the renderer
         },

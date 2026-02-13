@@ -17,7 +17,7 @@ const {
   generateMonthlyFeeCharges,
   getCurrentAcademicYear,
 } = require('./handlers/studentFeeHandlers');
-const { log, error: logError } = require('./logger');
+const { log, error: logError, warn: logWarn } = require('./logger');
 
 let schedulerIntervalId = null;
 
@@ -75,16 +75,13 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false
 
     log(`Generating monthly charges for ${academicYear}, month ${month}...`);
 
-    // Wrap in transaction for safety
-    await db.runQuery('BEGIN TRANSACTION;');
-    try {
-      await generateMonthlyFeeCharges(academicYear, month);
-      await db.runQuery('COMMIT;');
+    const result = await generateMonthlyFeeCharges(academicYear, month);
+    if (result && result.success) {
       log(`Successfully generated monthly charges for ${academicYear}, month ${month}`);
       return true;
-    } catch (genError) {
-      await db.runQuery('ROLLBACK;');
-      throw genError;
+    } else {
+      logWarn(`Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`);
+      return false;
     }
   } catch (error) {
     logError(`Failed to generate monthly charges for ${academicYear}, month ${month}:`, error);
@@ -131,7 +128,8 @@ const onAppStartup = async (settings) => {
 
     log('[Startup] Charge check completed');
   } catch (error) {
-    logError('[Startup] Error checking charges:', error);
+    // CRITICAL: We catch but don't rethrow to ensure app startup finishes
+    logError('[Startup] Non-fatal error during missing charges check:', error);
   }
 };
 

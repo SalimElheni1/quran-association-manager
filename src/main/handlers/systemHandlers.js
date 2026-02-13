@@ -1,6 +1,7 @@
 const { ipcMain, app, dialog } = require('electron');
+const path = require('path');
 const db = require('../../db/db');
-const { error: logError, getLogFilePath, clearLogFile } = require('../logger');
+const { log, warn: logWarn, error: logError, getLogFilePath, clearLogFile } = require('../logger');
 const fs = require('fs');
 
 const exportManager = require('../exportManager');
@@ -177,23 +178,66 @@ function registerSystemHandlers() {
 
   ipcMain.handle('backup:run', async (_event, settings) => {
     try {
-      if (!settings || !settings.backup_path) {
-        throw new Error('Backup path is required.');
-      }
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        title: 'Save Database Backup',
-        defaultPath: `backup-${timestamp}.qdb`,
-        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
-      });
+      let backupFilePath = null;
 
-      if (canceled || !filePath) {
-        return { success: false, message: 'Backup canceled by user.' };
+      if (settings.backup_path) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        backupFilePath = path.join(settings.backup_path, `manual-backup-${timestamp}.qdb`);
+      } else {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          title: 'Save Database Backup',
+          defaultPath: `backup-${timestamp}.qdb`,
+          filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+        });
+
+        if (canceled || !filePath) {
+          return { success: false, message: 'Backup canceled by user.' };
+        }
+        backupFilePath = filePath;
       }
 
-      return await backupManager.runBackup(settings, filePath);
+      log(`Starting manual backup to: ${backupFilePath}`);
+      return await backupManager.runBackup(settings, backupFilePath);
     } catch (error) {
       logError('Error in backup:run IPC wrapper:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('backup:runCloud', async (_event, settings, createdBy) => {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const tempPath = path.join(app.getPath('temp'), `cloud-backup-${timestamp}.qdb`);
+
+      log(`Starting manual cloud backup to temp path: ${tempPath}`);
+
+      // Force cloud backup to be enabled for this specific call
+      const cloudSettings = { ...settings, cloud_backup_enabled: true };
+
+      // 1. Create a local backup file first (in temp)
+      const localResult = await backupManager.runBackup(cloudSettings, tempPath);
+      if (!localResult.success) {
+        return localResult;
+      }
+
+      // 2. Upload it to the cloud explicitly
+      const cloudBackupManager = require('../cloudBackupManager');
+      const result = await cloudBackupManager.uploadBackup(tempPath, cloudSettings, createdBy);
+
+      // Cleanup the temporary file after upload (runBackup handles the upload)
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+          log(`Temporary backup file deleted: ${tempPath}`);
+        }
+      } catch (unlinkError) {
+        logWarn(`Failed to delete temporary backup file: ${unlinkError.message}`);
+      }
+
+      return result;
+    } catch (error) {
+      logError('Error in backup:runCloud IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -255,10 +299,11 @@ function registerSystemHandlers() {
   ipcMain.handle('backup:listCloud', async (_event, settings) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.listCloudBackups(settings);
+      const result = await cloudBackupManager.listCloudBackups(settings);
+      return result; // Now returns { success, backups, message }
     } catch (error) {
       logError('Error in backup:listCloud IPC wrapper:', error);
-      return [];
+      return { success: false, backups: [], message: error.message };
     }
   });
 
@@ -268,7 +313,17 @@ function registerSystemHandlers() {
       return await cloudBackupManager.downloadBackup(fileId, fileName);
     } catch (error) {
       logError('Error in backup:downloadCloud IPC wrapper:', error);
-      throw error;
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('backup:downloadFromLink', async (_event, link) => {
+    try {
+      const cloudBackupManager = require('../cloudBackupManager');
+      return await cloudBackupManager.downloadFromLink(link);
+    } catch (error) {
+      logError('Error in backup:downloadFromLink IPC wrapper:', error);
+      return { success: false, message: error.message };
     }
   });
 
@@ -278,17 +333,18 @@ function registerSystemHandlers() {
       return await cloudBackupManager.deleteBackup(id);
     } catch (error) {
       logError('Error in backup:deleteCloud IPC wrapper:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   });
 
   ipcMain.handle('backup:googleConnect', async () => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.connectGoogle();
+      const result = await cloudBackupManager.connectGoogle();
+      return result; // Usually returns { success: true, email: ... }
     } catch (error) {
       logError('Error in backup:googleConnect IPC wrapper:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   });
 
@@ -298,7 +354,7 @@ function registerSystemHandlers() {
       return await cloudBackupManager.disconnectGoogle();
     } catch (error) {
       logError('Error in backup:googleDisconnect IPC wrapper:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   });
 
