@@ -173,9 +173,25 @@ const connectGoogle = async () => {
 const disconnectGoogle = async () => {
   store.delete('google_tokens');
   store.delete('google_tokens_encrypted');
+  store.delete('cloud_backups');
   oauth2Client.setCredentials(null);
-  log('Google Drive: Disconnected.');
-  return { success: true };
+
+  // Persist disconnect state to the database
+  try {
+    const { internalUpdateSettingsHandler, internalGetSettingsHandler } = require('./handlers/settingsHandlers');
+    const { settings: currentSettings } = await internalGetSettingsHandler();
+    await internalUpdateSettingsHandler({
+      ...currentSettings,
+      google_connected: false,
+      google_account_email: '',
+      cloud_backup_enabled: false,
+    });
+    log('Google Drive: Disconnected and settings persisted to database.');
+  } catch (err) {
+    logError('Google Drive: Disconnected tokens but failed to persist settings:', err);
+  }
+
+  return { success: true, message: 'تم إلغاء الربط بحساب Google.' };
 };
 
 /**

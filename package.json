@@ -1,6 +1,6 @@
 {
   "name": "quran-branch-manager",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Desktop application for managing Quran association branches.",
   "main": "src/main/index.js",
   "author": "Salim Elheni",
@@ -11,6 +11,7 @@
     "dev": "concurrently \"npm:react-dev\" \"wait-on http://localhost:3000 && npm run electron-start\"",
     "build": "vite build",
     "dist": "npm run build && node -r dotenv/config ./node_modules/.bin/electron-builder --win",
+    "postdist": "electron-builder install-app-deps",
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
