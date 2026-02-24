@@ -1731,6 +1731,7 @@ async function checkAndGenerateChargesForAllStudents(settings) {
       log(
         '[checkAndGenerateChargesForAllStudents] No settings provided, fetching from database...',
       );
+      const { internalGetSettingsHandler } = require('./settingsHandlers');
       const { settings: dbSettings } = await internalGetSettingsHandler();
       settings = dbSettings;
     }
