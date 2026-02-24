@@ -515,7 +515,10 @@ const SettingsPage = () => {
                                 </Form.Group>
                               </Col>
                             </Row>
-                            <div className="d-grid gap-2">
+                            <div className="d-flex gap-2">
+                              <Button variant="outline-success" size="sm" onClick={handleRunBackup} disabled={isBackingUp || !settings.backup_path}>
+                                {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
+                              </Button>
                               <Button variant="outline-danger" size="sm" onClick={() => handleImportDb()} disabled={isImporting || isBackingUp}>
                                 استيراد قاعدة بيانات محلية
                               </Button>
@@ -534,7 +537,7 @@ const SettingsPage = () => {
                       </Col>
 
                       {/* Cloud Backup Section */}
-                      <Col md={12}>
+                      {/* <Col md={12}>
                         <Card className="shadow-sm border position-relative">
                           <Card.Body className="position-relative">
                             <div className="d-flex justify-content-between align-items-center mb-3 text-primary border-bottom pb-2">
@@ -713,7 +716,7 @@ const SettingsPage = () => {
                             </>)}
                           </Card.Body>
                         </Card>
-                      </Col>
+                      </Col> */}
                     </Row>
                   </Tab>
                 </Tabs>
