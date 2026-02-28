@@ -188,7 +188,10 @@ function registerSystemHandlers() {
         const { canceled, filePath } = await dialog.showSaveDialog({
           title: 'Save Database Backup',
           defaultPath: `backup-${timestamp}.qdb`,
-          filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+          filters: [
+            { name: 'Quran DB Backups (*.qdb)', extensions: ['qdb', 'QDB'] },
+            { name: 'All Files (*.*)', extensions: ['*'] },
+          ],
         });
 
         if (canceled || !filePath) {
@@ -272,7 +275,10 @@ function registerSystemHandlers() {
         const { canceled, filePaths } = await dialog.showOpenDialog({
           title: 'Select Database to Import',
           properties: ['openFile'],
-          filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+          filters: [
+            { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
+            { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
+          ],
         });
         if (canceled || !filePaths || !filePaths[0]) {
           return { success: false, message: 'لم يتم تحديد أي ملف.' };

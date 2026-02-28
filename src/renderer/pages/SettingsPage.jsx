@@ -304,8 +304,11 @@ const SettingsPage = () => {
 
   const handleImportDb = async () => {
     const response = await window.electronAPI.openFileDialog({
-      filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
-      properties: ['openFile']
+      filters: [
+        { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
+        { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
     });
     
     if (response.canceled || !response.filePaths || response.filePaths.length === 0) {

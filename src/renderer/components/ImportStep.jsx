@@ -28,7 +28,10 @@ function ImportStep({ step, onComplete, result, disabled }) {
   const handleFileSelect = async () => {
     try {
       const result = await window.electronAPI.openFileDialog({
-        filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }],
+        filters: [
+          { name: 'Excel Files / ملفات إكسيل (*.xlsx, *.xls)', extensions: ['xlsx', 'xls'] },
+          { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
+        ],
         properties: ['openFile'],
       });
 
