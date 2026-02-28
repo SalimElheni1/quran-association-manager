@@ -13,8 +13,8 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
       const result = await window.electronAPI.openFileDialog({
         title: 'اختر ملف Excel للاستيراد',
         filters: [
-          { name: 'ملفات Excel', extensions: ['xlsx', 'xls'] },
-          { name: 'جميع الملفات', extensions: ['*'] },
+          { name: 'Excel Files / ملفات إكسيل (*.xlsx, *.xls)', extensions: ['xlsx', 'xls'] },
+          { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
         ],
       });
 
