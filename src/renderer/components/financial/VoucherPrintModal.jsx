@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 /**
  * VoucherPrintModal - Print receipt or payment voucher
@@ -18,10 +19,7 @@ function VoucherPrintModal({ show, transaction, onHide }) {
   };
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('ar-TN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return formatTND(amount, 2);
   };
 
   const formatDate = (date) => {

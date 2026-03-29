@@ -1,6 +1,7 @@
-import React from 'react';
-import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
+import { Modal, Button, Row, Col, Badge, Spinner } from 'react-bootstrap';
 import UserCircleIcon from './icons/UserCircleIcon';
+import { useState, useEffect } from 'react';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
   if (!value) return null;
@@ -20,9 +21,43 @@ function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' 
     </Col>
   );
 }
-
 function StudentDetailsModal({ show, handleClose, student }) {
   if (!student) return null;
+
+  const [balanceSummary, setBalanceSummary] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [historyData, setHistoryData] = useState({ charges: [], payments: [] });
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (show && student?.id) {
+      const fetchData = async () => {
+        try {
+          setLoadingBalance(true);
+          setLoadingHistory(true);
+          const summary = await window.electronAPI.studentFeesGetBalanceSummary(student.id);
+          setBalanceSummary(summary);
+          
+          // Fetch payments for the current year
+          const currentYear = new Date().getFullYear().toString();
+          const payments = await window.electronAPI.studentFeesGetPaymentHistory(student.id, currentYear);
+          setHistoryData({ 
+            charges: summary.charges || [], 
+            payments: payments || [] 
+          });
+        } catch (error) {
+          console.error('Error fetching student details:', error);
+        } finally {
+          setLoadingBalance(false);
+          setLoadingHistory(false);
+        }
+      };
+      fetchData();
+    } else {
+      setBalanceSummary(null);
+      setHistoryData({ charges: [], payments: [] });
+    }
+  }, [show, student]);
 
   const calculateAge = (dob) => {
     if (!dob) return null;
@@ -46,6 +81,12 @@ function StudentDetailsModal({ show, handleClose, student }) {
     Female: 'أنثى',
   };
 
+  const feeCategoryTranslations = {
+    CAN_PAY: 'قادر على الدفع',
+    EXEMPT: 'معفى من الرسوم',
+    SPONSORED: 'مكفول',
+  };
+
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">
       <Modal.Header closeButton>
@@ -58,7 +99,7 @@ function StudentDetailsModal({ show, handleClose, student }) {
         {/* Personal Info */}
         <h5 className="form-section-title">المعلومات الشخصية</h5>
         <Row>
-          <DetailItem label="الاسم الكامل" value={student.name} />
+          <DetailItem label="الاسم واللقب" value={student.name} />
           <DetailItem
             label="تاريخ الميلاد"
             value={
@@ -85,6 +126,60 @@ function StudentDetailsModal({ show, handleClose, student }) {
               <DetailItem label="هاتف ولي الأمر" value={student.parent_contact} />
               <DetailItem label="بريد ولي الأمر" value={student.guardian_email} />
             </Row>
+          </>
+        )}
+
+        {/* Financial Info */}
+        <h5 className="form-section-title">المعلومات المالية</h5>
+        <Row>
+          <DetailItem 
+            label="فئة الرسوم" 
+            value={feeCategoryTranslations[student.fee_category] || student.fee_category} 
+            isBadge
+            badgeVariant={student.fee_category === 'EXEMPT' ? 'secondary' : student.fee_category === 'SPONSORED' ? 'info' : 'primary'}
+          />
+          {student.custom_fee_amount > 0 ? (
+            <DetailItem label="المعلوم الشهري القار" value={`${formatTND(student.custom_fee_amount, 3)} د.ت`} />
+          ) : student.discount_percentage > 0 ? (
+            <DetailItem label="قيمة الخصم" value={`${formatTND(student.discount_percentage, 3)} د.ت`} />
+          ) : null}
+          {student.discount_reason && (
+            <DetailItem label="سبب الخصم" value={student.discount_reason} />
+          )}
+        </Row>
+
+        {student.fee_category === 'SPONSORED' && (
+          <>
+            <h5 className="form-section-title">معلومات الكفالة</h5>
+            <Row>
+              <DetailItem label="اسم الكافل" value={student.sponsor_name} />
+              <DetailItem label="هاتف الكافل" value={student.sponsor_phone} />
+              <DetailItem label="رقم هوية الكافل" value={student.sponsor_cin} />
+            </Row>
+          </>
+        )}
+
+        {student.fee_category !== 'EXEMPT' && (
+          <>
+            <h5 className="form-section-title">الملخص المالي</h5>
+            {loadingBalance ? (
+              <div className="text-center p-3">
+                <Spinner animation="border" size="sm" />
+              </div>
+            ) : balanceSummary ? (
+              <Row>
+                <DetailItem label="إجمالي المستحق" value={`${formatTND(balanceSummary.totalDue, 3)} د.ت`} />
+                <DetailItem label="إجمالي المدفوع" value={`${formatTND(balanceSummary.totalPaid, 3)} د.ت`} />
+                <DetailItem 
+                  label={balanceSummary.displayLabel} 
+                  value={`${formatTND(balanceSummary.displayAmount, 3)} د.ت`}
+                  isBadge
+                  badgeVariant={balanceSummary.displayType === 'owed' ? 'danger' : 'success'}
+                />
+              </Row>
+            ) : (
+              <div className="text-center p-3 text-muted">لا توجد بيانات مالية متاحة.</div>
+            )}
           </>
         )}
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import ExpenseFormModal from '@renderer/components/financials/ExpenseFormModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import { error as logError } from '@renderer/utils/logger';
 
 function ExpensesTab() {
@@ -12,6 +14,10 @@ function ExpensesTab() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchExpenses = async () => {
     try {
@@ -78,6 +84,21 @@ function ExpensesTab() {
     }
   };
 
+  // Pagination logic
+  const totalItems = expenses.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedExpenses = expenses.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -114,12 +135,12 @@ function ExpensesTab() {
           </tr>
         </thead>
         <tbody>
-          {expenses.length > 0 ? (
-            expenses.map((expense) => (
+          {paginatedExpenses.length > 0 ? (
+            paginatedExpenses.map((expense) => (
               <tr key={expense.id}>
                 <td>{expense.id}</td>
                 <td>{expense.category}</td>
-                <td className="text-start">{expense.amount.toFixed(2)}</td>
+                <td className="text-start">{formatTND(expense.amount, 2)} د.ت</td>
                 <td>{new Date(expense.expense_date).toLocaleDateString()}</td>
                 <td>{expense.responsible_person}</td>
                 <td>{expense.description}</td>
@@ -151,6 +172,15 @@ function ExpensesTab() {
           )}
         </tbody>
       </Table>
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <ExpenseFormModal
         show={showModal}

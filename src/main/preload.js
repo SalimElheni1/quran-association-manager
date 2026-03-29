@@ -258,6 +258,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAttendance: (data) => ipcRenderer.invoke('attendance:save', data),
   getAttendanceSummaryForClass: (classId) =>
     ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
+  getAttendanceHistoryByStudent: (studentId) =>
+    ipcRenderer.invoke('attendance:getHistoryByStudent', { studentId }),
 
   // Financials API
   getExpenses: () => ipcRenderer.invoke('get-expenses'),
@@ -327,6 +329,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
   studentFeesRefreshAllStudentCharges: (data) =>
     ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
+  resetAndRegenerateFees: () => ipcRenderer.invoke('student-fees:resetAndRegenerate'),
 
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),

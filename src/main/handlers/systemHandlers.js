@@ -96,7 +96,7 @@ function registerSystemHandlers() {
         if (format === 'pdf') {
           await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
         } else if (format === 'xlsx') {
-          await exportManager.generateXlsx(columns, data, filePath, sheetName);
+          await exportManager.generateXlsx(exportType, columns, data, filePath, sheetName);
         } else if (format === 'docx') {
           await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
         } else {

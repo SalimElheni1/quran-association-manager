@@ -35,8 +35,8 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         if (settingsResponse.success) {
           setAdultAgeThreshold(settingsResponse.settings.adultAgeThreshold || 18);
         }
-        const studentsResult = await window.electronAPI.getStudents();
-        setStudents(studentsResult);
+        const studentsResult = await window.electronAPI.getStudents({ limit: 1000 });
+        setStudents(studentsResult.students || []);
       } catch (err) {
         logError('Failed to fetch initial data:', err);
       }

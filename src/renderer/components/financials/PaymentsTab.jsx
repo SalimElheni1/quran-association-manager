@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import PaymentFormModal from '@renderer/components/financials/PaymentFormModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import { error as logError } from '@renderer/utils/logger';
 import { getPaymentMethodLabel } from '@renderer/utils/paymentMethods';
 
@@ -13,6 +15,10 @@ function PaymentsTab() {
   const [editingPayment, setEditingPayment] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchPayments = async () => {
     try {
@@ -77,6 +83,21 @@ function PaymentsTab() {
     }
   };
 
+  // Pagination logic
+  const totalItems = payments.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -114,12 +135,12 @@ function PaymentsTab() {
           </tr>
         </thead>
         <tbody>
-          {payments.length > 0 ? (
-            payments.map((payment) => (
+          {paginatedPayments.length > 0 ? (
+            paginatedPayments.map((payment) => (
               <tr key={payment.id}>
                 <td>{payment.id}</td>
                 <td>{payment.student_name}</td>
-                <td className="text-start">{payment.amount.toFixed(2)}</td>
+                <td className="text-start">{formatTND(payment.amount, 2)} د.ت</td>
                 <td>{getPaymentMethodLabel(payment.payment_method)}</td>
                 <td>{payment.receipt_number || '-'}</td>
                 <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
@@ -152,6 +173,15 @@ function PaymentsTab() {
           )}
         </tbody>
       </Table>
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <PaymentFormModal
         show={showModal}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert, Badge } from 'react-bootstrap';
 import ReceiptBookFormModal from './ReceiptBookFormModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import { error as logError } from '@renderer/utils/logger';
 
@@ -31,6 +32,10 @@ function ReceiptBooksTab() {
   const [editingBook, setEditingBook] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bookToDelete, setBookToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchBooks = async () => {
     try {
@@ -101,6 +106,21 @@ function ReceiptBooksTab() {
     return { used, total, percentage: ((used / total) * 100).toFixed(0) };
   };
 
+  // Pagination logic
+  const totalItems = books.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedBooks = books.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -138,8 +158,8 @@ function ReceiptBooksTab() {
           </tr>
         </thead>
         <tbody>
-          {books.length > 0 ? (
-            books.map((book) => {
+          {paginatedBooks.length > 0 ? (
+            paginatedBooks.map((book) => {
               const progress = getProgress(book);
               return (
                 <tr key={book.id}>
@@ -185,6 +205,15 @@ function ReceiptBooksTab() {
           )}
         </tbody>
       </Table>
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <ReceiptBookFormModal
         show={showModal}

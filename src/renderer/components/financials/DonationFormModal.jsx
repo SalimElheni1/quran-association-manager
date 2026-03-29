@@ -269,7 +269,7 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
             <Form.Label>
-              اسم المتبرع<span className="text-danger">*</span>
+              الاسم واللقب<span className="text-danger">*</span>
             </Form.Label>
             <Form.Control
               type="text"

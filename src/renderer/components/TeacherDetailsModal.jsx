@@ -43,7 +43,7 @@ function TeacherDetailsModal({ show, handleClose, teacher }) {
         <h5 className="form-section-title">المعلومات الشخصية</h5>
         <Row>
           <DetailItem label="الرقم التعريفي" value={teacher.matricule} />
-          <DetailItem label="الاسم الكامل" value={teacher.name} />
+          <DetailItem label="الاسم واللقب" value={teacher.name} />
           <DetailItem label="رقم الهوية" value={teacher.national_id} />
           <DetailItem label="تاريخ الميلاد" value={teacher.date_of_birth?.split('T')[0]} />
           <DetailItem label="العمر" value={calculateAge(teacher.date_of_birth)} />

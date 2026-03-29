@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Badge } from 'react-bootstrap';
 import TablePagination from '@renderer/components/common/TablePagination';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 function TransactionTable({
   transactions,
@@ -16,11 +17,7 @@ function TransactionTable({
   onPageSizeChange,
 }) {
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('ar-TN', {
-      style: 'currency',
-      currency: 'TND',
-      minimumFractionDigits: 3,
-    }).format(amount);
+    return formatTND(amount, 3) + ' د.ت';
   };
 
   const formatDate = (date) => {
@@ -75,7 +72,9 @@ function TransactionTable({
     return <div className="text-center p-4 text-muted">لا توجد عمليات مالية</div>;
   }
 
-  const isIncomeTable = transactions.length > 0 && transactions[0].type === 'INCOME';
+  const isIncomeTable =
+    transactions.length > 0 &&
+    (transactions[0].type === 'INCOME' || transactions[0].type === 'مدخول');
 
   const tableComponent = (
     <Table striped bordered hover responsive className="transactions-table">
@@ -83,9 +82,9 @@ function TransactionTable({
         <tr>
           <th>#</th>
           <th>التاريخ</th>
-          {!compact && <th>رقم الوصل</th>}
-          <th>{isIncomeTable ? 'نوع المدخول' : 'الفئة'}</th>
-          {!compact && <th>نوع المدخول</th>}
+          {!compact && <th>{isIncomeTable ? 'رقم وصل استلام' : 'رقم الوصل'}</th>}
+          <th>{isIncomeTable ? 'الاسم واللقب' : 'المستفيد / الجهة'}</th>
+          <th>الفئة</th>
           <th>المبلغ</th>
           {!compact && <th>طريقة الدفع</th>}
           {!compact && <th>إجراءات</th>}
@@ -97,9 +96,15 @@ function TransactionTable({
             <td>{index + 1}</td>
             <td>{formatDate(transaction.transaction_date)}</td>
             {!compact && <td>{transaction.voucher_number || '-'}</td>}
-            <td>{isIncomeTable ? transaction.category || '-' : transaction.category}</td>
-            {!compact && <td>{getTranslatedIncomeType(transaction)}</td>}
-            <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
+            <td>{transaction.related_person_name || '-'}</td>
+            <td>{isIncomeTable ? (transaction.receipt_type_display || transaction.category) : transaction.category}</td>
+            <td
+              className={
+                transaction.type === 'INCOME' || transaction.type === 'مدخول'
+                  ? 'text-success'
+                  : 'text-danger'
+              }
+            >
               {formatCurrency(transaction.amount)}
             </td>
             {!compact && <td>{getPaymentMethodBadge(transaction.payment_method)}</td>}

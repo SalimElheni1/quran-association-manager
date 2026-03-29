@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Col, Row, Spinner, Alert, Table, Form } from 'react-bootstrap';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 const ARABIC_MONTHS = [
   'جانفي',
@@ -141,7 +142,7 @@ function ReportsTab() {
                   <Card.Body className="text-center">
                     <Card.Title>إجمالي الإيرادات</Card.Title>
                     <Card.Text className="h3 text-success">
-                      {summary?.totalIncome.toFixed(2) || '0.00'}
+                      {summary ? formatTND(summary.totalIncome, 2) : '0,00'} د.ت
                     </Card.Text>
                   </Card.Body>
                 </Card>
@@ -151,7 +152,7 @@ function ReportsTab() {
                   <Card.Body className="text-center">
                     <Card.Title>إجمالي المصروفات</Card.Title>
                     <Card.Text className="h3 text-danger">
-                      {summary?.totalExpenses.toFixed(2) || '0.00'}
+                      {summary ? formatTND(summary.totalExpenses, 2) : '0,00'} د.ت
                     </Card.Text>
                   </Card.Body>
                 </Card>
@@ -161,7 +162,7 @@ function ReportsTab() {
                   <Card.Body className="text-center">
                     <Card.Title>الرصيد الإجمالي</Card.Title>
                     <Card.Text className="h3 text-primary">
-                      {summary?.balance.toFixed(2) || '0.00'}
+                      {summary ? formatTND(summary.balance, 2) : '0,00'} د.ت
                     </Card.Text>
                   </Card.Body>
                 </Card>
@@ -177,7 +178,7 @@ function ReportsTab() {
             <Card.Body>
               <Card.Title>الإيرادات ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
-                {snapshot?.totalIncomeThisMonth.toFixed(2) || '0.00'}
+                {snapshot ? formatTND(snapshot.totalIncomeThisMonth, 2) : '0,00'} د.ت
               </Card.Text>
             </Card.Body>
           </Card>
@@ -187,7 +188,7 @@ function ReportsTab() {
             <Card.Body>
               <Card.Title>المصروفات ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
-                {snapshot?.totalExpensesThisMonth.toFixed(2) || '0.00'}
+                {snapshot ? formatTND(snapshot.totalExpensesThisMonth, 2) : '0,00'} د.ت
               </Card.Text>
             </Card.Body>
           </Card>
@@ -197,8 +198,7 @@ function ReportsTab() {
             <Card.Body>
               <Card.Title>الرصيد ({selectedPeriodText})</Card.Title>
               <Card.Text className="h3">
-                {(snapshot?.totalIncomeThisMonth - snapshot?.totalExpensesThisMonth).toFixed(2) ||
-                  '0.00'}
+                {snapshot ? formatTND(snapshot.totalIncomeThisMonth - snapshot.totalExpensesThisMonth, 2) : '0,00'} د.ت
               </Card.Text>
             </Card.Body>
           </Card>
@@ -243,15 +243,15 @@ function ReportsTab() {
                 <tbody>
                   <tr>
                     <td>رسوم التسجيل</td>
-                    <td>{activities?.studentFees.toFixed(2)}</td>
+                    <td>{activities ? formatTND(activities.studentFees, 2) : '0,00'} د.ت</td>
                   </tr>
                   <tr>
                     <td>تبرعات وهبات</td>
-                    <td>{activities?.cashDonations.toFixed(2)}</td>
+                    <td>{activities ? formatTND(activities.cashDonations, 2) : '0,00'} د.ت</td>
                   </tr>
                   <tr className="table-success">
                     <th>مجموع الإيرادات</th>
-                    <th>{totalMonthlyRevenue.toFixed(2)}</th>
+                    <th>{formatTND(totalMonthlyRevenue, 2)} د.ت</th>
                   </tr>
                 </tbody>
               </Table>
@@ -260,17 +260,17 @@ function ReportsTab() {
                 <tbody>
                   <tr>
                     <td>رواتب وأجور</td>
-                    <td>{activities?.salaries.toFixed(2)}</td>
+                    <td>{activities ? formatTND(activities.salaries, 2) : '0,00'} د.ت</td>
                   </tr>
                   {activities?.expensesByCategory.map((exp) => (
                     <tr key={exp.category}>
                       <td>{exp.category}</td>
-                      <td>{exp.total.toFixed(2)}</td>
+                      <td>{formatTND(exp.total, 2)} د.ت</td>
                     </tr>
                   ))}
                   <tr className="table-danger">
                     <th>مجموع المصروفات</th>
-                    <th>{totalMonthlyExpenses.toFixed(2)}</th>
+                    <th>{formatTND(totalMonthlyExpenses, 2)} د.ت</th>
                   </tr>
                 </tbody>
               </Table>
@@ -278,7 +278,7 @@ function ReportsTab() {
               <div className="d-flex justify-content-between h4">
                 <span>النتيجة الصافية للشهر:</span>
                 <span className={netMonthlyResult >= 0 ? 'text-success' : 'text-danger'}>
-                  {netMonthlyResult.toFixed(2)}
+                  {formatTND(netMonthlyResult, 2)} د.ت
                 </span>
               </div>
             </Card.Body>
@@ -303,7 +303,7 @@ function ReportsTab() {
                       <td>{tx.type}</td>
                       <td>{tx.details}</td>
                       <td className="text-start">
-                        {tx.amount != null ? tx.amount.toFixed(2) : '-'}
+                        {tx.amount != null ? formatTND(tx.amount, 2) + ' د.ت' : '-'}
                       </td>
                     </tr>
                   ))}

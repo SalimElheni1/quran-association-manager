@@ -77,6 +77,7 @@ const studentFields = [
   'sponsor_cin', // Sponsor CIN for sponsored students
   'discount_percentage', // Discount percentage for student fees
   'discount_reason', // Reason for the discount
+  'custom_fee_amount', // Custom monthly fee amount (overrides defaults and discounts)
 ];
 
 /**
@@ -107,7 +108,8 @@ function registerStudentHandlers() {
           let havingClauses = [];
 
           let sql = `
-        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category
+        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category, 
+               s.contact_info, s.parent_name, s.parent_contact, s.custom_fee_amount, s.discount_percentage
         FROM students s
       `;
 
@@ -167,7 +169,10 @@ function registerStudentHandlers() {
           let countSql = `
             SELECT COUNT(*) as total
             FROM (
-              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category', 'SELECT COUNT(*) as cnt')}
+              ${sql.replace(
+                /SELECT s\.id, s\.matricule, s\.name, s\.date_of_birth, s\.enrollment_date, s\.status, s\.gender, s\.fee_category, s\.contact_info, s\.parent_name, s\.parent_contact, s\.custom_fee_amount, s\.discount_percentage/,
+                'SELECT 1',
+              )}
             ) as filtered_students
           `;
 
@@ -414,23 +419,36 @@ function registerStudentHandlers() {
           const currentDate = new Date();
           const currentYear = currentDate.getFullYear();
           const currentMonth = currentDate.getMonth() + 1;
+          
+          // Fetch academic year start month from settings
+          const startMonthSetting = await db.getQuery('SELECT value FROM settings WHERE key = ?', ['academic_year_start_month']);
+          const startMonth = parseInt(startMonthSetting?.value || '9');
+          
           const academicYear =
-            currentMonth >= 9
+            currentMonth >= startMonth
               ? `${currentYear}-${currentYear + 1}`
               : `${currentYear - 1}-${currentYear}`;
 
           // Generate charges synchronously to ensure they're created
           try {
-            await generateAnnualFeeCharges(academicYear, true);
-            await generateMonthlyFeeCharges(academicYear, currentMonth, true);
+            await generateAnnualFeeCharges(academicYear, studentId);
+            await generateMonthlyFeeCharges(academicYear, currentMonth, true, studentId);
             const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
             const nextAcademicYear =
-              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
-            await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
+              currentMonth === 12 && nextMonth >= startMonth ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
+            // Simplified logic for nextAcademicYear: if next month crosses the start month boundary
+            let nextYearForAcademicStr = currentYear;
+            if (currentMonth === 12) nextYearForAcademicStr = currentYear + 1;
+            
+            const calcAcademicYear = (m, y) => (m >= startMonth ? `${y}-${y + 1}` : `${y - 1}-${y}`);
+            
+            await generateMonthlyFeeCharges(calcAcademicYear(nextMonth, nextYearForAcademicStr), nextMonth, true, studentId);
+            
             const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear =
-              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
-            await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
+            let yearAfterForAcademicStr = nextYearForAcademicStr;
+            if (nextMonth === 12) yearAfterForAcademicStr = nextYearForAcademicStr + 1;
+            
+            await generateMonthlyFeeCharges(calcAcademicYear(monthAfter, yearAfterForAcademicStr), monthAfter, true, studentId);
           } catch (err) {
             logError('Failed to auto-generate charges for new student:', err);
           }
@@ -454,9 +472,9 @@ function registerStudentHandlers() {
       try {
         await db.runQuery('BEGIN TRANSACTION;');
 
-        // Get current student data to check for fee_category and discount changes
+        // Get current student data to check for fee_category, discount, and custom fee changes
         const currentStudent = await db.getQuery(
-          'SELECT fee_category, status, discount_percentage FROM students WHERE id = ?',
+          'SELECT fee_category, status, discount_percentage, custom_fee_amount FROM students WHERE id = ?',
           [id],
         );
         const oldFeeCategory = currentStudent?.fee_category;
@@ -465,6 +483,11 @@ function registerStudentHandlers() {
           restOfStudentData.discount_percentage !== undefined
             ? restOfStudentData.discount_percentage
             : oldDiscount;
+        const oldCustomFee = currentStudent?.custom_fee_amount;
+        const newCustomFee =
+          restOfStudentData.custom_fee_amount !== undefined
+            ? restOfStudentData.custom_fee_amount
+            : oldCustomFee;
 
         const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
           abortEarly: false,
@@ -529,18 +552,21 @@ function registerStudentHandlers() {
 
         await db.runQuery('COMMIT;');
 
-        // Check if discount changed and regenerate charges
+        // Check if discount or custom fee changed and regenerate charges
         const discountChanged = oldDiscount !== newDiscount;
+        const customFeeChanged = oldCustomFee !== newCustomFee;
         if (
-          discountChanged &&
+          (discountChanged || customFeeChanged) &&
           validatedData.status === 'active' &&
           (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')
         ) {
           try {
             const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
+            // ONLY regenerate current month to avoid deleting next/past months unintendedly
             await triggerChargeRegenerationForStudent(id, {
               regenCurrentMonth: true,
               regenNextMonth: false,
+              regenAllUnpaidInYear: true,
             });
           } catch (err) {
             logError('Failed to regenerate charges after discount change:', err);
@@ -558,26 +584,30 @@ function registerStudentHandlers() {
             const {
               generateAnnualFeeCharges,
               generateMonthlyFeeCharges,
+              getCurrentAcademicYear,
+              getSetting
             } = require('./studentFeeHandlers');
+            
+            const startMonthSetting = await getSetting('academic_year_start_month');
+            const startMonth = parseInt(startMonthSetting || '9');
+            const academicYear = getCurrentAcademicYear(startMonth);
+
             const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
             const currentMonth = currentDate.getMonth() + 1;
-            const academicYear =
-              currentMonth >= 9
-                ? `${currentYear}-${currentYear + 1}`
-                : `${currentYear - 1}-${currentYear}`;
 
             // Generate charges for the student who changed from EXEMPT to CAN_PAY
-            await generateAnnualFeeCharges(academicYear, true);
-            await generateMonthlyFeeCharges(academicYear, currentMonth, true);
-            const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-            const nextAcademicYear =
-              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
-            await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
-            const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear =
-              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
-            await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
+            // 1. Annual Fee
+            await generateAnnualFeeCharges(academicYear, id);
+            
+            // 2. Current Month (Force regenerate to ensure it's created)
+            await generateMonthlyFeeCharges(academicYear, currentMonth, true, id);
+            
+            // 3. Next Month (Force regenerate if it was already skipped while EXEMPT)
+            const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+            const nextMonth = nextMonthDate.getMonth() + 1;
+            const nextAcademicYear = getCurrentAcademicYear(startMonth, nextMonthDate);
+            
+            await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true, id);
           } catch (err) {
             logError(
               `Failed to auto-generate charges for student ${id} after fee_category change:`,
@@ -616,6 +646,7 @@ function registerStudentHandlers() {
   ipcMain.handle('surahs:get', async () => {
     try {
       const result = await db.allQuery('SELECT id, name_ar, name_en FROM surahs ORDER BY id');
+
       return result;
     } catch (error) {
       logError('Error fetching surahs:', error);

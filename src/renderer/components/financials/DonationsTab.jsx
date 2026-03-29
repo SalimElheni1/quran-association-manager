@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import DonationFormModal from '@renderer/components/financials/DonationFormModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import { error as logError } from '@renderer/utils/logger';
 import { getCategoryLabel } from '@renderer/utils/donationCategories';
 
@@ -13,6 +15,10 @@ function DonationsTab({ onInventoryUpdate }) {
   const [editingDonation, setEditingDonation] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [donationToDelete, setDonationToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchDonations = async () => {
     try {
@@ -77,6 +83,21 @@ function DonationsTab({ onInventoryUpdate }) {
     }
   };
 
+  // Pagination logic
+  const totalItems = donations.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedDonations = donations.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -104,7 +125,7 @@ function DonationsTab({ onInventoryUpdate }) {
         <thead>
           <tr>
             <th>#</th>
-            <th>اسم المتبرع</th>
+            <th>الاسم واللقب</th>
             <th>نوع التبرع</th>
             <th>القيمة / الوصف</th>
             <th>تاريخ التبرع</th>
@@ -113,22 +134,27 @@ function DonationsTab({ onInventoryUpdate }) {
           </tr>
         </thead>
         <tbody>
-          {donations.length > 0 ? (
-            donations.map((donation) => (
+          {paginatedDonations.length > 0 ? (
+            paginatedDonations.map((donation) => (
               <tr key={donation.id}>
                 <td>{donation.id}</td>
                 <td>{donation.donor_name}</td>
                 <td>{donation.donation_type === 'Cash' ? 'نقدي' : 'عيني'}</td>
                 <td className="text-start">
-                  {donation.donation_type === 'Cash'
-                    ? donation.amount
-                      ? donation.amount.toFixed(2)
-                      : '0.00'
-                    : `${donation.description} ${
-                        donation.quantity ? `(الكمية: ${donation.quantity})` : ''
-                      } ${
-                        donation.category ? `(الصنف: ${getCategoryLabel(donation.category)})` : ''
-                      }`}
+                  {donation.donation_type === 'Cash' ? (
+                    <div className="fw-bold">
+                      {donation.amount != null
+                        ? formatTND(donation.amount, 2)
+                        : 'N/A'}{' '}
+                      د.ت
+                    </div>
+                  ) : (
+                    `${donation.description} ${
+                      donation.quantity ? `(الكمية: ${donation.quantity})` : ''
+                    } ${
+                      donation.category ? `(الصنف: ${getCategoryLabel(donation.category)})` : ''
+                    }`
+                  )}
                 </td>
                 <td>{new Date(donation.donation_date).toLocaleDateString()}</td>
                 <td>{donation.notes}</td>
@@ -160,6 +186,15 @@ function DonationsTab({ onInventoryUpdate }) {
           )}
         </tbody>
       </Table>
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <DonationFormModal
         show={showModal}

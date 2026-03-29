@@ -180,7 +180,7 @@ function FinancialReportsTab() {
 
           <Card className="mb-4">
             <Card.Header className="bg-light">
-              <h5 className="mb-0">📄 التقرير المالي</h5>
+              <h5 className="mb-0">📄 تقرير مالي مجمل</h5>
             </Card.Header>
             <Card.Body>
               <p className="small text-muted">
@@ -293,7 +293,7 @@ function FinancialReportsTab() {
 
           <Card className="mb-4">
             <Card.Header className="bg-light">
-              <h5 className="mb-0">📒 سجل المحاسبة الشهري</h5>
+              <h5 className="mb-0">📒 تقرير مالي مفصل</h5>
             </Card.Header>
             <Card.Body>
               <p className="small text-muted">

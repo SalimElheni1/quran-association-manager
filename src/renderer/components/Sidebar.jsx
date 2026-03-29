@@ -21,14 +21,21 @@ function Sidebar() {
   const { canAccessModule } = usePermissions();
   const navigate = useNavigate();
   const [associationName, setAssociationName] = useState('الرابطة الوطنية للقرآن الكريم');
+  const [logoPath, setLogoPath] = useState('/assets/logos/icon.png');
 
   useEffect(() => {
-    const fetchAssociationName = async () => {
+    const fetchSettings = async () => {
       try {
         const response = await window.electronAPI.getSettings();
         if (response.success && response.settings) {
-          const { national_association_name, regional_association_name, local_branch_name } =
-            response.settings;
+          const {
+            national_association_name,
+            regional_association_name,
+            local_branch_name,
+            regional_local_logo_path,
+            national_logo_path,
+          } = response.settings;
+
           const parts = [
             national_association_name,
             regional_association_name,
@@ -39,12 +46,21 @@ function Sidebar() {
           } else if (parts.length === 2) {
             setAssociationName(parts.join('  '));
           }
+
+          // Logo fallback logic: Local/Regional > National > Default
+          if (regional_local_logo_path) {
+            setLogoPath(`safe-image://${regional_local_logo_path}`);
+          } else if (national_logo_path) {
+            setLogoPath(`safe-image://${national_logo_path}`);
+          } else {
+            setLogoPath('/assets/logos/icon.png');
+          }
         }
       } catch (err) {
         logError('Failed to fetch settings for sidebar:', err);
       }
     };
-    fetchAssociationName();
+    fetchSettings();
   }, []);
 
   const handleLogout = () => {
@@ -56,6 +72,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-header">
+          <img src={logoPath} alt="Logo" className="sidebar-logo" />
           <h6>{associationName}</h6>
         </div>
         <nav className="nav-links">

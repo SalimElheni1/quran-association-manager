@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
 import GroupStudentAssignmentModal from './GroupStudentAssignmentModal';
+import TablePagination from './common/TablePagination';
 import SearchIcon from './icons/SearchIcon';
 import UsersIcon from './icons/UsersIcon';
 import EditIcon from './icons/EditIcon';
@@ -16,6 +17,10 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDepen
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [groupToAssign, setGroupToAssign] = useState(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     try {
@@ -23,6 +28,7 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDepen
       const result = await window.electronAPI.getGroups(filters);
       if (result.success) {
         setGroups(result.data);
+        setCurrentPage(1); // Reset page on new data
       } else {
         toast.error(result.message);
       }
@@ -48,6 +54,12 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDepen
     setShowAssignmentModal(false);
   };
 
+  // Pagination logic
+  const totalItems = groups.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedGroups = groups.slice(startIndex, startIndex + pageSize);
+
   return (
     <div>
       <div className="filter-bar">
@@ -69,59 +81,72 @@ function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDepen
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table striped bordered hover responsive className="groups-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>اسم المجموعة</th>
-              <th>الفئة</th>
-              <th>عدد الطلاب</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.length > 0 ? (
-              groups.map((group, index) => (
-                <tr key={group.id}>
-                  <td>{index + 1}</td>
-                  <td>{group.name}</td>
-                  <td>
-                    {{ Kids: 'أطفال', Women: 'نساء', Men: 'رجال' }[group.category] ||
-                      group.category}
-                  </td>
-                  <td>
-                    <span className="badge bg-info text-dark badge-pill">
-                      {group.studentCount || 0} طالب
-                    </span>
-                  </td>
-                  <td className="table-actions d-flex gap-2">
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={() => handleShowAssignmentModal(group)}
-                    >
-                      <UsersIcon /> إدارة الطلاب
-                    </Button>
-                    <Button variant="outline-success" size="sm" onClick={() => onEditGroup(group)}>
-                      <EditIcon />
-                    </Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => onDeleteGroup(group)}>
-                      <TrashIcon />
-                    </Button>
+        <>
+          <Table striped bordered hover responsive className="groups-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>اسم المجموعة</th>
+                <th>الفئة</th>
+                <th>عدد الطلاب</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedGroups.length > 0 ? (
+                paginatedGroups.map((group, index) => (
+                  <tr key={group.id}>
+                    <td>{startIndex + index + 1}</td>
+                    <td>{group.name}</td>
+                    <td>
+                      {{ Kids: 'أطفال', Women: 'نساء', Men: 'رجال' }[group.category] ||
+                        group.category}
+                    </td>
+                    <td>
+                      <span className="badge bg-info text-dark badge-pill">
+                        {group.studentCount || 0} طالب
+                      </span>
+                    </td>
+                    <td className="table-actions d-flex gap-2">
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => handleShowAssignmentModal(group)}
+                      >
+                        <UsersIcon /> إدارة الطلاب
+                      </Button>
+                      <Button variant="outline-success" size="sm" onClick={() => onEditGroup(group)}>
+                        <EditIcon />
+                      </Button>
+                      <Button variant="outline-danger" size="sm" onClick={() => onDeleteGroup(group)}>
+                        <TrashIcon />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center">
+                    {searchTerm
+                      ? 'لا توجد نتائج تطابق معايير البحث.'
+                      : 'لا يوجد مجموعات معرفة حالياً.'}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="text-center">
-                  {searchTerm
-                    ? 'لا توجد نتائج تطابق معايير البحث.'
-                    : 'لا يوجد مجموعات معرفة حالياً.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+
+          {totalItems > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            />
+          )}
+        </>
       )}
 
       <GroupStudentAssignmentModal

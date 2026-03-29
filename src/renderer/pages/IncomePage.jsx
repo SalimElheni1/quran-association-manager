@@ -16,10 +16,14 @@ import ImportIcon from '@renderer/components/icons/ImportIcon';
 
 const incomeFields = [
   { key: 'date', label: 'التاريخ' },
-  { key: 'description', label: 'الوصف' },
+  { key: 'voucher_number', label: 'رقم الوصل' },
+  { key: 'related_person_name', label: 'الاسم واللقب' },
+  { key: 'donor_cin', label: 'رقم بطاقة التعريف' },
   { key: 'amount', label: 'المبلغ' },
-  { key: 'category_name', label: 'الفئة' },
   { key: 'payment_method', label: 'طريقة الدفع' },
+  { key: 'check_number', label: 'رقم الشيك' },
+  { key: 'bank_transfer_number', label: 'رقم التحويل' },
+  { key: 'description', label: 'الوصف' },
 ];
 
 function IncomePage() {

@@ -179,8 +179,9 @@ async function handleAddTransaction(event, transaction) {
         matricule, type, category, amount, transaction_date, description,
         payment_method, check_number, voucher_number, account_id,
         related_person_name, related_entity_type, related_entity_id,
-        requires_dual_signature, created_by_user_id, receipt_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        requires_dual_signature, created_by_user_id, receipt_type,
+        bank_transfer_number, donor_cin
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const result = await db.runQuery(sql, [
@@ -200,6 +201,8 @@ async function handleAddTransaction(event, transaction) {
       validatedData.amount > 500 ? 1 : 0,
       event.sender.userId || null,
       validatedData.receipt_type || null,
+      validatedData.bank_transfer_number || null,
+      validatedData.donor_cin || null,
     ]);
 
     // Update account balance
@@ -262,7 +265,9 @@ async function handleUpdateTransaction(event, id, transaction) {
         category = ?, amount = ?, transaction_date = ?, description = ?,
         payment_method = ?, check_number = ?, account_id = ?,
         related_person_name = ?, related_entity_type = ?, related_entity_id = ?,
-        requires_dual_signature = ?, receipt_type = ?, updated_at = CURRENT_TIMESTAMP
+        requires_dual_signature = ?, receipt_type = ?, 
+        bank_transfer_number = ?, donor_cin = ?,
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
@@ -279,6 +284,8 @@ async function handleUpdateTransaction(event, id, transaction) {
       validatedData.related_entity_id || null,
       validatedData.amount > 500 ? 1 : 0,
       validatedData.receipt_type || null,
+      validatedData.bank_transfer_number || null,
+      validatedData.donor_cin || null,
       id,
     ]);
 

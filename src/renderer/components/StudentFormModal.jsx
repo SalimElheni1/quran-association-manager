@@ -53,6 +53,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       sponsor_cin: '',
       discount_percentage: 0,
       discount_reason: '',
+      custom_fee_amount: null,
     };
 
     if (isEditMode && student) {
@@ -196,6 +197,14 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       sponsor_name: formData.sponsor_name || null,
       sponsor_phone: formData.sponsor_phone || null,
       sponsor_cin: formData.sponsor_cin || null,
+      custom_fee_amount:
+        formData.custom_fee_amount === '' || formData.custom_fee_amount === null
+          ? null
+          : parseFloat(formData.custom_fee_amount),
+      discount_percentage:
+        formData.discount_percentage === '' || formData.discount_percentage === null
+          ? 0
+          : parseFloat(formData.discount_percentage),
     };
     onSave(finalFormData, student ? student.id : null);
   };
@@ -221,7 +230,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
             <Row>
               <Form.Group as={Col} md="6" className="mb-3" controlId="formStudentName">
                 <Form.Label>
-                  الاسم الكامل<span className="text-danger">*</span>
+                  الاسم واللقب<span className="text-danger">*</span>
                 </Form.Label>
                 <Form.Control
                   type="text"
@@ -637,37 +646,66 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                 </Form.Group>
               </Row>
             )}
-            <Row>
-              <Form.Group as={Col} md="6" className="mb-3" controlId="formDiscountPercentage">
-                <Form.Label>نسبة الخصم (%)</Form.Label>
-                <Form.Control
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="5"
-                  name="discount_percentage"
-                  value={formData.discount_percentage || 0}
-                  onChange={handleChange}
-                />
-                <Form.Text className="text-muted">
-                  للعائلات أو الحالات الخاصة (مثال: 30 للخصم 30%)
-                </Form.Text>
-              </Form.Group>
-            </Row>
-            {formData.discount_percentage > 0 && (
-              <Row>
-                <Form.Group as={Col} className="mb-3" controlId="formDiscountReason">
-                  <Form.Label>سبب الخصم</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={2}
-                    name="discount_reason"
-                    value={formData.discount_reason || ''}
-                    onChange={handleChange}
-                    placeholder="مثال: خصم عائلي - 3 أطفال"
-                  />
-                </Form.Group>
-              </Row>
+            {formData.fee_category !== 'EXEMPT' && (
+              <>
+                <Row>
+                  <Form.Group as={Col} md="6" className="mb-3" controlId="formCustomFeeAmount">
+                    <Form.Label>قيمة المعاليم (د.ت)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      name="custom_fee_amount"
+                      value={formData.custom_fee_amount !== null ? formData.custom_fee_amount : ''}
+                      onChange={handleChange}
+                      placeholder="اترك فارغاً لاستخدام الرسوم الافتراضية"
+                    />
+                    <Form.Text className="text-muted">
+                      المعلوم الشهري القار لهذا الطالب (مثال: 10.000)
+                    </Form.Text>
+                  </Form.Group>
+                </Row>
+                
+            {/* 
+              formData.fee_category !== 'EXEMPT' && (
+                <>
+                  <Row>
+                    <Form.Group as={Col} md="6" className="mb-3" controlId="formDiscountPercentage">
+                      <Form.Label>نسبة الخصم (%)</Form.Label>
+                      <Form.Control
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="5"
+                        name="discount_percentage"
+                        value={formData.discount_percentage || 0}
+                        onChange={handleChange}
+                      />
+                      <Form.Text className="text-muted">
+                        خصم إضافي (مثال: 30 للخصم 30%) - يطبق على الرسوم المحتسبة
+                      </Form.Text>
+                    </Form.Group>
+                  </Row>
+
+                  {formData.discount_percentage > 0 && (
+                    <Row>
+                      <Form.Group as={Col} className="mb-3" controlId="formDiscountReason">
+                        <Form.Label>سبب الخصم</Form.Label>
+                        <Form.Control
+                          as="textarea"
+                          rows={2}
+                          name="discount_reason"
+                          value={formData.discount_reason || ''}
+                          onChange={handleChange}
+                          placeholder="مثال: خصم عائلي - 3 أطفال"
+                        />
+                      </Form.Group>
+                    </Row>
+                  )}
+                </>
+              )
+            */}
+              </>
             )}
 
             <Row>

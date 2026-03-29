@@ -20,6 +20,20 @@
   text-align: center;
   border-bottom: 1px solid #334155;
   margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sidebar-logo {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 0.75rem;
+  border-radius: 50%;
+  object-fit: contain;
+  background-color: white;
+  padding: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-header h3 {

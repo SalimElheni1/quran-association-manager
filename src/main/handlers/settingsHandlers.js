@@ -32,8 +32,8 @@ const settingsValidationSchema = Joi.object({
   regional_association_name: Joi.string().allow(''),
   local_branch_name: Joi.string().allow(''),
   president_full_name: Joi.string().allow(''),
-  national_logo_path: Joi.string().allow(''),
-  regional_local_logo_path: Joi.string().allow(''),
+  national_logo_path: Joi.string().allow('', null),
+  regional_local_logo_path: Joi.string().allow('', null),
   backup_path: Joi.string().allow(''),
   backup_enabled: Joi.boolean(),
   backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
@@ -354,6 +354,9 @@ function registerSettingsHandlers(refreshSettings) {
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
         is_active: Joi.boolean().default(true),
+        registration_fee: Joi.number().min(0).default(0),
+        monthly_fee: Joi.number().min(0).default(0),
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
       });
 
       let validatedData;
@@ -371,8 +374,8 @@ function registerSettingsHandlers(refreshSettings) {
       let result;
       try {
         result = await db.runQuery(
-          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, is_active, registration_fee, monthly_fee, payment_frequency)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             uuid,
             validatedData.name,
@@ -381,6 +384,9 @@ function registerSettingsHandlers(refreshSettings) {
             validatedData.max_age || null,
             validatedData.gender,
             validatedData.is_active ? 1 : 0,
+            validatedData.registration_fee || 0,
+            validatedData.monthly_fee || 0,
+            validatedData.payment_frequency || 'MONTHLY',
           ],
         );
         log('[DEBUG] ageGroups:create - Insert result:', JSON.stringify(result));
@@ -417,6 +423,9 @@ function registerSettingsHandlers(refreshSettings) {
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
         is_active: Joi.boolean().default(true),
+        registration_fee: Joi.number().min(0),
+        monthly_fee: Joi.number().min(0),
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
       });
 
       const validatedData = await schema.validateAsync(ageGroupData);
@@ -424,7 +433,8 @@ function registerSettingsHandlers(refreshSettings) {
       await db.runQuery(
         `UPDATE age_groups SET
          name = ?, description = ?, min_age = ?, max_age = ?,
-         gender = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+         gender = ?, is_active = ?, registration_fee = ?, monthly_fee = ?,
+         payment_frequency = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
           validatedData.name,
@@ -433,6 +443,9 @@ function registerSettingsHandlers(refreshSettings) {
           validatedData.max_age || null,
           validatedData.gender,
           validatedData.is_active ? 1 : 0,
+          validatedData.registration_fee !== undefined ? validatedData.registration_fee : 0,
+          validatedData.monthly_fee !== undefined ? validatedData.monthly_fee : 0,
+          validatedData.payment_frequency || 'MONTHLY',
           id,
         ],
       );

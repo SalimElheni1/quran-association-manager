@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
 
@@ -181,8 +182,8 @@ function InventoryTab() {
         <td>{item.item_name}</td>
         <td>{item.category}</td>
         <td>{item.quantity}</td>
-        <td>{item.unit_value ? `${item.unit_value.toFixed(2)}` : 'غير محدد'}</td>
-        <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
+        <td>{item.unit_value ? formatTND(item.unit_value, 2) + ' د.ت' : 'غير محدد'}</td>
+        <td>{item.total_value ? formatTND(item.total_value, 2) + ' د.ت' : 'غير محدد'}</td>
         <td>{item.acquisition_source || 'غير محدد'}</td>
         <td>
           <Button

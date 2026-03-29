@@ -158,7 +158,7 @@ async function generateCashLedgerReport(event, { period }) {
     const headerRow = worksheet.addRow([
       'رقم التسلسل',
       'التاريخ',
-      'Libellé',
+      'البيان',
       'مداخيل',
       'مصاريف',
       'الرصيد',

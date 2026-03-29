@@ -61,7 +61,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
               <Form.Label>
-                الاسم الكامل<span className="text-danger">*</span>
+                الاسم واللقب<span className="text-danger">*</span>
               </Form.Label>
               <Form.Control
                 type="text"

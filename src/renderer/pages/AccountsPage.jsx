@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Table, Badge, Modal, Form } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import { error as logError } from '@renderer/utils/logger';
 
 function AccountsPage() {
@@ -10,6 +11,10 @@ function AccountsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ id: null, name: '' });
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     loadInKindCategories();
@@ -71,6 +76,21 @@ function AccountsPage() {
     }
   };
 
+  // Pagination logic
+  const totalItems = inKindCategories.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedCategories = inKindCategories.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -91,7 +111,7 @@ function AccountsPage() {
               </tr>
             </thead>
             <tbody>
-              {inKindCategories.map((cat) => (
+              {paginatedCategories.map((cat) => (
                 <tr key={cat.id}>
                   <td>{cat.name}</td>
                   <td>
@@ -124,6 +144,15 @@ function AccountsPage() {
               ))}
             </tbody>
           </Table>
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </Card.Body>
       </Card>
 

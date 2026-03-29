@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 const initialFormData = {
   item_name: '',
@@ -157,7 +158,7 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
                 <Form.Label>القيمة الإجمالية</Form.Label>
                 <Form.Control
                   type="text"
-                  value={(formData.quantity * formData.unit_value).toFixed(3) + ' د.ت'}
+                  value={formatTND(formData.quantity * formData.unit_value, 3) + ' د.ت'}
                   readOnly
                   disabled
                 />

@@ -603,13 +603,14 @@ async function fetchExportData({ type, fields, options = {} }) {
         date: 'transaction_date as date',
         description: 'description',
         amount: 'amount',
-        category: 'category',
         payment_method: 'payment_method',
         type: 'type',
         receipt_type: 'receipt_type',
         check_number: 'check_number',
+        bank_transfer_number: 'bank_transfer_number',
         voucher_number: 'voucher_number',
         related_person_name: 'related_person_name',
+        donor_cin: 'donor_cin',
       };
 
       const incomeSelectedFields = fields
@@ -964,46 +965,67 @@ async function generatePdf(title, columns, data, outputPath, headerData) {
 }
 
 // --- Excel (XLSX) Generation ---
-async function generateXlsx(columns, data, outputPath, sheetName = 'Exported Data') {
+async function generateXlsx(type, columns, data, outputPath, sheetName = 'Exported Data') {
   const localizedData = localizeData(data);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheetName);
   worksheet.views = [{ rightToLeft: true }];
 
-  // Define table structure first
+  // 1. Initial table setup
+  // We define columns for data mapping. ExcelJS will put headers on Row 1 initially.
   worksheet.columns = columns.map((col) => ({ ...col, width: 25 }));
-  // Add data rows
   worksheet.addRows(localizedData);
-  // Style the header row of the table
-  worksheet.getRow(1).font = { bold: true };
 
-  // --- Insert Title Above the Table (no logos for XLSX exports) ---
-  // We'll insert a single title row merged across the table columns.
+  // 2. Fetch Header Data
+  const headerData = await getExportHeaderData();
+  const today = new Date().toLocaleDateString('ar-TN');
+
+  // 3. Resolve Arabic Title
   const titleMap = {
     students: 'تقرير الطلاب',
     teachers: 'تقرير المعلمين',
     admins: 'تقرير المستخدمين',
+    users: 'تقرير المستخدمين',
+    classes: 'تقرير الفصول',
     attendance: 'تقرير الحضور',
+    'student-fees': 'تقرير رسوم الطلاب',
+    income: 'تقرير المداخيل',
+    expenses: 'تقرير المصاريف',
+    inventory: 'تقرير الجرد',
   };
-  // Try to infer export type from the first column's key (caller provides report title in later step)
-  const exportTypeGuess = (columns && columns[0] && columns[0].key) || '';
-  const arabicTitle = titleMap[exportTypeGuess] || '';
-  // Insert one empty row then the title row then another spacer row so headers shift down by 2
-  worksheet.insertRow(1, []);
-  worksheet.insertRow(2, [arabicTitle]);
-  worksheet.mergeCells(2, 1, 2, columns.length);
-  const titleCell = worksheet.getCell(2, 1);
-  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  titleCell.font = { bold: true, size: 16 };
-  worksheet.insertRow(3, []);
+  const arabicTitle = titleMap[type] || 'تقرير';
 
-  // XLSX exports intentionally omit logo resolution helpers to keep sheets focused on data.
+  // 4. Insert rows at the top (Association Info + Spacer + Title + Spacer)
+  // Table headers (previously at Row 1) will now shift to Row 7.
+  worksheet.insertRows(1, [
+    [headerData.nationalAssociationName],
+    [`${headerData.regionalAssociationName} - ${headerData.localBranchName}`],
+    [`تاريخ الاستخراج: ${today}`],
+    [],
+    [arabicTitle],
+    []
+  ]);
 
-  // Note: XLSX exports intentionally omit logos to keep sheets clean and focused on data.
+  // 5. Merge and Style Header Rows
+  const colCount = columns.length;
+  if (colCount > 1) {
+    // Association Info (Rows 1, 2, 3)
+    [1, 2, 3].forEach(i => {
+      worksheet.mergeCells(i, 1, i, colCount);
+      const cell = worksheet.getCell(i, 1);
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      cell.font = { bold: i === 1, size: i === 1 ? 14 : 12 };
+    });
 
-  // Adjust the original table header row style, which has shifted down because of our inserted rows
-  // Header row will now be row 4 (two inserted + title + spacer)
-  worksheet.getRow(4).font = { bold: true };
+    // Report Title (Row 5)
+    worksheet.mergeCells(5, 1, 5, colCount);
+    const titleCell = worksheet.getCell(5, 1);
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.font = { bold: true, size: 16 };
+  }
+
+  // Row 7 (shifted table headers) styling
+  worksheet.getRow(7).font = { bold: true };
 
   await workbook.xlsx.writeFile(outputPath);
 }
@@ -1114,6 +1136,9 @@ async function generateDocx(title, columns, data, outputPath, headerData) {
     teachers: 'تقرير المعلمين',
     admins: 'تقرير المستخدمين',
     attendance: 'تقرير الحضور',
+    income: 'تقرير المداخيل',
+    expenses: 'تقرير المصاريف',
+    inventory: 'تقرير الجرد',
   };
   const exportType = title.split(' ')[0].toLowerCase();
   const arabicTitle = titleMap[exportType] || title;
@@ -1776,11 +1801,11 @@ async function generateExcelTemplate(outputPath, options = {}) {
 
   const sheetsToGenerate = singleSheetName
     ? sheets.filter(
-        (s) =>
-          s.name === singleSheetName ||
-          (s.name === 'المعلمون' && singleSheetName === 'المعلمين') ||
-          (s.name === 'المستخدمون' && singleSheetName === 'المستخدمين'),
-      )
+      (s) =>
+        s.name === singleSheetName ||
+        (s.name === 'المعلمون' && singleSheetName === 'المعلمين') ||
+        (s.name === 'المستخدمون' && singleSheetName === 'المستخدمين'),
+    )
     : sheets;
 
   if (sheetsToGenerate.length === 0) {

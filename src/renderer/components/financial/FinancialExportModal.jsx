@@ -110,7 +110,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-cash-ledger"
                     name="reportType"
-                    label="📒 سجل المحاسبة"
+                    label="📒 التقرير المالي المفصل"
                     value="cash-ledger"
                     checked={reportType === 'cash-ledger'}
                     onChange={(e) => setReportType(e.target.value)}
@@ -128,7 +128,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-summary"
                     name="reportType"
-                    label="📊 التقرير المالي"
+                    label="📊 التقرير المالي المجمل"
                     value="financial-summary"
                     checked={reportType === 'financial-summary'}
                     onChange={(e) => setReportType(e.target.value)}

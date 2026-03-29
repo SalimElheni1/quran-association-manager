@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Col } from 'react-bootstrap';
+import { formatTND, formatCount } from '@renderer/utils/formatCurrency';
 
 /**
  * SummaryCard - Display financial summary metric
@@ -11,10 +12,12 @@ import { Card, Col } from 'react-bootstrap';
 function SummaryCard({ title, value, variant = 'primary', suffix = 'د.ت' }) {
   const formatValue = (val) => {
     if (val === null || val === undefined) return '...';
-    return new Intl.NumberFormat('ar-TN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(val);
+    
+    // If suffix is empty, it's a count - use 0 decimals
+    // If suffix is 'د.ت' or other currency, use 3 decimals for Tunisian millemes
+    const isCount = !suffix || suffix === '';
+    
+    return isCount ? formatCount(val) : formatTND(val, 3);
   };
 
   return (

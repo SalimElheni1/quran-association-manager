@@ -20,6 +20,7 @@ import ImportModal from '@renderer/components/modals/ImportModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import { error as logError } from '@renderer/utils/logger';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
@@ -66,7 +67,21 @@ const StudentFeesTab = () => {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [specialFeeClasses, setSpecialFeeClasses] = useState([]);
   const [selectedSpecialFeeClass, setSelectedSpecialFeeClass] = useState('');
-  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  
+  // Helper to get formatted academic year based on start month
+  const calculateAcademicYear = (date = new Date()) => {
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    const startMonth = 9; // Default to September if not yet fetched
+    
+    if (month >= startMonth) {
+      return `${year}-${year + 1}`;
+    } else {
+      return `${year - 1}-${year}`;
+    }
+  };
+
+  const [academicYear, setAcademicYear] = useState(calculateAcademicYear());
   const [notes, setNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -76,7 +91,7 @@ const StudentFeesTab = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGenerateFeesModal, setShowGenerateFeesModal] = useState(false);
   const [generateAcademicYear, setGenerateAcademicYear] = useState(
-    new Date().getFullYear().toString(),
+    calculateAcademicYear(),
   );
   const [forceGeneration, setForceGeneration] = useState(false);
   const [isGeneratingFees, setIsGeneratingFees] = useState(false);
@@ -191,6 +206,9 @@ const StudentFeesTab = () => {
         case 'EXEMPT':
           matchesStatus = status === 'EXEMPT';
           break;
+        case 'SPONSORED':
+          matchesStatus = student.fee_category === 'SPONSORED';
+          break;
         case 'ALL':
         default:
           matchesStatus = true;
@@ -263,7 +281,7 @@ const StudentFeesTab = () => {
       setPaymentMethod('CASH');
       setReceiptNumber('');
       setCheckNumber('');
-      setAcademicYear(new Date().getFullYear().toString());
+      setAcademicYear(calculateAcademicYear());
       setNotes('');
       setSelectedSpecialFeeClass('');
       loadStudents(); // Refresh the list
@@ -417,6 +435,7 @@ const StudentFeesTab = () => {
                     <option value="PARTIAL">جزئياً مدفوع</option>
                     <option value="UNPAID">غير مدفوع</option>
                     <option value="EXEMPT">معفى</option>
+                    <option value="SPONSORED">مكفول</option>
                   </Form.Select>
                 </div>
               </div>
@@ -435,16 +454,16 @@ const StudentFeesTab = () => {
                   {currentStudents.map((student) => (
                     <tr key={student.id}>
                       <td>{student.name}</td>
-                      <td>{student.totalDue?.toFixed(2) || 0} د.ت</td>
-                      <td>{student.totalPaid?.toFixed(2) || 0} د.ت</td>
+                      <td>{formatTND(student.totalDue, 3)} د.ت</td>
+                      <td>{formatTND(student.totalPaid, 3)} د.ت</td>
                       <td>
                         {student.balance >= 0 ? (
                           <span className="text-danger fw-bold">
-                            {student.balance?.toFixed(2)} د.ت
+                            {formatTND(student.balance, 3)} د.ت
                           </span>
                         ) : (
                           <span className="text-success fw-bold">
-                            +{Math.abs(student.balance)?.toFixed(2)} د.ت
+                            +{formatTND(Math.abs(student.balance), 3)} د.ت
                           </span>
                         )}
                       </td>
@@ -534,7 +553,7 @@ const StudentFeesTab = () => {
                           : 'text-success fw-bold'
                       }
                     >
-                      {Math.abs(selectedStudent.balance)?.toFixed(2) || 0} د.ت
+                      {formatTND(Math.abs(selectedStudent.balance), 2)} د.ت
                     </span>
                   </p>
                 </Col>
@@ -675,9 +694,9 @@ const StudentFeesTab = () => {
           {selectedStudent && selectedStudent.balanceSummary && (
             <>
               <div className="mb-4 p-3 bg-light rounded">
-                <Row>
+                <Row className="gy-2">
                   <Col md={4}>
-                    <p className="mb-1">
+                    <p className="mb-1 text-truncate" title={selectedStudent.name}>
                       <strong>الطالب:</strong> {selectedStudent.name}
                     </p>
                   </Col>
@@ -685,22 +704,42 @@ const StudentFeesTab = () => {
                     <p className="mb-1">
                       <strong>{selectedStudent.balanceSummary.displayLabel}:</strong>{' '}
                       <span className={selectedStudent.balanceSummary.displayClass}>
-                        {selectedStudent.balanceSummary.displayAmount?.toFixed(2) || 0} د.ت
+                        {formatTND(selectedStudent.balanceSummary.displayAmount, 2)} د.ت
                       </span>
                     </p>
                   </Col>
-                  {/* Show credit info only if they have credit */}
-                  {selectedStudent.balanceSummary.displayType === 'owed' &&
+                  {selectedStudent.custom_fee_amount > 0 ? (
+                    <Col md={4}>
+                      <p className="mb-1 text-primary">
+                        <strong>المعلوم المخصص:</strong>{' '}
+                        <span className="fw-bold">
+                          {formatTND(selectedStudent.custom_fee_amount, 2)} د.ت
+                        </span>
+                      </p>
+                    </Col>
+                  ) : selectedStudent.discount_percentage > 0 ? (
+                    <Col md={4}>
+                      <p className="mb-1 text-info">
+                        <strong>قيمة الخصم:</strong>{' '}
+                        <span className="fw-bold">
+                          {formatTND(selectedStudent.discount_percentage, 2)} د.ت
+                        </span>
+                      </p>
+                    </Col>
+                  ) : (
+                    /* Show credit info if available and no special fees */
+                    selectedStudent.balanceSummary.displayType === 'owed' &&
                     selectedStudent.balanceSummary.totalCredit > 0 && (
                       <Col md={4}>
                         <p className="mb-1">
                           <strong>رصيد متاح:</strong>{' '}
                           <span className="text-success fw-bold">
-                            {selectedStudent.balanceSummary.totalCredit?.toFixed(2) || 0} د.ت
+                            {formatTND(selectedStudent.balanceSummary.totalCredit, 2)} د.ت
                           </span>
                         </p>
                       </Col>
-                    )}
+                    )
+                  )}
                 </Row>
               </div>
 
@@ -724,7 +763,7 @@ const StudentFeesTab = () => {
                 selectedStudent.balanceSummary.displayType === 'owed' && (
                   <Alert variant="info" className="mb-3">
                     <strong>💰 رصيد مدفوع مسبقاً:</strong>{' '}
-                    {selectedStudent.balanceSummary.totalCredit.toFixed(2)} د.ت
+                    {formatTND(selectedStudent.balanceSummary.totalCredit, 2)} د.ت
                     <br />
                     <small>سيتم تطبيق هذا الرصيد تلقائياً على الرسوم القادمة</small>
                   </Alert>
@@ -767,12 +806,12 @@ const StudentFeesTab = () => {
                             <tr key={charge.id}>
                               <td>{charge.fee_type === 'ANNUAL' ? 'سنوي' : 'شهري'}</td>
                               <td>{charge.description}</td>
-                              <td>{(charge.amount?.toFixed(2) || 0) + ' د.ت'}</td>
-                              <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
+                              <td>{formatTND(charge.amount, 2)} د.ت</td>
+                              <td>{formatTND(charge.amount_paid, 2)} د.ت</td>
                               <td
                                 className={remaining > 0 ? 'text-danger fw-bold' : 'text-success'}
                               >
-                                {remaining > 0 ? remaining?.toFixed(2) + ' د.ت' : '-'}
+                                {remaining > 0 ? formatTND(remaining, 2) + ' د.ت' : '-'}
                               </td>
                               <td>
                                 <Badge bg={statusVariant}>{statusLabel}</Badge>
@@ -790,15 +829,15 @@ const StudentFeesTab = () => {
                           المجموع:
                         </td>
                         <td className="fw-bold">
-                          {selectedStudent.balanceSummary.totalDue?.toFixed(2)} د.ت
+                          {formatTND(selectedStudent.balanceSummary.totalDue, 2)} د.ت
                         </td>
                         <td className="fw-bold">
-                          {selectedStudent.balanceSummary.totalPaid?.toFixed(2)} د.ت
+                          {formatTND(selectedStudent.balanceSummary.totalPaid, 2)} د.ت
                         </td>
                         <td
                           className={`fw-bold ${selectedStudent.balanceSummary.balance >= 0 ? 'text-danger' : 'text-success'}`}
                         >
-                          {selectedStudent.balanceSummary.balance?.toFixed(2)} د.ت
+                          {formatTND(selectedStudent.balanceSummary.balance, 2)} د.ت
                         </td>
                         <td></td>
                       </tr>

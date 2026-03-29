@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@renderer/contexts/AuthContext';
-import { error, log } from '@renderer/utils/logger';
+import { error as logError, log as logInfo } from '@renderer/utils/logger';
 import {
   Container,
   Row,
@@ -52,6 +52,8 @@ const SettingsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(null); // id of backup to delete
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -120,11 +122,11 @@ const SettingsPage = () => {
       if (result.success) {
         setCloudBackups(result.backups || []);
       } else {
-        log('Failed to fetch cloud backups:', result.message);
+        logInfo('Failed to fetch cloud backups:', result.message);
         setCloudBackups(result.backups || []); // Still show cached history
       }
     } catch (err) {
-      log('Failed to fetch cloud backups:', err);
+      logInfo('Failed to fetch cloud backups:', err);
     } finally {
       setIsLoadingCloudBackups(false);
     }
@@ -141,10 +143,34 @@ const SettingsPage = () => {
         toast.error(`فشل تحميل الشعار: ${response.message}`);
       }
     } catch (err) {
-      toast.error(`حدث خطأ أثناء تحميل الشعار: ${err.message}`);
+      toast.error('حدث خطأ أثناء تحميل الملف');
+      logError('File upload error:', err);
     } finally {
       setIsUploading(null);
     }
+  };
+
+  const handleResetFees = async () => {
+    try {
+      setIsResetting(true);
+      const result = await window.electronAPI.resetAndRegenerateFees();
+      if (result.success) {
+        toast.success(result.message);
+        setShowResetModal(false);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error('حدث خطأ أثناء إعادة تعيين الرسوم');
+      logError('Error resetting fees:', err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleRemoveLogo = (fieldName) => {
+    setSettings({ ...settings, [fieldName]: null });
+    toast.info('تمت إزالة الشعار. يرجى الحفظ لتأكيد التغيير.');
   };
 
   const handleDirectorySelect = async (fieldName) => {
@@ -429,6 +455,11 @@ const SettingsPage = () => {
                             <Button variant="outline-primary" onClick={() => handleFileSelect('national_logo_path')} disabled={isUploading === 'national_logo_path'}>
                               {isUploading === 'national_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
                             </Button>
+                            {settings.national_logo_path && (
+                              <Button variant="outline-danger" onClick={() => handleRemoveLogo('national_logo_path')}>
+                                <TrashIcon size={16} />
+                              </Button>
+                            )}
                             <Form.Control type="text" value={settings.national_logo_path || ''} readOnly />
                           </InputGroup>
                           {settings.national_logo_path && (
@@ -445,6 +476,11 @@ const SettingsPage = () => {
                             <Button variant="outline-primary" onClick={() => handleFileSelect('regional_local_logo_path')} disabled={isUploading === 'regional_local_logo_path'}>
                               {isUploading === 'regional_local_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
                             </Button>
+                            {settings.regional_local_logo_path && (
+                              <Button variant="outline-danger" onClick={() => handleRemoveLogo('regional_local_logo_path')}>
+                                <TrashIcon size={16} />
+                              </Button>
+                            )}
                             <Form.Control type="text" value={settings.regional_local_logo_path || ''} readOnly />
                           </InputGroup>
                           {settings.regional_local_logo_path && (
@@ -460,23 +496,108 @@ const SettingsPage = () => {
                   <Tab eventKey="general" title="إعدادات الرسوم">
                     <Card className="border-0 bg-light p-3">
                       <Row>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>الرسم السنوي (د.ت)</Form.Label>
-                            <Form.Control type="number" name="annual_fee" value={settings.annual_fee || ''} onChange={handleChange} step="0.01" />
-                          </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>الرسم الشهري (د.ت)</Form.Label>
-                            <Form.Control type="number" name="standard_monthly_fee" value={settings.standard_monthly_fee || ''} onChange={handleChange} step="0.01" />
-                          </Form.Group>
-                        </Col>
-                      </Row>
-                      <Alert variant="info" className="small py-2 mb-0">
-                        <InfoIcon size={16} className="me-1 ms-1" /> يتم استخدام هذه القيم لحساب مطالبات الطلاب تلقائياً.
-                      </Alert>
-                    </Card>
+                         <Col md={6}>
+                           <Form.Group className="mb-3">
+                             <Form.Label>معلوم الترسيم (د.ت)</Form.Label>
+                             <Form.Control type="number" name="annual_fee" value={settings.annual_fee || ''} onChange={handleChange} step="0.01" />
+                           </Form.Group>
+                         </Col>
+                         <Col md={6}>
+                           <Form.Group className="mb-3">
+                             <Form.Label>المعلوم الشهري (د.ت)</Form.Label>
+                             <Form.Control type="number" name="standard_monthly_fee" value={settings.standard_monthly_fee || ''} onChange={handleChange} step="0.01" />
+                           </Form.Group>
+                         </Col>
+                       </Row>
+                       <Row className="mb-4">
+                         <Col md={12}>
+                           <Form.Check
+                             type="switch"
+                             id="auto_charge_generation_enabled"
+                             label="تفعيل توليد الرسوم تلقائياً للطلاب"
+                             name="auto_charge_generation_enabled"
+                             checked={settings.auto_charge_generation_enabled || false}
+                             onChange={handleChange}
+                             className="mb-3 fw-bold"
+                           />
+                         </Col>
+                         {settings.auto_charge_generation_enabled && (
+                           <>
+                             <Col md={4}>
+                               <Form.Group className="mb-3">
+                                 <Form.Label className="small">بداية السنة الدراسية</Form.Label>
+                                 <Form.Select
+                                   size="sm"
+                                   name="academic_year_start_month"
+                                   value={settings.academic_year_start_month || 9}
+                                   onChange={handleChange}
+                                 >
+                                   {Array.from({ length: 12 }, (_, i) => (
+                                     <option key={i + 1} value={i + 1}>
+                                       {new Date(2000, i).toLocaleString('ar', { month: 'long' })}
+                                     </option>
+                                   ))}
+                                 </Form.Select>
+                               </Form.Group>
+                             </Col>
+                             <Col md={4}>
+                               <Form.Group className="mb-3">
+                                 <Form.Label className="small">يوم توليد الرسوم (شهرياً)</Form.Label>
+                                 <Form.Control
+                                   size="sm"
+                                   type="number"
+                                   name="charge_generation_day"
+                                   min="1"
+                                   max="28"
+                                   value={settings.charge_generation_day || 25}
+                                   onChange={handleChange}
+                                 />
+                               </Form.Group>
+                             </Col>
+                             <Col md={4}>
+                               <Form.Group className="mb-3">
+                                 <Form.Label className="small">أشهر التوليد المسبق</Form.Label>
+                                 <Form.Control
+                                   size="sm"
+                                   type="number"
+                                   name="pre_generate_months_ahead"
+                                   min="1"
+                                   max="12"
+                                   value={settings.pre_generate_months_ahead || 2}
+                                   onChange={handleChange}
+                                 />
+                                 <Form.Text className="text-muted small">عدد الأشهر القادمة التي سيتم توليد رسومها مسبقاً.</Form.Text>
+                               </Form.Group>
+                             </Col>
+                           </>
+                         )}
+                        </Row>
+                     </Card>
+
+                     <div className="mt-4">
+                        <div className="d-flex align-items-center mb-3 text-danger border-bottom pb-2">
+                           <h5 className="mb-0">أدوات الصيانة</h5>
+                        </div>
+                        <Card className="border-danger bg-light">
+                           <Card.Body>
+                              <div className="d-flex align-items-center justify-content-between">
+                                 <div>
+                                    <h6 className="mb-1 text-danger">إعادة تعيين وتوليد كافة مبالغ الرسوم</h6>
+                                    <p className="text-muted small mb-0">
+                                       سيقوم هذا الإجراء بحذف كافة الرسوم **غير الخالصة** للسنة الحالية وإعادة إنشائها بناءً على الإعدادات الحالية.
+                                    </p>
+                                 </div>
+                                 <Button 
+                                    variant="outline-danger" 
+                                    onClick={() => setShowResetModal(true)}
+                                    disabled={isResetting}
+                                 >
+                                    {isResetting ? <Spinner size="sm" className="me-2" /> : 'بدء إعادة التعيين'}
+                                 </Button>
+                              </div>
+                           </Card.Body>
+                        </Card>
+                     </div>
                   </Tab>
 
                   <Tab eventKey="age-groups" title="فئات عمرية">
@@ -518,6 +639,35 @@ const SettingsPage = () => {
                                 </Form.Group>
                               </Col>
                             </Row>
+
+                            <div className="border-top pt-3 mt-2">
+                              <Form.Check 
+                                type="switch" 
+                                label="تفعيل التذكير بالنسخ الاحتياطي" 
+                                name="backup_reminder_enabled" 
+                                checked={settings.backup_reminder_enabled || false} 
+                                onChange={handleChange} 
+                                className="mb-3 small" 
+                              />
+                              {settings.backup_reminder_enabled && (
+                                <Row>
+                                  <Col md={6}>
+                                    <Form.Group className="mb-2">
+                                      <Form.Label className="small">تكرار التذكير (بالأيام)</Form.Label>
+                                      <Form.Control 
+                                        size="sm" 
+                                        type="number" 
+                                        name="backup_reminder_frequency_days" 
+                                        min="1" 
+                                        max="365" 
+                                        value={settings.backup_reminder_frequency_days || 7} 
+                                        onChange={handleChange} 
+                                      />
+                                    </Form.Group>
+                                  </Col>
+                                </Row>
+                              )}
+                            </div>
                             <div className="d-flex gap-2">
                               <Button variant="outline-success" size="sm" onClick={handleRunBackup} disabled={isBackingUp || !settings.backup_path}>
                                 {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
@@ -842,6 +992,41 @@ const SettingsPage = () => {
           <Button variant="secondary" onClick={() => setShowCloudHelp(false)}>فهمت ذلك</Button>
         </Modal.Footer>
       </Modal>
+      {/* Reset Fees Modal */}
+      <Modal show={showResetModal} onHide={() => !isResetting && setShowResetModal(false)} centered>
+        <Modal.Header closeButton={!isResetting}>
+          <Modal.Title className="text-danger">تأكيد إعادة تعيين الرسوم</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="alert alert-danger shadow-sm border-2">
+            <h6 className="fw-bold text-danger mb-2">⚠️ تحذير شديد الخطورة (تصفير شامل):</h6>
+            <ul className="mb-0 small p-0 ms-3">
+              <li className="mb-1 text-dark">سيتم حذف **كافة الرسوم** (الخالصة وغير الخالصة) للسنة الدراسية الحالية.</li>
+              <li className="mb-1 text-dark">سيتم حذف **جميع وصولات الدفع** والحركات المالية المرتبطة بها من السجل المالي.</li>
+              <li className="mb-1 text-dark">سيتم **تصفير كافة الخصومات** لجميع الطلاب للبدء بسجل نظيف تماماً.</li>
+              <li className="mb-1 text-dark">سيقوم النظام بإعادة إنشاء الرسوم آلياً من بداية السنة الدراسية إلى الشهر الحالي.</li>
+              <li className="fw-bold text-danger mt-2">خطر: هذا الإجراء لا يمكن التراجع عنه وسيتم مسح التاريخ المالي لهذا الموسم.</li>
+            </ul>
+          </div>
+          <p className="mb-0">هل أنت متأكد من رغبتك في الاستمرار في هذه العملية؟</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowResetModal(false)} disabled={isResetting}>
+            إلغاء
+          </Button>
+          <Button variant="danger" onClick={handleResetFees} disabled={isResetting}>
+            {isResetting ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                جاري المعالجة...
+              </>
+            ) : (
+              'تأكيد إعادة الحساب'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </Container>
   );
 };

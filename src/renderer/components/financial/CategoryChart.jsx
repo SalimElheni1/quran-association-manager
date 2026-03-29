@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from 'react-bootstrap';
+import { formatTND } from '@renderer/utils/formatCurrency';
 
 /**
  * CategoryChart - Display category breakdown as simple list
@@ -11,10 +12,7 @@ function CategoryChart({ title, data = [], variant = 'primary' }) {
   const total = data.reduce((sum, item) => sum + (item.total || item.amount || 0), 0);
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('ar-TN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount || 0);
+    return formatTND(amount || 0, 2);
   };
 
   const getPercentage = (amount) => {

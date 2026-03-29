@@ -56,6 +56,7 @@ function TransactionModal({
       related_person_name: '',
       donor_cin: '',
       receipt_type: '',
+      bank_transfer_number: '',
       // In-kind donation fields
       item_name: '',
       item_category: '',
@@ -194,7 +195,7 @@ function TransactionModal({
 
             <Form.Group as={Col} md={defaultCategory ? '6' : '4'} className="mb-3">
               <Form.Label>
-                رقم الوصل {isInKindDonation ? '' : <span className="text-danger">*</span>}
+                {type === 'INCOME' ? 'رقم وصل استلام' : 'رقم الوصل'} {isInKindDonation ? '' : <span className="text-danger">*</span>}
               </Form.Label>
               <Form.Control
                 type="text"
@@ -273,6 +274,23 @@ function TransactionModal({
                   type="text"
                   name="check_number"
                   value={formData.check_number || ''}
+                  onChange={handleChange}
+                  required
+                />
+              </Form.Group>
+            </Row>
+          )}
+
+          {formData.payment_method === 'TRANSFER' && (
+            <Row>
+              <Form.Group as={Col} className="mb-3">
+                <Form.Label>
+                  رقم التحويل البنكي <span className="text-danger">*</span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="bank_transfer_number"
+                  value={formData.bank_transfer_number || ''}
                   onChange={handleChange}
                   required
                 />
@@ -371,13 +389,13 @@ function TransactionModal({
 
           <Row>
             <Form.Group as={Col} md="6" className="mb-3">
-              <Form.Label>{type === 'INCOME' ? 'اسم المتبرع' : 'المستفيد / الجهة'}</Form.Label>
+              <Form.Label>{type === 'INCOME' ? 'الإسم الكامل' : 'المستفيد / الجهة'}</Form.Label>
               <Form.Control
                 type="text"
                 name="related_person_name"
                 value={formData.related_person_name || ''}
                 onChange={handleChange}
-                placeholder={type === 'INCOME' ? 'اسم المتبرع' : 'مثال: STEG, محمد العربي...'}
+                placeholder={type === 'INCOME' ? 'الإسم الكامل' : 'مثال: STEG, محمد العربي...'}
               />
             </Form.Group>
             <Form.Group as={Col} md="6" className="mb-3">

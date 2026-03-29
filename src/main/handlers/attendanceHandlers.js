@@ -27,7 +27,7 @@ function registerAttendanceHandlers() {
   ipcMain.handle('attendance:getStudentsForClass', async (_event, classId) => {
     try {
       const sql = `
-        SELECT s.id, s.name, s.date_of_birth
+        SELECT s.id, s.name, s.date_of_birth, s.contact_info, s.parent_name, s.parent_contact
         FROM students s
         INNER JOIN class_students cs ON s.id = cs.student_id
         WHERE cs.class_id = ? AND s.status = 'active'
@@ -97,6 +97,22 @@ function registerAttendanceHandlers() {
     } catch (error) {
       await db.runQuery('ROLLBACK');
       logError('Error saving attendance:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('attendance:getHistoryByStudent', async (_event, { studentId }) => {
+    try {
+      const sql = `
+        SELECT a.date, a.status, c.name as class_name
+        FROM attendance a
+        LEFT JOIN classes c ON a.class_id = c.id
+        WHERE a.student_id = ?
+        ORDER BY a.date DESC
+      `;
+      return db.allQuery(sql, [studentId]);
+    } catch (error) {
+      logError('Error fetching attendance history for student:', error);
       throw error;
     }
   });

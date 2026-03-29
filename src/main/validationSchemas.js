@@ -45,6 +45,7 @@ const studentValidationSchema = Joi.object({
   financial_assistance_notes: Joi.string().allow(null, ''),
   discount_percentage: Joi.number().min(0).max(100).allow(null, '').default(0),
   discount_reason: Joi.string().allow(null, ''),
+  custom_fee_amount: Joi.number().min(0).allow(null, ''),
 }).unknown(true);
 
 const studentPaymentValidationSchema = Joi.object({

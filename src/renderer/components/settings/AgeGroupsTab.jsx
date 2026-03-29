@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, Form, Row, Col, Spinner, Table, Badge, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
+import TablePagination from '../common/TablePagination';
 
 const CATEGORY_OPTIONS = [
   { value: 'any', label: 'الكل' },
@@ -23,7 +24,14 @@ const AgeGroupsTab = () => {
     min_age: '',
     max_age: '',
     gender: 'any',
+    registration_fee: 0,
+    monthly_fee: 0,
+    payment_frequency: 'MONTHLY',
   });
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     fetchAgeGroups();
@@ -54,6 +62,9 @@ const AgeGroupsTab = () => {
       min_age: '',
       max_age: '',
       gender: 'any',
+      registration_fee: 0,
+      monthly_fee: 0,
+      payment_frequency: 'MONTHLY',
     });
     setShowModal(true);
   };
@@ -66,6 +77,9 @@ const AgeGroupsTab = () => {
       min_age: group.min_age,
       max_age: group.max_age || '',
       gender: group.gender,
+      registration_fee: group.registration_fee || 0,
+      monthly_fee: group.monthly_fee || 0,
+      payment_frequency: group.payment_frequency || 'MONTHLY',
     });
     setShowModal(true);
   };
@@ -103,6 +117,8 @@ const AgeGroupsTab = () => {
         ...formData,
         min_age: parseInt(formData.min_age),
         max_age: formData.max_age ? parseInt(formData.max_age) : null,
+        registration_fee: parseFloat(formData.registration_fee || 0),
+        monthly_fee: parseFloat(formData.monthly_fee || 0),
       };
 
       let response;
@@ -154,6 +170,21 @@ const AgeGroupsTab = () => {
     return option ? option.label : gender;
   };
 
+  // Pagination logic
+  const totalItems = ageGroups.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedAgeGroups = ageGroups.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <Card className="border-0">
@@ -193,12 +224,14 @@ const AgeGroupsTab = () => {
                   <th>الاسم</th>
                   <th>النطاق العمري</th>
                   <th>النوع</th>
-                  <th>الوصف</th>
+                  <th>معلوم الترسيم</th>
+                  <th>المعلوم الشهري</th>
+                  <th>تكرار الدفع</th>
                   <th className="text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {ageGroups.map((group) => (
+                {paginatedAgeGroups.map((group) => (
                   <tr key={group.uuid}>
                     <td className="fw-bold">{group.name}</td>
                     <td>
@@ -209,7 +242,13 @@ const AgeGroupsTab = () => {
                         {getGenderLabel(group.gender)}
                       </Badge>
                     </td>
-                    <td>{group.description || '-'}</td>
+                    <td>{group.registration_fee || 0} د.ت</td>
+                    <td>{group.monthly_fee || 0} د.ت</td>
+                    <td>
+                      <Badge bg="secondary">
+                        {group.payment_frequency === 'ANNUAL' ? 'سنوي' : 'شهري'}
+                      </Badge>
+                    </td>
                     <td className="text-center">
                       <Button
                         variant="outline-primary"
@@ -231,6 +270,17 @@ const AgeGroupsTab = () => {
                 ))}
               </tbody>
             </Table>
+          )}
+
+          {ageGroups.length > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </Card.Body>
       </Card>
@@ -317,6 +367,53 @@ const AgeGroupsTab = () => {
                 </Form.Group>
               </Col>
             </Row>
+
+            <hr className="my-4" />
+            <h6 className="mb-3 text-primary">إعدادات الرسوم لهذه الفئة</h6>
+            <Row>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>معلوم الترسيم (د.ت)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="registration_fee"
+                    value={formData.registration_fee}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>المعلوم الشهري (د.ت)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="monthly_fee"
+                    value={formData.monthly_fee}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label>تكرار الدفع</Form.Label>
+                  <Form.Select
+                    name="payment_frequency"
+                    value={formData.payment_frequency}
+                    onChange={handleChange}
+                  >
+                    <option value="MONTHLY">شهري</option>
+                    <option value="ANNUAL">سنوي</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Text className="text-muted d-block mb-3">
+              في حال كانت القيمة 0، سيتم استخدام القيمة العامة المحددة في الإعدادات.
+            </Form.Text>
 
             <Form.Group className="mb-3">
               <Form.Label>الوصف</Form.Label>

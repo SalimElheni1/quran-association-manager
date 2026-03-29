@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import SalaryFormModal from '@renderer/components/financials/SalaryFormModal';
+import TablePagination from '@renderer/components/common/TablePagination';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import { formatTND } from '@renderer/utils/formatCurrency';
 import { error as logError } from '@renderer/utils/logger';
 
 function SalariesTab() {
@@ -12,6 +14,10 @@ function SalariesTab() {
   const [editingSalary, setEditingSalary] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [salaryToDelete, setSalaryToDelete] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchSalaries = async () => {
     try {
@@ -76,6 +82,21 @@ function SalariesTab() {
     }
   };
 
+  // Pagination logic
+  const totalItems = salaries.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedSalaries = salaries.slice(startIndex, startIndex + pageSize);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -111,12 +132,12 @@ function SalariesTab() {
           </tr>
         </thead>
         <tbody>
-          {salaries.length > 0 ? (
-            salaries.map((salary) => (
+          {paginatedSalaries.length > 0 ? (
+            paginatedSalaries.map((salary) => (
               <tr key={salary.id}>
                 <td>{salary.id}</td>
                 <td>{salary.employee_name}</td>
-                <td className="text-start">{salary.amount.toFixed(2)}</td>
+                <td className="text-start">{formatTND(salary.amount, 2)} د.ت</td>
                 <td>{new Date(salary.payment_date).toLocaleDateString()}</td>
                 <td>{salary.notes}</td>
                 <td>
@@ -147,6 +168,15 @@ function SalariesTab() {
           )}
         </tbody>
       </Table>
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
 
       <SalaryFormModal
         show={showModal}

@@ -163,6 +163,34 @@ function translateArray(items, translateFn) {
   return items.map(translateFn);
 }
 
+/**
+ * Tunisian month names
+ */
+const TUNISIAN_MONTHS = [
+  'جانفي',
+  'فيفري',
+  'مارس',
+  'أفريل',
+  'ماي',
+  'جوان',
+  'جويلية',
+  'أوت',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
+];
+
+/**
+ * Gets the Tunisian month name for a given month number (1-12)
+ * @param {number} monthNum - Month number (1-12)
+ * @returns {string} Tunisian month name
+ */
+function getTunisianMonthName(monthNum) {
+  if (monthNum < 1 || monthNum > 12) return '';
+  return TUNISIAN_MONTHS[monthNum - 1];
+}
+
 module.exports = {
   mapGender,
   mapStatus,
@@ -175,4 +203,6 @@ module.exports = {
   translateUser,
   translateTransaction,
   translateArray,
+  TUNISIAN_MONTHS,
+  getTunisianMonthName,
 };
