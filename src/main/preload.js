@@ -178,6 +178,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateEnrollments: (classId, studentIds) =>
     ipcRenderer.invoke('classes:updateEnrollments', { classId, studentIds }),
 
+  // Classrooms API
+  getClassrooms: () => ipcRenderer.invoke('classrooms:get'),
+  addClassroom: (classroomData) => ipcRenderer.invoke('classrooms:add', classroomData),
+  deleteClassroom: (id) => ipcRenderer.invoke('classrooms:delete', id),
+
+  // Class Sessions (Séances) API
+  getClassSessions: (filters) => ipcRenderer.invoke('class_sessions:get', filters),
+  checkClassSessionConflicts: (sessionData) => ipcRenderer.invoke('class_sessions:checkConflicts', sessionData),
+  addClassSession: (sessionData) => ipcRenderer.invoke('class_sessions:add', sessionData),
+  deleteClassSession: (id) => ipcRenderer.invoke('class_sessions:delete', id),
+
   // Groups API
   getGroups: (filters) => ipcRenderer.invoke('groups:get', filters),
   addGroup: (groupData) => ipcRenderer.invoke('groups:add', groupData),

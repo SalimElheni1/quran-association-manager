@@ -416,6 +416,187 @@ function registerClassHandlers() {
       throw error;
     }
   });
+
+  // --- NEW TIMETABLE AND CLASSROOM HANDLERS ---
+
+  // Fetch all classrooms
+  ipcMain.handle('classrooms:get', async () => {
+    try {
+      const sql = 'SELECT * FROM classrooms ORDER BY name ASC';
+      return await db.allQuery(sql);
+    } catch (error) {
+      logError('Error in classrooms:get:', error);
+      throw error;
+    }
+  });
+
+  // Add classroom
+  ipcMain.handle('classrooms:add', async (_event, classroomData) => {
+    try {
+      const { name, capacity, notes } = classroomData;
+      if (!name) throw new Error('اسم القاعة مطلوب.');
+      const sql = 'INSERT INTO classrooms (name, capacity, notes) VALUES (?, ?, ?)';
+      return await db.runQuery(sql, [name, capacity || null, notes || null]);
+    } catch (error) {
+      logError('Error in classrooms:add:', error);
+      throw error;
+    }
+  });
+
+  // Delete classroom
+  ipcMain.handle('classrooms:delete', async (_event, id) => {
+    try {
+      const sql = 'DELETE FROM classrooms WHERE id = ?';
+      return await db.runQuery(sql, [id]);
+    } catch (error) {
+      logError('Error in classrooms:delete:', error);
+      throw error;
+    }
+  });
+
+  // Fetch all scheduled class sessions/séances
+  ipcMain.handle('class_sessions:get', async (_event, filters = {}) => {
+    try {
+      let sql = `
+        SELECT cs.*, c.name as class_name, c.gender as class_gender, c.status as class_status,
+               t.id as teacher_id, t.name as teacher_name,
+               cr.name as classroom_name
+        FROM class_sessions cs
+        JOIN classes c ON cs.class_id = c.id
+        LEFT JOIN teachers t ON c.teacher_id = t.id
+        LEFT JOIN classrooms cr ON cs.classroom_id = cr.id
+        WHERE 1=1
+      `;
+      const params = [];
+      if (filters.classId) {
+        sql += ' AND cs.class_id = ?';
+        params.push(filters.classId);
+      }
+      if (filters.dayOfWeek) {
+        sql += ' AND cs.day_of_week = ?';
+        params.push(filters.dayOfWeek);
+      }
+      sql += ' ORDER BY cs.day_of_week, cs.start_time ASC';
+      return await db.allQuery(sql, params);
+    } catch (error) {
+      logError('Error in class_sessions:get:', error);
+      throw error;
+    }
+  });
+
+  // Check scheduling conflicts (overlapping sessions)
+  ipcMain.handle('class_sessions:checkConflicts', async (_event, sessionData) => {
+    try {
+      const { id, classId, dayOfWeek, startTime, endTime, classroomId } = sessionData;
+
+      // 1. Get the teacher_id of the class
+      const classInfo = await db.getQuery('SELECT teacher_id, name FROM classes WHERE id = ?', [classId]);
+      if (!classInfo) {
+        return { hasConflict: false };
+      }
+
+      const teacherId = classInfo.teacher_id;
+      const conflicts = [];
+
+      // 2. Check Teacher Conflict if teacher_id is assigned
+      if (teacherId) {
+        const teacherSql = `
+          SELECT cs.id, c.name as class_name, cs.start_time, cs.end_time, t.name as teacher_name
+          FROM class_sessions cs
+          JOIN classes c ON cs.class_id = c.id
+          JOIN teachers t ON c.teacher_id = t.id
+          WHERE cs.day_of_week = ?
+            AND c.teacher_id = ?
+            AND cs.id != ?
+            AND (? < cs.end_time AND ? > cs.start_time)
+        `;
+        const teacherOverlap = await db.allQuery(teacherSql, [
+          dayOfWeek,
+          teacherId,
+          id || 0,
+          startTime,
+          endTime
+        ]);
+
+        if (teacherOverlap && teacherOverlap.length > 0) {
+          teacherOverlap.forEach(c => {
+            conflicts.push({
+              type: 'teacher',
+              message: `المعلم ${c.teacher_name} مشغول في نفس الوقت مع فصل "${c.class_name}" (${c.start_time} - ${c.end_time})`
+            });
+          });
+        }
+      }
+
+      // 3. Check Classroom Conflict if classroom_id is selected
+      if (classroomId) {
+        const roomSql = `
+          SELECT cs.id, c.name as class_name, cs.start_time, cs.end_time, cr.name as classroom_name
+          FROM class_sessions cs
+          JOIN classes c ON cs.class_id = c.id
+          JOIN classrooms cr ON cs.classroom_id = cr.id
+          WHERE cs.day_of_week = ?
+            AND cs.classroom_id = ?
+            AND cs.id != ?
+            AND (? < cs.end_time AND ? > cs.start_time)
+        `;
+        const roomOverlap = await db.allQuery(roomSql, [
+          dayOfWeek,
+          classroomId,
+          id || 0,
+          startTime,
+          endTime
+        ]);
+
+        if (roomOverlap && roomOverlap.length > 0) {
+          roomOverlap.forEach(c => {
+            conflicts.push({
+              type: 'classroom',
+              message: `القاعة "${c.classroom_name}" محجوزة بالفعل مع فصل "${c.class_name}" (${c.start_time} - ${c.end_time})`
+            });
+          });
+        }
+      }
+
+      return {
+        hasConflict: conflicts.length > 0,
+        conflicts
+      };
+    } catch (error) {
+      logError('Error checking scheduling conflicts:', error);
+      throw error;
+    }
+  });
+
+  // Add class session/séance
+  ipcMain.handle('class_sessions:add', async (_event, sessionData) => {
+    try {
+      const { classId, dayOfWeek, startTime, endTime, classroomId } = sessionData;
+      if (!classId || !dayOfWeek || !startTime || !endTime) {
+        throw new Error('بيانات الحصة غير مكتملة.');
+      }
+
+      const sql = `
+        INSERT INTO class_sessions (class_id, day_of_week, start_time, end_time, classroom_id)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      return await db.runQuery(sql, [classId, dayOfWeek, startTime, endTime, classroomId || null]);
+    } catch (error) {
+      logError('Error in class_sessions:add:', error);
+      throw error;
+    }
+  });
+
+  // Delete class session/séance
+  ipcMain.handle('class_sessions:delete', async (_event, id) => {
+    try {
+      const sql = 'DELETE FROM class_sessions WHERE id = ?';
+      return await db.runQuery(sql, [id]);
+    } catch (error) {
+      logError('Error in class_sessions:delete:', error);
+      throw error;
+    }
+  });
 }
 
 module.exports = { registerClassHandlers };
