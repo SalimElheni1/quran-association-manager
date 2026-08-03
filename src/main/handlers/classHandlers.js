@@ -58,6 +58,45 @@ function calculateAge(birthDateValue) {
   return age;
 }
 
+/**
+ * Synchronizes class schedules (stored as a JSON string/array in the classes table)
+ * to individual rows in the class_sessions table to keep the Timetable Calendar perfectly updated.
+ *
+ * @param {number} classId - The ID of the class
+ * @param {string|Array} scheduleData - The schedule JSON string or array of objects
+ */
+async function syncClassSessionsFromSchedule(classId, scheduleData) {
+  try {
+    // Delete existing sessions for this class to avoid duplication
+    await db.runQuery('DELETE FROM class_sessions WHERE class_id = ?', [classId]);
+    if (!scheduleData) return;
+
+    const scheduleArray = typeof scheduleData === 'string' ? JSON.parse(scheduleData) : scheduleData;
+    if (Array.isArray(scheduleArray)) {
+      for (const item of scheduleArray) {
+        if (item.day && item.time) {
+          // e.g. "11:30 - 13:30" or "11:30-13:30"
+          const timeParts = item.time.split('-').map(t => t.trim());
+          if (timeParts.length === 2) {
+            const startTime = timeParts[0];
+            const endTime = timeParts[1];
+            // Format check: HH:MM
+            const timeRegex = /^[0-2]?\d:[0-5]\d$/;
+            if (timeRegex.test(startTime) && timeRegex.test(endTime)) {
+              await db.runQuery(
+                'INSERT INTO class_sessions (class_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?)',
+                [classId, item.day, startTime, endTime]
+              );
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logError(`Error syncing sessions for class ${classId}:`, err);
+  }
+}
+
 const classFields = [
   'name',
   'class_type',
@@ -99,7 +138,14 @@ function registerClassHandlers() {
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
       const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
       const sql = `INSERT INTO classes (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-      return db.runQuery(sql, params);
+      const result = await db.runQuery(sql, params);
+
+      // Auto-sync schedule items into class_sessions
+      if (result && result.id && validatedData.schedule) {
+        await syncClassSessionsFromSchedule(result.id, validatedData.schedule);
+      }
+
+      return result;
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
@@ -129,7 +175,14 @@ function registerClassHandlers() {
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
-      return db.runQuery(sql, params);
+      const result = await db.runQuery(sql, params);
+
+      // Auto-sync schedule items into class_sessions
+      if (validatedData.schedule !== undefined) {
+        await syncClassSessionsFromSchedule(id, validatedData.schedule);
+      }
+
+      return result;
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
@@ -457,6 +510,22 @@ function registerClassHandlers() {
   // Fetch all scheduled class sessions/séances
   ipcMain.handle('class_sessions:get', async (_event, filters = {}) => {
     try {
+      // 1. Auto-healing Sync: If the class_sessions table is completely empty,
+      // populate it automatically from the schedules currently set in classes.
+      const countRes = await db.getQuery('SELECT COUNT(*) as count FROM class_sessions');
+      if (countRes && countRes.count === 0) {
+        log('class_sessions is empty. Performing auto-healing synchronization of existing class schedules...');
+        const allClasses = await db.allQuery('SELECT id, schedule FROM classes WHERE schedule IS NOT NULL AND schedule != "" AND schedule != "[]"');
+        for (const cls of allClasses) {
+          try {
+            await syncClassSessionsFromSchedule(cls.id, cls.schedule);
+          } catch (syncErr) {
+            logError(`Failed to auto-sync schedule for class ${cls.id}:`, syncErr);
+          }
+        }
+      }
+
+      // 2. Query sessions
       let sql = `
         SELECT cs.*, c.name as class_name, c.gender as class_gender, c.status as class_status,
                t.id as teacher_id, t.name as teacher_name,
