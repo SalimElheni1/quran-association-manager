@@ -55,6 +55,12 @@ const settingsValidationSchema = Joi.object({
   cloud_backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
   google_account_email: Joi.string().email().allow(''),
   google_connected: Joi.boolean(),
+
+  financial_cash_limit: Joi.number().min(0).allow(null),
+  financial_enforce_cash_limit: Joi.boolean(),
+  financial_default_export_format: Joi.string().valid('xlsx', 'docx', 'pdf'),
+  financial_report_custom_header: Joi.string().allow(''),
+  financial_association_law_type: Joi.string().allow(''),
 });
 
 const defaultSettings = {
@@ -79,6 +85,12 @@ const defaultSettings = {
   auto_charge_generation_enabled: true,
   charge_generation_frequency: 'daily',
   pre_generate_months_ahead: 2,
+
+  financial_cash_limit: 500,
+  financial_enforce_cash_limit: true,
+  financial_default_export_format: 'xlsx',
+  financial_report_custom_header: '',
+  financial_association_law_type: 'tunisian_2011_88',
 };
 
 const internalGetSettingsHandler = async () => {

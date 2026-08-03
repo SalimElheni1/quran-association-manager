@@ -71,11 +71,15 @@ async function generateFinancialReportWord(event, { period }) {
     const localName = await db.getQuery(
       "SELECT value FROM settings WHERE key = 'local_branch_name'",
     );
+    const customHeaderQuery = await db.getQuery(
+      "SELECT value FROM settings WHERE key = 'financial_report_custom_header'",
+    );
     console.log('[Word Export] Settings fetched:', { nationalName, regionalName, localName });
 
     const orgName = nationalName?.value || 'الرابطة الوطنية للقرآن الكريم';
     const branchName = regionalName?.value || '';
     const schoolName = localName?.value || regionalName?.value || '';
+    const customHeader = customHeaderQuery?.value || '';
 
     // Get financial data - income sources only (no amounts)
     console.log('[Word Export] Fetching income data...');
@@ -189,7 +193,7 @@ async function generateFinancialReportWord(event, { period }) {
               spacing: { after: 200 },
             }),
             new Paragraph({
-              children: [new TextRun({ text: orgName, bold: true, size: 32, rightToLeft: true })],
+              children: [new TextRun({ text: customHeader ? `${orgName} - ${customHeader}` : orgName, bold: true, size: 32, rightToLeft: true })],
               alignment: AlignmentType.CENTER,
               spacing: { after: 100 },
             }),

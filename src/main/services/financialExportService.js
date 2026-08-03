@@ -337,8 +337,12 @@ async function generateInventoryRegister(event, { period }) {
     const branchName = await db.getQuery(
       "SELECT value FROM settings WHERE key = 'local_branch_name'",
     );
+    const customHeaderQuery = await db.getQuery(
+      "SELECT value FROM settings WHERE key = 'financial_report_custom_header'",
+    );
     const orgName = nationalName?.value || 'الرابطة الوطنية للقرآن الكريم';
     const branch = branchName?.value || 'الفرع المحلي';
+    const customHeader = customHeaderQuery?.value || '';
 
     // Get active inventory
     const inventory = await db.allQuery(
@@ -368,7 +372,7 @@ async function generateInventoryRegister(event, { period }) {
 
     // Header - Organization name
     worksheet.mergeCells('A1:J1');
-    worksheet.getCell('A1').value = orgName;
+    worksheet.getCell('A1').value = customHeader ? `${orgName} - ${customHeader}` : orgName;
     worksheet.getCell('A1').font = { size: 14, bold: true };
     worksheet.getCell('A1').alignment = { horizontal: 'center' };
 
@@ -534,8 +538,12 @@ async function generateFinancialSummary(event, { period }) {
     const branchName = await db.getQuery(
       "SELECT value FROM settings WHERE key = 'local_branch_name'",
     );
+    const customHeaderQuery = await db.getQuery(
+      "SELECT value FROM settings WHERE key = 'financial_report_custom_header'",
+    );
     const orgName = nationalName?.value || 'الرابطة الوطنية للقرآن الكريم';
     const branch = branchName?.value || 'الفرع المحلي';
+    const customHeader = customHeaderQuery?.value || '';
 
     // Get summary data
     const income = await db.allQuery(
@@ -581,7 +589,7 @@ async function generateFinancialSummary(event, { period }) {
 
     // Header - Organization name
     worksheet.mergeCells('A1:C1');
-    worksheet.getCell('A1').value = orgName;
+    worksheet.getCell('A1').value = customHeader ? `${orgName} - ${customHeader}` : orgName;
     worksheet.getCell('A1').font = { size: 14, bold: true };
     worksheet.getCell('A1').alignment = { horizontal: 'center' };
 

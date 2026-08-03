@@ -33,11 +33,28 @@ const renderYearOptions = () => {
 function FinancialExportModal({ show, handleClose }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [reportType, setReportType] = useState('cash-ledger');
+  const [exportFormat, setExportFormat] = useState('xlsx');
   const [filterType, setFilterType] = useState('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
+  React.useEffect(() => {
+    if (show) {
+      window.electronAPI.getSettings().then((res) => {
+        if (res?.success && res.settings) {
+          const defaultFormat = res.settings.financial_default_export_format || 'xlsx';
+          setExportFormat(defaultFormat);
+          if (defaultFormat === 'docx') {
+            setReportType('financial-summary');
+          } else {
+            setReportType('cash-ledger');
+          }
+        }
+      }).catch((err) => logError('Failed to fetch settings in modal:', err));
+    }
+  }, [show]);
 
   const handleFinancialExport = async () => {
     setMessage({ type: '', text: '' });
@@ -76,7 +93,14 @@ function FinancialExportModal({ show, handleClose }) {
       } else if (reportType === 'inventory-register') {
         result = await window.electronAPI.exportInventoryRegister({ period });
       } else if (reportType === 'financial-summary') {
-        result = await window.electronAPI.exportFinancialSummary({ period });
+        if (exportFormat === 'docx') {
+          result = await window.electronAPI.exportFinancialReportWord({ period });
+        } else if (exportFormat === 'pdf') {
+          const summary = await window.electronAPI.getFinancialSummary(period);
+          result = await window.electronAPI.exportFinancialReportPDF({ period, summary });
+        } else {
+          result = await window.electronAPI.exportFinancialSummary({ period });
+        }
       }
 
       if (result.cancelled) {
@@ -98,11 +122,11 @@ function FinancialExportModal({ show, handleClose }) {
         <Modal.Title>تصدير التقارير المالية</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p>اختر نوع التقرير والفترة الزمنية للتصدير.</p>
+        <p>اختر نوع التقرير وصيغته والفترة الزمنية للتصدير.</p>
 
         <Form>
           <Row className="mb-4">
-            <Col md={12}>
+            <Col md={8}>
               <Form.Group>
                 <Form.Label className="fw-bold">نوع التقرير</Form.Label>
                 <div className="d-flex gap-3 mt-2">
@@ -113,7 +137,10 @@ function FinancialExportModal({ show, handleClose }) {
                     label="📒 سجل المحاسبة"
                     value="cash-ledger"
                     checked={reportType === 'cash-ledger'}
-                    onChange={(e) => setReportType(e.target.value)}
+                    onChange={(e) => {
+                      setReportType(e.target.value);
+                      setExportFormat('xlsx'); // Cash ledger is Excel only
+                    }}
                   />
                   <Form.Check
                     type="radio"
@@ -122,7 +149,10 @@ function FinancialExportModal({ show, handleClose }) {
                     label="📦 سجل الجرد"
                     value="inventory-register"
                     checked={reportType === 'inventory-register'}
-                    onChange={(e) => setReportType(e.target.value)}
+                    onChange={(e) => {
+                      setReportType(e.target.value);
+                      setExportFormat('xlsx'); // Inventory is Excel only
+                    }}
                   />
                   <Form.Check
                     type="radio"
@@ -136,6 +166,23 @@ function FinancialExportModal({ show, handleClose }) {
                 </div>
               </Form.Group>
             </Col>
+
+            {reportType === 'financial-summary' && (
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="fw-bold">صيغة التصدير</Form.Label>
+                  <Form.Select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="mt-1"
+                  >
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="docx">Word (.docx)</option>
+                    <option value="pdf">PDF / نصي (.pdf)</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            )}
           </Row>
 
           <Row className="mb-3 align-items-end">
