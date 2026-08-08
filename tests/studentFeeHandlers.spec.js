@@ -453,6 +453,60 @@ describe('Student Fee Handlers', () => {
         [paymentDetails.amount, 1],
       );
     });
+
+    it('should apply existing credit to charges before using the new cash', async () => {
+      const paymentDetails = {
+        student_id: 1,
+        amount: 100,
+        payment_method: 'نقدي',
+      };
+      const event = { sender: { userId: 1 } };
+
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null); // No duplicate receipt
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes("fee_type = 'CREDIT'") && sql.includes('amount_paid > 0')) {
+          return Promise.resolve([{ id: 90, fee_type: 'CREDIT', amount_paid: 40 }]);
+        }
+        if (sql.includes('fee_type !=')) {
+          return Promise.resolve([
+            { id: 5, amount: 100, amount_paid: 0, status: 'UNPAID', fee_type: 'MONTHLY' },
+          ]);
+        }
+        return Promise.resolve([{ id: 1 }]); // Has unpaid charges -> skip auto-generation
+      });
+
+      await recordStudentPayment(event, paymentDetails);
+
+      // Credit charge 90 fully consumed (40 -> 0)
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE student_fee_charges'),
+        [0, 90],
+      );
+
+      // Charge 5 fully paid (40 credit + 60 cash)
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE student_fee_charges'),
+        [100, 'PAID', 5],
+      );
+
+      // Breakdown records the full 100 applied to charge 5
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_payment_breakdown'),
+        [expect.any(Number), 5, 100],
+      );
+
+      // Remaining 40 cash stored as overpayment credit
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_fee_charges'),
+        expect.arrayContaining([40]),
+      );
+    });
   });
 
   // ============================================

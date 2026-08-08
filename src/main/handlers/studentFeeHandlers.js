@@ -1419,41 +1419,14 @@ async function recordStudentPayment(event, paymentDetails) {
 
     console.log(`[PAYMENT_CREDIT] Found ${existingCreditCharges.length} credit charges`);
     let remainingAmountToApply = amount;
-    let totalCreditConsumed = 0;
 
-    // Consume credit first (oldest credit first)
-    for (const creditCharge of existingCreditCharges) {
-      if (remainingAmountToApply <= 0) break;
+    // Track available credit (decremented as it is applied to charges)
+    const creditPool = existingCreditCharges.map((c) => ({ id: c.id, available: c.amount_paid }));
 
-      const availableCredit = creditCharge.amount_paid; // Credit amount available
-      const creditToConsume = Math.min(remainingAmountToApply, availableCredit);
-
-      console.log(
-        `[PAYMENT_CREDIT] Consuming ${creditToConsume} from credit charge ${creditCharge.id} (available: ${availableCredit})`,
-      );
-
-      // Reduce the credit amount
-      const newCreditAmount = availableCredit - creditToConsume;
-      await db.runQuery(
-        `
-        UPDATE student_fee_charges
-        SET amount_paid = ?
-        WHERE id = ?
-      `,
-        [newCreditAmount, creditCharge.id],
-      );
-
-      remainingAmountToApply -= creditToConsume;
-      totalCreditConsumed += creditToConsume;
-
-      console.log(
-        `[PAYMENT_CREDIT] Credit consumed. Remaining to apply: ${remainingAmountToApply}, Total credit consumed: ${totalCreditConsumed}`,
-      );
-    }
-
-    // 3. Apply remaining payment to outstanding charges (FIFO)
+    // 3. Apply payment to outstanding charges (FIFO), satisfying each charge
+    //    from existing credit first, then from the new cash payment.
     console.log(
-      `[PAYMENT_CHARGES] Applying remaining amount ${remainingAmountToApply} to outstanding charges...`,
+      `[PAYMENT_CHARGES] Applying payment of ${remainingAmountToApply} to outstanding charges...`,
     );
     const outstandingCharges = await db.allQuery(
       `
@@ -1469,16 +1442,49 @@ async function recordStudentPayment(event, paymentDetails) {
     );
 
     for (const charge of outstandingCharges) {
-      if (remainingAmountToApply <= 0) break;
+      if (remainingAmountToApply <= 0 && creditPool.every((c) => c.available <= 0)) break;
 
       const chargeBalance = charge.amount - charge.amount_paid;
-      const amountToApplyToCharge = Math.min(remainingAmountToApply, chargeBalance);
+      if (chargeBalance <= 0) continue;
+
+      let amountFromCredit = 0;
+      let chargeRemaining = chargeBalance;
+
+      // 3a. Apply existing credit first (oldest credit first)
+      for (const credit of creditPool) {
+        if (chargeRemaining <= 0) break;
+        if (credit.available <= 0) continue;
+
+        const creditToApply = Math.min(chargeRemaining, credit.available);
+        if (creditToApply > 0) {
+          await db.runQuery(
+            `
+            UPDATE student_fee_charges
+            SET amount_paid = ?
+            WHERE id = ?
+          `,
+            [credit.available - creditToApply, credit.id],
+          );
+          credit.available -= creditToApply;
+          amountFromCredit += creditToApply;
+          chargeRemaining -= creditToApply;
+          console.log(
+            `[PAYMENT_CREDIT] Applied ${creditToApply} of credit from charge ${credit.id} to charge ${charge.id}`,
+          );
+        }
+      }
+
+      // 3b. Apply the new cash payment to the charge remainder
+      const amountFromCash = Math.min(remainingAmountToApply, chargeRemaining);
+      const amountToApplyToCharge = amountFromCredit + amountFromCash;
+
+      if (amountToApplyToCharge <= 0) continue;
 
       console.log(
-        `[PAYMENT_CHARGES] Applying ${amountToApplyToCharge} to charge ${charge.id} (${charge.description}) - balance was ${chargeBalance}`,
+        `[PAYMENT_CHARGES] Applying ${amountToApplyToCharge} to charge ${charge.id} (${charge.description}) - balance was ${chargeBalance} (credit: ${amountFromCredit}, cash: ${amountFromCash})`,
       );
 
-      // Create a breakdown record
+      // Create a breakdown record for the total applied (credit + cash)
       await db.runQuery(
         `
         INSERT INTO student_payment_breakdown (student_payment_id, student_fee_charge_id, amount)
@@ -1500,9 +1506,9 @@ async function recordStudentPayment(event, paymentDetails) {
         [newAmountPaid, newStatus, charge.id],
       );
 
-      remainingAmountToApply -= amountToApplyToCharge;
+      remainingAmountToApply -= amountFromCash;
       console.log(
-        `[PAYMENT_CHARGES] Charge ${charge.id} updated. New status: ${newStatus}, remaining to apply: ${remainingAmountToApply}`,
+        `[PAYMENT_CHARGES] Charge ${charge.id} updated. New status: ${newStatus}, remaining cash to apply: ${remainingAmountToApply}`,
       );
     }
 
