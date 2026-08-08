@@ -8,7 +8,6 @@ const {
 const db = require('../src/db/db');
 
 // Mock dependencies
-jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
@@ -30,6 +29,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
   });
 
   afterEach(() => {
+    db.resetMocks();
     jest.clearAllMocks();
   });
 
@@ -58,6 +58,9 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
       db.runQuery.mockRejectedValue(new Error('Database error'));
+      db.getQuery.mockResolvedValue({ value: '100' }); // annual_fee setting
+      db.getQuery.mockResolvedValueOnce({ value: '50' }); // standard_monthly_fee setting
+      db.allQuery.mockResolvedValue([{ id: 1 }]); // students
 
       await expect(ipcMain.invoke('student-fees:generateAllCharges', academicYear)).rejects.toThrow(
         'Database error',
@@ -246,28 +249,25 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
     it('should release lock even when errors occur', async () => {
       const studentId = 789;
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting
-        .mockResolvedValueOnce({
-          id: studentId,
-          name: 'Student 1',
-          status: 'active',
-          fee_category: 'CAN_PAY',
-        }); // student details
-      db.allQuery.mockRejectedValue(new Error('Database error'));
+      // Outer failure: student lookup rejects -> outer catch must release the lock
+      db.getQuery.mockRejectedValue(new Error('Database error'));
 
       const result = await triggerChargeRegenerationForStudent(studentId);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Database error');
 
       // Lock should be released even after error, so next call should succeed
-      db.getQuery.mockResolvedValueOnce({ value: '9' }).mockResolvedValueOnce({
-        id: studentId,
-        name: 'Test Student 3',
-        status: 'active',
-        fee_category: 'CAN_PAY',
-      });
-      db.allQuery.mockResolvedValue([]);
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.getQuery
+        .mockResolvedValueOnce({
+          id: studentId,
+          name: 'Test Student 3',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }) // student details
+        .mockResolvedValueOnce({ value: '9' }); // academic_year_start_month
+      db.allQuery.mockResolvedValue([]); // No existing charges
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result2 = await triggerChargeRegenerationForStudent(studentId);

@@ -22,6 +22,34 @@ const allQuery = jest.fn((sql) => {
   return Promise.resolve([]);
 });
 
+const runQuery = jest.fn(() => Promise.resolve({ id: 1, changes: 1 }));
+const withTransaction = jest.fn(async (callback) => callback());
+
+// Resets mock state AND drains mockResolvedValueOnce queues (jest.clearAllMocks
+// does not clear queued once-values, which leaks across tests), then restores the
+// default implementations above.
+function resetMocks() {
+  getQuery.mockReset();
+  allQuery.mockReset();
+  runQuery.mockReset();
+  withTransaction.mockReset();
+
+  getQuery.mockImplementation((sql, params) => {
+    if (sql.includes('SELECT id, username FROM users WHERE id = ?') && params[0] === 1) {
+      return Promise.resolve(mockUser);
+    }
+    return Promise.resolve(null);
+  });
+  allQuery.mockImplementation((sql) => {
+    if (sql.includes('SELECT r.name FROM roles r JOIN user_roles ur')) {
+      return Promise.resolve(mockAdminRoles);
+    }
+    return Promise.resolve([]);
+  });
+  runQuery.mockImplementation(() => Promise.resolve({ id: 1, changes: 1 }));
+  withTransaction.mockImplementation(async (callback) => callback());
+}
+
 module.exports = {
   initializeDatabase: jest.fn(() => {
     isOpen = true;
@@ -38,10 +66,11 @@ module.exports = {
   isDbOpen: jest.fn(() => isOpen),
   getQuery,
   allQuery,
-  runQuery: jest.fn(() => Promise.resolve({ id: 1, changes: 1 })),
+  runQuery,
   dbExec: jest.fn(() => Promise.resolve()),
-  withTransaction: jest.fn(async (callback) => callback()),
+  withTransaction,
   getDb: jest.fn(() => db),
   getDatabasePath: jest.fn(),
   dbClose: jest.fn(() => Promise.resolve()),
+  resetMocks,
 };

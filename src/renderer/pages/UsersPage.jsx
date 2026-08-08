@@ -289,6 +289,7 @@ function UsersPage() {
                         <Button
                           variant="outline-success"
                           size="sm"
+                          aria-label="تعديل"
                           onClick={() => handleEditUser(user)}
                         >
                           <EditIcon />
@@ -298,6 +299,7 @@ function UsersPage() {
                         <Button
                           variant="outline-danger"
                           size="sm"
+                          aria-label="حذف"
                           onClick={() => handleDeleteRequest(user)}
                         >
                           <TrashIcon />

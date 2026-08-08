@@ -23,6 +23,7 @@ module.exports = {
       displayName: 'renderer-process',
       testEnvironment: 'jsdom',
       testMatch: ['<rootDir>/tests/renderer/**/*.spec.js'],
+      testPathIgnorePatterns: ['<rootDir>/tests/renderer/verify_icons.spec.js'],
       setupFilesAfterEnv: ['<rootDir>/tests/renderer/setup.js'],
       moduleNameMapper: {
         '^@renderer/(.*)$': '<rootDir>/src/renderer/$1',

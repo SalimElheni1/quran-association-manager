@@ -1,7 +1,6 @@
 // tests/studentFeeHandlers.spec.js
 
 // Mock dependencies FIRST before importing modules
-jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
@@ -33,6 +32,7 @@ const db = require('../src/db/db');
 
 describe('Student Fee Handlers', () => {
   beforeEach(() => {
+    db.resetMocks();
     jest.clearAllMocks();
   });
 
@@ -133,29 +133,53 @@ describe('Student Fee Handlers', () => {
     it('should skip generation if charges exist and force=false', async () => {
       const academicYear = '2024-2025';
       const month = 10;
-      db.allQuery.mockResolvedValueOnce([{ id: 1 }]); // Students
-      db.allQuery.mockResolvedValueOnce([{ id: 1 }]); // Existing charges
+      db.allQuery
+        .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
+        .mockResolvedValueOnce([{ fee_type: 'standard', gender: 'men', monthly_fee: 50 }]); // Enrolled classes
+      db.getQuery
+        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // men_payment_frequency
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // women_payment_frequency
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // kids_payment_frequency
+        .mockResolvedValueOnce({ id: 1, amount_paid: 0 }); // Existing charge
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await generateMonthlyFeeCharges(academicYear, month, false, false);
+      await generateMonthlyFeeCharges(academicYear, month, { force: false });
 
-      // Should check for existing charges but not delete them
-      expect(db.allQuery).toHaveBeenCalled();
+      // Existing charge present + no force -> skip: no DELETE and no INSERT
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('DELETE'),
+        expect.any(Array),
+      );
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_fee_charges'),
+        expect.any(Array),
+      );
     });
 
     it('should force regenerate charges when force=true', async () => {
       const academicYear = '2024-2025';
       const month = 10;
       db.allQuery
-        .mockResolvedValueOnce([{ id: 1, gender: 'Male', discount_percentage: 0 }])
-        .mockResolvedValueOnce([{ id: 1 }]); // Existing charges
-      db.getQuery.mockResolvedValue({ value: '50' });
+        .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
+        .mockResolvedValueOnce([{ fee_type: 'standard', gender: 'men', monthly_fee: 50 }]); // Enrolled classes
+      db.getQuery
+        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // men_payment_frequency
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // women_payment_frequency
+        .mockResolvedValueOnce({ value: 'MONTHLY' }) // kids_payment_frequency
+        .mockResolvedValueOnce({ id: 1, amount_paid: 0 }); // Existing unpaid charge
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await generateMonthlyFeeCharges(academicYear, month, false, true);
+      await generateMonthlyFeeCharges(academicYear, month, { force: true });
 
+      // Per-student delete of the unpaid existing charge, then re-insert
       expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM student_fee_charges'),
+        'DELETE FROM student_fee_charges WHERE id = ?',
+        [1],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_fee_charges'),
         expect.any(Array),
       );
     });
@@ -236,24 +260,25 @@ describe('Student Fee Handlers', () => {
       const options = { userId: 1 };
 
       db.getQuery
-        .mockResolvedValueOnce({ value: '9' }) // Academic year start month
         .mockResolvedValueOnce({
           id: 1,
           name: 'Student 1',
           status: 'active',
           fee_category: 'CAN_PAY',
-        }); // Student details
-      db.allQuery.mockResolvedValue([]); // No existing charges
+        }) // Student details
+        .mockResolvedValueOnce({ value: '9' }); // Academic year start month
+      db.allQuery.mockResolvedValue([]); // No existing charges / enrollments
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await triggerChargeRegenerationForStudent(studentId, options);
+      const result = await triggerChargeRegenerationForStudent(studentId, options);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
+      expect(result.success).toBe(true);
+      // Recreates (deletes) current-month charges for the student, not wrapped in BEGIN/COMMIT
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM student_fee_charges'),
         expect.any(Array),
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
+      expect(db.runQuery).not.toHaveBeenCalledWith('BEGIN TRANSACTION;');
     });
 
     it('should prevent race conditions with lock mechanism', async () => {
@@ -313,11 +338,19 @@ describe('Student Fee Handlers', () => {
     it('should handle errors and rollback transaction', async () => {
       const studentId = 1;
       db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
-      db.getQuery.mockRejectedValue(new Error('Database error'));
+      db.getQuery
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }) // Student details
+        .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month
+        .mockRejectedValueOnce(new Error('Database error')); // failure after BEGIN
 
-      const result = await refreshStudentCharges(studentId);
-
-      expect(result.success).toBe(false);
+      await expect(refreshStudentCharges(studentId)).rejects.toThrow(
+        'فشل في تحديث الرسوم: Database error',
+      );
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
@@ -476,12 +509,23 @@ describe('Student Fee Handlers', () => {
         sponsor_name: 'Ahmed Ali',
         sponsor_phone: '0123456789',
       };
+      const event = { sender: { userId: 1 } };
 
       db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
-      db.getQuery.mockResolvedValue(null); // No duplicate receipt
-      db.allQuery.mockResolvedValue([]); // No existing charges
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null); // No duplicate receipt
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes('fee_type !=') || sql.includes("fee_type = 'CREDIT'")) {
+          return Promise.resolve([]); // No credit, no outstanding charges
+        }
+        return Promise.resolve([{ id: 1 }]); // Has unpaid charges -> skip auto-generation
+      });
 
-      await recordStudentPayment(null, paymentDetails);
+      await recordStudentPayment(event, paymentDetails);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith(
@@ -550,18 +594,29 @@ describe('Student Fee Handlers', () => {
         amount: 150,
         payment_method: 'نقدي',
       };
+      const event = { sender: { userId: 1 } };
 
       db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
-      db.getQuery.mockResolvedValue(null);
-      db.allQuery
-        .mockResolvedValueOnce([]) // No credit charges
-        .mockResolvedValueOnce([
-          // Unpaid charges
-          { id: 1, amount: 100, amount_paid: 0 },
-          { id: 2, amount: 100, amount_paid: 0 },
-        ]);
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null); // No duplicate receipt
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes("fee_type = 'CREDIT'") && sql.includes('amount_paid > 0')) {
+          return Promise.resolve([]); // No existing credit
+        }
+        if (sql.includes('fee_type !=')) {
+          return Promise.resolve([
+            { id: 1, amount: 100, amount_paid: 0, status: 'UNPAID', fee_type: 'MONTHLY' },
+            { id: 2, amount: 100, amount_paid: 0, status: 'UNPAID', fee_type: 'MONTHLY' },
+          ]);
+        }
+        return Promise.resolve([{ id: 1 }]); // Has unpaid charges -> skip auto-generation
+      });
 
-      await recordStudentPayment(null, paymentDetails);
+      await recordStudentPayment(event, paymentDetails);
 
       // Should update charges with payment
       expect(db.runQuery).toHaveBeenCalledWith(
@@ -800,6 +855,8 @@ describe('Student Fee Handlers', () => {
       const settings = {
         academic_year_start_month: '9',
         current_academic_year: '2024-2025',
+        annual_fee: '100',
+        standard_monthly_fee: '50',
       };
 
       db.allQuery.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]); // Students

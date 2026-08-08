@@ -1,7 +1,12 @@
 // tests/backupManager.spec.js
 
 // Mock all dependencies at the top level
-jest.mock('fs', () => ({ promises: { writeFile: jest.fn() } }));
+jest.mock('fs', () => ({
+  promises: {
+    writeFile: jest.fn().mockResolvedValue(),
+    stat: jest.fn().mockResolvedValue({ size: 123 }),
+  },
+}));
 jest.mock('pizzip');
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');

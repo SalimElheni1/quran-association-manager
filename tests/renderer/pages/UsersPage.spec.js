@@ -16,8 +16,8 @@ jest.mock('@renderer/hooks/usePermissions', () => ({
 // Mock react-bootstrap
 jest.mock('react-bootstrap', () => ({
   Table: ({ children }) => <table>{children}</table>,
-  Button: ({ children, onClick, variant, size }) => (
-    <button onClick={onClick} className={`btn-${variant} btn-${size}`}>
+  Button: ({ children, onClick, variant, size, ...rest }) => (
+    <button onClick={onClick} className={`btn-${variant} btn-${size}`} {...rest}>
       {children}
     </button>
   ),

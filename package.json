@@ -48,6 +48,9 @@
   "devDependencies": {
     "@babel/preset-env": "^7.29.0",
     "@babel/preset-react": "^7.28.5",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^8.2.2",
     "electron": "^32.0.0",
