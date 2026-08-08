@@ -226,10 +226,13 @@ async function generateAnnualFeeCharges(academicYear) {
  * Generates monthly fee charges for all eligible students.
  * @param {string} academicYear The academic year for which to generate charges.
  * @param {number} month The month for which to generate charges (1-12).
- * @param {boolean} useTransaction Whether to wrap in transaction (default: false)
- * @param {boolean} force Whether to force regeneration even if charges exist (default: false)
+ * @param {object} [options]
+ * @param {boolean} [options.force] Whether to force regeneration even if charges exist (default: false)
+ * @param {boolean} [options.useTransaction] Whether to wrap in a transaction (default: true).
+ *   db.withTransaction is nesting-safe, so callers already inside a transaction can rely on it.
  */
-async function generateMonthlyFeeCharges(academicYear, month, force = false) {
+async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
+  const { force = false } = options;
   return db
     .withTransaction(async () => {
       const standardFeeSetting = await getSetting('standard_monthly_fee');
@@ -269,11 +272,17 @@ async function generateMonthlyFeeCharges(academicYear, month, force = false) {
 
       for (const student of students) {
         const existingCharge = await db.getQuery(
-          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND billing_month = ?`,
+          `SELECT id, amount_paid FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND billing_month = ?`,
           [student.id, billingMonth],
         );
 
         if (existingCharge && !force) continue;
+        if (existingCharge && force && parseFloat(existingCharge.amount_paid || 0) > 0) {
+          log(
+            `[FeeGen] Skipping force-regeneration for student ${student.id}: existing charge has payments recorded`,
+          );
+          continue;
+        }
         if (existingCharge && force) {
           await db.runQuery('DELETE FROM student_fee_charges WHERE id = ?', [existingCharge.id]);
         }
@@ -453,7 +462,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
     if (!student) {
       log(`[ChargeRegen] ❌ Student ${studentId} not found`);
       releaseChargeRegenerationLock(studentId);
-      return { success: true, message: 'Student not found' };
+      return { success: false, message: 'Student not found' };
     }
 
     log(
@@ -515,7 +524,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
         // Check existing charges BEFORE delete
         const existingCurrent = await db.allQuery(
           `
-          SELECT id, amount, charge_date FROM student_fee_charges
+          SELECT id, amount, charge_date, amount_paid FROM student_fee_charges
           WHERE student_id = ? 
           AND fee_type = 'MONTHLY' 
           AND billing_month = ?
@@ -528,55 +537,65 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           log(`[ChargeRegen]   ${i + 1}. Amount: ${c.amount} DT, Date: ${c.charge_date}`);
         });
 
-        // Delete existing charges
-        await db.runQuery(
-          `
-          DELETE FROM student_fee_charges
-          WHERE student_id = ? 
-          AND fee_type = 'MONTHLY' 
-          AND billing_month = ?
-        `,
-          [studentId, currentBillingMonth],
-        );
+        // Never delete charges with recorded payments - regeneration would lose
+        // payment history and its student_payment_breakdown rows.
+        const hasPaidCharges = existingCurrent.some((c) => parseFloat(c.amount_paid || 0) > 0);
 
-        log(`[ChargeRegen] ✓ Deleted ${existingCurrent.length} old charge(s)`);
-
-        // Create new charge if total > 0
-        if (currentFees.total > 0) {
-          if (
-            paymentFrequency === 'ANNUAL' &&
-            (await hasAnnualMonthlyCharge(studentId, currentAcademicYear))
-          ) {
-            log(
-              `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${currentAcademicYear} - skipping current month`,
-            );
-          } else {
-            const chargeDate = new Date().toISOString().split('T')[0];
-            const monthName = monthNames[currentMonth - 1];
-
-            await db.runQuery(
-              `
-              INSERT INTO student_fee_charges 
-              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
-            `,
-              [
-                studentId,
-                chargeDate,
-                buildMonthlyChargeDescription(monthName, currentAcademicYear, paymentFrequency),
-                currentFees.total,
-                currentAcademicYear,
-                paymentFrequency,
-                currentBillingMonth,
-              ],
-            );
-
-            log(
-              `[ChargeRegen] ✅ Created current month charge: ${currentFees.total} DT on ${chargeDate} (${paymentFrequency})`,
-            );
-          }
+        if (hasPaidCharges) {
+          log(
+            `[ChargeRegen] ⓘ Skipping regeneration for ${currentBillingMonth}: existing charge(s) have payments recorded`,
+          );
         } else {
-          log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
+          // Delete existing charges
+          await db.runQuery(
+            `
+            DELETE FROM student_fee_charges
+            WHERE student_id = ? 
+            AND fee_type = 'MONTHLY' 
+            AND billing_month = ?
+          `,
+            [studentId, currentBillingMonth],
+          );
+
+          log(`[ChargeRegen] ✓ Deleted ${existingCurrent.length} old charge(s)`);
+
+          // Create new charge if total > 0
+          if (currentFees.total > 0) {
+            if (
+              paymentFrequency === 'ANNUAL' &&
+              (await hasAnnualMonthlyCharge(studentId, currentAcademicYear))
+            ) {
+              log(
+                `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${currentAcademicYear} - skipping current month`,
+              );
+            } else {
+              const chargeDate = new Date().toISOString().split('T')[0];
+              const monthName = monthNames[currentMonth - 1];
+
+              await db.runQuery(
+                `
+                INSERT INTO student_fee_charges 
+                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
+              `,
+                [
+                  studentId,
+                  chargeDate,
+                  buildMonthlyChargeDescription(monthName, currentAcademicYear, paymentFrequency),
+                  currentFees.total,
+                  currentAcademicYear,
+                  paymentFrequency,
+                  currentBillingMonth,
+                ],
+              );
+
+              log(
+                `[ChargeRegen] ✅ Created current month charge: ${currentFees.total} DT on ${chargeDate} (${paymentFrequency})`,
+              );
+            }
+          } else {
+            log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
+          }
         }
       } catch (error) {
         logError(`[ChargeRegen] ❌ Failed to regen current month for student ${studentId}:`, error);
@@ -600,7 +619,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
         // Check existing charges BEFORE delete
         const existingNext = await db.allQuery(
           `
-          SELECT id, amount, charge_date FROM student_fee_charges
+          SELECT id, amount, charge_date, amount_paid FROM student_fee_charges
           WHERE student_id = ?
           AND fee_type = 'MONTHLY'
           AND billing_month = ?
@@ -613,55 +632,65 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           log(`[ChargeRegen]   ${i + 1}. Amount: ${c.amount} DT, Date: ${c.charge_date}`);
         });
 
-        // Delete existing charges
-        await db.runQuery(
-          `
-          DELETE FROM student_fee_charges
-          WHERE student_id = ?
-          AND fee_type = 'MONTHLY'
-          AND billing_month = ?
-        `,
-          [studentId, nextBillingMonth],
-        );
+        // Never delete charges with recorded payments - regeneration would lose
+        // payment history and its student_payment_breakdown rows.
+        const hasPaidCharges = existingNext.some((c) => parseFloat(c.amount_paid || 0) > 0);
 
-        log(`[ChargeRegen] ✓ Deleted ${existingNext.length} old charge(s)`);
-
-        // Create new charge if total > 0
-        if (nextFees.total > 0) {
-          if (
-            paymentFrequency === 'ANNUAL' &&
-            (await hasAnnualMonthlyCharge(studentId, nextAcademicYear))
-          ) {
-            log(
-              `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${nextAcademicYear} - skipping next month`,
-            );
-          } else {
-            const chargeDate = new Date().toISOString().split('T')[0];
-            const monthName = monthNames[nextMonth - 1];
-
-            await db.runQuery(
-              `
-              INSERT INTO student_fee_charges
-              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
-            `,
-              [
-                studentId,
-                chargeDate,
-                buildMonthlyChargeDescription(monthName, nextAcademicYear, paymentFrequency),
-                nextFees.total,
-                nextAcademicYear,
-                paymentFrequency,
-                nextBillingMonth,
-              ],
-            );
-
-            log(
-              `[ChargeRegen] ✅ Created next month charge: ${nextFees.total} DT on ${chargeDate} (${paymentFrequency})`,
-            );
-          }
+        if (hasPaidCharges) {
+          log(
+            `[ChargeRegen] ⓘ Skipping regeneration for ${nextBillingMonth}: existing charge(s) have payments recorded`,
+          );
         } else {
-          log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
+          // Delete existing charges
+          await db.runQuery(
+            `
+            DELETE FROM student_fee_charges
+            WHERE student_id = ?
+            AND fee_type = 'MONTHLY'
+            AND billing_month = ?
+          `,
+            [studentId, nextBillingMonth],
+          );
+
+          log(`[ChargeRegen] ✓ Deleted ${existingNext.length} old charge(s)`);
+
+          // Create new charge if total > 0
+          if (nextFees.total > 0) {
+            if (
+              paymentFrequency === 'ANNUAL' &&
+              (await hasAnnualMonthlyCharge(studentId, nextAcademicYear))
+            ) {
+              log(
+                `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${nextAcademicYear} - skipping next month`,
+              );
+            } else {
+              const chargeDate = new Date().toISOString().split('T')[0];
+              const monthName = monthNames[nextMonth - 1];
+
+              await db.runQuery(
+                `
+                INSERT INTO student_fee_charges
+                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
+              `,
+                [
+                  studentId,
+                  chargeDate,
+                  buildMonthlyChargeDescription(monthName, nextAcademicYear, paymentFrequency),
+                  nextFees.total,
+                  nextAcademicYear,
+                  paymentFrequency,
+                  nextBillingMonth,
+                ],
+              );
+
+              log(
+                `[ChargeRegen] ✅ Created next month charge: ${nextFees.total} DT on ${chargeDate} (${paymentFrequency})`,
+              );
+            }
+          } else {
+            log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
+          }
         }
       } catch (error) {
         logError(`[ChargeRegen] ❌ Failed to regen next month for student ${studentId}:`, error);
@@ -781,19 +810,15 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       );
 
       if (currentMonthFees.total > 0) {
-        // Delete any existing charges for this student for this billing period
         const currentBillingMonth = `${currentAcademicYear}-${currentMonth
           .toString()
           .padStart(2, '0')}`;
-        await db.runQuery(
-          `
-          DELETE FROM student_fee_charges
-          WHERE student_id = ? 
-          AND fee_type = 'MONTHLY' 
-          AND billing_month = ?
-        `,
+
+        const existingCharges = await db.allQuery(
+          `SELECT id, amount_paid FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND billing_month = ?`,
           [studentId, currentBillingMonth],
         );
+        const hasPaidCharges = existingCharges.some((c) => parseFloat(c.amount_paid || 0) > 0);
 
         const frequencySettings = await getPaymentFrequencySettings();
         const paymentFrequency = await getStudentPaymentFrequency(studentId, frequencySettings);
@@ -805,7 +830,24 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
           log(
             `[refreshStudentCharges] ⓘ ANNUAL-frequency student already has a charge for ${currentAcademicYear} - skipping current month`,
           );
+        } else if (hasPaidCharges) {
+          // Never delete charges with recorded payments - regeneration would
+          // lose payment history and its student_payment_breakdown rows.
+          log(
+            `[refreshStudentCharges] ⓘ Skipping regeneration for ${currentBillingMonth}: existing charge(s) have payments recorded`,
+          );
         } else {
+          // Delete any existing unpaid charges for this student for this billing period
+          await db.runQuery(
+            `
+            DELETE FROM student_fee_charges
+            WHERE student_id = ? 
+            AND fee_type = 'MONTHLY' 
+            AND billing_month = ?
+          `,
+            [studentId, currentBillingMonth],
+          );
+
           // Create new charge for this month
           const chargeDate = new Date().toISOString().split('T')[0];
           const monthNames = [
@@ -966,15 +1008,6 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
     const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     log(`[refreshStudentsNeedingChargeRefresh] Using academic year: ${currentAcademicYear}`);
 
-    // Get current and next month
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const nextMonthAcademicYear =
-      currentMonth === 12
-        ? `${now.getFullYear() + 1}-${now.getFullYear() + 2}`
-        : currentAcademicYear;
-
     // Identify students who need refresh
     const studentsNeedingRefresh = await identifyStudentsNeedingChargeRefresh(currentAcademicYear);
 
@@ -1008,33 +1041,22 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
 
         let studentChargesGenerated = 0;
 
-        // For students who enrolled in special classes after initial charges,
-        // we need to regenerate their charges to include the special class fees
-        // We'll force regenerate the monthly charges to ensure special fees are included
+        // Regenerate this student's current and next month charges so any newly
+        // enrolled special-class fees are included. Per-student regeneration is
+        // O(N) and actually targets the student that needs the refresh.
+        const regenResult = await triggerChargeRegenerationForStudent(student.id, {
+          regenCurrentMonth: true,
+          regenNextMonth: true,
+        });
 
-        try {
-          // Use force=true to regenerate existing charges and include special class fees
-          await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, false, true);
-          studentChargesGenerated++;
+        if (regenResult.success) {
+          studentChargesGenerated = 1;
           log(
-            `[refreshStudentsNeedingChargeRefresh] Regenerated current month charges for student ${student.id}`,
+            `[refreshStudentsNeedingChargeRefresh] Regenerated charges for student ${student.id}: ${regenResult.message}`,
           );
-        } catch (error) {
+        } else {
           log(
-            `[refreshStudentsNeedingChargeRefresh] Error regenerating current month charges for student ${student.id}: ${error.message}`,
-          );
-        }
-
-        try {
-          // Also ensure next month charges include special fees
-          await generateMonthlyFeeCharges(nextMonthAcademicYear, nextMonth, false, true);
-          studentChargesGenerated++;
-          log(
-            `[refreshStudentsNeedingChargeRefresh] Regenerated next month charges for student ${student.id}`,
-          );
-        } catch (error) {
-          log(
-            `[refreshStudentsNeedingChargeRefresh] Error regenerating next month charges for student ${student.id}: ${error.message}`,
+            `[refreshStudentsNeedingChargeRefresh] Skipped regeneration for student ${student.id}: ${regenResult.message}`,
           );
         }
 
@@ -1047,7 +1069,7 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
           chargesGenerated: studentChargesGenerated,
           classEnrollmentDate: student.classEnrollmentDate,
           firstChargeDate: student.firstChargeDate,
-          success: true,
+          success: regenResult.success,
         });
 
         log(
@@ -1171,9 +1193,9 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
         }
 
         // Monthly check
-        await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, false);
+        await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, { force: false });
         studentChargesGenerated++;
-        await generateMonthlyFeeCharges(nextMonthAcademicYear, nextMonth, false);
+        await generateMonthlyFeeCharges(nextMonthAcademicYear, nextMonth, { force: false });
         studentChargesGenerated++;
 
         totalChargesGenerated += studentChargesGenerated;
@@ -1316,7 +1338,7 @@ async function autoGenerateChargesIfNeeded(studentId, academicYear) {
   }
 
   // Generate monthly charges for next month
-  await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, false);
+  await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, { force: false });
 }
 
 /**
@@ -1793,7 +1815,7 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_, data) => {
       try {
         const { academicYear, month } = data;
-        const result = await generateMonthlyFeeCharges(academicYear, month, true);
+        const result = await generateMonthlyFeeCharges(academicYear, month, { force: true });
         const monthNames = [
           'يناير',
           'فبراير',
@@ -1839,7 +1861,10 @@ function registerStudentFeeHandlers() {
           // Generate monthly charges for ONLY current month (not 3 months)
           const currentMonth = new Date().getMonth() + 1;
           log(`[generateAllCharges] Generating charges for current month: ${currentMonth}`);
-          await generateMonthlyFeeCharges(academicYear, currentMonth, false, force);
+          await generateMonthlyFeeCharges(academicYear, currentMonth, {
+            force,
+            useTransaction: false,
+          });
 
           await db.runQuery('COMMIT;');
           log('[generateAllCharges] All charges generated successfully');
@@ -1881,14 +1906,11 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { academicYear }) => {
         try {
-          const result = await refreshStudentsNeedingChargeRefresh(
-            academicYear,
-            event.sender.userId,
-          );
+          const result = await refreshAllStudentCharges(academicYear, event.sender.userId);
           return result;
         } catch (error) {
-          logError('Error refreshing special class student charges:', error);
-          throw new Error('فشل في تحديث رسوم الطالب الذين التحقوا بدروس خاصة');
+          logError('Error refreshing all student charges:', error);
+          throw new Error('فشل في تحديث رسوم جميع الطلاب');
         }
       },
     ),
@@ -2015,9 +2037,11 @@ async function checkAndGenerateChargesForAllStudents(settings) {
 
       try {
         log(
-          `[checkAndGenerateChargesForAllStudents] Calling generateMonthlyFeeCharges(${currentAcademicYear}, ${currentMonth}, false)`,
+          `[checkAndGenerateChargesForAllStudents] Calling generateMonthlyFeeCharges(${currentAcademicYear}, ${currentMonth}, { force: false })`,
         );
-        const result = await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, false);
+        const result = await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, {
+          useTransaction: false,
+        });
         log(
           `[checkAndGenerateChargesForAllStudents] Monthly charge generation result: ${JSON.stringify(result)}`,
         );
@@ -2061,6 +2085,7 @@ module.exports = {
   generateMonthlyFeeCharges,
   refreshStudentCharges,
   refreshAllStudentCharges,
+  refreshStudentsNeedingChargeRefresh,
   getStudentFeeStatus,
   recordStudentPayment,
   checkAndGenerateChargesForAllStudents,

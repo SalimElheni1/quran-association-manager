@@ -85,33 +85,29 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
   });
 
   describe('student-fees:refreshAllStudentCharges', () => {
-    it('should refresh charges for students needing special class updates', async () => {
-      const mockStudentsNeedingRefresh = [
-        {
-          id: 1,
-          name: 'Ahmed',
-          matricule: 'S-001',
-          classEnrollmentDate: '2024-09-15',
-          firstChargeDate: '2024-09-01',
-        },
+    it('should refresh charges for all eligible students', async () => {
+      const mockStudents = [
+        { id: 1, name: 'Ahmed', matricule: 'S-001' },
+        { id: 2, name: 'Sara', matricule: 'S-002' },
       ];
 
       db.allQuery
-        .mockResolvedValueOnce(mockStudentsNeedingRefresh) // identifyStudentsNeedingChargeRefresh
-        .mockResolvedValue([]) // generateMonthlyFeeCharges calls
-        .mockResolvedValue([]); // More generateMonthlyFeeCharges calls
+        .mockResolvedValueOnce(mockStudents) // eligible students query
+        .mockResolvedValue([]); // fallback for any nested queries
 
       const result = await ipcMain.invoke('student-fees:refreshAllStudentCharges', {
         academicYear: '2024-2025',
       });
 
       expect(result.success).toBe(true);
-      expect(result.studentsProcessed).toBe(1);
-      expect(result.chargesGenerated).toBeGreaterThan(0);
+      expect(result.studentsProcessed).toBe(2);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining("fee_category IN ('CAN_PAY', 'SPONSORED')"),
+      );
     });
 
-    it('should return success message when no students need refresh', async () => {
-      db.allQuery.mockResolvedValue([]); // No students needing refresh
+    it('should return success message when no eligible students exist', async () => {
+      db.allQuery.mockResolvedValue([]); // no eligible students
 
       const result = await ipcMain.invoke('student-fees:refreshAllStudentCharges', {
         academicYear: '2024-2025',
@@ -120,41 +116,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       expect(result.success).toBe(true);
       expect(result.studentsProcessed).toBe(0);
       expect(result.chargesGenerated).toBe(0);
-      expect(result.message).toContain('لا توجد طلاب يحتاجون تحديث الرسوم');
-    });
-
-    it('should handle partial failures gracefully', async () => {
-      const mockStudentsNeedingRefresh = [
-        {
-          id: 1,
-          name: 'Ahmed',
-          matricule: 'S-001',
-          classEnrollmentDate: '2024-09-15',
-          firstChargeDate: '2024-09-01',
-        },
-        {
-          id: 2,
-          name: 'Sara',
-          matricule: 'S-002',
-          classEnrollmentDate: '2024-09-16',
-          firstChargeDate: '2024-09-01',
-        },
-      ];
-
-      db.allQuery
-        .mockResolvedValueOnce(mockStudentsNeedingRefresh) // identifyStudentsNeedingChargeRefresh
-        .mockResolvedValueOnce([]) // First student - success
-        .mockRejectedValueOnce(new Error('Student 2 failed')) // Second student - failure
-        .mockResolvedValue([]); // Cleanup calls
-
-      const result = await ipcMain.invoke('student-fees:refreshAllStudentCharges', {
-        academicYear: '2024-2025',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.studentsProcessed).toBe(2);
-      expect(result.failedResults).toHaveLength(1);
-      expect(result.failedResults[0].studentId).toBe(2);
+      expect(result.message).toContain('لا توجد طلاب مؤهلون لتوليد الرسوم');
     });
   });
 

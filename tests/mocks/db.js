@@ -40,6 +40,7 @@ module.exports = {
   allQuery,
   runQuery: jest.fn(() => Promise.resolve({ id: 1, changes: 1 })),
   dbExec: jest.fn(() => Promise.resolve()),
+  withTransaction: jest.fn(async (callback) => callback()),
   getDb: jest.fn(() => db),
   getDatabasePath: jest.fn(),
   dbClose: jest.fn(() => Promise.resolve()),
