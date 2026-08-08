@@ -306,10 +306,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:delete', id),
 
   // Student Fees API
-  studentFeesGetStatus: (studentId) => ipcRenderer.invoke('student-fees:getStatus', studentId),
+  studentFeesGetStatus: (studentId, academicYear) =>
+    ipcRenderer.invoke('student-fees:getStatus', studentId, academicYear),
   studentFeesGetBalanceSummary: (studentId) =>
     ipcRenderer.invoke('student-fees:getBalanceSummary', studentId),
-  studentFeesGetAll: () => ipcRenderer.invoke('student-fees:getAll'),
+  studentFeesGetAll: (academicYear) => ipcRenderer.invoke('student-fees:getAll', academicYear),
   studentFeesRecordPayment: (paymentDetails) =>
     ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),
   studentFeesDeletePayment: (paymentId) =>

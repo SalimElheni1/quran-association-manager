@@ -90,6 +90,24 @@ async function getConfiguredAcademicYear(referenceDate = new Date()) {
 }
 
 /**
+ * Normalizes an academic-year value to the canonical "YYYY-YYYY" format.
+ * A bare year like "2026" is treated as the academic year ending in that
+ * calendar year (i.e. "2025-2026"), keeping every table consistent.
+ * @param {string|null|undefined} value The academic year value to normalize.
+ * @returns {string|null} The normalized academic year, or null when absent.
+ */
+function normalizeAcademicYear(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (/^\d{4}-\d{4}$/.test(s)) return s;
+  if (/^\d{4}$/.test(s)) {
+    const year = parseInt(s, 10);
+    return `${year - 1}-${year}`;
+  }
+  return s;
+}
+
+/**
  * Reads the per-gender payment frequency settings.
  * @returns {Promise<{men: string, women: string, kids: string}>} Frequencies, defaulting to MONTHLY.
  */
@@ -1206,13 +1224,18 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
 /**
  * Gets the fee status for a single student.
  * @param {number} studentId The ID of the student.
+ * @param {string} [academicYear] When provided, only charges of that academic year are considered.
  * @returns {Promise<object>} An object containing the student's fee status.
  */
-async function getStudentFeeStatus(studentId) {
+async function getStudentFeeStatus(studentId, academicYear = null) {
   try {
-    const charges = await db.allQuery('SELECT * FROM student_fee_charges WHERE student_id = ?', [
-      studentId,
-    ]);
+    const normalizedYear = normalizeAcademicYear(academicYear);
+    const charges = await db.allQuery(
+      `SELECT * FROM student_fee_charges WHERE student_id = ?${
+        normalizedYear ? ' AND academic_year = ?' : ''
+      }`,
+      normalizedYear ? [studentId, normalizedYear] : [studentId],
+    );
 
     let totalDue = 0;
     let totalPaid = 0;
@@ -1229,8 +1252,13 @@ async function getStudentFeeStatus(studentId) {
       }
     }
 
+    // Round to cents so a fully-paid student never shows a floating-point residue
+    totalDue = Math.round(totalDue * 100) / 100;
+    totalPaid = Math.round(totalPaid * 100) / 100;
+    totalCredit = Math.round(totalCredit * 100) / 100;
+
     // Balance = amount due - amount paid - credit
-    const balance = totalDue - totalPaid - totalCredit;
+    const balance = Math.round((totalDue - totalPaid - totalCredit) * 100) / 100;
 
     return {
       charges,
@@ -1306,12 +1334,17 @@ async function autoGenerateChargesIfNeeded(studentId, academicYear) {
   const currentMonth = new Date().getMonth() + 1;
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
 
-  // Use next calendar year for year-end charges
-  let nextAcademicYear;
+  // Next month's charges belong to the current academic year except when the
+  // year rolls over in December (e.g. January is the start of the next
+  // academic year for a January-start calendar).
+  let nextAcademicYear = academicYear;
   if (currentMonth === 12) {
-    nextAcademicYear = (new Date().getFullYear() + 1).toString();
-  } else {
-    nextAcademicYear = academicYear;
+    const startMonthSetting = await getSetting('academic_year_start_month');
+    const startMonth = parseInt(startMonthSetting || '9', 10);
+    nextAcademicYear = getCurrentAcademicYear(
+      startMonth,
+      new Date(new Date().getFullYear() + 1, 0, 1),
+    );
   }
 
   // Generate monthly charges for next month
@@ -1352,10 +1385,9 @@ async function recordStudentPayment(event, paymentDetails) {
 
     // Auto-generate charges if student has no unpaid charges
     console.log(`[PAYMENT_AUTO_GEN] Checking if auto-generation needed for student ${student_id}`);
-    await autoGenerateChargesIfNeeded(
-      student_id,
-      academic_year || new Date().getFullYear().toString(),
-    );
+    const normalizedAcademicYear =
+      normalizeAcademicYear(academic_year) || (await getConfiguredAcademicYear());
+    await autoGenerateChargesIfNeeded(student_id, normalizedAcademicYear);
     console.log(`[PAYMENT_AUTO_GEN] Auto-generation check completed`);
 
     // Validate receipt number uniqueness across all income tables
@@ -1406,7 +1438,7 @@ async function recordStudentPayment(event, paymentDetails) {
         amount,
         payment_method,
         payment_type || 'رسوم الطلاب',
-        academic_year || new Date().getFullYear().toString(),
+        normalizedAcademicYear,
         notes,
         check_number,
         receipt_number,
@@ -1830,9 +1862,16 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { studentId, academicYear }) => {
         try {
+          const normalizedYear = normalizeAcademicYear(academicYear);
+          if (!normalizedYear) {
+            return await db.allQuery(
+              'SELECT * FROM student_payments WHERE student_id = ? ORDER BY created_at DESC',
+              [studentId],
+            );
+          }
           return await db.allQuery(
-            'SELECT * FROM student_payments WHERE student_id = ? AND academic_year = ?',
-            [studentId, academicYear],
+            'SELECT * FROM student_payments WHERE student_id = ? AND academic_year = ? ORDER BY created_at DESC',
+            [studentId, normalizedYear],
           );
         } catch (error) {
           logError('Error getting student payment history:', error);
@@ -1862,14 +1901,16 @@ function registerStudentFeeHandlers() {
   );
   ipcMain.handle(
     'student-fees:getStatus',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, studentId) => {
-      try {
-        return await getStudentFeeStatus(studentId);
-      } catch (error) {
-        logError('Error getting student fee status:', error);
-        throw new Error('Failed to get student fee status.');
-      }
-    }),
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, studentId, academicYear) => {
+        try {
+          return await getStudentFeeStatus(studentId, academicYear);
+        } catch (error) {
+          logError('Error getting student fee status:', error);
+          throw new Error('Failed to get student fee status.');
+        }
+      },
+    ),
   );
 
   ipcMain.handle(
@@ -1927,46 +1968,48 @@ function registerStudentFeeHandlers() {
 
   ipcMain.handle(
     'student-fees:getAll',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async () => {
-      try {
-        const students = await db.allQuery(
-          'SELECT id, name, matricule, fee_category, sponsor_name, sponsor_phone FROM students WHERE status = ? ORDER BY name',
-          ['active'],
-        );
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (_event, academicYear) => {
+        try {
+          const students = await db.allQuery(
+            'SELECT id, name, matricule, fee_category, sponsor_name, sponsor_phone FROM students WHERE status = ? ORDER BY name',
+            ['active'],
+          );
 
-        // Get fee status for each student, filtering out exempt/sponsored students
-        const studentsWithFees = await Promise.all(
-          students.map(async (student) => {
-            if (student.fee_category === 'EXEMPT') {
+          // Get fee status for each student, filtering out exempt/sponsored students
+          const studentsWithFees = await Promise.all(
+            students.map(async (student) => {
+              if (student.fee_category === 'EXEMPT') {
+                return {
+                  ...student,
+                  totalDue: 0,
+                  totalPaid: 0,
+                  balance: 0,
+                };
+              }
+
+              const feeStatus = await getStudentFeeStatus(student.id, academicYear);
               return {
-                ...student,
-                totalDue: 0,
-                totalPaid: 0,
-                balance: 0,
+                id: student.id,
+                name: student.name,
+                matricule: student.matricule,
+                fee_category: student.fee_category,
+                sponsor_name: student.sponsor_name,
+                sponsor_phone: student.sponsor_phone,
+                totalDue: feeStatus.totalDue,
+                totalPaid: feeStatus.totalPaid,
+                balance: feeStatus.balance,
               };
-            }
+            }),
+          );
 
-            const feeStatus = await getStudentFeeStatus(student.id);
-            return {
-              id: student.id,
-              name: student.name,
-              matricule: student.matricule,
-              fee_category: student.fee_category,
-              sponsor_name: student.sponsor_name,
-              sponsor_phone: student.sponsor_phone,
-              totalDue: feeStatus.totalDue,
-              totalPaid: feeStatus.totalPaid,
-              balance: feeStatus.balance,
-            };
-          }),
-        );
-
-        return studentsWithFees;
-      } catch (error) {
-        logError('Error getting all students with fee status:', error);
-        throw new Error('Failed to get students with fee status.');
-      }
-    }),
+          return studentsWithFees;
+        } catch (error) {
+          logError('Error getting all students with fee status:', error);
+          throw new Error('Failed to get students with fee status.');
+        }
+      },
+    ),
   );
 
   // Charge generation handlers
@@ -2269,6 +2312,7 @@ module.exports = {
   refundStudentPayment,
   checkAndGenerateChargesForAllStudents,
   getCurrentAcademicYear,
+  normalizeAcademicYear,
   calculateStudentMonthlyCharges,
   triggerChargeRegenerationForStudent,
 };

@@ -49,6 +49,13 @@ const studentPaymentFields = [
   { key: 'sponsor_phone', label: 'هاتف الكافل' },
 ];
 
+const getAcademicYearString = () => {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  return month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
 const StudentFeesTab = () => {
   const { hasPermission } = usePermissions();
   const [students, setStudents] = useState([]);
@@ -66,7 +73,7 @@ const StudentFeesTab = () => {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [specialFeeClasses, setSpecialFeeClasses] = useState([]);
   const [selectedSpecialFeeClass, setSelectedSpecialFeeClass] = useState('');
-  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  const [academicYear, setAcademicYear] = useState(getAcademicYearString());
   const [notes, setNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -75,9 +82,7 @@ const StudentFeesTab = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGenerateFeesModal, setShowGenerateFeesModal] = useState(false);
-  const [generateAcademicYear, setGenerateAcademicYear] = useState(
-    new Date().getFullYear().toString(),
-  );
+  const [generateAcademicYear, setGenerateAcademicYear] = useState(getAcademicYearString());
   const [forceGeneration, setForceGeneration] = useState(false);
   const [isGeneratingFees, setIsGeneratingFees] = useState(false);
 
@@ -204,7 +209,7 @@ const StudentFeesTab = () => {
   const loadStudents = async () => {
     try {
       setLoading(true);
-      const studentsWithFees = await window.electronAPI.studentFeesGetAll();
+      const studentsWithFees = await window.electronAPI.studentFeesGetAll(academicYear);
       setStudents(studentsWithFees);
       setCurrentPage(1);
     } catch (err) {
@@ -263,7 +268,7 @@ const StudentFeesTab = () => {
       setPaymentMethod('CASH');
       setReceiptNumber('');
       setCheckNumber('');
-      setAcademicYear(new Date().getFullYear().toString());
+      setAcademicYear(getAcademicYearString());
       setNotes('');
       setSelectedSpecialFeeClass('');
       loadStudents(); // Refresh the list

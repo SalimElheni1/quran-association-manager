@@ -25,6 +25,7 @@ const {
   recordStudentPayment,
   checkAndGenerateChargesForAllStudents,
   getCurrentAcademicYear,
+  normalizeAcademicYear,
   calculateStudentMonthlyCharges,
   triggerChargeRegenerationForStudent,
 } = require('../src/main/handlers/studentFeeHandlers');
@@ -359,6 +360,80 @@ describe('Student Fee Handlers', () => {
       expect(result).toHaveProperty('totalPaid');
       expect(result).toHaveProperty('balance');
       expect(result).toHaveProperty('charges');
+    });
+
+    it('should scope fee status to the given academic year', async () => {
+      const studentId = 2;
+
+      db.allQuery.mockResolvedValueOnce([
+        { id: 2, amount: 60, amount_paid: 20, fee_type: 'MONTHLY', academic_year: '2025-2026' },
+      ]);
+
+      const result = await getStudentFeeStatus(studentId, '2025-2026');
+
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('academic_year = ?'), [
+        studentId,
+        '2025-2026',
+      ]);
+      expect(result.totalDue).toBe(60);
+      expect(result.totalPaid).toBe(20);
+      expect(result.balance).toBe(40);
+    });
+
+    it('should round balances to cents (no floating-point residue)', async () => {
+      const studentId = 3;
+
+      db.allQuery.mockResolvedValueOnce([
+        {
+          id: 1,
+          amount: 33.33,
+          amount_paid: 33.33,
+          fee_type: 'MONTHLY',
+          academic_year: '2024-2025',
+        },
+        {
+          id: 2,
+          amount: 66.67,
+          amount_paid: 66.67,
+          fee_type: 'MONTHLY',
+          academic_year: '2024-2025',
+        },
+      ]);
+
+      const result = await getStudentFeeStatus(studentId);
+
+      expect(result.totalDue).toBe(100);
+      expect(result.totalPaid).toBe(100);
+      expect(result.balance).toBe(0);
+    });
+
+    it('should normalize a bare year when scoping status', async () => {
+      const studentId = 4;
+
+      db.allQuery.mockResolvedValueOnce([]);
+
+      await getStudentFeeStatus(studentId, '2026');
+
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('academic_year = ?'), [
+        studentId,
+        '2025-2026',
+      ]);
+    });
+  });
+
+  describe('normalizeAcademicYear', () => {
+    it('should keep the canonical YYYY-YYYY format as-is', () => {
+      expect(normalizeAcademicYear('2025-2026')).toBe('2025-2026');
+    });
+
+    it('should convert a bare year to the academic year ending in it', () => {
+      expect(normalizeAcademicYear('2026')).toBe('2025-2026');
+    });
+
+    it('should return null for absent values', () => {
+      expect(normalizeAcademicYear(null)).toBeNull();
+      expect(normalizeAcademicYear(undefined)).toBeNull();
+      expect(normalizeAcademicYear('')).toBeNull();
     });
   });
 

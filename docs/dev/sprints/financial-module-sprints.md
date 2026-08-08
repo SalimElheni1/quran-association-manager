@@ -115,8 +115,10 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 - Decision (user): annual-only — ANNUAL students get exactly one ANNUAL charge per academic year; the monthly generator skips them entirely (no monthly standard AND no monthly special fees).
 - Implemented: `generateMonthlyFeeCharges` skips ANNUAL students outright; `calculateStudentMonthlyCharges` returns zero monthly fees for ANNUAL students (gated on having standard classes, so no extra settings queries otherwise); removed the now-dead `hasAnnualMonthlyCharge` monthly-charge guards in `refreshStudentCharges`.
 
-### H14. Academic-year consistency + status scoping
-- BUG-21 (unify `"2026"` vs `"2025-2026"`), BUG-22 (scope `getStudentFeeStatus` sums to a year when one is given), BUG-23 (round balances to cents before comparisons).
+### H14. Academic-year consistency + status scoping — DONE
+- BUG-21: added `normalizeAcademicYear` (bare `"2026"` → `"2025-2026"`); `recordStudentPayment` stores the normalized year and derives year-end next-month years from the configured start month; `getPaymentHistory` normalizes the incoming year (and supports year-less lookups).
+- BUG-22: `getStudentFeeStatus(studentId, academicYear?)` scopes sums to the given year; `student-fees:getStatus`/`getAll` + preload accept the year; `StudentFeesTab` defaults to the `YYYY-YYYY` format and passes the selected year when loading students.
+- BUG-23: status totals and balance are rounded to cents so paid students never show a float residue.
 
 ### H15. `class_id`-aware payment allocation
 - BUG-20: when `class_id` is provided, allocate the payment to that class's charges first.
