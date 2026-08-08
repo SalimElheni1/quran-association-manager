@@ -50,6 +50,7 @@ const { requireRoles } = require('./authMiddleware');
 const { registerFinancialHandlers } = require('./handlers/financialHandlers');
 const { registerStudentFeeHandlers } = require('./handlers/studentFeeHandlers');
 const { registerFinancialWordExportHandlers } = require('./services/financialWordExportService');
+const { registerFinancialExportHandlers } = require('./services/financialExportService');
 const { generateCashLedgerReport } = require('./services/cashLedgerExport');
 const { generateInventoryLedger } = require('./services/inventoryLedgerExport');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
@@ -366,6 +367,7 @@ const initializeApp = async () => {
     registerFinancialHandlers();
     registerStudentFeeHandlers();
     registerFinancialWordExportHandlers();
+    registerFinancialExportHandlers();
 
     // Cash ledger export
     ipcMain.handle(
