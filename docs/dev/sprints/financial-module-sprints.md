@@ -108,8 +108,8 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 ### H11. Receipt uniqueness on `transactions.receipt_number` — DONE
 - BUG-19: the `recordStudentPayment` duplicate-receipt check now also queries `transactions.voucher_number` (receipts are stored in that column), so a receipt already used by a unified `transactions` row is rejected with the friendly DUPLICATE_RECEIPT message instead of surfacing a raw UNIQUE constraint error. `handleAddTransaction` already guards itself (financialHandlers.js:264 maps `SQLITE_CONSTRAINT` on voucher_number to a clean Arabic error). New test: `tests/studentFeeHandlers.spec.js` "should reject a receipt already used in the unified transactions table".
 
-### H12. Legacy financial module decision
-- Decide (with user): either migrate legacy `expenses/donations/salaries/payments` into the unified `transactions` model (data migration + unregister legacy handlers), or explicitly retire them. Currently they are registered (index.js:394) and write money invisible to balances/exports.
+### H12. Legacy financial module decision — DONE (retire)
+- **Decision (user-confirmed): retire the legacy handlers** — `registerLegacyFinancialHandlers()` is unregistered in `src/main/index.js` (import removed), so `expenses/donations/salaries/payments` no longer receive new invisible-money writes. The `legacyFinancialHandlers.js` module, its DB tables, and the never-rendered legacy tabs are **kept** (data safety; `financialExport.spec.js`/`exportManager.spec.js` still require the module). Unused legacy tab files remain for Sprint 4's explicit approval. All money now flows through the unified `transactions` model.
 
 ### H13. ANNUAL billing model clarification
 - BUG-3: pick one intended model — ANNUAL students get only the annual charge (skip monthly standard AND special fees), or special fees stay monthly. Fix `generateMonthlyFeeCharges`/`generateAnnualFeeCharges` accordingly + update tests.
