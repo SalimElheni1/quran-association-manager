@@ -547,6 +547,43 @@ describe('Student Fee Handlers', () => {
       expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
     });
 
+    it('should respect custom account_id when passed in paymentDetails', async () => {
+      const paymentDetails = {
+        student_id: 1,
+        amount: 200,
+        payment_method: 'تحويل بنكي',
+        payment_type: 'رسوم الطلاب',
+        academic_year: '2024-2025',
+        account_id: 2,
+      };
+      const event = { sender: { userId: 1 } };
+
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null);
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes("fee_type = 'CREDIT'") || sql.includes('fee_type !=')) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([{ id: 1 }]);
+      });
+
+      await recordStudentPayment(event, paymentDetails);
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO transactions'),
+        expect.arrayContaining([2]), // account_id = 2
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?',
+        [200, 2],
+      );
+    });
+
     it('should reject duplicate receipt numbers', async () => {
       const paymentDetails = {
         student_id: 1,

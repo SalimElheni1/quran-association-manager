@@ -20,8 +20,10 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
     payment_method: 'Cash',
     notes: '',
     receipt_number: '',
+    account_id: '',
   });
   const [students, setStudents] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(categoryOptions[0]);
   const [adultAgeThreshold, setAdultAgeThreshold] = useState(18);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
@@ -37,6 +39,13 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         }
         const studentsResult = await window.electronAPI.getStudents();
         setStudents(studentsResult);
+        const accountsResult = await window.electronAPI.getAccounts();
+        if (Array.isArray(accountsResult) && accountsResult.length > 0) {
+          setAccounts(accountsResult);
+          if (!isEditMode) {
+            setFormData((prev) => ({ ...prev, account_id: accountsResult[0].id.toString() }));
+          }
+        }
       } catch (err) {
         logError('Failed to fetch initial data:', err);
       }
@@ -50,6 +59,7 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         ...payment,
         payment_date: new Date(payment.payment_date).toISOString().split('T')[0],
         receipt_number: payment.receipt_number || '',
+        account_id: payment.account_id ? payment.account_id.toString() : (accounts[0]?.id?.toString() || '1'),
       });
     } else {
       setFormData({
@@ -59,9 +69,10 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
         payment_method: 'Cash',
         notes: '',
         receipt_number: '',
+        account_id: accounts[0]?.id?.toString() || '1',
       });
     }
-  }, [payment, show]);
+  }, [payment, show, accounts]);
 
   const filteredStudents = useMemo(() => {
     if (selectedCategory.value === 'all') {
@@ -232,6 +243,20 @@ function PaymentFormModal({ show, onHide, onSave, payment }) {
             <Form.Text className="text-muted">
               اضغط "رقم تلقائي" للحصول على رقم إيصال من الدفتر النشط
             </Form.Text>
+          </Form.Group>
+          <Form.Group className="mb-3" controlId="formPaymentAccount">
+            <Form.Label>الحساب المالي (الخزينة)</Form.Label>
+            <Form.Select
+              name="account_id"
+              value={formData.account_id}
+              onChange={handleChange}
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id.toString()}>
+                  {acc.name}
+                </option>
+              ))}
+            </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formPaymentNotes">
             <Form.Label>ملاحظات</Form.Label>

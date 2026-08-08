@@ -13,6 +13,20 @@ function processArabicText(text) {
   return new rtl(reshapedText).convert();
 }
 
+/**
+ * Rounds a currency value to 3 decimal places (Tunisian Dinars millimes)
+ * with IEEE-754 epsilon guard against floating-point drift.
+ * @param {number|string|null|undefined} val The amount to round.
+ * @returns {number} The rounded numeric amount.
+ */
+function roundCurrency(val) {
+  const num = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 1000) / 1000;
+}
+
 module.exports = {
   processArabicText,
+  roundCurrency,
 };
+

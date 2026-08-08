@@ -1380,6 +1380,7 @@ async function recordStudentPayment(event, paymentDetails) {
     class_id,
     sponsor_name,
     sponsor_phone,
+    account_id,
   } = paymentDetails;
 
   console.log(
@@ -1638,12 +1639,12 @@ async function recordStudentPayment(event, paymentDetails) {
     const paymentTypeAr = paymentTypeMap[payment_type] || payment_type || 'رسوم';
 
     const transactionDescription = `دفعة رسوم من الطالب: ${student.name} - ${paymentTypeAr}`;
+    const targetAccountId = account_id ? parseInt(account_id, 10) : 1;
 
-    // Note: You might want to make the account_id dynamic
     const transactionResult = await db.runQuery(
       `
       INSERT INTO transactions (type, category, amount, transaction_date, description, payment_method, check_number, voucher_number, receipt_type, account_id, related_person_name, related_entity_type, related_entity_id, created_by_user_id)
-      VALUES ('INCOME', 'رسوم الطلاب', ?, ?, ?, ?, ?, ?, 'fee_payment', 1, ?, 'Student', ?, ?)
+      VALUES ('INCOME', 'رسوم الطلاب', ?, ?, ?, ?, ?, ?, 'fee_payment', ?, ?, 'Student', ?, ?)
     `,
       [
         amount,
@@ -1652,6 +1653,7 @@ async function recordStudentPayment(event, paymentDetails) {
         payment_method,
         check_number,
         receipt_number,
+        targetAccountId,
         student.name,
         student_id,
         event.sender.userId,
@@ -1661,7 +1663,7 @@ async function recordStudentPayment(event, paymentDetails) {
     // Update the account balance for this income (keeps accounts.current_balance in sync)
     await db.runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?', [
       amount,
-      1,
+      targetAccountId,
     ]);
 
     // Link the transaction to the payment

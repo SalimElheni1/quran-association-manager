@@ -85,10 +85,25 @@ const StudentFeesTab = () => {
   const [generateAcademicYear, setGenerateAcademicYear] = useState(getAcademicYearString());
   const [forceGeneration, setForceGeneration] = useState(false);
   const [isGeneratingFees, setIsGeneratingFees] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+
+  const loadAccounts = async () => {
+    try {
+      const accs = await window.electronAPI.getAccounts();
+      if (Array.isArray(accs) && accs.length > 0) {
+        setAccounts(accs);
+        setSelectedAccountId(accs[0].id.toString());
+      }
+    } catch (err) {
+      console.error('[StudentFeesTab] Error loading accounts:', err);
+    }
+  };
 
   useEffect(() => {
     loadStudents();
     checkFeesConfiguration();
+    loadAccounts();
 
     // Listen for settings updates to refresh charges
     const handleSettingsUpdated = () => {
@@ -251,6 +266,7 @@ const StudentFeesTab = () => {
         notes: notes,
         academic_year: academicYear,
         receipt_number: receiptNumber,
+        ...(selectedAccountId && { account_id: parseInt(selectedAccountId, 10) }),
         ...(paymentMethod === 'CHECK' && checkNumber && { check_number: checkNumber }),
         ...(selectedSpecialFeeClass && { class_id: selectedSpecialFeeClass }),
         ...(selectedStudent.fee_category === 'SPONSORED' && {
@@ -674,6 +690,21 @@ const StudentFeesTab = () => {
                   <Form.Text className="text-muted">
                     يجب أن يكون رقم الوصل فريداً عبر جميع عمليات الدفع
                   </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>الحساب المالي (الخزينة)</Form.Label>
+                  <Form.Select
+                    value={selectedAccountId}
+                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                  >
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
               </Col>
             </Row>

@@ -10,6 +10,7 @@ const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateTransaction, translateArray } = require('../utils/translations');
+const { roundCurrency } = require('../utils');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -31,8 +32,9 @@ async function generateMatricule(type, transactionDate) {
 
   let sequence = 1;
   if (lastTransaction?.matricule) {
-    const lastSeq = parseInt(lastTransaction.matricule.split('-')[2]);
-    sequence = lastSeq + 1;
+    const parts = lastTransaction.matricule.split('-');
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    sequence = isNaN(lastSeq) ? 1 : lastSeq + 1;
   }
 
   return `${prefix}-${year}-${sequence.toString().padStart(3, '0')}`;
@@ -71,7 +73,7 @@ async function recomputeAccountBalances() {
 
     const results = [];
     for (const account of accounts) {
-      const newBalance = (account.initial_balance || 0) + (totals.get(account.id) || 0);
+      const newBalance = roundCurrency((account.initial_balance || 0) + (totals.get(account.id) || 0));
       await db.runQuery('UPDATE accounts SET current_balance = ? WHERE id = ?', [
         newBalance,
         account.id,
