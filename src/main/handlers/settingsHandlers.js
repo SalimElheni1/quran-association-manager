@@ -40,6 +40,9 @@ const settingsValidationSchema = Joi.object({
 
   backup_reminder_enabled: Joi.boolean(),
   backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
+  backup_time: Joi.string()
+    .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .allow(''),
   annual_fee: Joi.number().min(0).allow(null),
   standard_monthly_fee: Joi.number().min(0).allow(null),
   auto_charge_generation_enabled: Joi.boolean(),
@@ -74,6 +77,7 @@ const defaultSettings = {
 
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
+  backup_time: '02:00',
   annual_fee: 0,
   standard_monthly_fee: 0,
   auto_charge_generation_enabled: true,

@@ -81,16 +81,16 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
   3. D2 documented (not unified — out of scope): `receiptService.generateReceiptNumber` (RCP-YYYY-NNNN, seeds `start-1`, L215) and legacy `handleGetNextReceiptNumber` (BK-…-NNNN, seeds `start`, receiptHandlers.js:61) both `UPDATE current_receipt_number` on the same book → double-increment/skips if both are used. Renderer only uses the legacy `receipt-books:get-next-number('payment')` path; the `receipts:generate` path is not exposed in preload (still latent). D3 noted: `recordStudentPayment` writes `transactions.receipt_type = 'رسوم الطلاب'` (Arabic, no CHECK) — differs from every `receipt_books` type.
 - **Done when:** `receipts:generate` with `receiptType='fee_payment'` no longer throws on a fresh DB.
 
-### H7. Fix latent update-transaction sign bug
-- **Files:** `src/main/handlers/financialHandlers.js:286`
-- **Bug:** re-applies balance using `oldTransaction.type` instead of `validatedData.type`.
-- **Work:** use the validated (new) type when re-applying; add type to the balance reversal math. Add a test that changes type INCOME→EXPENSE (if editing type is supported) or asserts the reversal matches the stored type.
+### H7. Fix latent update-transaction sign bug — DONE
+- **Files:** `src/main/handlers/financialHandlers.js:233-306`
+- **Bug:** re-applies balance using `oldTransaction.type` instead of `validatedData.type` (and the UPDATE never persisted a changed `type`).
+- **Work:** added `type = ?` to the UPDATE SET + used `validatedData.type` for the balance re-apply, so INCOME→EXPENSE (or account) edits reverse and re-apply with the correct sign. New test `tests/financialHandlers.update.spec.js` proves an EXPENSE→INCOME edit produces `+100` on both balance adjustments (bug would give `-100`).
 - **Done when:** balance math always reflects the stored transaction type.
 
-### H8. Fix `backup_time` setting being silently dropped
+### H8. Fix `backup_time` setting being silently dropped — DONE
 - **Files:** `src/main/handlers/settingsHandlers.js` (Joi schema, L42-72); `src/renderer/pages/SettingsPage.jsx` (L617)
-- **Bug:** E1 (audit §E).
-- **Work:** add `backup_time` to the settings Joi schema + defaults so the SettingsPage field persists.
+- **Bug:** E1 (audit §E). `backup_time` rendered in SettingsPage but absent from the Joi schema → `stripUnknown` dropped it on save; never persisted.
+- **Work:** added `backup_time: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).allow('')` to the schema and `backup_time: '02:00'` to `defaultSettings`. Verified the real (non-mocked) schema accepts `03:30` and rejects `25:99` via node. New tests `tests/settings.backupTime.spec.js` cover the default, read-back, and save path (note: the shared `tests/mocks/joi.js` makes schema-validation assertions impossible in jest, hence node-level verification).
 - **Done when:** saving settings preserves `backup_time` in the `settings` table.
 
 **Sprint 2 exit criteria:** lint clean; all touched handlers covered by existing jest suites pass; new tests for H1/H3/H7; manual click-through of both export buttons.

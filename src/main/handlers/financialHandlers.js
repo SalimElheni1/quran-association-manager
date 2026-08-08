@@ -259,7 +259,7 @@ async function handleUpdateTransaction(event, id, transaction) {
     // Update transaction
     const sql = `
       UPDATE transactions SET
-        category = ?, amount = ?, transaction_date = ?, description = ?,
+        type = ?, category = ?, amount = ?, transaction_date = ?, description = ?,
         payment_method = ?, check_number = ?, account_id = ?,
         related_person_name = ?, related_entity_type = ?, related_entity_id = ?,
         requires_dual_signature = ?, receipt_type = ?, updated_at = CURRENT_TIMESTAMP
@@ -267,6 +267,7 @@ async function handleUpdateTransaction(event, id, transaction) {
     `;
 
     await db.runQuery(sql, [
+      validatedData.type,
       validatedData.category,
       validatedData.amount,
       new Date(validatedData.transaction_date).toISOString().split('T')[0],
@@ -282,8 +283,9 @@ async function handleUpdateTransaction(event, id, transaction) {
       id,
     ]);
 
-    // Apply new balance
-    await updateAccountBalance(validatedData.account_id, oldTransaction.type, validatedData.amount);
+    // Apply new balance using the validated (new) type, so an INCOME→EXPENSE
+    // (or account change) edit reverses and re-applies with the correct sign.
+    await updateAccountBalance(validatedData.account_id, validatedData.type, validatedData.amount);
 
     await db.runQuery('COMMIT;');
 
