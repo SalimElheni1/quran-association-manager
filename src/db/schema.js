@@ -252,7 +252,12 @@ const schema = `
     ('backup_reminder_frequency_days', '7'),
     ('cloud_backup_enabled', 'false'),
     ('google_account_email', ''),
-    ('google_connected', 'false');
+    ('google_connected', 'false'),
+    ('financial_cash_limit', '500'),
+    ('financial_enforce_cash_limit', 'true'),
+    ('financial_default_export_format', 'xlsx'),
+    ('financial_report_custom_header', ''),
+    ('financial_association_law_type', 'tunisian_2011_88');
 
   -- Insert default age groups with gender policies
   INSERT OR IGNORE INTO age_groups (uuid, name, description, min_age, max_age, gender, gender_policy, is_active) VALUES

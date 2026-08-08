@@ -483,6 +483,88 @@ const SettingsPage = () => {
                     <AgeGroupsTab />
                   </Tab>
 
+                  <Tab eventKey="financial-rules" title="اللائحة المالية">
+                    <Card className="border-0 bg-light p-3">
+                      <Row>
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Label className="fw-bold">الحد الأقصى للمبالغ النقدية (د.ت)</Form.Label>
+                            <Form.Control
+                              type="number"
+                              name="financial_cash_limit"
+                              value={settings?.financial_cash_limit !== undefined ? settings.financial_cash_limit : 500}
+                              onChange={handleChange}
+                              step="0.01"
+                            />
+                            <Form.Text className="text-muted">
+                              المبالغ التي تتجاوز هذا الحد لا يمكن إدخالها كدفع نقدي (CASH).
+                            </Form.Text>
+                          </Form.Group>
+
+                          <Form.Check
+                            type="switch"
+                            label="تفعيل حد المبالغ النقدية إجبارياً"
+                            name="financial_enforce_cash_limit"
+                            checked={settings?.financial_enforce_cash_limit !== undefined ? settings.financial_enforce_cash_limit : true}
+                            onChange={handleChange}
+                            className="mb-4"
+                          />
+                        </Col>
+                        <Col md={6}>
+                          <Form.Group className="mb-3">
+                            <Form.Label className="fw-bold">صيغة التصدير الافتراضية للتقارير</Form.Label>
+                            <Form.Select
+                              name="financial_default_export_format"
+                              value={settings?.financial_default_export_format || 'xlsx'}
+                              onChange={handleChange}
+                            >
+                              <option value="xlsx">Excel (سجل المحاسبة / الجرد)</option>
+                              <option value="docx">Word (التقرير المالي الوصفي)</option>
+                              <option value="pdf">PDF / نصي (ملخص مالي مبسط)</option>
+                            </Form.Select>
+                          </Form.Group>
+
+                          <Form.Group className="mb-3">
+                            <Form.Label className="fw-bold">نص الترويسة المخصص للتقارير</Form.Label>
+                            <Form.Control
+                              type="text"
+                              name="financial_report_custom_header"
+                              value={settings?.financial_report_custom_header || ''}
+                              onChange={handleChange}
+                              placeholder="مثال: الهيئة الإدارية المالية - فرع تونس"
+                            />
+                            <Form.Text className="text-muted">
+                              سيتم إرفاق هذا النص بجانب اسم الجمعية في ترويسة التقارير المصدرة.
+                            </Form.Text>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+
+                      {/* Tunisian Law Reference Card */}
+                      <Card className="mt-3 border-info bg-white">
+                        <Card.Header className="bg-info text-white fw-bold py-2 small">
+                          ℹ️ دليل الامتثال القانوني للجمعيات التونسية (القانون التونسي)
+                        </Card.Header>
+                        <Card.Body className="small text-dark">
+                          <p className="mb-2">
+                            وفقاً لمقتضيات <strong>المرسوم عدد 88 لسنة 2011</strong> المتعلق بتنظيم الجمعيات في تونس، وقوانين المالية الجاري بها العمل:
+                          </p>
+                          <ul className="ps-3 mb-0" style={{ listStyleType: 'disc' }}>
+                            <li className="mb-1">
+                              تخضع الجمعيات لمبادئ المحاسبة المبسطة ويجب عليها مسك دفاتر مالية شفافة وسجلات جرد دقيقة للعقارات والمنقولات.
+                            </li>
+                            <li className="mb-1">
+                              <strong>الامتثال النبطي:</strong> يوصى بضبط سقف المعاملات النقدية لحماية مالية الجمعية وتجنب المعاملات الكاش الكبيرة (المحددة افتراضياً بـ 500 د.ت، ويمكن تعديلها قانونياً بقرار الجلسة العامة أو اللائحة الداخلية للجمعية).
+                            </li>
+                            <li className="mb-1">
+                              يساعد تفعيل "الحد الأقصى للمبالغ النقدية" في إلزام الإدارة الفرعية بقبول المبالغ الكبيرة حصرياً عن طريق التحويل البنكي أو الشيك لضمان الشفافية وتسهيل عمليات التدقيق المالي السنوية.
+                            </li>
+                          </ul>
+                        </Card.Body>
+                      </Card>
+                    </Card>
+                  </Tab>
+
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
                     <Row className="g-4">
                       {/* Local Backup Section */}

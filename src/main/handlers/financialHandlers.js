@@ -10,6 +10,7 @@ const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateTransaction, translateArray } = require('../utils/translations');
+const { getSetting } = require('../settingsManager');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -50,11 +51,16 @@ async function updateAccountBalance(accountId, transactionType, amount) {
 }
 
 /**
- * Validates 500 TND cash limit rule
+ * Validates cash limit rule dynamically based on settings
  */
-function validate500TndRule(amount, paymentMethod) {
-  if (amount > 500 && paymentMethod === 'CASH') {
-    throw new Error('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+async function validate500TndRule(amount, paymentMethod) {
+  const enforceLimit = (await getSetting('financial_enforce_cash_limit')) !== false;
+  if (enforceLimit && paymentMethod === 'CASH') {
+    const cashLimitSetting = await getSetting('financial_cash_limit');
+    const cashLimit = cashLimitSetting !== null && cashLimitSetting !== undefined ? parseFloat(cashLimitSetting) : 500;
+    if (amount > cashLimit) {
+      throw new Error(`المبالغ التي تتجاوز ${cashLimit} دينار يجب أن تكون عبر شيك أو تحويل بنكي حسب قوانين الجمعية واللوائح المالية السارية`);
+    }
   }
 }
 
@@ -151,8 +157,8 @@ async function handleAddTransaction(event, transaction) {
   try {
     await db.runQuery('BEGIN TRANSACTION;');
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+    // Validate cash limit rule
+    await validate500TndRule(transaction.amount, transaction.payment_method);
 
     // Validate data
     const validatedData = await transactionValidationSchema.validateAsync(transaction, {
@@ -234,8 +240,8 @@ async function handleUpdateTransaction(event, id, transaction) {
   try {
     await db.runQuery('BEGIN TRANSACTION;');
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+    // Validate cash limit rule
+    await validate500TndRule(transaction.amount, transaction.payment_method);
 
     // Get old transaction to reverse balance
     const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
