@@ -325,13 +325,16 @@ function StudentsPage() {
 
   const handleSaveStudent = async (formData, studentId) => {
     try {
+      let result;
       if (studentId) {
-        await window.electronAPI.updateStudent(studentId, formData);
+        result = await window.electronAPI.updateStudent(studentId, formData);
         toast.success(`تم تحديث بيانات الطالب "${formData.name}" بنجاح!`);
       } else {
-        await window.electronAPI.addStudent(formData);
+        result = await window.electronAPI.addStudent(formData);
         toast.success(`تمت إضافة الطالب "${formData.name}" بنجاح!`);
       }
+      // Follow-up work (fee charges) can fail after the student itself was saved.
+      (result?.warnings || []).forEach((warning) => toast.warn(warning));
       fetchStudents(); // Refresh the list
       handleCloseModal();
     } catch (err) {

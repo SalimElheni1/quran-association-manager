@@ -8,6 +8,7 @@ import ExpensesPage from './ExpensesPage';
 import AccountsPage from './AccountsPage';
 import InventoryTab from '@renderer/components/financials/InventoryTab';
 import FinancialReportsTab from '@renderer/components/financials/FinancialReportsTab';
+import { error as logError } from '@renderer/utils/logger';
 
 function FinancialsPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -26,8 +27,7 @@ function FinancialsPage() {
           handleInventoryUpdate();
         }
       } catch (err) {
-        // ignore
-        // console.error('Error handling DOM import-completed in FinancialsPage:', err);
+        logError('Error handling DOM import-completed in FinancialsPage:', err);
       }
     };
 
@@ -41,12 +41,12 @@ function FinancialsPage() {
               handleInventoryUpdate();
             }
           } catch (err) {
-            // ignore
+            logError('Error handling import-completed IPC payload in FinancialsPage:', err);
           }
         });
       }
     } catch (err) {
-      // ignore
+      logError('Failed to register import completion IPC listener in FinancialsPage:', err);
     }
 
     window.addEventListener('app:import-completed', domHandler);

@@ -478,7 +478,11 @@ async function generateInventoryRegister(event, { period }) {
             };
           });
         } catch (e) {
-          // Skip malformed JSON
+          // Skip malformed JSON, but leave a trace so the missing row can be explained.
+          logError(
+            `Skipped in-kind donation ${donation.id} in the financial summary export: unreadable details.`,
+            e,
+          );
         }
       });
     }

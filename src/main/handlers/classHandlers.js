@@ -329,6 +329,7 @@ function registerClassHandlers() {
 
       // 🆕 NEW: Trigger charge regeneration for affected students
       const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
+      const warnings = [];
       for (const studentId of affectedStudents) {
         try {
           log(`[Enrollment] ▶️ Triggering charge regeneration for student ${studentId}...`);
@@ -336,13 +337,14 @@ function registerClassHandlers() {
           log(`[Enrollment] ✅ Student ${studentId} charges regenerated`);
         } catch (error) {
           logError(`[Enrollment] ❌ Failed to regenerate charges for student ${studentId}:`, error);
-          // Don't fail the enrollment operation - continue
+          // The enrollment itself succeeded, so report the failure instead of failing the operation.
+          warnings.push(`تعذر تحديث رسوم الطالب رقم ${studentId}: ${error.message}`);
         }
       }
 
       log(`[Enrollment] ✅ Enrollments updated successfully`);
       log(`[Enrollment] ════════════════════════════════════════════════════`);
-      return { success: true, affectedStudents };
+      return { success: true, affectedStudents, warnings };
     } catch (error) {
       await db.runQuery('ROLLBACK');
       logError('Error updating enrollments:', error);

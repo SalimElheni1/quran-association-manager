@@ -27,20 +27,30 @@ const crypto = require('crypto');
 // =================================================================================
 // PRODUCTION CRASH LOGGER
 // =================================================================================
-if (app.isPackaged) {
-  process.on('uncaughtException', (error) => {
-    const logMessage = `[${new Date().toISOString()}] Uncaught Exception:\n${error.stack || error}\n`;
-    // Place the log in the directory next to the executable
-    const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
-    try {
-      fs.writeFileSync(logPath, logMessage, { encoding: 'utf-8' });
-    } catch (e) {
-      console.error('Failed to write crash log:', e);
-    }
-    // Ensure the app exits
-    process.exit(1);
-  });
-}
+const writeCrashLog = (label, reason) => {
+  const details = reason instanceof Error ? reason.stack || reason.message : String(reason);
+  const logMessage = `[${new Date().toISOString()}] ${label}:\n${details}\n`;
+  console.error(logMessage);
+  if (!app.isPackaged) return;
+  // Place the log in the directory next to the executable
+  const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
+  try {
+    fs.appendFileSync(logPath, logMessage, { encoding: 'utf-8' });
+  } catch (e) {
+    console.error('Failed to write crash log:', e);
+  }
+};
+
+process.on('uncaughtException', (error) => {
+  writeCrashLog('Uncaught Exception', error);
+  // Ensure the app exits
+  process.exit(1);
+});
+
+// Without a handler, a rejection outside of any try/catch leaves no trace at all.
+process.on('unhandledRejection', (reason) => {
+  writeCrashLog('Unhandled Promise Rejection', reason);
+});
 // =================================================================================
 const Store = require('electron-store');
 const { log, error: logError, initializeLogFile } = require('./logger');
@@ -360,7 +370,12 @@ const initializeApp = async () => {
     });
 
     ipcMain.handle('dialog:openFile', async (_event, options) => {
-      return await dialog.showOpenDialog(options);
+      try {
+        return await dialog.showOpenDialog(options);
+      } catch (error) {
+        logError('Failed to open the file dialog:', error);
+        throw new Error('تعذر فتح نافذة اختيار الملف.');
+      }
     });
 
     registerFinancialHandlers();
@@ -400,12 +415,24 @@ const initializeApp = async () => {
     });
   } catch (error) {
     logError('Fatal error during application startup:', error);
+    // The window may never have been shown, so a dialog is the only way the user learns
+    // why the application closed itself.
+    dialog.showErrorBox(
+      'تعذر تشغيل التطبيق',
+      `حدث خطأ فادح أثناء بدء التشغيل:\n\n${error.message}`,
+    );
     app.quit();
   }
 };
 
 // This is the main entry point for the application
-app.whenReady().then(initializeApp);
+app
+  .whenReady()
+  .then(initializeApp)
+  .catch((error) => {
+    writeCrashLog('Fatal error while preparing the application', error);
+    app.quit();
+  });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -416,7 +443,11 @@ app.on('window-all-closed', () => {
 // Handle user logout to close the database connection
 ipcMain.on('logout', async () => {
   log('User logging out, closing database connection.');
-  await db.closeDatabase();
+  try {
+    await db.closeDatabase();
+  } catch (error) {
+    logError('Failed to close the database connection on logout:', error);
+  }
 });
 
 // Gracefully close the database and stop schedulers when the app is about to quit
@@ -428,14 +459,20 @@ app.on('will-quit', async () => {
     try {
       const cloudBackupManager = require('./cloudBackupManager');
       if (cloudBackupManager.stopCloudScheduler) cloudBackupManager.stopCloudScheduler();
-    } catch (e) { }
+    } catch (e) {
+      logError('Failed to stop the cloud backup scheduler:', e);
+    }
     stopFeeChargeScheduler();
     log('Schedulers stopped successfully.');
   } catch (error) {
     logError('Error stopping schedulers:', error);
   }
 
-  await db.closeDatabase();
+  try {
+    await db.closeDatabase();
+  } catch (error) {
+    logError('Failed to close the database while quitting:', error);
+  }
 });
 
 // --- Attendance IPC Handlers ---

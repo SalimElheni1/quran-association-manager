@@ -7,6 +7,7 @@ const Store = require('electron-store');
 const ExcelJS = require('exceljs');
 const { log, error: logError, warn: logWarn } = require('./logger');
 const backupManager = require('./backupManager');
+const { notifyError } = require('./notifier');
 const {
   getDatabasePath,
   isDbOpen,
@@ -209,7 +210,8 @@ async function replaceDatabase(importedDbPath, password) {
     }
   } catch (e) {
     logError('Failed to create auto-backup before import:', e);
-    // Proceed with import even if backup fails, but user is warned effectively by the log if they check.
+    // The import replaces the whole database, so the user must know the safety net is missing.
+    notifyError(`تعذر إنشاء نسخة احتياطية وقائية قبل الاستيراد: ${e.message}`);
   }
 
   try {
@@ -977,6 +979,7 @@ async function processClassRow(row, headerRow) {
     try {
       parsedSchedule = parseScheduleCell(rawSchedule);
     } catch (e) {
+      logWarn(`Could not parse the schedule cell "${rawSchedule}", keeping the raw value:`, e);
       parsedSchedule = null;
     }
 
@@ -1000,7 +1003,7 @@ async function processClassRow(row, headerRow) {
         data.gender = CLASS_GENDER_MAP[rawGender] || CLASS_GENDER_MAP[lower] || data.gender;
       }
     } catch (e) {
-      /* ignore and keep original */
+      logWarn('Could not normalize the class gender, keeping the original value:', e);
     }
 
     // Normalize class status to DB keys
@@ -1011,7 +1014,7 @@ async function processClassRow(row, headerRow) {
           CLASS_STATUS_MAP[rawStatus] || CLASS_STATUS_MAP[rawStatus.toLowerCase()] || data.status;
       }
     } catch (e) {
-      /* ignore and keep original */
+      logWarn('Could not normalize the class status, keeping the original value:', e);
     }
 
     if (!data.name) {
