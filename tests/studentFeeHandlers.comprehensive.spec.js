@@ -416,4 +416,133 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       expect(result.total).toBe(0);
     });
   });
+
+  // ============================================
+  // DELETE / REFUND STUDENT PAYMENT
+  // ============================================
+
+  describe('deleteStudentPayment', () => {
+    let deleteStudentPayment;
+
+    beforeEach(() => {
+      ({ deleteStudentPayment } = require('../src/main/handlers/studentFeeHandlers'));
+    });
+
+    const payment = {
+      id: 10,
+      student_id: 2,
+      amount: 100,
+      refunded: 0,
+      transaction_id: 55,
+      payment_method: 'CASH',
+    };
+
+    it('should reverse charges, breakdown, credit, transaction and balance, then delete', async () => {
+      db.getQuery
+        .mockResolvedValueOnce(payment) // payment lookup
+        .mockResolvedValueOnce({ amount: 100, account_id: 1, type: 'INCOME' }); // linked txn
+      db.allQuery.mockResolvedValue([
+        { student_fee_charge_id: 3, amount: 60 },
+        { student_fee_charge_id: 4, amount: 40 },
+      ]);
+
+      const result = await deleteStudentPayment(10);
+
+      expect(result).toEqual({ success: true, message: 'تم حذف الدفعة بنجاح' });
+
+      // charge reversal
+      const chargeUpdate = db.runQuery.mock.calls.find(([sql]) =>
+        sql.includes('UPDATE student_fee_charges'),
+      );
+      expect(chargeUpdate[1]).toEqual([60, 60, 60, 3]);
+
+      // breakdown delete
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'DELETE FROM student_payment_breakdown WHERE student_payment_id = ?',
+        [10],
+      );
+
+      // credit removal
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'DELETE FROM student_fee_charges WHERE source_payment_id = ?',
+        [10],
+      );
+
+      // balance reversal
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
+        [100, 1],
+      );
+
+      // transaction + payment deletion
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM transactions WHERE id = ?', [55]);
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM student_payments WHERE id = ?', [10]);
+    });
+
+    it('should throw when the payment does not exist', async () => {
+      db.getQuery.mockResolvedValue(null);
+
+      await expect(deleteStudentPayment(999)).rejects.toThrow('الدفعة غير موجودة');
+    });
+
+    it('should throw when the payment is already refunded', async () => {
+      db.getQuery.mockResolvedValue({ ...payment, refunded: 1 });
+
+      await expect(deleteStudentPayment(10)).rejects.toThrow('لا يمكن حذف دفعة مسترجعة');
+    });
+  });
+
+  describe('refundStudentPayment', () => {
+    let refundStudentPayment;
+
+    beforeEach(() => {
+      ({ refundStudentPayment } = require('../src/main/handlers/studentFeeHandlers'));
+    });
+
+    const payment = {
+      id: 10,
+      student_id: 2,
+      amount: 100,
+      refunded: 0,
+      transaction_id: 55,
+      payment_method: 'CASH',
+    };
+
+    it('should reverse charges/credit/balance, mark refunded and record an EXPENSE', async () => {
+      db.getQuery
+        .mockResolvedValueOnce(payment) // payment lookup
+        .mockResolvedValueOnce({ amount: 100, account_id: 1, type: 'INCOME' }); // linked txn
+      db.allQuery.mockResolvedValue([{ student_fee_charge_id: 3, amount: 60 }]);
+
+      const result = await refundStudentPayment(10, 9);
+
+      expect(result).toEqual({ success: true, message: 'تم استرجاع الدفعة بنجاح' });
+
+      // balance reversal
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
+        [100, 1],
+      );
+
+      // EXPENSE reversal transaction
+      const expenseInsert = db.runQuery.mock.calls.find(
+        ([sql]) => sql.includes('INSERT INTO transactions') && sql.includes("'EXPENSE'"),
+      );
+      expect(expenseInsert).toBeDefined();
+      expect(expenseInsert[1][0]).toBe(100);
+      expect(expenseInsert[1][3]).toBe('CASH');
+
+      // payment kept, marked refunded
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE student_payments SET refunded = 1 WHERE id = ?',
+        [10],
+      );
+    });
+
+    it('should throw when the payment is already refunded', async () => {
+      db.getQuery.mockResolvedValue({ ...payment, refunded: 1 });
+
+      await expect(refundStudentPayment(10)).rejects.toThrow('الدفعة مسترجعة بالفعل');
+    });
+  });
 });

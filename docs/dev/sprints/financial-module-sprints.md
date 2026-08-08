@@ -102,8 +102,8 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 ### H9. Add balance reconciliation + reconcile on startup — DONE
 - `recomputeAccountBalances()` (single `db.withTransaction`: reset `current_balance = initial_balance`, replay all `transactions` — INCOME adds, EXPENSE subtracts — then overwrite), exposed as `financial:reconcile` IPC + exported. Runs automatically at startup right after `db.initializeDatabase()`/migrations in `src/main/index.js`; idempotent and non-fatal, logs how many accounts were corrected. Tests: `tests/financialHandlers.reconcile.spec.js` (math + idempotence).
 
-### H10. Student-payment refund / void / delete
-- New `student-fees:deletePayment` (and/or `voidPayment`) that reverses: charge `amount_paid`/`status`, breakdown rows, credit charges, the linked `transactions` row, and `accounts.current_balance` — all in one DB transaction. Wire a delete button in `StudentFeesTab.jsx` (confirm first with user — UI change).
+### H10. Student-payment refund / void / delete — DONE
+- `deleteStudentPayment(paymentId)` and `refundStudentPayment(paymentId, userId)` in `src/main/handlers/studentFeeHandlers.js`, both atomic via `db.withTransaction`. Each reverses: charge `amount_paid`/`status` (recomputed per breakdown), breakdown rows, the overpayment credit created by that payment (`student_fee_charges.source_payment_id`, new migration 054), the linked `transactions` row / account balance. Delete removes the payment; refund keeps the row (`refunded` flag, migration 053) and records an EXPENSE reversal transaction. IPC: `student-fees:deletePayment`, `student-fees:refundPayment` (+ preload `studentFeesDeletePayment`/`studentFeesRefundPayment`). UI: `StudentFeesTab.jsx` now renders the previously-unused payment history with استرجاع/حذف buttons (confirm first). Tests in `tests/studentFeeHandlers.comprehensive.spec.js`.
 
 ### H11. Receipt uniqueness on `transactions.receipt_number`
 - BUG-19: extend the duplicate-receipt check in `recordStudentPayment` (L1355-1381) to cover `transactions.receipt_number`.

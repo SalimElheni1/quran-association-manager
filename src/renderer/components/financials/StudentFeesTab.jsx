@@ -273,6 +273,54 @@ const StudentFeesTab = () => {
     }
   };
 
+  const refreshPaymentHistory = async (student) => {
+    try {
+      const history = await window.electronAPI.studentFeesGetPaymentHistory(
+        student.id,
+        academicYear,
+      );
+      setPaymentHistory(history || []);
+    } catch (err) {
+      toast.error('فشل في تحميل سجل الدفعات');
+    }
+  };
+
+  const handleDeletePayment = async (payment) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم.')) {
+      return;
+    }
+    try {
+      await window.electronAPI.studentFeesDeletePayment(payment.id);
+      toast.success('تم حذف الدفعة بنجاح');
+      if (selectedStudent) {
+        await refreshPaymentHistory(selectedStudent);
+        loadStudents(); // Refresh the list
+      }
+    } catch (err) {
+      toast.error(err.message || 'فشل في حذف الدفعة');
+    }
+  };
+
+  const handleRefundPayment = async (payment) => {
+    if (
+      !window.confirm(
+        'هل أنت متأكد من استرجاع هذه الدفعة؟ سيتم عكس الأرصدة والرسوم وتسجيل حركة استرجاع.',
+      )
+    ) {
+      return;
+    }
+    try {
+      await window.electronAPI.studentFeesRefundPayment(payment.id);
+      toast.success('تم استرجاع الدفعة بنجاح');
+      if (selectedStudent) {
+        await refreshPaymentHistory(selectedStudent);
+        loadStudents(); // Refresh the list
+      }
+    } catch (err) {
+      toast.error(err.message || 'فشل في استرجاع الدفعة');
+    }
+  };
+
   const handleGenerateFees = () => {
     setShowGenerateFeesModal(true);
   };
@@ -636,6 +684,61 @@ const StudentFeesTab = () => {
               />
             </Form.Group>
           </Form>
+
+          <hr />
+          <h6 className="mb-3">سجل الدفعات السابقة</h6>
+          {paymentHistory.length === 0 ? (
+            <p className="text-muted">لا توجد دفعات مسجلة لهذا الطالب.</p>
+          ) : (
+            <Table striped bordered hover responsive size="sm">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>المبلغ</th>
+                  <th>الطريقة</th>
+                  <th>رقم الوصل</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentHistory.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{payment.payment_date}</td>
+                    <td>{Number(payment.amount).toFixed(2)} د.ت</td>
+                    <td>{payment.payment_method}</td>
+                    <td>{payment.receipt_number || '-'}</td>
+                    <td>
+                      {payment.refunded ? (
+                        <Badge bg="warning">مسترجع</Badge>
+                      ) : (
+                        <Badge bg="success">مؤكدة</Badge>
+                      )}
+                    </td>
+                    <td>
+                      <Button
+                        size="sm"
+                        variant="warning"
+                        className="me-1"
+                        disabled={!!payment.refunded}
+                        onClick={() => handleRefundPayment(payment)}
+                      >
+                        استرجاع
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={!!payment.refunded}
+                        onClick={() => handleDeletePayment(payment)}
+                      >
+                        حذف
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>

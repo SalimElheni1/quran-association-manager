@@ -1571,8 +1571,9 @@ async function recordStudentPayment(event, paymentDetails) {
           amount,
           amount_paid,
           status,
-          academic_year
-        ) VALUES (?, ?, ?, 'CREDIT', ?, ?, ?, 'PAID', ?)
+          academic_year,
+          source_payment_id
+        ) VALUES (?, ?, ?, 'CREDIT', ?, ?, ?, 'PAID', ?, ?)
       `,
         [
           student_id,
@@ -1582,6 +1583,7 @@ async function recordStudentPayment(event, paymentDetails) {
           0, // amount (credit has no charge amount)
           remainingAmountToApply, // amount_paid (the credit amount)
           academic_year || new Date().getFullYear().toString(),
+          studentPaymentId,
         ],
       );
       console.log(`[PAYMENT_OVERPAYMENT] Credit charge created for ${remainingAmountToApply}`);
@@ -1658,6 +1660,186 @@ async function recordStudentPayment(event, paymentDetails) {
       throw new Error('رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.');
     }
     throw new Error('فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.');
+  }
+}
+
+/**
+ * Reverses a student payment as if it never happened, atomically.
+ * Reverses: charge amount_paid/status, breakdown rows, the overpayment credit
+ * created by this payment, the linked transactions row, and the account balance.
+ * @param {number} paymentId - student_payments row to remove
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function deleteStudentPayment(paymentId) {
+  try {
+    const result = await db.withTransaction(async () => {
+      const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
+      if (!payment) throw new Error('الدفعة غير موجودة');
+      if (payment.refunded) throw new Error('لا يمكن حذف دفعة مسترجعة');
+
+      // 1. Reverse the charges this payment paid toward
+      const breakdowns = await db.allQuery(
+        'SELECT student_fee_charge_id, amount FROM student_payment_breakdown WHERE student_payment_id = ?',
+        [paymentId],
+      );
+      for (const breakdown of breakdowns) {
+        await db.runQuery(
+          `UPDATE student_fee_charges
+           SET amount_paid = MAX(amount_paid - ?, 0),
+               status = CASE
+                 WHEN amount_paid - ? >= amount THEN 'PAID'
+                 WHEN amount_paid - ? > 0 THEN 'PARTIALLY_PAID'
+                 ELSE 'UNPAID'
+               END
+           WHERE id = ?`,
+          [breakdown.amount, breakdown.amount, breakdown.amount, breakdown.student_fee_charge_id],
+        );
+      }
+
+      // 2. Remove the breakdown rows
+      await db.runQuery('DELETE FROM student_payment_breakdown WHERE student_payment_id = ?', [
+        paymentId,
+      ]);
+
+      // 3. Remove the overpayment credit this payment created
+      await db.runQuery('DELETE FROM student_fee_charges WHERE source_payment_id = ?', [paymentId]);
+
+      // 4. Reverse the linked INCOME transaction and the account balance
+      if (payment.transaction_id) {
+        const txn = await db.getQuery(
+          'SELECT amount, account_id, type FROM transactions WHERE id = ?',
+          [payment.transaction_id],
+        );
+        if (txn && txn.type === 'INCOME') {
+          await db.runQuery(
+            'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
+            [txn.amount, txn.account_id],
+          );
+        }
+        await db.runQuery('DELETE FROM transactions WHERE id = ?', [payment.transaction_id]);
+      }
+
+      // 5. Delete the payment record
+      await db.runQuery('DELETE FROM student_payments WHERE id = ?', [paymentId]);
+
+      return { success: true, message: 'تم حذف الدفعة بنجاح' };
+    });
+
+    notifyFinancialDataChanged();
+    return result;
+  } catch (error) {
+    logError('Error deleting student payment:', error);
+    if (
+      error.message === 'الدفعة غير موجودة' ||
+      error.message === 'لا يمكن حذف دفعة مسترجعة'
+    ) {
+      throw error;
+    }
+    throw new Error('فشل في حذف الدفعة');
+  }
+}
+
+/**
+ * Refunds a student payment: reverses the charges/credit/balance the same way
+ * a delete would, but keeps the payment in the audit trail marked as refunded
+ * and records an EXPENSE reversal transaction. Atomic.
+ * @param {number} paymentId - student_payments row to refund
+ * @param {number|null} userId - acting user id
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function refundStudentPayment(paymentId, userId = null) {
+  try {
+    const result = await db.withTransaction(async () => {
+      const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
+      if (!payment) throw new Error('الدفعة غير موجودة');
+      if (payment.refunded) throw new Error('الدفعة مسترجعة بالفعل');
+
+      // 1. Reverse the charges this payment paid toward
+      const breakdowns = await db.allQuery(
+        'SELECT student_fee_charge_id, amount FROM student_payment_breakdown WHERE student_payment_id = ?',
+        [paymentId],
+      );
+      for (const breakdown of breakdowns) {
+        await db.runQuery(
+          `UPDATE student_fee_charges
+           SET amount_paid = MAX(amount_paid - ?, 0),
+               status = CASE
+                 WHEN amount_paid - ? >= amount THEN 'PAID'
+                 WHEN amount_paid - ? > 0 THEN 'PARTIALLY_PAID'
+                 ELSE 'UNPAID'
+               END
+           WHERE id = ?`,
+          [breakdown.amount, breakdown.amount, breakdown.amount, breakdown.student_fee_charge_id],
+        );
+      }
+
+      // 2. Remove the breakdown rows
+      await db.runQuery('DELETE FROM student_payment_breakdown WHERE student_payment_id = ?', [
+        paymentId,
+      ]);
+
+      // 3. Remove the overpayment credit this payment created
+      await db.runQuery('DELETE FROM student_fee_charges WHERE source_payment_id = ?', [paymentId]);
+
+      // 4. Reverse the account balance and record an EXPENSE reversal transaction
+      if (payment.transaction_id) {
+        const txn = await db.getQuery(
+          'SELECT amount, account_id, type FROM transactions WHERE id = ?',
+          [payment.transaction_id],
+        );
+        if (txn && txn.type === 'INCOME') {
+          await db.runQuery(
+            'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
+            [txn.amount, txn.account_id],
+          );
+          await db.runQuery(
+            `INSERT INTO transactions
+             (type, category, amount, transaction_date, description, payment_method, receipt_type, account_id, related_entity_type, related_entity_id, created_by_user_id)
+             VALUES ('EXPENSE', 'استرجاع رسوم', ?, ?, ?, ?, 'رسوم الطلاب', ?, 'Student', ?, ?)`,
+            [
+              txn.amount,
+              new Date().toISOString().split('T')[0],
+              `استرجاع دفعة #${paymentId}`,
+              payment.payment_method,
+              txn.account_id,
+              payment.student_id,
+              userId,
+            ],
+          );
+        }
+      }
+
+      // 5. Keep the payment row but mark it refunded
+      await db.runQuery('UPDATE student_payments SET refunded = 1 WHERE id = ?', [paymentId]);
+
+      return { success: true, message: 'تم استرجاع الدفعة بنجاح' };
+    });
+
+    notifyFinancialDataChanged();
+    return result;
+  } catch (error) {
+    logError('Error refunding student payment:', error);
+    if (
+      error.message === 'الدفعة غير موجودة' ||
+      error.message === 'الدفعة مسترجعة بالفعل'
+    ) {
+      throw error;
+    }
+    throw new Error('فشل في استرجاع الدفعة');
+  }
+}
+
+/**
+ * Notifies all renderer windows that financial data changed.
+ */
+function notifyFinancialDataChanged() {
+  try {
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('financial-data-changed');
+    });
+  } catch (error) {
+    logError('Failed to notify windows of financial data change:', error);
   }
 }
 
@@ -1744,6 +1926,24 @@ function registerStudentFeeHandlers() {
           logError('Error recording student payment:', error);
           throw new Error('Failed to record student payment.');
         }
+      },
+    ),
+  );
+
+  ipcMain.handle(
+    'student-fees:deletePayment',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, { paymentId }) => {
+        return await deleteStudentPayment(paymentId);
+      },
+    ),
+  );
+
+  ipcMain.handle(
+    'student-fees:refundPayment',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, { paymentId }) => {
+        return await refundStudentPayment(paymentId, event.sender.userId);
       },
     ),
   );
@@ -2088,6 +2288,8 @@ module.exports = {
   refreshStudentsNeedingChargeRefresh,
   getStudentFeeStatus,
   recordStudentPayment,
+  deleteStudentPayment,
+  refundStudentPayment,
   checkAndGenerateChargesForAllStudents,
   getCurrentAcademicYear,
   calculateStudentMonthlyCharges,
