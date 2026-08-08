@@ -201,6 +201,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
   uploadLogo: () => ipcRenderer.invoke('settings:uploadLogo'),
   getLogo: () => ipcRenderer.invoke('settings:getLogo'),
+  runManualFeeChargeCheck: (force) => ipcRenderer.invoke('fee-charges:runManualCheck', force),
 
   // Age Groups API
   getAgeGroups: () => ipcRenderer.invoke('ageGroups:get'),

@@ -725,6 +725,13 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
  * @returns {Promise<object>} Result object with success status and details
  */
 async function refreshStudentCharges(studentId, academicYear = null, userId = null) {
+  if (!acquireChargeRegenerationLock(studentId)) {
+    log(
+      `[refreshStudentCharges] ⚠️ Charge refresh already in progress for student ${studentId} - rejecting duplicate request`,
+    );
+    return { success: false, message: 'Charge refresh already in progress for this student' };
+  }
+
   let transactionStarted = false;
   try {
     log(`[refreshStudentCharges] Starting charge refresh for student ${studentId}`);
@@ -927,6 +934,8 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
     }
     logError('Error in refreshStudentCharges:', error);
     throw new Error(`فشل في تحديث الرسوم: ${error.message}`);
+  } finally {
+    releaseChargeRegenerationLock(studentId);
   }
 }
 

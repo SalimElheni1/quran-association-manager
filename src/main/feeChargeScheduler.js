@@ -220,7 +220,7 @@ const runManualCheck = async (settings, force = false) => {
       return { success: false, message: 'التوليد التلقائي معطل في الإعدادات.' };
     }
 
-    await checkAndGenerateCharges(force);
+    await checkAndGenerateCharges(settings);
     if (force) {
       return { success: true, message: 'تم تحديث جميع رسوم الطلاب بنجاح.' };
     } else {

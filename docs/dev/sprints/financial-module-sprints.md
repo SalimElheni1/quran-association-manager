@@ -133,7 +133,7 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 
 - A4/A5/A6 + E3: remove `useAccounts.js`, never-rendered legacy tabs (`ExpensesTab/DonationsTab/SalariesTab/PaymentsTab/ReportsTab.jsx`), and orphaned `ImportStep.jsx`. Each removal is a separate confirmed change. — DONE (commits `adaf076` A4, `17a961f` A5, `5a8277e` A6)
 - D2/D3: unify receipt numbering systems and `receipt_type` vocabulary. — DONE
-- BUG-4, BUG-7, BUG-15 residuals; extend charge-regeneration lock to all mutating paths.
+- BUG-4, BUG-7, BUG-15 residuals; extend charge-regeneration lock to all mutating paths. — DONE
 - Re-run full audit at end of each sprint and update this file's status.
 
 ---

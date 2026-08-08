@@ -4,7 +4,10 @@ const Store = require('electron-store');
 const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
-const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
+const {
+  startScheduler: startFeeChargeScheduler,
+  runManualCheck: runManualFeeChargeCheck,
+} = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
 
 /**
@@ -272,6 +275,16 @@ function registerSettingsHandlers(refreshSettings) {
       await safeRollback();
       logError('Error in settings:update IPC wrapper:', error);
       return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('fee-charges:runManualCheck', async (_event, force = false) => {
+    try {
+      const { settings } = await internalGetSettingsHandler();
+      return await runManualFeeChargeCheck(settings, force);
+    } catch (error) {
+      logError('Error in fee-charges:runManualCheck:', error);
+      return { success: false, message: 'فشل في تشغيل الفحص اليدوي.' };
     }
   });
 

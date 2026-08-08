@@ -320,6 +320,28 @@ describe('Student Fee Handlers', () => {
       expect(result.success).toBe(false);
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
+
+    it('should reject a concurrent refresh for the same student (charge-regeneration lock)', async () => {
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+      let release;
+      db.getQuery.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+
+      const first = refreshStudentCharges(1);
+
+      const second = await refreshStudentCharges(1);
+      expect(second).toEqual({
+        success: false,
+        message: 'Charge refresh already in progress for this student',
+      });
+
+      release(null); // Student not found -> first call throws -> lock released
+      await expect(first).rejects.toThrow('Student not found');
+    });
   });
 
   describe('refreshAllStudentCharges', () => {
