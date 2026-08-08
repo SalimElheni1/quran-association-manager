@@ -23,7 +23,10 @@ const allQuery = jest.fn((sql) => {
 });
 
 const runQuery = jest.fn(() => Promise.resolve({ id: 1, changes: 1 }));
-const withTransaction = jest.fn(async (callback) => callback());
+const withTransaction = jest.fn(async (callback) => {
+  // Execute the callback and return its result
+  return await callback();
+});
 
 // Resets mock state AND drains mockResolvedValueOnce queues (jest.clearAllMocks
 // does not clear queued once-values, which leaks across tests), then restores the
@@ -47,7 +50,9 @@ function resetMocks() {
     return Promise.resolve([]);
   });
   runQuery.mockImplementation(() => Promise.resolve({ id: 1, changes: 1 }));
-  withTransaction.mockImplementation(async (callback) => callback());
+  withTransaction.mockImplementation(async (callback) => {
+    return await callback();
+  });
 }
 
 module.exports = {

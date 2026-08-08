@@ -2157,6 +2157,22 @@ function registerStudentFeeHandlers() {
     ),
   );
 
+  ipcMain.handle(
+    'student-fees:resetCharges',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, academicYear) => {
+        try {
+          const result = await resetStudentFeeCharges(academicYear);
+          notifyFinancialDataChanged();
+          return result;
+        } catch (error) {
+          logError('Error resetting student fee charges:', error);
+          throw new Error('فشل في إعادة ضبط الرسوم');
+        }
+      },
+    ),
+  );
+
   // Receipt management handlers
   ipcMain.handle(
     'receipts:generate',
@@ -2320,12 +2336,52 @@ async function checkAndGenerateChargesForAllStudents(settings) {
   }
 }
 
+/**
+ * Safely resets unpaid & duplicate student fee charges for a given academic year (or ALL),
+ * keeping any charges with paid balances intact to preserve payment history.
+ * Then re-generates clean charges for all active students.
+ * @param {string} academicYear - Target academic year (e.g., "2024-2025" or "ALL")
+ * @returns {Promise<{success: boolean, deletedCount: number, message: string}>}
+ */
+async function resetStudentFeeCharges(academicYear = 'ALL') {
+  return db.withTransaction(async () => {
+    let sql = "DELETE FROM student_fee_charges WHERE (amount_paid IS NULL OR amount_paid = 0) AND status = 'UNPAID'";
+    const params = [];
+
+    if (academicYear && academicYear !== 'ALL') {
+      const normalizedYear = normalizeAcademicYear(academicYear);
+      sql += " AND academic_year = ?";
+      params.push(normalizedYear);
+    }
+
+    const deleteResult = await db.runQuery(sql, params);
+    const deletedCount = deleteResult.changes || 0;
+    log(`[ResetFees] Deleted ${deletedCount} unpaid/duplicate fee charges for ${academicYear}`);
+
+    // Regenerate fresh clean charges
+    const yearToGenerate = (academicYear && academicYear !== 'ALL')
+      ? normalizeAcademicYear(academicYear)
+      : await getConfiguredAcademicYear();
+
+    await generateAnnualFeeCharges(yearToGenerate);
+    const currentMonth = new Date().getMonth() + 1;
+    await generateMonthlyFeeCharges(yearToGenerate, currentMonth, { force: false });
+
+    return {
+      success: true,
+      deletedCount,
+      message: `تم إعادة ضبط الرسوم بنجاح (تم حذف ${deletedCount} رسم مكرر/غير مدفوع وإعادة توليد الرسوم النظيفة).`,
+    };
+  });
+}
+
 module.exports = {
   registerStudentFeeHandlers,
   generateAnnualFeeCharges,
   generateMonthlyFeeCharges,
   refreshStudentCharges,
   refreshAllStudentCharges,
+  resetStudentFeeCharges,
   refreshStudentsNeedingChargeRefresh,
   getStudentFeeStatus,
   recordStudentPayment,

@@ -334,6 +334,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
   studentFeesRefreshAllStudentCharges: (data) =>
     ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
+  studentFeesResetCharges: (academicYear) =>
+    ipcRenderer.invoke('student-fees:resetCharges', academicYear),
 
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),

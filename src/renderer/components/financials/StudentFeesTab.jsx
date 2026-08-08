@@ -85,6 +85,9 @@ const StudentFeesTab = () => {
   const [generateAcademicYear, setGenerateAcademicYear] = useState(getAcademicYearString());
   const [forceGeneration, setForceGeneration] = useState(false);
   const [isGeneratingFees, setIsGeneratingFees] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [isResettingFees, setIsResettingFees] = useState(false);
+  const [resetAcademicYear, setResetAcademicYear] = useState(getAcademicYearString());
   const [accounts, setAccounts] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
 
@@ -370,6 +373,27 @@ const StudentFeesTab = () => {
     }
   };
 
+  const handleResetFees = async () => {
+    try {
+      setIsResettingFees(true);
+      setShowResetConfirmModal(false);
+
+      const result = await window.electronAPI.studentFeesResetCharges(resetAcademicYear);
+
+      if (result.success) {
+        toast.success(result.message);
+        loadStudents(); // Refresh the data
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'فشل في إعادة ضبط الرسوم.';
+      toast.error(errorMessage);
+    } finally {
+      setIsResettingFees(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -399,18 +423,29 @@ const StudentFeesTab = () => {
             </Col>
             <Col xs="auto">
               <div className="d-flex align-items-center gap-2">
+                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+                  <>
+                    <Button
+                      variant="outline-success"
+                      onClick={handleGenerateFees}
+                      disabled={isGeneratingFees}
+                    >
+                      {isGeneratingFees ? 'جاري التوليد...' : '⚡ توليد الرسوم'}
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      onClick={() => setShowResetConfirmModal(true)}
+                      disabled={isResettingFees}
+                    >
+                      {isResettingFees ? 'جاري إعادة الضبط...' : '🔄 إعادة ضبط الرسوم'}
+                    </Button>
+                  </>
+                )}
                 {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
                   <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
                     <ExportIcon className="ms-2" /> تصدير البيانات
                   </Button>
                 )}
-                {/* TODO: Re-enable import after fixing import processing
-                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
-                  <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
-                    <ImportIcon className="ms-2" /> استيراد البيانات
-                  </Button>
-                )}
-                */}
                 <Button variant="primary" onClick={loadStudents}>
                   تحديث
                 </Button>
@@ -996,6 +1031,51 @@ const StudentFeesTab = () => {
           </Button>
           <Button variant="success" onClick={handleConfirmGenerateFees}>
             توليد الرسوم
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Reset Fees Confirmation Modal */}
+      <Modal show={showResetConfirmModal} onHide={() => setShowResetConfirmModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>⚠️ تأكيد إعادة ضبط الرسوم</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="danger">
+            <strong>تحذير: هذا الإجراء سيحذف جميع الرسوم غير المدفوعة والمكررة!</strong>
+          </Alert>
+          <p>
+            سيتم القيام بالآتي:
+          </p>
+          <ul>
+            <li>حذف جميع الرسوم غير المدفوعة (amount_paid = 0)</li>
+            <li>حذف الرسوم المكررة</li>
+            <li>إعادة توليد رسوم نظيفة للطلاب النشطين</li>
+          </ul>
+          <p className="text-muted">
+            لن يتم حذف الرسوم التي تم دفعها بالفعل. هذا الإجراء آمن للبيانات المالية المدفوعة.
+          </p>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>السنة الدراسية</Form.Label>
+              <Form.Control
+                type="text"
+                value={resetAcademicYear}
+                onChange={(e) => setResetAcademicYear(e.target.value)}
+                placeholder="مثال: 2024-2025"
+              />
+              <Form.Text className="text-muted">
+                استخدم "ALL" لإعادة ضبط جميع السنوات الدراسية
+              </Form.Text>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowResetConfirmModal(false)}>
+            إلغاء
+          </Button>
+          <Button variant="danger" onClick={handleResetFees} disabled={isResettingFees}>
+            {isResettingFees ? 'جاري إعادة الضبط...' : 'تأكيد إعادة الضبط'}
           </Button>
         </Modal.Footer>
       </Modal>

@@ -852,9 +852,18 @@ describe('Student Fee Handlers', () => {
 
       await recordStudentPayment(event, paymentDetails);
 
+      // Should create transaction with unified receipt_type
       expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining("'fee_payment'"),
-        expect.any(Array),
+        expect.stringContaining('INSERT INTO transactions'),
+        expect.arrayContaining([
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+          'fee_payment', // receipt_type should be 'fee_payment'
+        ]),
       );
     });
   });
