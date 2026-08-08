@@ -4,6 +4,7 @@ import { Card, Button } from 'react-bootstrap';
 import onboardingContent from '@renderer/data/onboardingContent';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { error as logError, warn as logWarn } from '@renderer/utils/logger';
 
 const routeToStep = (pathname) => {
   switch (true) {
@@ -83,7 +84,7 @@ function OnboardingGuide() {
         return Math.round(rect.width);
       }
     } catch (e) {
-      // ignore
+      logWarn('Could not measure the sidebar width, falling back to the default:', e);
     }
     setSidebarWidth(250);
     return 250;
@@ -95,7 +96,8 @@ function OnboardingGuide() {
         const p = await window.electronAPI.getProfile({ token });
         setProfile(p);
       } catch (e) {
-        // ignore; guide is optional
+        // The guide is optional, so this stays non-blocking.
+        logError('Failed to fetch the profile for the onboarding guide:', e);
       }
     };
     fetchProfile();
@@ -132,7 +134,8 @@ function OnboardingGuide() {
           try {
             navigate(stepToRoute(targetStep));
           } catch (err) {
-            // navigation is best-effort; ignore if it fails in tests or unusual states
+            // navigation is best-effort; it can fail in tests or unusual states
+            logWarn(`Could not navigate to the route of step ${targetStep}:`, err);
           }
         }
       }
@@ -178,7 +181,8 @@ function OnboardingGuide() {
         });
         setProfile({ ...profile, need_guide: false, current_step: step });
       } catch (e) {
-        // ignore persistence failure
+        // The guide reopens on the next launch when this fails.
+        logError('Failed to persist the onboarding guide state on exit:', e);
       }
     }
   };
@@ -194,7 +198,7 @@ function OnboardingGuide() {
       try {
         await window.electronAPI.updateUserGuide(profile.id, { current_step: prev });
       } catch (e) {
-        // ignore
+        logError('Failed to persist the onboarding guide step:', e);
       }
     }
     // if prev is 0, do not force route change (stay on current page but show intro)
@@ -222,14 +226,14 @@ function OnboardingGuide() {
           });
           setProfile({ ...profile, need_guide: false, current_step: next });
         } catch (e) {
-          // ignore
+          logError('Failed to mark the onboarding guide as completed:', e);
         }
       }
       // show a small toast notifying completion
       try {
         toast.info('تم إكمال دليل الإعداد. يمكنك تشغيله مرة أخرى من لوحة التحكم إذا رغبت.');
       } catch (e) {
-        // ignore if toast is not available
+        logWarn('Could not show the onboarding completion toast:', e);
       }
       return;
     }

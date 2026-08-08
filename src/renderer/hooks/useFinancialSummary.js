@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { error as logError } from '@renderer/utils/logger';
+import { showErrorToast } from '@renderer/utils/toast';
 
 /**
  * Custom hook for financial summary data
  * @param {Object} period - Period with startDate and endDate
- * @returns {Object} - summary, loading, refresh function
+ * @returns {Object} - summary, loading, error, refresh function
  */
 export function useFinancialSummary(period) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchSummary = useCallback(async () => {
     if (!period || !period.startDate || !period.endDate) {
@@ -29,8 +31,11 @@ export function useFinancialSummary(period) {
         ...data,
         incomeByCategory: filteredIncomeByCategory,
       });
+      setError(null);
     } catch (err) {
       logError('Failed to fetch financial summary:', err);
+      setError(err);
+      showErrorToast('فشل في تحميل الملخص المالي.');
       setSummary({
         totalIncome: 0,
         totalExpenses: 0,
@@ -52,6 +57,7 @@ export function useFinancialSummary(period) {
   return {
     summary,
     loading,
+    error,
     refresh: fetchSummary,
   };
 }

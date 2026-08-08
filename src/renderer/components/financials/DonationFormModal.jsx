@@ -41,10 +41,15 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
 
   const checkUniqueness = useCallback(async (name) => {
     if (!name) return;
-    const { isUnique: unique } = await window.electronAPI.checkInventoryItemUniqueness({
-      itemName: name,
-    });
-    setIsUnique(unique);
+    try {
+      const { isUnique: unique } = await window.electronAPI.checkInventoryItemUniqueness({
+        itemName: name,
+      });
+      setIsUnique(unique);
+    } catch (err) {
+      console.error('Failed to check inventory item uniqueness:', err);
+      toast.error('تعذر التحقق من وجود الصنف في المخزون.');
+    }
   }, []);
 
   // Fetch inventory items for the dropdown
@@ -53,7 +58,10 @@ function DonationFormModal({ show, onHide, onSave, donation, onInventoryUpdate }
       window.electronAPI
         .getInventoryItems()
         .then(setInventoryItems)
-        .catch((err) => toast.error('فشل في تحميل أصناف المخزون.'));
+        .catch((err) => {
+          console.error('Failed to fetch inventory items:', err);
+          toast.error('فشل في تحميل أصناف المخزون.');
+        });
     }
   }, [show, formData.donation_type]);
 

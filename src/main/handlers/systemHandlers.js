@@ -8,6 +8,7 @@ const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
+const { notifyError, notifySuccess } = require('../notifier');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
 const {
@@ -115,17 +116,7 @@ function registerSystemHandlers() {
     } catch (error) {
       logError(`Error during export (${exportType}, ${format}):`, error);
       // Show error toast notification to user
-      try {
-        const mainWindow = require('../index').mainWindow;
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(
-            'ui:show-error-toast',
-            `فشل في تصدير ${exportType}: ${error.message}`,
-          );
-        }
-      } catch (toastError) {
-        logError('Error showing error toast:', toastError);
-      }
+      notifyError(`فشل في تصدير ${exportType}: ${error.message}`);
       return { success: false, message: `Export failed: ${error.message}` };
     }
   });
@@ -173,13 +164,17 @@ function registerSystemHandlers() {
   });
 
   handleAuthenticated('dialog:openDirectory', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
-    });
-    if (canceled) {
-      return { success: false };
-    } else {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+      });
+      if (canceled) {
+        return { success: false };
+      }
       return { success: true, path: filePaths[0] };
+    } catch (error) {
+      logError('Error opening the directory dialog:', error);
+      return { success: false, message: error.message };
     }
   });
 
@@ -441,15 +436,7 @@ function registerSystemHandlers() {
    * @param {string} message Error message to display
    */
   ipcMain.on('ui:show-error-toast', (event, message) => {
-    try {
-      // Forward to renderer process main window
-      const mainWindow = require('../index').mainWindow;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('ui:show-error-toast', message);
-      }
-    } catch (error) {
-      logError('Error showing error toast:', error);
-    }
+    notifyError(message);
   });
 
   /**
@@ -458,15 +445,7 @@ function registerSystemHandlers() {
    * @param {string} message Success message to display
    */
   ipcMain.on('ui:show-success-toast', (event, message) => {
-    try {
-      // Forward to renderer process main window
-      const mainWindow = require('../index').mainWindow;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('ui:show-success-toast', message);
-      }
-    } catch (error) {
-      logError('Error showing success toast:', error);
-    }
+    notifySuccess(message);
   });
 
   handleAuthenticated('app:relaunch', () => {

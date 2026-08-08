@@ -3,13 +3,14 @@ const path = require('path');
 const os = require('os');
 const zlib = require('zlib');
 const { pipeline } = require('stream/promises');
-const { createReadStream, createWriteStream } = require('fs');
+const { createReadStream, createWriteStream, existsSync, unlinkSync } = require('fs');
 const { app, shell, BrowserWindow, safeStorage } = require('electron');
 const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
 const Store = require('electron-store');
-const { log, error: logError } = require('./logger');
+const { log, warn: logWarn, error: logError } = require('./logger');
+const { notifyError, notifySuccess } = require('./notifier');
 const crypto = require('crypto');
 
 const store = new Store();
@@ -392,7 +393,8 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
     const userInfo = await oauth2.userinfo.get();
     userEmail = userInfo.data.email;
   } catch (e) {
-    // Ignore, might be offline
+    // Not fatal: the backup is still uploaded, only the owner e-mail stays unknown.
+    log(`Google Drive: Could not resolve the account e-mail (offline?): ${e.message}`);
   }
 
   try {
@@ -536,29 +538,26 @@ const processQueue = async () => {
         remaining.push(item);
       } else if (result.success) {
         log(`Queue: Successfully uploaded ${filePath}`);
-        // Notify renderer
-        const { mainWindow } = require('./index');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('ui:show-success-toast', 'تم رفع النسخة المؤجلة للسحابة بنجاح.');
-        }
+        notifySuccess('تم رفع النسخة المؤجلة للسحابة بنجاح.');
       } else {
-        log(`Queue: Failed to upload ${filePath}: ${result.message}`);
-        remaining.push(filePath);
+        logWarn(`Queue: Failed to upload ${filePath}: ${result.message}`);
+        remaining.push(item);
       }
     } catch (err) {
       logError(`Queue: Unexpected error processing ${filePath}:`, err);
-      remaining.push(filePath);
+      remaining.push(item);
     }
   }
 
   store.set('cloud_backup_queue', remaining);
 };
 
+// Without the rejection handler a failing sweep would disappear silently.
+const sweepQueue = () =>
+  processQueue().catch((error) => logError('Cloud backup queue processing failed:', error));
+
 // Start background queue processor
-setInterval(() => {
-  // Simple check for online status (can be improved)
-  processQueue();
-}, 15 * 60 * 1000); // Every 15 minutes
+setInterval(sweepQueue, 15 * 60 * 1000); // Every 15 minutes
 
 /**
  * Lists backups by fetching the shared manifest from Google Drive.
@@ -588,6 +587,7 @@ const listCloudBackups = async () => {
         try {
           content = JSON.parse(content);
         } catch (e) {
+          logError('Google Drive: Manifest is not valid JSON, treating it as empty:', e);
           content = { backups: [] };
         }
       } else if (typeof content === 'object' && content !== null) {
@@ -765,23 +765,10 @@ const isCloudBackupDue = (settings) => {
 };
 
 /**
- * Starts the cloud-specific scheduler.
+ * One scheduler pass: creates and uploads an overdue cloud backup, then drains the queue.
  */
-const startCloudScheduler = (settings) => {
-  if (cloudSchedulerId) clearInterval(cloudSchedulerId);
-
-  if (!settings.cloud_backup_enabled) {
-    log('Cloud backup scheduler disabled.');
-    return;
-  }
-
-  log(`Cloud backup scheduler started. Frequency: ${settings.cloud_backup_frequency || settings.backup_frequency || 'daily'}`);
-
-  // Process queue immediately on start
-  processQueue();
-
-  // Check every 30 minutes for overdue cloud backups
-  cloudSchedulerId = setInterval(async () => {
+const runCloudSchedulerTick = async (settings) => {
+  try {
     if (isCloudBackupDue(settings)) {
       log('Scheduled cloud backup is due. Triggering now...');
       // We need a path for the temporary backup.
@@ -797,15 +784,20 @@ const startCloudScheduler = (settings) => {
       if (localResult.success) {
         log('Auto-cloud backup file created. Starting upload...');
         // 2. Upload it to the cloud
-        await uploadBackup(tempPath, settings, 'النظام');
+        const uploadResult = await uploadBackup(tempPath, settings, 'النظام');
+        if (!uploadResult.success && !uploadResult.queued) {
+          logError('Auto-cloud backup upload failed:', uploadResult.message);
+          notifyError(`فشل النسخ الاحتياطي التلقائي إلى السحابة: ${uploadResult.message}`);
+        }
       } else {
         logError('Auto-cloud backup local creation failed:', localResult.message);
+        notifyError(`فشل إنشاء النسخة الاحتياطية التلقائية: ${localResult.message}`);
       }
 
       // 3. Cleanup temp file
       try {
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
         }
       } catch (e) {
         logWarn(`Auto-cloud backup cleanup error: ${e.message}`);
@@ -813,8 +805,31 @@ const startCloudScheduler = (settings) => {
     }
 
     // Also process any pending queue
-    processQueue();
-  }, 30 * 60 * 1000);
+    await processQueue();
+  } catch (error) {
+    // Without this the rejection escapes the interval callback and is lost.
+    logError('Cloud backup scheduler run failed:', error);
+  }
+};
+
+/**
+ * Starts the cloud-specific scheduler.
+ */
+const startCloudScheduler = (settings) => {
+  if (cloudSchedulerId) clearInterval(cloudSchedulerId);
+
+  if (!settings.cloud_backup_enabled) {
+    log('Cloud backup scheduler disabled.');
+    return;
+  }
+
+  log(`Cloud backup scheduler started. Frequency: ${settings.cloud_backup_frequency || settings.backup_frequency || 'daily'}`);
+
+  // Process queue immediately on start
+  sweepQueue();
+
+  // Check every 30 minutes for overdue cloud backups
+  cloudSchedulerId = setInterval(runCloudSchedulerTick, 30 * 60 * 1000, settings);
 };
 
 /**

@@ -10,6 +10,22 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 /**
+ * Registers a listener for a main-process push channel.
+ *
+ * @param {string} channel IPC channel to listen on.
+ * @param {(payload: any) => void} callback Called with the channel payload.
+ * @returns {() => void} Unsubscribe function.
+ */
+const subscribe = (channel, callback) => {
+  if (!callback || typeof callback !== 'function') {
+    return () => {};
+  }
+  const handler = (_event, payload) => callback(payload);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+};
+
+/**
  * Exposes a secure API to the renderer process through contextBridge.
  * This API provides controlled access to main process functionality without
  * exposing the entire Node.js environment to the renderer.
@@ -408,6 +424,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {string} message Success message to display
    */
   showSuccessToast: (message) => ipcRenderer.send('ui:show-success-toast', message),
+
+  /**
+   * Subscribes to error toasts pushed by the main process.
+   * @param {(message: string) => void} callback Receives the message.
+   * @returns {() => void} Unsubscribe function.
+   */
+  onShowErrorToast: (callback) => subscribe('ui:show-error-toast', callback),
+
+  /**
+   * Subscribes to success toasts pushed by the main process.
+   * @param {(message: string) => void} callback Receives the message.
+   * @returns {() => void} Unsubscribe function.
+   */
+  onShowSuccessToast: (callback) => subscribe('ui:show-success-toast', callback),
 
   // ========================================================================
   // TESTING & DEBUGGING APIs

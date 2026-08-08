@@ -4,6 +4,7 @@ const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
 const { log, error: logError } = require('./logger');
+const { notifyError } = require('./notifier');
 const { getDbSalt } = require('./keyManager');
 const schema = require('../db/schema');
 
@@ -116,6 +117,11 @@ const runBackup = async (settings, backupFilePath) => {
     };
   } catch (error) {
     logError('Detailed backup error:', error);
+    store.set('last_backup_status', {
+      success: false,
+      message: error.message,
+      timestamp: new Date().toISOString(),
+    });
     return { success: false, message: `فشل النسخة الاحتياطية: ${error.message}` };
   }
 };
@@ -131,8 +137,9 @@ const isBackupDue = (settings) => {
   const lastBackup = store.get('last_backup_status');
   const now = new Date();
 
-  if (!lastBackup?.timestamp) {
-    return true; // No backup has ever run
+  // A failed attempt must not postpone the next one the way a successful one does.
+  if (!lastBackup?.timestamp || lastBackup.success === false) {
+    return true;
   }
 
   const lastBackupDate = new Date(lastBackup.timestamp);
@@ -204,15 +211,25 @@ const startScheduler = (settings) => {
       // Re-fetch settings in case they changed, though restarting the scheduler is better.
       // For simplicity here, we use the settings from when it was started.
       // A more robust implementation would fetch settings inside the interval.
-      if (settings.backup_enabled && isBackupDue(settings)) {
-        log('Scheduled backup is due. Running now...');
-        if (settings.backup_path) {
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const backupFilePath = path.join(settings.backup_path, `auto-backup-${timestamp}.qdb`);
-          await runBackup(settings, backupFilePath);
-        } else {
-          logError('Scheduled backup failed: No backup path configured.');
+      try {
+        if (settings.backup_enabled && isBackupDue(settings)) {
+          log('Scheduled backup is due. Running now...');
+          if (settings.backup_path) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const backupFilePath = path.join(settings.backup_path, `auto-backup-${timestamp}.qdb`);
+            const result = await runBackup(settings, backupFilePath);
+            if (!result.success) {
+              logError('Scheduled backup failed:', result.message);
+              notifyError(`فشل النسخ الاحتياطي التلقائي: ${result.message}`);
+            }
+          } else {
+            logError('Scheduled backup failed: No backup path configured.');
+            notifyError('فشل النسخ الاحتياطي التلقائي: لم يتم تحديد مسار للنسخ الاحتياطي.');
+          }
         }
+      } catch (error) {
+        // Without this the rejection escapes the interval callback and is lost.
+        logError('Backup scheduler run failed:', error);
       }
     },
     1000 * 60 * 60,

@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { error as logError } from '@renderer/utils/logger';
+import { showErrorToast } from '@renderer/utils/toast';
 
 /**
  * Custom hook for managing students data
  * @param {Object} filters - Optional filters for students
- * @returns {Object} - students array, loading state, refresh function, search function
+ * @returns {Object} - students array, loading state, error, refresh function, search function
  */
 export function useStudents(filters = {}) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
   const fetchStudents = useCallback(
@@ -22,9 +24,12 @@ export function useStudents(filters = {}) {
         } else {
           setStudents([]);
         }
+        setError(null);
       } catch (err) {
         logError('Error fetching students:', err);
         setStudents([]);
+        setError(err);
+        showErrorToast('فشل في تحميل الطلاب.');
       } finally {
         setLoading(false);
       }
@@ -78,6 +83,7 @@ export function useStudents(filters = {}) {
   return {
     students,
     loading,
+    error,
     searchStudents,
     refresh: fetchStudents,
   };

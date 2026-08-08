@@ -371,6 +371,7 @@ function registerStudentHandlers() {
 
         const result = await db.runQuery(sql, params);
         const studentId = result.id;
+        const warnings = [];
 
         if (studentId && groupIds && groupIds.length > 0) {
           const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
@@ -434,10 +435,12 @@ function registerStudentHandlers() {
             await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
           } catch (err) {
             logError('Failed to auto-generate charges for new student:', err);
+            // The student was committed, so report the missing charges instead of hiding them.
+            warnings.push(`تمت إضافة الطالب لكن تعذر إنشاء الرسوم الخاصة به: ${err.message}`);
           }
         }
 
-        return result;
+        return { ...result, warnings };
       } catch (error) {
         await db.runQuery('ROLLBACK;');
         if (error.isJoi)
@@ -492,6 +495,7 @@ function registerStudentHandlers() {
         const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
 
         const result = await db.runQuery(sql, params);
+        const warnings = [];
 
         // Update student groups
         await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
@@ -545,6 +549,9 @@ function registerStudentHandlers() {
             });
           } catch (err) {
             logError('Failed to regenerate charges after discount change:', err);
+            warnings.push(
+              `تم تحديث الطالب لكن تعذر تحديث الرسوم بعد تغيير التخفيض: ${err.message}`,
+            );
           }
         }
 
@@ -584,11 +591,12 @@ function registerStudentHandlers() {
               `Failed to auto-generate charges for student ${id} after fee_category change:`,
               err,
             );
-            // Don't fail the update operation if charge generation fails
+            // The update was committed, so report the missing charges instead of hiding them.
+            warnings.push(`تم تحديث الطالب لكن تعذر إنشاء الرسوم الخاصة به: ${err.message}`);
           }
         }
 
-        return result;
+        return { ...result, warnings };
       } catch (error) {
         await db.runQuery('ROLLBACK;');
         if (error.isJoi)

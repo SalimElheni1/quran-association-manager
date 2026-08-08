@@ -314,8 +314,10 @@ function EnrollmentModal({ show, handleClose, classData }) {
   const handleSave = async () => {
     try {
       const enrolledIds = enrolled.map((s) => s.id);
-      await window.electronAPI.updateEnrollments(classData.id, enrolledIds);
+      const result = await window.electronAPI.updateEnrollments(classData.id, enrolledIds);
       toast.success('تم تحديث قائمة الطلاب بنجاح!');
+      // Fee regeneration runs after the enrollment is committed and can fail on its own.
+      (result?.warnings || []).forEach((warning) => toast.warn(warning));
       handleClose();
     } catch (err) {
       logError('Error updating enrollments:', err);

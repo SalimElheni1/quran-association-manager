@@ -28,7 +28,10 @@ function DashboardPage() {
   const startGuideFrom = async (option) => {
     try {
       const profile = await window.electronAPI.getProfile({ token });
-      if (!profile || !profile.id) return;
+      if (!profile || !profile.id) {
+        toast.error('تعذر تحميل ملف المستخدم لبدء الدليل.');
+        return;
+      }
       if (option === 'continue') {
         // leave current_step as is and enable guide
         await window.electronAPI.updateUserGuide(profile.id, { need_guide: 1 });
@@ -48,7 +51,8 @@ function DashboardPage() {
         );
       }
     } catch (e) {
-      // ignore
+      logError('Failed to start the onboarding guide:', e);
+      toast.error('تعذر بدء دليل الإعداد.');
     }
   };
 
