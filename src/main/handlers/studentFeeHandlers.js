@@ -1402,9 +1402,15 @@ async function recordStudentPayment(event, paymentDetails) {
         [receipt_number],
       );
 
-      if (existingPayment || existingDonation || existingStudentPayment) {
+      // Check unified transactions table (receipts are stored in voucher_number)
+      const existingTransaction = await db.getQuery(
+        'SELECT id FROM transactions WHERE voucher_number = ?',
+        [receipt_number],
+      );
+
+      if (existingPayment || existingDonation || existingStudentPayment || existingTransaction) {
         console.log(
-          `[PAYMENT_RECEIPT] Duplicate receipt found - existingPayment: ${!!existingPayment}, existingDonation: ${!!existingDonation}, existingStudentPayment: ${!!existingStudentPayment}`,
+          `[PAYMENT_RECEIPT] Duplicate receipt found - existingPayment: ${!!existingPayment}, existingDonation: ${!!existingDonation}, existingStudentPayment: ${!!existingStudentPayment}, existingTransaction: ${!!existingTransaction}`,
         );
         throw new Error('DUPLICATE_RECEIPT');
       }
@@ -1729,10 +1735,7 @@ async function deleteStudentPayment(paymentId) {
     return result;
   } catch (error) {
     logError('Error deleting student payment:', error);
-    if (
-      error.message === 'الدفعة غير موجودة' ||
-      error.message === 'لا يمكن حذف دفعة مسترجعة'
-    ) {
+    if (error.message === 'الدفعة غير موجودة' || error.message === 'لا يمكن حذف دفعة مسترجعة') {
       throw error;
     }
     throw new Error('فشل في حذف الدفعة');
@@ -1819,10 +1822,7 @@ async function refundStudentPayment(paymentId, userId = null) {
     return result;
   } catch (error) {
     logError('Error refunding student payment:', error);
-    if (
-      error.message === 'الدفعة غير موجودة' ||
-      error.message === 'الدفعة مسترجعة بالفعل'
-    ) {
+    if (error.message === 'الدفعة غير موجودة' || error.message === 'الدفعة مسترجعة بالفعل') {
       throw error;
     }
     throw new Error('فشل في استرجاع الدفعة');

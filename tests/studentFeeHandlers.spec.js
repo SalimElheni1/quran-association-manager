@@ -393,6 +393,29 @@ describe('Student Fee Handlers', () => {
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
+    it('should reject a receipt already used in the unified transactions table', async () => {
+      const paymentDetails = {
+        student_id: 1,
+        amount: 100,
+        payment_method: 'نقدي',
+        receipt_number: 'RCP-2024-0042',
+      };
+
+      // Student already has unpaid charges, so auto-generation is skipped
+      db.allQuery.mockResolvedValueOnce([{ id: 1 }]);
+      db.getQuery
+        .mockResolvedValueOnce(null) // payments
+        .mockResolvedValueOnce(null) // donations
+        .mockResolvedValueOnce(null) // student_payments
+        .mockResolvedValueOnce({ id: 99 }); // transactions.voucher_number -> duplicate
+
+      await expect(recordStudentPayment(null, paymentDetails)).rejects.toThrow(
+        'رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.',
+      );
+
+      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
+    });
+
     it('should handle payment allocation to charges', async () => {
       const paymentDetails = {
         student_id: 1,

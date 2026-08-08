@@ -105,8 +105,8 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 ### H10. Student-payment refund / void / delete — DONE
 - `deleteStudentPayment(paymentId)` and `refundStudentPayment(paymentId, userId)` in `src/main/handlers/studentFeeHandlers.js`, both atomic via `db.withTransaction`. Each reverses: charge `amount_paid`/`status` (recomputed per breakdown), breakdown rows, the overpayment credit created by that payment (`student_fee_charges.source_payment_id`, new migration 054), the linked `transactions` row / account balance. Delete removes the payment; refund keeps the row (`refunded` flag, migration 053) and records an EXPENSE reversal transaction. IPC: `student-fees:deletePayment`, `student-fees:refundPayment` (+ preload `studentFeesDeletePayment`/`studentFeesRefundPayment`). UI: `StudentFeesTab.jsx` now renders the previously-unused payment history with استرجاع/حذف buttons (confirm first). Tests in `tests/studentFeeHandlers.comprehensive.spec.js`.
 
-### H11. Receipt uniqueness on `transactions.receipt_number`
-- BUG-19: extend the duplicate-receipt check in `recordStudentPayment` (L1355-1381) to cover `transactions.receipt_number`.
+### H11. Receipt uniqueness on `transactions.receipt_number` — DONE
+- BUG-19: the `recordStudentPayment` duplicate-receipt check now also queries `transactions.voucher_number` (receipts are stored in that column), so a receipt already used by a unified `transactions` row is rejected with the friendly DUPLICATE_RECEIPT message instead of surfacing a raw UNIQUE constraint error. `handleAddTransaction` already guards itself (financialHandlers.js:264 maps `SQLITE_CONSTRAINT` on voucher_number to a clean Arabic error). New test: `tests/studentFeeHandlers.spec.js` "should reject a receipt already used in the unified transactions table".
 
 ### H12. Legacy financial module decision
 - Decide (with user): either migrate legacy `expenses/donations/salaries/payments` into the unified `transactions` model (data migration + unregister legacy handlers), or explicitly retire them. Currently they are registered (index.js:394) and write money invisible to balances/exports.
