@@ -58,6 +58,45 @@ function calculateAge(birthDateValue) {
   return age;
 }
 
+/**
+ * Synchronizes class schedules (stored as a JSON string/array in the classes table)
+ * to individual rows in the class_sessions table to keep the Timetable Calendar perfectly updated.
+ *
+ * @param {number} classId - The ID of the class
+ * @param {string|Array} scheduleData - The schedule JSON string or array of objects
+ */
+async function syncClassSessionsFromSchedule(classId, scheduleData) {
+  try {
+    // Delete existing sessions for this class to avoid duplication
+    await db.runQuery('DELETE FROM class_sessions WHERE class_id = ?', [classId]);
+    if (!scheduleData) return;
+
+    const scheduleArray = typeof scheduleData === 'string' ? JSON.parse(scheduleData) : scheduleData;
+    if (Array.isArray(scheduleArray)) {
+      for (const item of scheduleArray) {
+        if (item.day && item.time) {
+          // e.g. "11:30 - 13:30" or "11:30-13:30"
+          const timeParts = item.time.split('-').map(t => t.trim());
+          if (timeParts.length === 2) {
+            const startTime = timeParts[0];
+            const endTime = timeParts[1];
+            // Format check: HH:MM
+            const timeRegex = /^[0-2]?\d:[0-5]\d$/;
+            if (timeRegex.test(startTime) && timeRegex.test(endTime)) {
+              await db.runQuery(
+                'INSERT INTO class_sessions (class_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?)',
+                [classId, item.day, startTime, endTime]
+              );
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logError(`Error syncing sessions for class ${classId}:`, err);
+  }
+}
+
 const classFields = [
   'name',
   'class_type',
@@ -99,7 +138,14 @@ function registerClassHandlers() {
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
       const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
       const sql = `INSERT INTO classes (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-      return db.runQuery(sql, params);
+      const result = await db.runQuery(sql, params);
+
+      // Auto-sync schedule items into class_sessions
+      if (result && result.id && validatedData.schedule) {
+        await syncClassSessionsFromSchedule(result.id, validatedData.schedule);
+      }
+
+      return result;
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
@@ -129,7 +175,14 @@ function registerClassHandlers() {
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
       const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
       const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
-      return db.runQuery(sql, params);
+      const result = await db.runQuery(sql, params);
+
+      // Auto-sync schedule items into class_sessions
+      if (validatedData.schedule !== undefined) {
+        await syncClassSessionsFromSchedule(id, validatedData.schedule);
+      }
+
+      return result;
     } catch (error) {
       if (error.isJoi)
         throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
@@ -415,6 +468,203 @@ function registerClassHandlers() {
       return classes;
     } catch (error) {
       logError('Error fetching classes for student:', error);
+      throw error;
+    }
+  });
+
+  // --- NEW TIMETABLE AND CLASSROOM HANDLERS ---
+
+  // Fetch all classrooms
+  ipcMain.handle('classrooms:get', async () => {
+    try {
+      const sql = 'SELECT * FROM classrooms ORDER BY name ASC';
+      return await db.allQuery(sql);
+    } catch (error) {
+      logError('Error in classrooms:get:', error);
+      throw error;
+    }
+  });
+
+  // Add classroom
+  ipcMain.handle('classrooms:add', async (_event, classroomData) => {
+    try {
+      const { name, capacity, notes } = classroomData;
+      if (!name) throw new Error('اسم القاعة مطلوب.');
+      const sql = 'INSERT INTO classrooms (name, capacity, notes) VALUES (?, ?, ?)';
+      return await db.runQuery(sql, [name, capacity || null, notes || null]);
+    } catch (error) {
+      logError('Error in classrooms:add:', error);
+      throw error;
+    }
+  });
+
+  // Delete classroom
+  ipcMain.handle('classrooms:delete', async (_event, id) => {
+    try {
+      const sql = 'DELETE FROM classrooms WHERE id = ?';
+      return await db.runQuery(sql, [id]);
+    } catch (error) {
+      logError('Error in classrooms:delete:', error);
+      throw error;
+    }
+  });
+
+  // Fetch all scheduled class sessions/séances
+  ipcMain.handle('class_sessions:get', async (_event, filters = {}) => {
+    try {
+      // 1. Auto-healing Sync: If the class_sessions table is completely empty,
+      // populate it automatically from the schedules currently set in classes.
+      const countRes = await db.getQuery('SELECT COUNT(*) as count FROM class_sessions');
+      if (countRes && countRes.count === 0) {
+        log('class_sessions is empty. Performing auto-healing synchronization of existing class schedules...');
+        const allClasses = await db.allQuery('SELECT id, schedule FROM classes WHERE schedule IS NOT NULL AND schedule != "" AND schedule != "[]"');
+        for (const cls of allClasses) {
+          try {
+            await syncClassSessionsFromSchedule(cls.id, cls.schedule);
+          } catch (syncErr) {
+            logError(`Failed to auto-sync schedule for class ${cls.id}:`, syncErr);
+          }
+        }
+      }
+
+      // 2. Query sessions
+      let sql = `
+        SELECT cs.*, c.name as class_name, c.gender as class_gender, c.status as class_status,
+               t.id as teacher_id, t.name as teacher_name,
+               cr.name as classroom_name
+        FROM class_sessions cs
+        JOIN classes c ON cs.class_id = c.id
+        LEFT JOIN teachers t ON c.teacher_id = t.id
+        LEFT JOIN classrooms cr ON cs.classroom_id = cr.id
+        WHERE 1=1
+      `;
+      const params = [];
+      if (filters.classId) {
+        sql += ' AND cs.class_id = ?';
+        params.push(filters.classId);
+      }
+      if (filters.dayOfWeek) {
+        sql += ' AND cs.day_of_week = ?';
+        params.push(filters.dayOfWeek);
+      }
+      sql += ' ORDER BY cs.day_of_week, cs.start_time ASC';
+      return await db.allQuery(sql, params);
+    } catch (error) {
+      logError('Error in class_sessions:get:', error);
+      throw error;
+    }
+  });
+
+  // Check scheduling conflicts (overlapping sessions)
+  ipcMain.handle('class_sessions:checkConflicts', async (_event, sessionData) => {
+    try {
+      const { id, classId, dayOfWeek, startTime, endTime, classroomId } = sessionData;
+
+      // 1. Get the teacher_id of the class
+      const classInfo = await db.getQuery('SELECT teacher_id, name FROM classes WHERE id = ?', [classId]);
+      if (!classInfo) {
+        return { hasConflict: false };
+      }
+
+      const teacherId = classInfo.teacher_id;
+      const conflicts = [];
+
+      // 2. Check Teacher Conflict if teacher_id is assigned
+      if (teacherId) {
+        const teacherSql = `
+          SELECT cs.id, c.name as class_name, cs.start_time, cs.end_time, t.name as teacher_name
+          FROM class_sessions cs
+          JOIN classes c ON cs.class_id = c.id
+          JOIN teachers t ON c.teacher_id = t.id
+          WHERE cs.day_of_week = ?
+            AND c.teacher_id = ?
+            AND cs.id != ?
+            AND (? < cs.end_time AND ? > cs.start_time)
+        `;
+        const teacherOverlap = await db.allQuery(teacherSql, [
+          dayOfWeek,
+          teacherId,
+          id || 0,
+          startTime,
+          endTime
+        ]);
+
+        if (teacherOverlap && teacherOverlap.length > 0) {
+          teacherOverlap.forEach(c => {
+            conflicts.push({
+              type: 'teacher',
+              message: `المعلم ${c.teacher_name} مشغول في نفس الوقت مع فصل "${c.class_name}" (${c.start_time} - ${c.end_time})`
+            });
+          });
+        }
+      }
+
+      // 3. Check Classroom Conflict if classroom_id is selected
+      if (classroomId) {
+        const roomSql = `
+          SELECT cs.id, c.name as class_name, cs.start_time, cs.end_time, cr.name as classroom_name
+          FROM class_sessions cs
+          JOIN classes c ON cs.class_id = c.id
+          JOIN classrooms cr ON cs.classroom_id = cr.id
+          WHERE cs.day_of_week = ?
+            AND cs.classroom_id = ?
+            AND cs.id != ?
+            AND (? < cs.end_time AND ? > cs.start_time)
+        `;
+        const roomOverlap = await db.allQuery(roomSql, [
+          dayOfWeek,
+          classroomId,
+          id || 0,
+          startTime,
+          endTime
+        ]);
+
+        if (roomOverlap && roomOverlap.length > 0) {
+          roomOverlap.forEach(c => {
+            conflicts.push({
+              type: 'classroom',
+              message: `القاعة "${c.classroom_name}" محجوزة بالفعل مع فصل "${c.class_name}" (${c.start_time} - ${c.end_time})`
+            });
+          });
+        }
+      }
+
+      return {
+        hasConflict: conflicts.length > 0,
+        conflicts
+      };
+    } catch (error) {
+      logError('Error checking scheduling conflicts:', error);
+      throw error;
+    }
+  });
+
+  // Add class session/séance
+  ipcMain.handle('class_sessions:add', async (_event, sessionData) => {
+    try {
+      const { classId, dayOfWeek, startTime, endTime, classroomId } = sessionData;
+      if (!classId || !dayOfWeek || !startTime || !endTime) {
+        throw new Error('بيانات الحصة غير مكتملة.');
+      }
+
+      const sql = `
+        INSERT INTO class_sessions (class_id, day_of_week, start_time, end_time, classroom_id)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      return await db.runQuery(sql, [classId, dayOfWeek, startTime, endTime, classroomId || null]);
+    } catch (error) {
+      logError('Error in class_sessions:add:', error);
+      throw error;
+    }
+  });
+
+  // Delete class session/séance
+  ipcMain.handle('class_sessions:delete', async (_event, id) => {
+    try {
+      const sql = 'DELETE FROM class_sessions WHERE id = ?';
+      return await db.runQuery(sql, [id]);
+    } catch (error) {
+      logError('Error in class_sessions:delete:', error);
       throw error;
     }
   });
