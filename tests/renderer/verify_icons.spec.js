@@ -1,5 +1,4 @@
 const { test, expect } = require('@playwright/test');
-const path = require('path');
 
 test('Verify Cloud Backup UI with new icons', async ({ page }) => {
   await page.goto('http://localhost:3000');
@@ -7,34 +6,40 @@ test('Verify Cloud Backup UI with new icons', async ({ page }) => {
   // Mock electronAPI
   await page.evaluate(() => {
     window.electronAPI = {
-      getSettings: () => Promise.resolve({
-        success: true,
-        settings: {
-          google_connected: true,
-          google_account_email: 'test@gmail.com',
-          backup_path: '/tmp/backup/',
-          cloud_backup_enabled: true
-        }
-      }),
-      getBackupStatus: () => Promise.resolve({
-        success: true,
-        status: { timestamp: new Date().toISOString(), success: true }
-      }),
-      listCloudBackups: () => Promise.resolve([
-        {
-          id: '1',
-          name: 'backup_2026-10-02.qdb',
-          createdAt: new Date().toISOString(),
-          size: 2.5 * 1024 * 1024,
-          shareableLink: 'http://drive.google.com/link1'
-        }
-      ]),
+      getSettings: () =>
+        Promise.resolve({
+          success: true,
+          settings: {
+            google_connected: true,
+            google_account_email: 'test@gmail.com',
+            backup_path: '/tmp/backup/',
+            cloud_backup_enabled: true,
+          },
+        }),
+      getBackupStatus: () =>
+        Promise.resolve({
+          success: true,
+          status: { timestamp: new Date().toISOString(), success: true },
+        }),
+      listCloudBackups: () =>
+        Promise.resolve([
+          {
+            id: '1',
+            name: 'backup_2026-10-02.qdb',
+            createdAt: new Date().toISOString(),
+            size: 2.5 * 1024 * 1024,
+            shareableLink: 'http://drive.google.com/link1',
+          },
+        ]),
       openDirectoryDialog: () => Promise.resolve({ success: false }),
-      updateSettings: () => Promise.resolve({ success: true, message: 'Updated' })
+      updateSettings: () => Promise.resolve({ success: true, message: 'Updated' }),
     };
 
     // Bypass login if needed
-    localStorage.setItem('user', JSON.stringify({ id: 1, role: 'Superadmin', username: 'superadmin' }));
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 1, role: 'Superadmin', username: 'superadmin' }),
+    );
   });
 
   await page.goto('http://localhost:3000/#/settings');

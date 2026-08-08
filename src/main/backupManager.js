@@ -148,10 +148,14 @@ const isBackupDue = (settings) => {
     if (now < scheduledTimeToday) {
       // Only allow if it's been more than a full cycle
       switch (settings.backup_frequency) {
-        case 'daily': return diffHours >= 24;
-        case 'weekly': return diffHours >= 24 * 7;
-        case 'monthly': return diffHours >= 24 * 30;
-        default: return false;
+        case 'daily':
+          return diffHours >= 24;
+        case 'weekly':
+          return diffHours >= 24 * 7;
+        case 'monthly':
+          return diffHours >= 24 * 30;
+        default:
+          return false;
       }
     }
 
@@ -161,9 +165,12 @@ const isBackupDue = (settings) => {
     if (hasRunToday) {
       // Even if it's after the time, if we already ran today, we wait for next cycle or tomorrow
       switch (settings.backup_frequency) {
-        case 'weekly': return diffHours >= 24 * 7;
-        case 'monthly': return diffHours >= 24 * 30;
-        default: return false; // Daily should wait for tomorrow
+        case 'weekly':
+          return diffHours >= 24 * 7;
+        case 'monthly':
+          return diffHours >= 24 * 30;
+        default:
+          return false; // Daily should wait for tomorrow
       }
     }
 

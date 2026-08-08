@@ -1,21 +1,17 @@
 const fs = require('fs').promises;
 const path = require('path');
-const os = require('os');
 const zlib = require('zlib');
 const { pipeline } = require('stream/promises');
 const { createReadStream, createWriteStream } = require('fs');
-const { app, shell, BrowserWindow, safeStorage } = require('electron');
+const { app, shell, safeStorage } = require('electron');
 const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
 const Store = require('electron-store');
-const { log, error: logError } = require('./logger');
+const { log, warn: logWarn, error: logError } = require('./logger');
 const crypto = require('crypto');
 
 const store = new Store();
-
-// Connectivity tracking
-let isOnline = true;
 
 /**
  * Securely stores tokens using Electron's safeStorage.
@@ -63,22 +59,22 @@ const getTokensSecurely = () => {
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/drive.metadata.readonly' // Added for better metadata access
+  'https://www.googleapis.com/auth/drive.metadata.readonly', // Added for better metadata access
 ];
 
 // Google API Credentials
 // Loaded from secure config (environment in dev, embedded in prod)
-const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = require('./config/credentials');
+const {
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI,
+} = require('./config/credentials');
 
 const CLIENT_ID = GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = GOOGLE_REDIRECT_URI;
 
-const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI
-);
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
 // Load existing tokens if any
 const tokens = getTokensSecurely();
@@ -98,10 +94,7 @@ oauth2Client.on('tokens', (newTokens) => {
  */
 const generatePKCE = () => {
   const verifier = crypto.randomBytes(32).toString('base64url');
-  const challenge = crypto
-    .createHash('sha256')
-    .update(verifier)
-    .digest('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
   return { verifier, challenge };
 };
 
@@ -119,51 +112,56 @@ const connectGoogle = async () => {
       scope: SCOPES,
       prompt: 'consent',
       code_challenge: challenge,
-      code_challenge_method: 'S256'
+      code_challenge_method: 'S256',
     });
 
     log('Google Drive: Opening auth URL with PKCE...');
     shell.openExternal(authUrl);
 
-    const server = http.createServer(async (req, res) => {
-      try {
-        if (req.url.startsWith('/?code=')) {
-          const queryObject = url.parse(req.url, true).query;
-          const code = queryObject.code;
+    const server = http
+      .createServer(async (req, res) => {
+        try {
+          if (req.url.startsWith('/?code=')) {
+            const queryObject = url.parse(req.url, true).query;
+            const code = queryObject.code;
 
-          res.end('Authentication successful! You can close this window and return to the app.');
+            res.end('Authentication successful! You can close this window and return to the app.');
+            server.close();
+
+            const { tokens } = await oauth2Client.getToken({
+              code,
+              codeVerifier: verifier,
+            });
+            oauth2Client.setCredentials(tokens);
+            saveTokensSecurely(tokens);
+
+            // Get user email
+            const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+            const userInfo = await oauth2.userinfo.get();
+            const email = userInfo.data.email;
+
+            log(`Google Drive: Connected to ${email}`);
+            resolve({ success: true, email });
+          }
+        } catch (error) {
+          logError('Google Drive: Auth failed:', error);
+          res.end('Authentication failed. Please check the logs.');
           server.close();
-
-          const { tokens } = await oauth2Client.getToken({
-            code,
-            codeVerifier: verifier
-          });
-          oauth2Client.setCredentials(tokens);
-          saveTokensSecurely(tokens);
-
-          // Get user email
-          const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-          const userInfo = await oauth2.userinfo.get();
-          const email = userInfo.data.email;
-
-          log(`Google Drive: Connected to ${email}`);
-          resolve({ success: true, email });
+          reject(error);
         }
-      } catch (error) {
-        logError('Google Drive: Auth failed:', error);
-        res.end('Authentication failed. Please check the logs.');
-        server.close();
-        reject(error);
-      }
-    }).listen(3001, () => {
-      log('Google Drive: Local server listening for OAuth redirect on port 3001...');
-    });
+      })
+      .listen(3001, () => {
+        log('Google Drive: Local server listening for OAuth redirect on port 3001...');
+      });
 
     // Timeout after 5 minutes
-    setTimeout(() => {
-      server.close();
-      reject(new Error('Authentication timed out.'));
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        server.close();
+        reject(new Error('Authentication timed out.'));
+      },
+      5 * 60 * 1000,
+    );
   });
 };
 
@@ -178,7 +176,10 @@ const disconnectGoogle = async () => {
 
   // Persist disconnect state to the database
   try {
-    const { internalUpdateSettingsHandler, internalGetSettingsHandler } = require('./handlers/settingsHandlers');
+    const {
+      internalUpdateSettingsHandler,
+      internalGetSettingsHandler,
+    } = require('./handlers/settingsHandlers');
     const { settings: currentSettings } = await internalGetSettingsHandler();
     await internalUpdateSettingsHandler({
       ...currentSettings,
@@ -223,20 +224,22 @@ const decompressFile = async (sourcePath, destPath) => {
  */
 const isNetworkError = (error) => {
   if (!error) return false;
-  return error.code === 'ENOTFOUND' ||
+  return (
+    error.code === 'ENOTFOUND' ||
     error.code === 'ETIMEDOUT' ||
     error.code === 'ECONNREFUSED' ||
     error.code === 'EAI_AGAIN' || // DNS failed
-    (error.message && (
-      error.message.toLowerCase().includes('network') ||
-      error.message.toLowerCase().includes('fetch') ||
-      error.message.toLowerCase().includes('getaddrinfo') ||
-      error.message.toLowerCase().includes('dns')
-    ));
+    (error.message &&
+      (error.message.toLowerCase().includes('network') ||
+        error.message.toLowerCase().includes('fetch') ||
+        error.message.toLowerCase().includes('getaddrinfo') ||
+        error.message.toLowerCase().includes('dns')))
+  );
 };
 
 const ARABIC_OFFLINE_MESSAGE = 'فشل الاتصال بخدمات Google. يرجى التحقق من اتصالك بالإنترنت.';
-const ARABIC_OFFLINE_QUEUED_MESSAGE = 'فشل الاتصال بخدمات Google. يرجى التحقق من اتصالك بالإنترنت. تم وضع النسخة في قائمة الانتظار للرفع التلقائي لاحقاً.';
+const ARABIC_OFFLINE_QUEUED_MESSAGE =
+  'فشل الاتصال بخدمات Google. يرجى التحقق من اتصالك بالإنترنت. تم وضع النسخة في قائمة الانتظار للرفع التلقائي لاحقاً.';
 
 /**
  * Finds or creates the dedicated backup folder on Google Drive.
@@ -250,7 +253,7 @@ const getOrCreateBackupFolder = async (drive) => {
     const response = await drive.files.list({
       q: `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
-      spaces: 'drive'
+      spaces: 'drive',
     });
 
     if (response.data.files && response.data.files.length > 0) {
@@ -261,12 +264,12 @@ const getOrCreateBackupFolder = async (drive) => {
     log(`Google Drive: Creating dedicated folder '${folderName}'...`);
     const folderMetadata = {
       name: folderName,
-      mimeType: 'application/vnd.google-apps.folder'
+      mimeType: 'application/vnd.google-apps.folder',
     };
 
     const folder = await drive.files.create({
       resource: folderMetadata,
-      fields: 'id'
+      fields: 'id',
     });
 
     return folder.data.id;
@@ -296,7 +299,7 @@ const syncWithManifest = async (drive, folderId, operation, backupData) => {
     const search = await drive.files.list({
       q: `name = '${manifestName}' and '${folderId}' in parents and trashed = false`,
       fields: 'files(id, name)',
-      spaces: 'drive'
+      spaces: 'drive',
     });
 
     if (search.data.files && search.data.files.length > 0) {
@@ -327,31 +330,35 @@ const syncWithManifest = async (drive, folderId, operation, backupData) => {
     } else if (operation === 'delete') {
       const initialCount = manifestContent.backups.length;
       // backupData should be the id (UUID) or driveFileId
-      manifestContent.backups = manifestContent.backups.filter(b => b.driveFileId !== backupData && b.id !== backupData);
-      log(`Manifest sync [delete]: Initial count ${initialCount}, Final count ${manifestContent.backups.length}`);
+      manifestContent.backups = manifestContent.backups.filter(
+        (b) => b.driveFileId !== backupData && b.id !== backupData,
+      );
+      log(
+        `Manifest sync [delete]: Initial count ${initialCount}, Final count ${manifestContent.backups.length}`,
+      );
     }
 
     // 3. Upload back
     const media = {
       mimeType: 'application/json',
-      body: JSON.stringify(manifestContent, null, 2)
+      body: JSON.stringify(manifestContent, null, 2),
     };
 
     if (manifestId) {
       await drive.files.update({
         fileId: manifestId,
         media: media,
-        fields: 'id'
+        fields: 'id',
       });
       log(`Google Drive: Manifest updated (ID: ${manifestId})`);
     } else {
       const created = await drive.files.create({
         resource: {
           name: manifestName,
-          parents: [folderId]
+          parents: [folderId],
         },
         media: media,
-        fields: 'id'
+        fields: 'id',
       });
       log(`Google Drive: New manifest created (ID: ${created.data.id})`);
     }
@@ -377,14 +384,6 @@ const syncWithManifest = async (drive, folderId, operation, backupData) => {
  */
 const uploadBackup = async (filePath, settings, createdBy = 'مستخدم التطبيق') => {
   const fileName = path.basename(filePath);
-  const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-  let userEmail = 'Unknown';
-  try {
-    const userInfo = await oauth2.userinfo.get();
-    userEmail = userInfo.data.email;
-  } catch (e) {
-    // Ignore, might be offline
-  }
 
   try {
     if (!getTokensSecurely()) {
@@ -404,17 +403,17 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
     const fileMetadata = {
       name: `${fileName}.gz`,
       description: 'Quran Branch Manager Database Backup',
-      parents: [folderId]
+      parents: [folderId],
     };
     const media = {
       mimeType: 'application/gzip',
-      body: createReadStream(compressedPath)
+      body: createReadStream(compressedPath),
     };
 
     const response = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: 'id, name, webViewLink, size'
+      fields: 'id, name, webViewLink, size',
     });
 
     const file = response.data;
@@ -424,14 +423,14 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
       fileId: file.id,
       requestBody: {
         role: 'reader',
-        type: 'anyone'
-      }
+        type: 'anyone',
+      },
     });
 
     // Get the updated link
     const updatedFile = await drive.files.get({
       fileId: file.id,
-      fields: 'webViewLink'
+      fields: 'webViewLink',
     });
 
     const backupRecord = {
@@ -440,8 +439,8 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
       driveFileId: file.id,
       shareableLink: updatedFile.data.webViewLink,
       createdAt: new Date().toISOString(),
-      size: (require('fs').statSync(compressedPath)).size,
-      createdBy: createdBy
+      size: require('fs').statSync(compressedPath).size,
+      createdBy: createdBy,
     };
 
     // Update shared manifest and local history
@@ -467,9 +466,9 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
         name: fileName,
         status: 'pending',
         createdAt: new Date().toISOString(),
-        size: (require('fs').statSync(filePath)).size,
+        size: require('fs').statSync(filePath).size,
         createdBy: createdBy,
-        localPath: filePath
+        localPath: filePath,
       };
 
       const history = store.get('cloud_backups') || [];
@@ -479,7 +478,7 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
       return {
         success: false,
         message: ARABIC_OFFLINE_QUEUED_MESSAGE,
-        queued: true
+        queued: true,
       };
     }
 
@@ -492,7 +491,7 @@ const uploadBackup = async (filePath, settings, createdBy = 'مستخدم الت
  */
 const queueCloudBackup = (filePath, recordId) => {
   const queue = store.get('cloud_backup_queue') || [];
-  if (!queue.some(item => item.recordId === recordId)) {
+  if (!queue.some((item) => item.recordId === recordId)) {
     queue.push({ filePath, recordId });
     store.set('cloud_backup_queue', queue);
   }
@@ -518,7 +517,10 @@ const processQueue = async () => {
         log(`Queue: File ${filePath} no longer exists. Removing from queue.`);
         // Mark record as failed or remove it
         const history = store.get('cloud_backups') || [];
-        store.set('cloud_backups', history.filter(b => b.id !== recordId));
+        store.set(
+          'cloud_backups',
+          history.filter((b) => b.id !== recordId),
+        );
         continue;
       }
 
@@ -530,7 +532,10 @@ const processQueue = async () => {
         // Notify renderer
         const { mainWindow } = require('./index');
         if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('ui:show-success-toast', 'تم رفع النسخة المؤجلة للسحابة بنجاح.');
+          mainWindow.webContents.send(
+            'ui:show-success-toast',
+            'تم رفع النسخة المؤجلة للسحابة بنجاح.',
+          );
         }
       } else {
         log(`Queue: Failed to upload ${filePath}: ${result.message}`);
@@ -546,10 +551,13 @@ const processQueue = async () => {
 };
 
 // Start background queue processor
-setInterval(() => {
-  // Simple check for online status (can be improved)
-  processQueue();
-}, 15 * 60 * 1000); // Every 15 minutes
+setInterval(
+  () => {
+    // Simple check for online status (can be improved)
+    processQueue();
+  },
+  15 * 60 * 1000,
+); // Every 15 minutes
 
 /**
  * Lists backups by fetching the shared manifest from Google Drive.
@@ -567,7 +575,7 @@ const listCloudBackups = async () => {
     const search = await drive.files.list({
       q: `name = '${manifestName}' and '${folderId}' in parents and trashed = false`,
       fields: 'files(id, name)',
-      spaces: 'drive'
+      spaces: 'drive',
     });
 
     if (search.data.files && search.data.files.length > 0) {
@@ -599,7 +607,11 @@ const listCloudBackups = async () => {
     logError('Google Drive: List failed (fallback to local):', error);
 
     if (isNetworkError(error)) {
-      return { success: false, message: ARABIC_OFFLINE_MESSAGE, backups: store.get('cloud_backups') || [] };
+      return {
+        success: false,
+        message: ARABIC_OFFLINE_MESSAGE,
+        backups: store.get('cloud_backups') || [],
+      };
     }
 
     return { success: false, message: error.message, backups: store.get('cloud_backups') || [] };
@@ -653,11 +665,7 @@ const downloadBackup = async (fileId, fileName) => {
 const downloadFromLink = async (link) => {
   try {
     let fileId = null;
-    const patterns = [
-      /request=([^&]+)/,
-      /file\/d\/([^/]+)/,
-      /id=([^&]+)/
-    ];
+    const patterns = [/request=([^&]+)/, /file\/d\/([^/]+)/, /id=([^&]+)/];
 
     for (const pattern of patterns) {
       const match = link.match(pattern);
@@ -698,7 +706,7 @@ const downloadFromLink = async (link) => {
 const deleteBackup = async (id) => {
   try {
     const history = store.get('cloud_backups') || [];
-    const backup = history.find(b => b.id === id);
+    const backup = history.find((b) => b.id === id);
     if (!backup) throw new Error('Backup not found in history.');
 
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
@@ -736,7 +744,7 @@ const isCloudBackupDue = (settings) => {
   if (!settings.cloud_backup_enabled) return false;
 
   const history = store.get('cloud_backups') || [];
-  const lastCloudBackup = history.find(b => b.status === 'success');
+  const lastCloudBackup = history.find((b) => b.status === 'success');
   const now = new Date();
 
   if (!lastCloudBackup) return true;
@@ -748,10 +756,14 @@ const isCloudBackupDue = (settings) => {
   const frequency = settings.cloud_backup_frequency || settings.backup_frequency || 'daily';
 
   switch (frequency) {
-    case 'daily': return diffHours >= 24;
-    case 'weekly': return diffHours >= 24 * 7;
-    case 'monthly': return diffHours >= 24 * 30;
-    default: return false;
+    case 'daily':
+      return diffHours >= 24;
+    case 'weekly':
+      return diffHours >= 24 * 7;
+    case 'monthly':
+      return diffHours >= 24 * 30;
+    default:
+      return false;
   }
 };
 
@@ -766,46 +778,51 @@ const startCloudScheduler = (settings) => {
     return;
   }
 
-  log(`Cloud backup scheduler started. Frequency: ${settings.cloud_backup_frequency || settings.backup_frequency || 'daily'}`);
+  log(
+    `Cloud backup scheduler started. Frequency: ${settings.cloud_backup_frequency || settings.backup_frequency || 'daily'}`,
+  );
 
   // Process queue immediately on start
   processQueue();
 
   // Check every 30 minutes for overdue cloud backups
-  cloudSchedulerId = setInterval(async () => {
-    if (isCloudBackupDue(settings)) {
-      log('Scheduled cloud backup is due. Triggering now...');
-      // We need a path for the temporary backup.
-      // We can use the systemHandlers:backup:runCloud logic here indirectly or just trigger it.
-      // But we are in main process, so we call backupManager to get the file first.
-      const backupManager = require('./backupManager');
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const tempPath = path.join(app.getPath('temp'), `auto-cloud-backup-${timestamp}.qdb`);
+  cloudSchedulerId = setInterval(
+    async () => {
+      if (isCloudBackupDue(settings)) {
+        log('Scheduled cloud backup is due. Triggering now...');
+        // We need a path for the temporary backup.
+        // We can use the systemHandlers:backup:runCloud logic here indirectly or just trigger it.
+        // But we are in main process, so we call backupManager to get the file first.
+        const backupManager = require('./backupManager');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const tempPath = path.join(app.getPath('temp'), `auto-cloud-backup-${timestamp}.qdb`);
 
-      // 1. Create the database file (locally in temp)
-      const localResult = await backupManager.runBackup({ ...settings }, tempPath);
+        // 1. Create the database file (locally in temp)
+        const localResult = await backupManager.runBackup({ ...settings }, tempPath);
 
-      if (localResult.success) {
-        log('Auto-cloud backup file created. Starting upload...');
-        // 2. Upload it to the cloud
-        await uploadBackup(tempPath, settings, 'النظام');
-      } else {
-        logError('Auto-cloud backup local creation failed:', localResult.message);
-      }
-
-      // 3. Cleanup temp file
-      try {
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
+        if (localResult.success) {
+          log('Auto-cloud backup file created. Starting upload...');
+          // 2. Upload it to the cloud
+          await uploadBackup(tempPath, settings, 'النظام');
+        } else {
+          logError('Auto-cloud backup local creation failed:', localResult.message);
         }
-      } catch (e) {
-        logWarn(`Auto-cloud backup cleanup error: ${e.message}`);
-      }
-    }
 
-    // Also process any pending queue
-    processQueue();
-  }, 30 * 60 * 1000);
+        // 3. Cleanup temp file
+        try {
+          if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
+          }
+        } catch (e) {
+          logWarn(`Auto-cloud backup cleanup error: ${e.message}`);
+        }
+      }
+
+      // Also process any pending queue
+      processQueue();
+    },
+    30 * 60 * 1000,
+  );
 };
 
 /**
@@ -830,5 +847,5 @@ module.exports = {
   startCloudScheduler,
   stopCloudScheduler,
   isCloudBackupDue,
-  processQueue
+  processQueue,
 };

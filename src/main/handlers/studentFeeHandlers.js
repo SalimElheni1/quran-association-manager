@@ -77,6 +77,99 @@ function getCurrentAcademicYear(startMonth = 9, referenceDate = new Date()) {
   return `${currentYear - 1}-${currentYear}`;
 }
 
+/**
+ * Gets the current academic year using the configured start month from settings.
+ * Falls back to September (9) when the setting is missing.
+ * @param {Date} referenceDate Optional reference date (default: now)
+ * @returns {Promise<string>} Academic year in format "YYYY-YYYY" (e.g., "2024-2025")
+ */
+async function getConfiguredAcademicYear(referenceDate = new Date()) {
+  const startMonthSetting = await getSetting('academic_year_start_month');
+  const startMonth = parseInt(startMonthSetting || '9', 10);
+  return getCurrentAcademicYear(startMonth, referenceDate);
+}
+
+/**
+ * Reads the per-gender payment frequency settings.
+ * @returns {Promise<{men: string, women: string, kids: string}>} Frequencies, defaulting to MONTHLY.
+ */
+async function getPaymentFrequencySettings() {
+  const [men, women, kids] = await Promise.all([
+    getSetting('men_payment_frequency'),
+    getSetting('women_payment_frequency'),
+    getSetting('kids_payment_frequency'),
+  ]);
+  return {
+    men: (men || 'MONTHLY').toUpperCase(),
+    women: (women || 'MONTHLY').toUpperCase(),
+    kids: (kids || 'MONTHLY').toUpperCase(),
+  };
+}
+
+/**
+ * Resolves the payment frequency for a student based on their enrolled standard classes.
+ * The most restrictive frequency wins: if any standard class is ANNUAL, the student pays ANNUAL.
+ * @param {Array<{fee_type: string, gender: string}>} enrolledClasses Active classes of the student.
+ * @param {{men: string, women: string, kids: string}} frequencySettings Payment frequency settings.
+ * @returns {'MONTHLY'|'ANNUAL'} The resolved payment frequency.
+ */
+function resolvePaymentFrequencyFromClasses(enrolledClasses, frequencySettings) {
+  const standardClasses = enrolledClasses.filter((c) => c.fee_type === 'standard');
+  if (standardClasses.length === 0) return 'MONTHLY';
+
+  let frequency = 'MONTHLY';
+  for (const stdClass of standardClasses) {
+    const classFrequency = frequencySettings[stdClass.gender] || 'MONTHLY';
+    if (classFrequency === 'ANNUAL') {
+      frequency = 'ANNUAL';
+      break;
+    }
+  }
+  return frequency;
+}
+
+/**
+ * Builds the Arabic description for a monthly charge.
+ * ANNUAL-frequency charges are labelled "(دفع سنوي)".
+ * @param {string} monthName Arabic month name.
+ * @param {string} academicYear Academic year string.
+ * @param {'MONTHLY'|'ANNUAL'} paymentFrequency Resolved payment frequency.
+ * @returns {string} The charge description.
+ */
+function buildMonthlyChargeDescription(monthName, academicYear, paymentFrequency) {
+  return paymentFrequency === 'ANNUAL'
+    ? `رسوم شهرية ${monthName} (دفع سنوي) - ${academicYear}`
+    : `رسوم شهرية ${monthName} - ${academicYear}`;
+}
+
+/**
+ * Resolves the payment frequency for a specific student.
+ * @param {number} studentId Student ID.
+ * @param {{men: string, women: string, kids: string}} frequencySettings Payment frequency settings.
+ * @returns {Promise<'MONTHLY'|'ANNUAL'>} The resolved payment frequency.
+ */
+async function getStudentPaymentFrequency(studentId, frequencySettings) {
+  const enrolledClasses = await db.allQuery(
+    `SELECT c.fee_type, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
+    [studentId],
+  );
+  return resolvePaymentFrequencyFromClasses(enrolledClasses, frequencySettings);
+}
+
+/**
+ * Checks whether an ANNUAL-frequency monthly charge already exists for the student in the academic year.
+ * @param {number} studentId Student ID.
+ * @param {string} academicYear Academic year string.
+ * @returns {Promise<boolean>} true if an ANNUAL-frequency charge already exists.
+ */
+async function hasAnnualMonthlyCharge(studentId, academicYear) {
+  const existing = await db.getQuery(
+    `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND academic_year = ? AND payment_frequency = 'ANNUAL'`,
+    [studentId, academicYear],
+  );
+  return !!existing;
+}
+
 // ============================================
 // CHARGE GENERATION
 // ============================================
@@ -87,44 +180,46 @@ function getCurrentAcademicYear(startMonth = 9, referenceDate = new Date()) {
  * @param {boolean} useTransaction Whether to wrap in transaction (default: true)
  */
 async function generateAnnualFeeCharges(academicYear) {
-  return db.withTransaction(async () => {
-    const annualFeeSetting = await getSetting('annual_fee');
-    const annualFee = parseFloat(annualFeeSetting || '0');
+  return db
+    .withTransaction(async () => {
+      const annualFeeSetting = await getSetting('annual_fee');
+      const annualFee = parseFloat(annualFeeSetting || '0');
 
-    if (annualFee <= 0) {
-      logWarn('[FeeGen] Annual fee is not set or zero. Skipping charge generation.');
-      return { success: true, message: 'Skipped: Fee not configured' };
-    }
+      if (annualFee <= 0) {
+        logWarn('[FeeGen] Annual fee is not set or zero. Skipping charge generation.');
+        return { success: true, message: 'Skipped: Fee not configured' };
+      }
 
-    const students = await db.allQuery(
-      "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
-    );
-
-    const chargeDate = new Date().toISOString().split('T')[0];
-    let createdCount = 0;
-
-    for (const student of students) {
-      const existingCharge = await db.getQuery(
-        `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?`,
-        [student.id, academicYear],
+      const students = await db.allQuery(
+        "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
       );
 
-      if (!existingCharge) {
-        await db.runQuery(
-          `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-           VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
-          [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
+      const chargeDate = new Date().toISOString().split('T')[0];
+      let createdCount = 0;
+
+      for (const student of students) {
+        const existingCharge = await db.getQuery(
+          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?`,
+          [student.id, academicYear],
         );
-        createdCount++;
+
+        if (!existingCharge) {
+          await db.runQuery(
+            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
+           VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
+            [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
+          );
+          createdCount++;
+        }
       }
-    }
-    log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
-    return { success: true, createdCount };
-  }).catch(error => {
-    logError('Error in generateAnnualFeeCharges:', error);
-    // We return success: false instead of throwing to prevent app crash
-    return { success: false, error: error.message };
-  });
+      log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
+      return { success: true, createdCount };
+    })
+    .catch((error) => {
+      logError('Error in generateAnnualFeeCharges:', error);
+      // We return success: false instead of throwing to prevent app crash
+      return { success: false, error: error.message };
+    });
 }
 
 /**
@@ -135,69 +230,107 @@ async function generateAnnualFeeCharges(academicYear) {
  * @param {boolean} force Whether to force regeneration even if charges exist (default: false)
  */
 async function generateMonthlyFeeCharges(academicYear, month, force = false) {
-  return db.withTransaction(async () => {
-    const standardFeeSetting = await getSetting('standard_monthly_fee');
-    const standardMonthlyFee = parseFloat(standardFeeSetting || '0');
+  return db
+    .withTransaction(async () => {
+      const standardFeeSetting = await getSetting('standard_monthly_fee');
+      const standardMonthlyFee = parseFloat(standardFeeSetting || '0');
 
-    if (standardMonthlyFee <= 0) {
-      logWarn(`[FeeGen] Standard monthly fee is not set or zero. Skipping monthly charges for month ${month}.`);
-      return { success: true, message: 'Skipped: Fee not configured' };
-    }
-
-    const chargeDate = new Date().toISOString().split('T')[0];
-    const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-    const monthName = monthNames[month - 1];
-
-    const students = await db.allQuery(
-      "SELECT id, gender, discount_percentage FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
-    );
-
-    let createdCount = 0;
-
-    for (const student of students) {
-      const existingCharge = await db.getQuery(
-        `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND academic_year = ? AND description LIKE ? AND strftime('%m', charge_date) = ?`,
-        [student.id, academicYear, `%${monthName}%`, month.toString().padStart(2, '0')],
-      );
-
-      if (existingCharge && !force) continue;
-      if (existingCharge && force) {
-        await db.runQuery('DELETE FROM student_fee_charges WHERE id = ?', [existingCharge.id]);
-      }
-
-      const enrolledClasses = await db.allQuery(
-        `SELECT c.fee_type, c.monthly_fee FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
-        [student.id],
-      );
-
-      let totalMonthlyFee = 0;
-      const hasStandardClass = enrolledClasses.some((c) => c.fee_type === 'standard');
-      if ((enrolledClasses.length === 0 || hasStandardClass) && standardMonthlyFee > 0) {
-        totalMonthlyFee += standardMonthlyFee;
-      }
-
-      enrolledClasses.forEach((c) => {
-        if (c.fee_type === 'special' && c.monthly_fee > 0) totalMonthlyFee += c.monthly_fee;
-      });
-
-      if (totalMonthlyFee > 0) {
-        const discount = student.discount_percentage || 0;
-        if (discount > 0) totalMonthlyFee *= (1 - discount / 100);
-
-        await db.runQuery(
-          `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', 'MONTHLY')`,
-          [student.id, chargeDate, `رسوم شهرية ${monthName} - ${academicYear}`, totalMonthlyFee, academicYear],
+      if (standardMonthlyFee <= 0) {
+        logWarn(
+          `[FeeGen] Standard monthly fee is not set or zero. Skipping monthly charges for month ${month}.`,
         );
-        createdCount++;
+        return { success: true, message: 'Skipped: Fee not configured' };
       }
-    }
-    log(`[FeeGen] Generated ${createdCount} monthly charges for ${academicYear}-${month}`);
-    return { success: true, createdCount };
-  }).catch(error => {
-    logError('Error in generateMonthlyFeeCharges:', error);
-    return { success: false, error: error.message };
-  });
+
+      const chargeDate = new Date().toISOString().split('T')[0];
+      const monthNames = [
+        'يناير',
+        'فبراير',
+        'مارس',
+        'أبريل',
+        'مايو',
+        'يونيو',
+        'يوليو',
+        'أغسطس',
+        'سبتمبر',
+        'أكتوبر',
+        'نوفمبر',
+        'ديسمبر',
+      ];
+      const monthName = monthNames[month - 1];
+
+      const students = await db.allQuery(
+        "SELECT id, gender, discount_percentage FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+      );
+
+      const frequencySettings = await getPaymentFrequencySettings();
+      let createdCount = 0;
+
+      for (const student of students) {
+        const existingCharge = await db.getQuery(
+          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND academic_year = ? AND description LIKE ? AND strftime('%m', charge_date) = ?`,
+          [student.id, academicYear, `%${monthName}%`, month.toString().padStart(2, '0')],
+        );
+
+        if (existingCharge && !force) continue;
+        if (existingCharge && force) {
+          await db.runQuery('DELETE FROM student_fee_charges WHERE id = ?', [existingCharge.id]);
+        }
+
+        const enrolledClasses = await db.allQuery(
+          `SELECT c.fee_type, c.monthly_fee, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
+          [student.id],
+        );
+
+        const paymentFrequency = resolvePaymentFrequencyFromClasses(
+          enrolledClasses,
+          frequencySettings,
+        );
+
+        let totalMonthlyFee = 0;
+        const hasStandardClass = enrolledClasses.some((c) => c.fee_type === 'standard');
+        if ((enrolledClasses.length === 0 || hasStandardClass) && standardMonthlyFee > 0) {
+          if (
+            paymentFrequency === 'ANNUAL' &&
+            (await hasAnnualMonthlyCharge(student.id, academicYear))
+          ) {
+            // ANNUAL students are billed once per academic year - skip the standard fee
+            // if an ANNUAL-frequency charge already exists for this year.
+          } else {
+            totalMonthlyFee += standardMonthlyFee;
+          }
+        }
+
+        enrolledClasses.forEach((c) => {
+          if (c.fee_type === 'special' && c.monthly_fee > 0) totalMonthlyFee += c.monthly_fee;
+        });
+
+        if (totalMonthlyFee > 0) {
+          const discount = student.discount_percentage || 0;
+          if (discount > 0) totalMonthlyFee *= 1 - discount / 100;
+
+          await db.runQuery(
+            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
+           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)`,
+            [
+              student.id,
+              chargeDate,
+              buildMonthlyChargeDescription(monthName, academicYear, paymentFrequency),
+              totalMonthlyFee,
+              academicYear,
+              paymentFrequency,
+            ],
+          );
+          createdCount++;
+        }
+      }
+      log(`[FeeGen] Generated ${createdCount} monthly charges for ${academicYear}-${month}`);
+      return { success: true, createdCount };
+    })
+    .catch((error) => {
+      logError('Error in generateMonthlyFeeCharges:', error);
+      return { success: false, error: error.message };
+    });
 }
 
 // ============================================
@@ -334,11 +467,15 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const currentAcademicYear = getCurrentAcademicYear();
+    const startMonthSetting = await getSetting('academic_year_start_month');
+    const startMonth = parseInt(startMonthSetting || '9', 10);
+    const currentAcademicYear = getCurrentAcademicYear(startMonth, now);
     const nextAcademicYear =
       currentMonth === 12
-        ? getCurrentAcademicYear(9, new Date(now.getFullYear() + 1, 0, 1))
+        ? getCurrentAcademicYear(startMonth, new Date(now.getFullYear() + 1, 0, 1))
         : currentAcademicYear;
+    const frequencySettings = await getPaymentFrequencySettings();
+    const paymentFrequency = await getStudentPaymentFrequency(studentId, frequencySettings);
 
     log(`[ChargeRegen] Current Month: ${currentMonth}/${currentAcademicYear}`);
     log(`[ChargeRegen] Next Month: ${nextMonth}/${nextAcademicYear}`);
@@ -402,27 +539,37 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
         // Create new charge if total > 0
         if (currentFees.total > 0) {
-          const chargeDate = new Date().toISOString().split('T')[0];
-          const monthName = monthNames[currentMonth - 1];
+          if (
+            paymentFrequency === 'ANNUAL' &&
+            (await hasAnnualMonthlyCharge(studentId, currentAcademicYear))
+          ) {
+            log(
+              `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${currentAcademicYear} - skipping current month`,
+            );
+          } else {
+            const chargeDate = new Date().toISOString().split('T')[0];
+            const monthName = monthNames[currentMonth - 1];
 
-          await db.runQuery(
-            `
-            INSERT INTO student_fee_charges 
-            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', 'MONTHLY')
-          `,
-            [
-              studentId,
-              chargeDate,
-              `رسوم شهرية ${monthName} - ${currentAcademicYear}`,
-              currentFees.total,
-              currentAcademicYear,
-            ],
-          );
+            await db.runQuery(
+              `
+              INSERT INTO student_fee_charges 
+              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
+              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+            `,
+              [
+                studentId,
+                chargeDate,
+                buildMonthlyChargeDescription(monthName, currentAcademicYear, paymentFrequency),
+                currentFees.total,
+                currentAcademicYear,
+                paymentFrequency,
+              ],
+            );
 
-          log(
-            `[ChargeRegen] ✅ Created current month charge: ${currentFees.total} DT on ${chargeDate}`,
-          );
+            log(
+              `[ChargeRegen] ✅ Created current month charge: ${currentFees.total} DT on ${chargeDate} (${paymentFrequency})`,
+            );
+          }
         } else {
           log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
         }
@@ -476,25 +623,37 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
         // Create new charge if total > 0
         if (nextFees.total > 0) {
-          const chargeDate = new Date().toISOString().split('T')[0];
-          const monthName = monthNames[nextMonth - 1];
+          if (
+            paymentFrequency === 'ANNUAL' &&
+            (await hasAnnualMonthlyCharge(studentId, nextAcademicYear))
+          ) {
+            log(
+              `[ChargeRegen] ⓘ ANNUAL-frequency student already has a charge for ${nextAcademicYear} - skipping next month`,
+            );
+          } else {
+            const chargeDate = new Date().toISOString().split('T')[0];
+            const monthName = monthNames[nextMonth - 1];
 
-          await db.runQuery(
-            `
-            INSERT INTO student_fee_charges
-            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', 'MONTHLY')
-          `,
-            [
-              studentId,
-              chargeDate,
-              `رسوم شهرية ${monthName} - ${nextAcademicYear}`,
-              nextFees.total,
-              nextAcademicYear,
-            ],
-          );
+            await db.runQuery(
+              `
+              INSERT INTO student_fee_charges
+              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
+              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+            `,
+              [
+                studentId,
+                chargeDate,
+                buildMonthlyChargeDescription(monthName, nextAcademicYear, paymentFrequency),
+                nextFees.total,
+                nextAcademicYear,
+                paymentFrequency,
+              ],
+            );
 
-          log(`[ChargeRegen] ✅ Created next month charge: ${nextFees.total} DT on ${chargeDate}`);
+            log(
+              `[ChargeRegen] ✅ Created next month charge: ${nextFees.total} DT on ${chargeDate} (${paymentFrequency})`,
+            );
+          }
         } else {
           log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
         }
@@ -558,7 +717,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
     }
 
     // Determine academic year
-    const currentAcademicYear = academicYear || getCurrentAcademicYear();
+    const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     log(`[refreshStudentCharges] Using academic year: ${currentAcademicYear}`);
 
     // Get current and next month
@@ -629,41 +788,58 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
           [studentId, currentAcademicYear, monthStr],
         );
 
-        // Create new charge for this month
-        const chargeDate = new Date().toISOString().split('T')[0];
-        const monthNames = [
-          'يناير',
-          'فبراير',
-          'مارس',
-          'أبريل',
-          'مايو',
-          'يونيو',
-          'يوليو',
-          'أغسطس',
-          'سبتمبر',
-          'أكتوبر',
-          'نوفمبر',
-          'ديسمبر',
-        ];
+        const frequencySettings = await getPaymentFrequencySettings();
+        const paymentFrequency = await getStudentPaymentFrequency(studentId, frequencySettings);
 
-        await db.runQuery(
-          `
-          INSERT INTO student_fee_charges 
-          (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-          VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', 'MONTHLY')
-        `,
-          [
-            studentId,
-            chargeDate,
-            `رسوم شهرية ${monthNames[currentMonth - 1]} - ${currentAcademicYear}`,
-            currentMonthFees.total,
-            currentAcademicYear,
-          ],
-        );
-        chargesGenerated++;
-        log(
-          `[refreshStudentCharges] Generated current month charge for student ${studentId}: ${currentMonthFees.total} DT`,
-        );
+        if (
+          paymentFrequency === 'ANNUAL' &&
+          (await hasAnnualMonthlyCharge(studentId, currentAcademicYear))
+        ) {
+          log(
+            `[refreshStudentCharges] ⓘ ANNUAL-frequency student already has a charge for ${currentAcademicYear} - skipping current month`,
+          );
+        } else {
+          // Create new charge for this month
+          const chargeDate = new Date().toISOString().split('T')[0];
+          const monthNames = [
+            'يناير',
+            'فبراير',
+            'مارس',
+            'أبريل',
+            'مايو',
+            'يونيو',
+            'يوليو',
+            'أغسطس',
+            'سبتمبر',
+            'أكتوبر',
+            'نوفمبر',
+            'ديسمبر',
+          ];
+
+          await db.runQuery(
+            `
+            INSERT INTO student_fee_charges 
+            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
+            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+          `,
+            [
+              studentId,
+              chargeDate,
+              buildMonthlyChargeDescription(
+                monthNames[currentMonth - 1],
+                currentAcademicYear,
+                paymentFrequency,
+              ),
+              currentMonthFees.total,
+              currentAcademicYear,
+              paymentFrequency,
+            ],
+          );
+          chargesGenerated++;
+          log(
+            `[refreshStudentCharges] Generated current month charge for student ${studentId}: ${currentMonthFees.total} DT (${paymentFrequency})`,
+          );
+        }
       }
     } catch (error) {
       log(`[refreshStudentCharges] Current month charges generation failed: ${error.message}`);
@@ -716,7 +892,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
  * @returns {Promise<Array>} Array of student IDs who need charge refresh
  */
 async function identifyStudentsNeedingChargeRefresh(academicYear = null) {
-  const currentAcademicYear = academicYear || getCurrentAcademicYear();
+  const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
   log(
     `[identifyStudentsNeedingChargeRefresh] Checking for students needing refresh in academic year: ${currentAcademicYear}`,
   );
@@ -779,7 +955,7 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
     );
 
     // Determine academic year
-    const currentAcademicYear = academicYear || getCurrentAcademicYear();
+    const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     log(`[refreshStudentsNeedingChargeRefresh] Using academic year: ${currentAcademicYear}`);
 
     // Get current and next month
@@ -936,11 +1112,14 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
   return db.withTransaction(async () => {
     log('[refreshAllStudentCharges] Starting bulk charge refresh for all students');
 
-    const currentAcademicYear = academicYear || getCurrentAcademicYear();
+    const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const nextMonthAcademicYear = currentMonth === 12 ? `${now.getFullYear() + 1}-${now.getFullYear() + 2}` : currentAcademicYear;
+    const nextMonthAcademicYear =
+      currentMonth === 12
+        ? `${now.getFullYear() + 1}-${now.getFullYear() + 2}`
+        : currentAcademicYear;
 
     const students = await db.allQuery(
       "SELECT id, name, matricule FROM students WHERE status = 'active' AND fee_category IN ('CAN_PAY', 'SPONSORED')",
@@ -948,7 +1127,12 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
 
     if (students.length === 0) {
       log('[refreshAllStudentCharges] No eligible students found');
-      return { success: true, message: 'لا توجد طلاب مؤهلون لتوليد الرسوم', studentsProcessed: 0, chargesGenerated: 0 };
+      return {
+        success: true,
+        message: 'لا توجد طلاب مؤهلون لتوليد الرسوم',
+        studentsProcessed: 0,
+        chargesGenerated: 0,
+      };
     }
 
     let totalChargesGenerated = 0;
@@ -962,12 +1146,18 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
         // Annual check
         const existingAnnual = await db.getQuery(
           "SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?",
-          [student.id, currentAcademicYear]
+          [student.id, currentAcademicYear],
         );
         if (!existingAnnual && annualFee > 0) {
           await db.runQuery(
             "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')",
-            [student.id, chargeDate, `رسوم سنوية - ${currentAcademicYear}`, annualFee, currentAcademicYear]
+            [
+              student.id,
+              chargeDate,
+              `رسوم سنوية - ${currentAcademicYear}`,
+              annualFee,
+              currentAcademicYear,
+            ],
           );
           studentChargesGenerated++;
         }
@@ -980,19 +1170,24 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
 
         totalChargesGenerated += studentChargesGenerated;
       } catch (studentError) {
-        logError(`[refreshAllStudentCharges] Error processing student ${student.id}:`, studentError);
+        logError(
+          `[refreshAllStudentCharges] Error processing student ${student.id}:`,
+          studentError,
+        );
       }
     }
 
     if (userId) {
-      log(`[AUDIT] Bulk charge refresh performed by user ${userId}. Processed ${students.length} students, generated ${totalChargesGenerated} charges.`);
+      log(
+        `[AUDIT] Bulk charge refresh performed by user ${userId}. Processed ${students.length} students, generated ${totalChargesGenerated} charges.`,
+      );
     }
 
     return {
       success: true,
       message: `تم تحديث الرسوم لجميع الطلاب بنجاح (معالجة ${students.length} طالب).`,
       studentsProcessed: students.length,
-      chargesGenerated: totalChargesGenerated
+      chargesGenerated: totalChargesGenerated,
     };
   });
 }

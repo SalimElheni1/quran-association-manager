@@ -79,10 +79,7 @@ describe('Student Fee Handlers', () => {
   describe('generateAnnualFeeCharges', () => {
     it('should generate annual charges for eligible students', async () => {
       const academicYear = '2024-2025';
-      db.allQuery.mockResolvedValueOnce([
-        { id: 1 },
-        { id: 2 },
-      ]);
+      db.allQuery.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
       db.getQuery.mockResolvedValue({ value: '100' }); // Annual fee setting
       db.runQuery.mockResolvedValue({ changes: 1 });
 
@@ -208,7 +205,12 @@ describe('Student Fee Handlers', () => {
 
       db.getQuery
         .mockResolvedValueOnce({ value: '9' }) // Academic year start month
-        .mockResolvedValueOnce({ id: 1, name: 'Student 1', status: 'active', fee_category: 'CAN_PAY' }); // Student details
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }); // Student details
       db.allQuery.mockResolvedValue([]); // No existing charges
       db.runQuery.mockResolvedValue({ changes: 1 });
 
@@ -258,7 +260,12 @@ describe('Student Fee Handlers', () => {
       const userId = 1;
 
       db.getQuery
-        .mockResolvedValueOnce({ id: 1, name: 'Student 1', status: 'active', fee_category: 'CAN_PAY' }) // Student
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }) // Student
         .mockResolvedValueOnce({ value: '9' }) // Academic year start
         .mockResolvedValueOnce(null); // No existing annual charge
       db.allQuery.mockResolvedValue([]); // No charges
@@ -346,7 +353,7 @@ describe('Student Fee Handlers', () => {
       db.getQuery.mockResolvedValue(null); // No duplicate receipt
       db.allQuery.mockResolvedValue([]); // No existing charges
 
-      const result = await recordStudentPayment(null, paymentDetails);
+      await recordStudentPayment(null, paymentDetails);
 
       expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith(
@@ -424,11 +431,20 @@ describe('Student Fee Handlers', () => {
       registerStudentFeeHandlers();
 
       // Verify key handlers are registered
-      expect(handleSpy).toHaveBeenCalledWith('student-fees:generateAnnualCharges', expect.any(Function));
-      expect(handleSpy).toHaveBeenCalledWith('student-fees:generateMonthlyCharges', expect.any(Function));
+      expect(handleSpy).toHaveBeenCalledWith(
+        'student-fees:generateAnnualCharges',
+        expect.any(Function),
+      );
+      expect(handleSpy).toHaveBeenCalledWith(
+        'student-fees:generateMonthlyCharges',
+        expect.any(Function),
+      );
       expect(handleSpy).toHaveBeenCalledWith('student-fees:getStatus', expect.any(Function));
       expect(handleSpy).toHaveBeenCalledWith('student-fees:recordPayment', expect.any(Function));
-      expect(handleSpy).toHaveBeenCalledWith('student-fees:refreshStudentCharges', expect.any(Function));
+      expect(handleSpy).toHaveBeenCalledWith(
+        'student-fees:refreshStudentCharges',
+        expect.any(Function),
+      );
     });
   });
 

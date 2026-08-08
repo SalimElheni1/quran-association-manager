@@ -78,11 +78,17 @@ async function seedSuperadmin() {
         // Assign the Superadmin role using the multi-role system
         const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
         if (superadminRole) {
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, superadminRole.id]);
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+            result.id,
+            superadminRole.id,
+          ]);
         } else {
           // If the role doesn't exist yet, insert it first
           const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, roleResult.id]);
+          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+            result.id,
+            roleResult.id,
+          ]);
         }
       }
 
@@ -132,13 +138,13 @@ async function migrateToEncrypted(dbPath, key) {
   // Basic strategy: open plaintext, rekey it.
   try {
     const tempDb = new Database(dbPath);
-    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey, 
+    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey,
     // or if the library supports it, use standard sqlcipher_export if compatible.
     // However, simplest valid approach with sqlite3mc often is:
     // 1. Open as plaintext.
     // 2. PRAGMA rekey = 'key';
 
-    // Note: older better-sqlite3 bindings didn't support rekey easily. 
+    // Note: older better-sqlite3 bindings didn't support rekey easily.
     // better-sqlite3-multiple-ciphers supports the "rekey" pragma for SQLCipher.
 
     log('Applying rekey pragma...');
@@ -190,7 +196,9 @@ async function runMigrations() {
           // Manually insert into migrations table so it doesn't run again
           try {
             db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
-          } catch (e) { logError('Failed to mark migration as ignored', e); }
+          } catch (e) {
+            logError('Failed to mark migration as ignored', e);
+          }
         } else {
           logError(`Failed to apply migration ${file}:`, err);
           throw err;
@@ -246,10 +254,15 @@ async function initializeDatabase() {
       const cipherVersion = db.pragma('cipher_version', { simple: true });
       log(`[DB_LOG] Cipher version: ${cipherVersion}`);
       if (!cipherVersion) {
-        logWarn('[DB_LOG] Database encryption support missing or native module not offering cipher_version.');
+        logWarn(
+          '[DB_LOG] Database encryption support missing or native module not offering cipher_version.',
+        );
       }
     } catch (verErr) {
-      logWarn('[DB_LOG] Failed to query cipher version (Normal if not using multiple-ciphers build):', verErr.message);
+      logWarn(
+        '[DB_LOG] Failed to query cipher version (Normal if not using multiple-ciphers build):',
+        verErr.message,
+      );
     }
     // DIAGNOSTIC END
 

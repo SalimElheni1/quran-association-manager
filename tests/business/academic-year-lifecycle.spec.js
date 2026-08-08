@@ -1,4 +1,3 @@
-const { ipcMain } = require('electron');
 const { registerStudentHandlers } = require('../src/main/handlers/studentHandlers');
 const { registerClassHandlers } = require('../src/main/handlers/classHandlers');
 const { registerStudentFeeHandlers } = require('../src/main/handlers/studentFeeHandlers');
@@ -42,7 +41,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
     it('should handle academic year transition from 2024-2025 to 2025-2026', async () => {
       const currentYear = '2024-2025';
       const nextYear = '2025-2026';
-      
+
       // Mock student data for year transition
       const activeStudents = Array.from({ length: 150 }, (_, i) => ({
         id: i + 1,
@@ -72,11 +71,11 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       ];
 
       // Mock academic year settings
-      db.getQuery.mockResolvedValue({ 
+      db.getQuery.mockResolvedValue({
         value: '2024-2025',
-        key: 'current_academic_year'
+        key: 'current_academic_year',
       });
-      
+
       db.allQuery
         .mockResolvedValueOnce(activeStudents)
         .mockResolvedValueOnce(graduatedStudents)
@@ -93,7 +92,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
 
       // Simulate academic year transition process
       const transitionResult = await performAcademicYearTransition(currentYear, nextYear);
-      
+
       const endTime = Date.now();
       const processingTime = endTime - startTime;
 
@@ -111,11 +110,11 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       // Verify proper data handling
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining("status = 'active'"),
-        expect.any(Array)
+        expect.any(Array),
       );
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining("status = 'graduated'"),
-        expect.any(Array)
+        expect.any(Array),
       );
     }, 60000);
 
@@ -152,20 +151,26 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       // Execute data preservation process
-      const preservationResult = await preserveSensitiveData(sensitiveDataStudents, oldYear, newYear);
+      const preservationResult = await preserveSensitiveData(
+        sensitiveDataStudents,
+        oldYear,
+        newYear,
+      );
 
       // Verify sensitive data preservation
       expect(preservationResult.success).toBe(true);
       expect(preservationResult.preservedRecords).toBe(sensitiveDataStudents.length);
       expect(preservationResult.dataIntegrityMaintained).toBe(true);
-      
+
       // Verify no sensitive data was lost
-      const preservedNames = preservationResult.preservedData.map(r => r.name);
-      const originalNames = sensitiveDataStudents.map(s => s.name);
+      const preservedNames = preservationResult.preservedData.map((r) => r.name);
+      const originalNames = sensitiveDataStudents.map((s) => s.name);
       expect(preservedNames).toEqual(expect.arrayContaining(originalNames));
 
       // Verify medical and financial notes preserved
-      const preservedWithNotes = preservationResult.preservedData.filter(r => r.financial_notes || r.medical_info);
+      const preservedWithNotes = preservationResult.preservedData.filter(
+        (r) => r.financial_notes || r.medical_info,
+      );
       expect(preservedWithNotes).toHaveLength(sensitiveDataStudents.length);
     }, 30000);
 
@@ -186,7 +191,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       };
 
       // Calculate net income for each month
-      reconciliationData.monthlyBreakdown.forEach(month => {
+      reconciliationData.monthlyBreakdown.forEach((month) => {
         month.netIncome = month.revenue - month.expenses;
       });
 
@@ -201,15 +206,22 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(reconciliationResult.success).toBe(true);
       expect(reconciliationResult.totalRevenue).toBe(reconciliationData.totalRevenue);
       expect(reconciliationResult.totalExpenses).toBe(reconciliationData.totalExpenses);
-      expect(reconciliationResult.netIncome).toBe(reconciliationData.totalRevenue - reconciliationData.totalExpenses);
+      expect(reconciliationResult.netIncome).toBe(
+        reconciliationData.totalRevenue - reconciliationData.totalExpenses,
+      );
       expect(reconciliationResult.outstandingFees).toBe(reconciliationData.outstandingFees);
       expect(reconciliationResult.budgetVariance).toBe(reconciliationData.budgetVariance);
 
       // Verify monthly breakdown consistency
-      const calculatedMonthlyRevenue = reconciliationData.monthlyBreakdown.reduce((sum, month) => sum + month.revenue, 0);
+      const calculatedMonthlyRevenue = reconciliationData.monthlyBreakdown.reduce(
+        (sum, month) => sum + month.revenue,
+        0,
+      );
       expect(calculatedMonthlyRevenue).toBeGreaterThan(reconciliationData.totalRevenue * 0.8); // At least 80% consistency
 
-      console.log(`Year-end reconciliation completed: ${reconciliationResult.netIncome} TND net income`);
+      console.log(
+        `Year-end reconciliation completed: ${reconciliationResult.netIncome} TND net income`,
+      );
     }, 45000);
   });
 
@@ -236,7 +248,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       // Mock fee verification for graduation
       db.getQuery
         .mockResolvedValueOnce(null) // No outstanding fees for first 35 students
-        .mockResolvedValueOnce({ amount: 150, student_id: 1 }); // Outstanding fee for student 1
+        .mockResolvedValueOnce({ amount: 150, student_id: 1 }) // Outstanding fee for student 1
         .mockResolvedValueOnce({ amount: 150, student_id: 2 });
 
       db.allQuery.mockResolvedValue(graduatingStudents);
@@ -260,7 +272,9 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(graduationResult.academicRecordsFinalized).toBe(35);
       expect(graduationResult.certificatesGenerated).toBe(35);
 
-      console.log(`Graduation processed: ${graduationResult.successfullyGraduated} students graduated, ${graduationResult.feedAdjustmentRequired} fee adjustments required`);
+      console.log(
+        `Graduation processed: ${graduationResult.successfullyGraduated} students graduated, ${graduationResult.feedAdjustmentRequired} fee adjustments required`,
+      );
     }, 60000);
 
     it('should handle fee clearance for graduating students', async () => {
@@ -303,7 +317,9 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(clearanceResult.fee_categories_cleared).toContain('lab_fees');
       expect(clearanceResult.fee_categories_cleared).toContain('sports_fees');
 
-      console.log(`Graduation fee clearance: ${clearanceResult.outstanding_cleared} TND cleared for graduation eligibility`);
+      console.log(
+        `Graduation fee clearance: ${clearanceResult.outstanding_cleared} TND cleared for graduation eligibility`,
+      );
     }, 30000);
 
     it('should manage alumni records after graduation', async () => {
@@ -349,11 +365,15 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(alumniResult.honors_recognized).toBe(1); // One student with distinction
 
       // Verify contact information preserved
-      const honoredStudent = alumniResult.alumni_records.find(r => r.graduation_honors === 'with_distinction');
+      const honoredStudent = alumniResult.alumni_records.find(
+        (r) => r.graduation_honors === 'with_distinction',
+      );
       expect(honoredStudent).toBeDefined();
       expect(honoredStudent.certificate_number).toBe('CERT-2025-001');
 
-      console.log(`Alumni records created: ${alumniResult.records_created} graduates, ${alumniResult.honors_recognized} honors tracked`);
+      console.log(
+        `Alumni records created: ${alumniResult.records_created} graduates, ${alumniResult.honors_recognized} honors tracked`,
+      );
     }, 30000);
   });
 
@@ -390,8 +410,8 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       // Mock class data retrieval
       db.getQuery
         .mockResolvedValueOnce(fromClass) // From class details
-        .mockResolvedValueOnce(toClass)   // To class details
-        .mockResolvedValueOnce({ amount: 25, student_id: 156 }); // Outstanding balance
+        .mockResolvedValueOnce(toClass) // To class details
+        .mockResolvedValueOnce({ amount: 25, student_id: 156 }) // Outstanding balance
         .mockResolvedValueOnce({ changes: 1 }); // Fee adjustment calculation
 
       db.allQuery.mockResolvedValue([{ id: 156, name: 'Transfer Student', status: 'active' }]);
@@ -415,7 +435,9 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(transferResult.academic_history_preserved).toBe(true);
       expect(transferResult.progress_transfer_completed).toBe(true);
 
-      console.log(`Inter-class transfer: Student ${transferData.student_id} moved from class ${transferData.from_class_id} to ${transferData.to_class_id}, fee adjusted by ${transferResult.monthly_fee_change} TND/month`);
+      console.log(
+        `Inter-class transfer: Student ${transferData.student_id} moved from class ${transferData.from_class_id} to ${transferData.to_class_id}, fee adjusted by ${transferResult.monthly_fee_change} TND/month`,
+      );
     }, 45000);
 
     it('should handle branch-to-branch transfers', async () => {
@@ -453,12 +475,14 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
         .mockResolvedValueOnce({ outstanding_balance: 75, credits: 0 })
         .mockResolvedValueOnce({ changes: 1 });
 
-      db.allQuery.mockResolvedValue([{
-        id: 234,
-        name: 'Branch Transfer Student',
-        status: 'active',
-        current_class: 'Quran Memorization Level 2',
-      }]);
+      db.allQuery.mockResolvedValue([
+        {
+          id: 234,
+          name: 'Branch Transfer Student',
+          status: 'active',
+          current_class: 'Quran Memorization Level 2',
+        },
+      ]);
 
       db.runQuery.mockResolvedValue({ changes: 1 });
 
@@ -480,7 +504,9 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       expect(branchTransferResult.contact_info_updated).toBe(true);
       expect(branchTransferResult.administrative_records_updated).toBe(true);
 
-      console.log(`Branch transfer: Student ${branchTransferData.student_id} transferred from ${fromBranch.name} to ${toBranch.name}, balance of ${branchTransferResult.balance_adjusted} TND transferred`);
+      console.log(
+        `Branch transfer: Student ${branchTransferData.student_id} transferred from ${fromBranch.name} to ${toBranch.name}, balance of ${branchTransferResult.balance_adjusted} TND transferred`,
+      );
     }, 60000);
 
     it('should calculate accurate fee adjustments during transfers', async () => {
@@ -490,7 +516,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
           from_fee: 75,
           to_fee: 50,
           days_in_month: 15,
-          expected_refund: 12.50, // 25 TND difference × 15/30 days
+          expected_refund: 12.5, // 25 TND difference × 15/30 days
         },
         {
           scenario: 'Lower to Higher Fee Class',
@@ -522,15 +548,15 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
           scenario.from_fee,
           scenario.to_fee,
           scenario.days_in_month,
-          30
+          30,
         );
 
         // Verify calculation accuracy
         expect(adjustmentResult.success).toBe(true);
         expect(adjustmentResult.scenario).toBe(scenario.scenario);
-        expect(adjustmentResult.pro-rated_amount).toBeCloseTo(
+        expect(adjustmentResult['pro-rated_amount']).toBeCloseTo(
           scenario.expected_refund || scenario.expected_additional || 0,
-          2
+          2,
         );
 
         // Verify proper financial treatment
@@ -545,7 +571,9 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
           expect(adjustmentResult.adjustment_amount).toBe(0);
         }
 
-        console.log(`Transfer fee calculation: ${scenario.scenario} - ${adjustmentResult.pro-rated_amount.toFixed(2)} TND adjustment`);
+        console.log(
+          `Transfer fee calculation: ${scenario.scenario} - ${adjustmentResult['pro-rated_amount'].toFixed(2)} TND adjustment`,
+        );
       }
     }, 30000);
   });
@@ -554,18 +582,20 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
   // HELPER FUNCTIONS FOR TESTING
   // ============================================
 
-  async function performAcademicYearTransition(currentYear, nextYear) {
+  async function performAcademicYearTransition() {
     // Mock academic year transition logic
     const activeStudents = await db.allQuery("SELECT * FROM students WHERE status = 'active'");
     const graduates = await db.allQuery("SELECT * FROM students WHERE status = 'graduated'");
-    const outstandingFees = await db.allQuery("SELECT * FROM student_fee_charges WHERE status IN ('UNPAID', 'OVERDUE')");
-    
+    const outstandingFees = await db.allQuery(
+      "SELECT * FROM student_fee_charges WHERE status IN ('UNPAID', 'OVERDUE')",
+    );
+
     // Generate new year charges for active students
-    const newYearCharges = activeStudents.filter(s => s.fee_category === 'CAN_PAY').length * 12; // 12 months
-    
+    const newYearCharges = activeStudents.filter((s) => s.fee_category === 'CAN_PAY').length * 12; // 12 months
+
     // Preserve outstanding fees
     const preservedFees = outstandingFees.length;
-    
+
     return {
       success: true,
       activeStudentsProcessed: activeStudents.length,
@@ -577,12 +607,12 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
   }
 
   async function preserveSensitiveData(students, oldYear, newYear) {
-    const preservedData = students.map(student => ({
+    const preservedData = students.map((student) => ({
       ...student,
       preserved_year: oldYear,
       transferred_year: newYear,
     }));
-    
+
     return {
       success: true,
       preservedRecords: preservedData.length,
@@ -593,7 +623,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
 
   async function performYearEndReconciliation(data) {
     const netIncome = data.totalRevenue - data.totalExpenses;
-    
+
     return {
       success: true,
       totalRevenue: data.totalRevenue,
@@ -605,10 +635,10 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
     };
   }
 
-  async function processStudentGraduation(students, graduationYear) {
-    const successfullyGraduated = students.filter(s => s.final_fees_outstanding === 0).length;
+  async function processStudentGraduation(students) {
+    const successfullyGraduated = students.filter((s) => s.final_fees_outstanding === 0).length;
     const feeAdjustmentRequired = students.length - successfullyGraduated;
-    
+
     return {
       success: true,
       totalProcessed: students.length,
@@ -623,8 +653,14 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
   }
 
   async function processGraduationFeeClearance(studentId, feeDetails) {
-    const feeCategoriesCleared = ['tuition', 'monthly_fees', 'library_fees', 'lab_fees', 'sports_fees'];
-    
+    const feeCategoriesCleared = [
+      'tuition',
+      'monthly_fees',
+      'library_fees',
+      'lab_fees',
+      'sports_fees',
+    ];
+
     return {
       success: true,
       student_id: studentId,
@@ -636,15 +672,17 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
   }
 
   async function manageAlumniRecords(graduates) {
-    const honorsRecognized = graduates.filter(g => g.graduation_honors === 'with_distinction').length;
-    
+    const honorsRecognized = graduates.filter(
+      (g) => g.graduation_honors === 'with_distinction',
+    ).length;
+
     return {
       success: true,
       records_created: graduates.length,
       alumni_status_updated: graduates.length,
       certificates_tracked: graduates.length,
       honors_recognized: honorsRecognized,
-      alumni_records: graduates.map(g => ({
+      alumni_records: graduates.map((g) => ({
         ...g,
         alumni_id: Math.floor(Math.random() * 1000) + 1000,
       })),
@@ -653,7 +691,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
 
   async function processInterClassTransfer(transferData) {
     const feeAdjustment = 25; // Difference between classes
-    
+
     return {
       success: true,
       student_id: transferData.student_id,
@@ -669,7 +707,7 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
 
   async function processBranchTransfer(transferData) {
     const balanceAdjusted = 75;
-    
+
     return {
       success: true,
       student_id: transferData.student_id,
@@ -687,10 +725,10 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
     const feeDifference = toFee - fromFee;
     const daysRemaining = monthDays - transferDay;
     const proRatedAmount = (feeDifference * daysRemaining) / monthDays;
-    
+
     let adjustmentType = 'no_change';
     let adjustmentAmount = 0;
-    
+
     if (proRatedAmount > 0) {
       adjustmentType = 'additional_charge';
       adjustmentAmount = proRatedAmount;
@@ -698,11 +736,11 @@ describe('Business Process Validation - Academic Year Lifecycle', () => {
       adjustmentType = 'refund';
       adjustmentAmount = proRatedAmount;
     }
-    
+
     return {
       success: true,
       scenario: `${fromFee} to ${toFee} TND (day ${transferDay})`,
-      pro-rated_amount: proRatedAmount,
+      'pro-rated_amount': proRatedAmount,
       adjustment_type: adjustmentType,
       adjustment_amount: adjustmentAmount,
     };

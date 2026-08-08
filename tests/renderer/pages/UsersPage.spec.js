@@ -33,15 +33,12 @@ jest.mock('react-bootstrap', () => ({
     Label: ({ children }) => <label>{children}</label>,
     Group: ({ children }) => <div>{children}</div>,
   },
-  Modal: Object.assign(
-    ({ children, show }) => (show ? <div>{children}</div> : null),
-    {
-      Header: ({ children }) => <div>{children}</div>,
-      Title: ({ children }) => <h2>{children}</h2>,
-      Body: ({ children }) => <div>{children}</div>,
-      Footer: ({ children }) => <div>{children}</div>,
-    },
-  ),
+  Modal: Object.assign(({ children, show }) => (show ? <div>{children}</div> : null), {
+    Header: ({ children }) => <div>{children}</div>,
+    Title: ({ children }) => <h2>{children}</h2>,
+    Body: ({ children }) => <div>{children}</div>,
+    Footer: ({ children }) => <div>{children}</div>,
+  }),
 }));
 
 // Mock child components

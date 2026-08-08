@@ -80,7 +80,9 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false
       log(`Successfully generated monthly charges for ${academicYear}, month ${month}`);
       return true;
     } else {
-      logWarn(`Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`);
+      logWarn(
+        `Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`,
+      );
       return false;
     }
   } catch (error) {

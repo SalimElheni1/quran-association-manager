@@ -428,7 +428,9 @@ app.on('will-quit', async () => {
     try {
       const cloudBackupManager = require('./cloudBackupManager');
       if (cloudBackupManager.stopCloudScheduler) cloudBackupManager.stopCloudScheduler();
-    } catch (e) { }
+    } catch (e) {
+      // Ignore: cloud backup manager may be unavailable
+    }
     stopFeeChargeScheduler();
     log('Schedulers stopped successfully.');
   } catch (error) {

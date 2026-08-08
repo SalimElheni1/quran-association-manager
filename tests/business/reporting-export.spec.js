@@ -48,7 +48,6 @@ describe('Business Process Validation - Reporting & Export', () => {
 
   describe('Financial Report Generation', () => {
     it('should generate accurate monthly financial reports', async () => {
-      const reportMonth = '2025-01';
       const expectedReportData = {
         month: 1,
         year: 2025,
@@ -225,29 +224,6 @@ describe('Business Process Validation - Reporting & Export', () => {
     }, 30000);
 
     it('should generate compliance and regulatory reports', async () => {
-      const regulatoryRequirements = {
-        educational_institution_report: {
-          total_students: 240,
-          graduated_students: 25,
-          active_classes: 8,
-          teacher_count: 12,
-          facility_utilization: 94.5,
-          compliance_score: 98.2,
-        },
-        financial_compliance: {
-          tax_compliance: 100.0,
-          audit_readiness: true,
-          financial_transparency_score: 96.8,
-          regulatory_filing_status: 'current',
-        },
-        safety_and_security: {
-          safety_incidents: 0,
-          security_compliance_score: 100.0,
-          emergency_procedures_updated: true,
-          insurance_coverage_valid: true,
-        },
-      };
-
       // Mock regulatory data queries
       db.allQuery
         .mockResolvedValueOnce(
@@ -330,7 +306,7 @@ describe('Business Process Validation - Reporting & Export', () => {
       // Mock Excel workbook creation
       const mockWorkbook = {
         addWorksheet: jest.fn().mockReturnValue({
-          addRow: jest.fn().mockImplementation((row) => ({
+          addRow: jest.fn().mockImplementation(() => ({
             commit: jest.fn(),
           })),
           addTable: jest.fn(),
@@ -455,10 +431,6 @@ describe('Business Process Validation - Reporting & Export', () => {
 
       // Mock import processing
       db.runQuery.mockResolvedValue({ changes: 1, lastID: 102 });
-
-      // Mock import manager
-      const { importConstants } = require('../src/main/importConstants');
-      const { validateImportData } = require('../src/main/importManager');
 
       // Execute bulk student import
       const importResult = await ipcMain.invoke('import:bulkStudentImport', {
@@ -814,15 +786,6 @@ describe('Business Process Validation - Reporting & Export', () => {
           'Optimize memory usage during large export operations',
           'Implement pagination for large datasets',
         ],
-      };
-
-      // Mock system performance monitoring
-      const mockPerformanceMonitor = {
-        getCurrentMetrics: jest.fn().mockResolvedValue(performanceMetrics.baseline_metrics),
-        simulateConcurrentLoad: jest.fn().mockResolvedValue(performanceMetrics.stress_test_results),
-        getOptimizationSuggestions: jest
-          .fn()
-          .mockResolvedValue(performanceMetrics.optimization_recommendations),
       };
 
       // Execute performance monitoring during reporting

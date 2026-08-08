@@ -2,7 +2,6 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const PizZip = require('pizzip');
 const path = require('path');
-const { app } = require('electron');
 const Store = require('electron-store');
 const ExcelJS = require('exceljs');
 const { log, error: logError, warn: logWarn } = require('./logger');
@@ -637,7 +636,12 @@ async function processStudentRow(row, headerRow) {
     if (civilStatusIdx > 0) {
       const civilStatusCell = row.getCell(civilStatusIdx);
       if (civilStatusCell && civilStatusCell.value) {
-        const civilStatusMap = { 'أعزب': 'single', 'متزوج': 'married', 'مطلق': 'divorced', 'أرمل': 'widowed' };
+        const civilStatusMap = {
+          أعزب: 'single',
+          متزوج: 'married',
+          مطلق: 'divorced',
+          أرمل: 'widowed',
+        };
         civilStatusCell.value = civilStatusMap[civilStatusCell.value] || civilStatusCell.value;
       }
     }
@@ -659,7 +663,11 @@ async function processStudentRow(row, headerRow) {
       guardian_relation: getCellValueByHeader(headerRow, row, 'صلة القرابة (طفل)'),
       parent_contact: getCellValueByHeader(headerRow, row, 'هاتف ولي الأمر (طفل)'),
       guardian_email: getCellValueByHeader(headerRow, row, 'البريد الإلكتروني للولي (طفل)'),
-      emergency_contact_name: getCellValueByHeader(headerRow, row, 'جهة الاتصال في حالات الطوارئ (طفل)'),
+      emergency_contact_name: getCellValueByHeader(
+        headerRow,
+        row,
+        'جهة الاتصال في حالات الطوارئ (طفل)',
+      ),
       emergency_contact_phone: getCellValueByHeader(headerRow, row, 'هاتف الطوارئ (طفل)'),
       health_conditions: getCellValueByHeader(headerRow, row, 'الحالة الصحية (طفل)'),
       school_name: getCellValueByHeader(headerRow, row, 'اسم المدرسة (طفل)'),
@@ -1496,7 +1504,7 @@ async function processStudentFeesRow(row, headerRow) {
       const year = new Date(data.payment_date).getFullYear();
       const lastPayment = await getQuery(
         'SELECT receipt_number FROM student_payments WHERE receipt_number LIKE ? ORDER BY id DESC LIMIT 1',
-        [`RCP-${year}-%`]
+        [`RCP-${year}-%`],
       );
       let sequence = 1;
       if (lastPayment?.receipt_number) {

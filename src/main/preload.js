@@ -231,7 +231,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('backup:downloadCloud', fileId, fileName),
   downloadCloudBackupFromLink: (link) => ipcRenderer.invoke('backup:downloadFromLink', link),
   deleteCloudBackup: (id) => ipcRenderer.invoke('backup:deleteCloud', id),
-  runCloudBackup: (settings, createdBy) => ipcRenderer.invoke('backup:runCloud', settings, createdBy),
+  runCloudBackup: (settings, createdBy) =>
+    ipcRenderer.invoke('backup:runCloud', settings, createdBy),
   connectGoogle: () => ipcRenderer.invoke('backup:googleConnect'),
   disconnectGoogle: () => ipcRenderer.invoke('backup:googleDisconnect'),
 
@@ -384,7 +385,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   onImportCompleted: (callback) => {
     if (!callback || typeof callback !== 'function') {
-      return () => { };
+      return () => {};
     }
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on('import:completed', handler);

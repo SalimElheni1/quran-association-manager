@@ -218,9 +218,19 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       // Ensure student query returns valid student so it doesn't exit early
       db.getQuery
         .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting for first call
-        .mockResolvedValueOnce({ id: studentId, name: 'Student 1', status: 'active', fee_category: 'CAN_PAY' }) // student details for first call
+        .mockResolvedValueOnce({
+          id: studentId,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }) // student details for first call
         .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting for second call
-        .mockResolvedValueOnce({ id: studentId, name: 'Student 1', status: 'active', fee_category: 'CAN_PAY' }); // student details for second call
+        .mockResolvedValueOnce({
+          id: studentId,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }); // student details for second call
       db.allQuery.mockResolvedValue([]); // No existing charges
       db.runQuery.mockResolvedValue({ changes: 1 });
 
@@ -230,7 +240,9 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       const [result1, result2] = await Promise.all([promise1, promise2]);
 
       // One should succeed, one should fail with lock message
-      const hasLockError = result1.message?.includes('already in progress') || result2.message?.includes('already in progress');
+      const hasLockError =
+        result1.message?.includes('already in progress') ||
+        result2.message?.includes('already in progress');
       expect(hasLockError).toBe(true);
       // Explicitly check for the lock message on the failed result
       if (result1.success === false) {
@@ -274,7 +286,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       db.getQuery
         .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting
-        .mockResolvedValueOnce({ id: studentId, name: 'Student 1', status: 'active', fee_category: 'CAN_PAY' }); // student details
+        .mockResolvedValueOnce({
+          id: studentId,
+          name: 'Student 1',
+          status: 'active',
+          fee_category: 'CAN_PAY',
+        }); // student details
       db.allQuery.mockRejectedValue(new Error('Database error'));
 
       const result = await triggerChargeRegenerationForStudent(studentId);
@@ -282,14 +299,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       expect(result.message).toBe('Database error');
 
       // Lock should be released even after error, so next call should succeed
-      db.getQuery
-        .mockResolvedValueOnce({ value: '9' })
-        .mockResolvedValueOnce({
-          id: studentId,
-          name: 'Test Student 3',
-          status: 'active',
-          fee_category: 'CAN_PAY',
-        });
+      db.getQuery.mockResolvedValueOnce({ value: '9' }).mockResolvedValueOnce({
+        id: studentId,
+        name: 'Test Student 3',
+        status: 'active',
+        fee_category: 'CAN_PAY',
+      });
       db.allQuery.mockResolvedValue([]);
       db.runQuery.mockResolvedValue({ changes: 1 });
 
