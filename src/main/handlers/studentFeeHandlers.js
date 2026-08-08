@@ -292,7 +292,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
         }
 
         const enrolledClasses = await db.allQuery(
-          `SELECT c.fee_type, c.monthly_fee, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
+          `SELECT c.id, c.fee_type, c.monthly_fee, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
           [student.id],
         );
 
@@ -324,9 +324,11 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
           const discount = student.discount_percentage || 0;
           if (discount > 0) totalMonthlyFee *= 1 - discount / 100;
 
+          const relatedClassId = enrolledClasses.length === 1 ? enrolledClasses[0].id : null;
+
           await db.runQuery(
-            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)`,
+            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
+           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)`,
             [
               student.id,
               chargeDate,
@@ -335,6 +337,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
               academicYear,
               paymentFrequency,
               billingMonth,
+              relatedClassId,
             ],
           );
           createdCount++;
@@ -390,13 +393,14 @@ async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
     }
     if (paymentFrequency === 'ANNUAL') {
       log(`[FeeCalc] Student ${studentId} is billed ANNUALLY - no monthly charges.`);
-      return { standard: 0, custom: 0, total: 0 };
+      return { standard: 0, custom: 0, total: 0, relatedClassId: null };
     }
 
     let fees = {
       standard: 0,
       custom: 0,
       total: 0,
+      relatedClassId: enrolledClasses.length === 1 ? enrolledClasses[0].id : null,
     };
 
     const hasStandardClass = enrolledClasses.some((c) => c.fee_type === 'standard');
@@ -440,7 +444,7 @@ async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
       `[calculateStudentMonthlyCharges] Error calculating fees for student ${studentId}:`,
       error,
     );
-    return { standard: 0, custom: 0, total: 0 };
+    return { standard: 0, custom: 0, total: 0, relatedClassId: null };
   }
 }
 
@@ -587,8 +591,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
             await db.runQuery(
               `
                 INSERT INTO student_fee_charges 
-                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
+                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
+                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
               `,
               [
                 studentId,
@@ -598,6 +602,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
                 currentAcademicYear,
                 paymentFrequency,
                 currentBillingMonth,
+                currentFees.relatedClassId,
               ],
             );
 
@@ -673,8 +678,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
             await db.runQuery(
               `
                 INSERT INTO student_fee_charges
-                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
+                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
+                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
               `,
               [
                 studentId,
@@ -684,6 +689,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
                 nextAcademicYear,
                 paymentFrequency,
                 nextBillingMonth,
+                nextFees.relatedClassId,
               ],
             );
 
@@ -863,8 +869,8 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
           await db.runQuery(
             `
             INSERT INTO student_fee_charges 
-            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
-            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
+            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
+            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
           `,
             [
               studentId,
@@ -878,6 +884,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
               currentAcademicYear,
               paymentFrequency,
               currentBillingMonth,
+              currentMonthFees.relatedClassId,
             ],
           );
           chargesGenerated++;
@@ -1482,11 +1489,20 @@ async function recordStudentPayment(event, paymentDetails) {
       [student_id],
     );
 
+    // class_id-aware allocation: when a class is specified, satisfy that
+    // class's charges first (oldest first), then fall back to remaining charges.
+    const outstandingChargesSorted = class_id
+      ? [
+          ...outstandingCharges.filter((c) => Number(c.related_class_id) === Number(class_id)),
+          ...outstandingCharges.filter((c) => Number(c.related_class_id) !== Number(class_id)),
+        ]
+      : outstandingCharges;
+
     console.log(
       `[PAYMENT_CHARGES] Found ${outstandingCharges.length} outstanding charges to apply payment to`,
     );
 
-    for (const charge of outstandingCharges) {
+    for (const charge of outstandingChargesSorted) {
       if (remainingAmountToApply <= 0 && creditPool.every((c) => c.available <= 0)) break;
 
       const chargeBalance = charge.amount - charge.amount_paid;

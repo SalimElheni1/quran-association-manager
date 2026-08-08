@@ -120,8 +120,9 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 - BUG-22: `getStudentFeeStatus(studentId, academicYear?)` scopes sums to the given year; `student-fees:getStatus`/`getAll` + preload accept the year; `StudentFeesTab` defaults to the `YYYY-YYYY` format and passes the selected year when loading students.
 - BUG-23: status totals and balance are rounded to cents so paid students never show a float residue.
 
-### H15. `class_id`-aware payment allocation
-- BUG-20: when `class_id` is provided, allocate the payment to that class's charges first.
+### H15. `class_id`-aware payment allocation — DONE
+- BUG-20: when `class_id` is provided, `recordStudentPayment` now allocates to that class's charges first (charges whose `related_class_id` matches are processed before the rest, regardless of due date), then falls back to the remaining outstanding charges.
+- `related_class_id` was previously never populated: monthly-charge generation now sets it when the charge maps to a single enrolled class (`generateMonthlyFeeCharges`, `refreshStudentCharges`, and both branches of `triggerChargeRegenerationForStudent`; `calculateStudentMonthlyCharges` exposes `relatedClassId`). Charges from multiple/zero classes keep it null and fall back to plain FIFO. New test: `tests/studentFeeHandlers.spec.js` "should prioritize charges of the given class (class_id) during allocation".
 
 ### H16. Atomic annual-charge generation
 - BUG-13: rethrow/rollback on partial `generateAnnualFeeCharges` failure instead of committing a half-populated set.

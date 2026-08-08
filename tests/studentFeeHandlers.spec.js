@@ -630,6 +630,75 @@ describe('Student Fee Handlers', () => {
         expect.arrayContaining([40]),
       );
     });
+
+    it('should prioritize charges of the given class (class_id) during allocation', async () => {
+      const paymentDetails = {
+        student_id: 1,
+        amount: 100,
+        payment_method: 'نقدي',
+        class_id: 7,
+      };
+      const event = { sender: { userId: 1 } };
+
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null); // No duplicate receipt
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes("fee_type = 'CREDIT'") && sql.includes('amount_paid > 0')) {
+          return Promise.resolve([]); // No existing credit
+        }
+        if (sql.includes('fee_type !=')) {
+          // Class-7 charge is due LATER, so plain FIFO would pay the
+          // wrong-class charge (id 2) first.
+          return Promise.resolve([
+            {
+              id: 2,
+              amount: 100,
+              amount_paid: 0,
+              status: 'UNPAID',
+              fee_type: 'MONTHLY',
+              related_class_id: 5,
+              due_date: '2026-01-01',
+            },
+            {
+              id: 1,
+              amount: 100,
+              amount_paid: 0,
+              status: 'UNPAID',
+              fee_type: 'MONTHLY',
+              related_class_id: 7,
+              due_date: '2026-02-01',
+            },
+          ]);
+        }
+        return Promise.resolve([{ id: 1 }]); // Has unpaid charges -> skip auto-generation
+      });
+
+      await recordStudentPayment(event, paymentDetails);
+
+      // Charge 1 (class 7) is paid first despite the later due date
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_payment_breakdown'),
+        [expect.any(Number), 1, 100],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE student_fee_charges'),
+        [100, 'PAID', 1],
+      );
+
+      // Charge 2 (different class) receives no payment
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE student_fee_charges'),
+        [100, 'PAID', 2],
+      );
+    });
   });
 
   // ============================================
