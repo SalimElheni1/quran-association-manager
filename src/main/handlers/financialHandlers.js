@@ -50,6 +50,45 @@ async function updateAccountBalance(accountId, transactionType, amount) {
 }
 
 /**
+ * Recomputes every account's current_balance from its initial_balance and its
+ * transactions (INCOME adds, EXPENSE subtracts). Idempotent: it overwrites the
+ * stored balance rather than summing on top of it, so running it repeatedly
+ * always converges to the same value. Use this to repair historical drift.
+ * @returns {Promise<{reconciled: boolean, accounts: Array<{id: number, name: string, previous_balance: number, new_balance: number}>}>}
+ */
+async function recomputeAccountBalances() {
+  return db.withTransaction(async () => {
+    const accounts = await db.allQuery(
+      'SELECT id, name, initial_balance, current_balance FROM accounts',
+    );
+    const transactions = await db.allQuery('SELECT account_id, type, amount FROM transactions');
+
+    const totals = new Map();
+    for (const txn of transactions) {
+      const sign = txn.type === 'INCOME' ? 1 : -1;
+      totals.set(txn.account_id, (totals.get(txn.account_id) || 0) + sign * txn.amount);
+    }
+
+    const results = [];
+    for (const account of accounts) {
+      const newBalance = (account.initial_balance || 0) + (totals.get(account.id) || 0);
+      await db.runQuery('UPDATE accounts SET current_balance = ? WHERE id = ?', [
+        newBalance,
+        account.id,
+      ]);
+      results.push({
+        id: account.id,
+        name: account.name,
+        previous_balance: account.current_balance,
+        new_balance: newBalance,
+      });
+    }
+
+    return { reconciled: true, accounts: results };
+  });
+}
+
+/**
  * Validates 500 TND cash limit rule
  */
 function validate500TndRule(amount, paymentMethod) {
@@ -733,6 +772,10 @@ function registerFinancialHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleGetAccounts),
   );
   ipcMain.handle('accounts:add', requireRoles(['Superadmin', 'Administrator'])(handleAddAccount));
+  ipcMain.handle(
+    'financial:reconcile',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(recomputeAccountBalances),
+  );
 
   // Categories
   ipcMain.handle('categories:get', handleGetCategories);
@@ -767,4 +810,5 @@ module.exports = {
   handleDeleteInKindCategory,
   handleExportFinancialReportPDF,
   handleExportFinancialReportExcel,
+  recomputeAccountBalances,
 };

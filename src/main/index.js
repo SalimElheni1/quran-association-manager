@@ -47,7 +47,10 @@ const { log, error: logError, initializeLogFile } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
-const { registerFinancialHandlers } = require('./handlers/financialHandlers');
+const {
+  registerFinancialHandlers,
+  recomputeAccountBalances,
+} = require('./handlers/financialHandlers');
 const { registerStudentFeeHandlers } = require('./handlers/studentFeeHandlers');
 const { registerFinancialWordExportHandlers } = require('./services/financialWordExportService');
 const { registerFinancialExportHandlers } = require('./services/financialExportService');
@@ -173,6 +176,24 @@ const initializeApp = async () => {
       initialCredentials = tempCredentials;
     }
     log('Database initialized successfully.');
+    // =============================================================================
+
+    // =============================================================================
+    // RECONCILE ACCOUNT BALANCES ON STARTUP
+    // =============================================================================
+    // Recompute every account's current_balance from its transactions once after
+    // migrations. Idempotent and non-fatal: drift self-heals, startup never fails.
+    try {
+      const reconciliation = await recomputeAccountBalances();
+      const corrected = reconciliation.accounts.filter(
+        (a) => a.previous_balance !== a.new_balance,
+      ).length;
+      if (corrected > 0) {
+        log(`Account balance reconciliation corrected ${corrected} account(s).`);
+      }
+    } catch (error) {
+      logError('Error reconciling account balances on startup:', error);
+    }
     // =============================================================================
 
     // =============================================================================

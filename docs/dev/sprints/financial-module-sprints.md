@@ -99,8 +99,8 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 
 ## Sprint 3 — Reconciliation & Payment Lifecycle
 
-### H9. Add balance reconciliation + reconcile on startup
-- Add `recomputeAccountBalances()` (single txn: reset `current_balance = initial_balance`, then replay all `transactions`), expose `financial:reconcile` IPC, and run automatically at app startup after migrations. This makes drift self-healing.
+### H9. Add balance reconciliation + reconcile on startup — DONE
+- `recomputeAccountBalances()` (single `db.withTransaction`: reset `current_balance = initial_balance`, replay all `transactions` — INCOME adds, EXPENSE subtracts — then overwrite), exposed as `financial:reconcile` IPC + exported. Runs automatically at startup right after `db.initializeDatabase()`/migrations in `src/main/index.js`; idempotent and non-fatal, logs how many accounts were corrected. Tests: `tests/financialHandlers.reconcile.spec.js` (math + idempotence).
 
 ### H10. Student-payment refund / void / delete
 - New `student-fees:deletePayment` (and/or `voidPayment`) that reverses: charge `amount_paid`/`status`, breakdown rows, credit charges, the linked `transactions` row, and `accounts.current_balance` — all in one DB transaction. Wire a delete button in `StudentFeesTab.jsx` (confirm first with user — UI change).
