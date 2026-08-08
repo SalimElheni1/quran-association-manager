@@ -111,8 +111,9 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 ### H12. Legacy financial module decision — DONE (retire)
 - **Decision (user-confirmed): retire the legacy handlers** — `registerLegacyFinancialHandlers()` is unregistered in `src/main/index.js` (import removed), so `expenses/donations/salaries/payments` no longer receive new invisible-money writes. The `legacyFinancialHandlers.js` module, its DB tables, and the never-rendered legacy tabs are **kept** (data safety; `financialExport.spec.js`/`exportManager.spec.js` still require the module). Unused legacy tab files remain for Sprint 4's explicit approval. All money now flows through the unified `transactions` model.
 
-### H13. ANNUAL billing model clarification
-- BUG-3: pick one intended model — ANNUAL students get only the annual charge (skip monthly standard AND special fees), or special fees stay monthly. Fix `generateMonthlyFeeCharges`/`generateAnnualFeeCharges` accordingly + update tests.
+### H13. ANNUAL billing model clarification — DONE
+- Decision (user): annual-only — ANNUAL students get exactly one ANNUAL charge per academic year; the monthly generator skips them entirely (no monthly standard AND no monthly special fees).
+- Implemented: `generateMonthlyFeeCharges` skips ANNUAL students outright; `calculateStudentMonthlyCharges` returns zero monthly fees for ANNUAL students (gated on having standard classes, so no extra settings queries otherwise); removed the now-dead `hasAnnualMonthlyCharge` monthly-charge guards in `refreshStudentCharges`.
 
 ### H14. Academic-year consistency + status scoping
 - BUG-21 (unify `"2026"` vs `"2025-2026"`), BUG-22 (scope `getStudentFeeStatus` sums to a year when one is given), BUG-23 (round balances to cents before comparisons).

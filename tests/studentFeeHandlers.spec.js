@@ -152,6 +152,29 @@ describe('Student Fee Handlers', () => {
         expect.any(Array),
       );
     });
+
+    it('should skip ANNUAL-frequency students entirely (annual-only billing)', async () => {
+      const academicYear = '2024-2025';
+      const month = 10;
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.allQuery
+        .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
+        .mockResolvedValueOnce([{ fee_type: 'standard', gender: 'men', monthly_fee: 50 }]); // Enrolled classes
+      db.getQuery
+        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
+        .mockResolvedValueOnce({ value: 'ANNUAL' }) // men_payment_frequency
+        .mockResolvedValueOnce({ value: 'ANNUAL' }) // women_payment_frequency
+        .mockResolvedValueOnce({ value: 'ANNUAL' }); // kids_payment_frequency
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      await generateMonthlyFeeCharges(academicYear, month, false, false);
+
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_fee_charges'),
+        expect.any(Array),
+      );
+    });
   });
 
   // ============================================
@@ -178,7 +201,9 @@ describe('Student Fee Handlers', () => {
       expect(result).toHaveProperty('custom');
       expect(result).toHaveProperty('total');
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT c.id, c.name, c.fee_type, c.monthly_fee FROM classes c'),
+        expect.stringContaining(
+          'SELECT c.id, c.name, c.fee_type, c.monthly_fee, c.gender FROM classes c',
+        ),
         [studentId],
       );
     });

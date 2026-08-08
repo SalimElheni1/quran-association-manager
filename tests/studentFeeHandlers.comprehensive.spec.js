@@ -415,6 +415,32 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       expect(result.custom).toBe(0);
       expect(result.total).toBe(0);
     });
+
+    it('should return zero monthly fees for ANNUAL-frequency students (annual-only billing)', async () => {
+      const studentId = 7;
+      const month = 10;
+      const academicYear = '2024-2025';
+
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+
+      db.getQuery
+        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
+        .mockResolvedValueOnce({ discount_percentage: 0 }) // Student discount
+        .mockResolvedValueOnce({ value: 'ANNUAL' }) // men_payment_frequency
+        .mockResolvedValueOnce({ value: 'ANNUAL' }) // women_payment_frequency
+        .mockResolvedValueOnce({ value: 'ANNUAL' }); // kids_payment_frequency
+      db.allQuery.mockResolvedValueOnce([
+        { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50, gender: 'men' },
+        { id: 2, name: 'Special Class', fee_type: 'special', monthly_fee: 30, gender: 'men' },
+      ]);
+
+      const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);
+
+      expect(result.standard).toBe(0);
+      expect(result.custom).toBe(0);
+      expect(result.total).toBe(0);
+    });
   });
 
   // ============================================
