@@ -80,28 +80,34 @@ describe('Student Fee Handlers', () => {
   describe('generateAnnualFeeCharges', () => {
     it('should generate annual charges for eligible students', async () => {
       const academicYear = '2024-2025';
-      db.allQuery.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
-      db.getQuery.mockResolvedValue({ value: '100' }); // Annual fee setting
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.getQuery.mockResolvedValueOnce({ value: '100' }); // Annual fee setting
+      db.getQuery.mockResolvedValue(null); // No existing annual charge
+      db.allQuery.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]); // Students
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      await generateAnnualFeeCharges(academicYear);
+      const result = await generateAnnualFeeCharges(academicYear);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
+      expect(result).toEqual({ success: true, createdCount: 2 });
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining("fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED'"),
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_fee_charges'),
+        expect.any(Array),
+      );
     });
 
-    it('should rollback transaction on error', async () => {
+    it('should rethrow on mid-loop failure instead of swallowing (BUG-13, no partial commit)', async () => {
       const academicYear = '2024-2025';
-      db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.getQuery.mockResolvedValueOnce({ value: '100' }); // Annual fee setting
+      db.getQuery.mockResolvedValue(null); // No existing annual charge
       db.allQuery.mockRejectedValue(new Error('Database error'));
 
-      await expect(generateAnnualFeeCharges(academicYear)).rejects.toThrow();
-
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
+      await expect(generateAnnualFeeCharges(academicYear)).rejects.toThrow('Database error');
     });
   });
 

@@ -124,8 +124,8 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 - BUG-20: when `class_id` is provided, `recordStudentPayment` now allocates to that class's charges first (charges whose `related_class_id` matches are processed before the rest, regardless of due date), then falls back to the remaining outstanding charges.
 - `related_class_id` was previously never populated: monthly-charge generation now sets it when the charge maps to a single enrolled class (`generateMonthlyFeeCharges`, `refreshStudentCharges`, and both branches of `triggerChargeRegenerationForStudent`; `calculateStudentMonthlyCharges` exposes `relatedClassId`). Charges from multiple/zero classes keep it null and fall back to plain FIFO. New test: `tests/studentFeeHandlers.spec.js` "should prioritize charges of the given class (class_id) during allocation".
 
-### H16. Atomic annual-charge generation
-- BUG-13: rethrow/rollback on partial `generateAnnualFeeCharges` failure instead of committing a half-populated set.
+### H16. Atomic annual-charge generation — DONE
+- BUG-13: `generateAnnualFeeCharges` previously swallowed mid-loop errors via `.catch()` returning `{success:false}`; called from `generateAllCharges` (which wraps it in `BEGIN…COMMIT`), the swallowed failure let generation continue and `COMMIT` a half-populated charge set. The `.catch()` is removed — the error now propagates, so the real `db.withTransaction` rolls back (standalone) and `generateAllCharges`/`checkAndGenerateChargesForAllStudents` roll back the outer transaction (nested); the `student-fees:generateAnnualCharges` IPC handler surfaces the Arabic failure instead of a fake success. Tests: `tests/studentFeeHandlers.spec.js` "should generate annual charges for eligible students" (asserts INSERT) and "should rethrow on mid-loop failure instead of swallowing (BUG-13, no partial commit)" (replaces the stale BEGIN/ROLLBACK assertions the mocked `withTransaction` could never satisfy).
 
 ---
 

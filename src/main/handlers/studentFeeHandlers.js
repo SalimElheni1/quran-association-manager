@@ -184,46 +184,40 @@ async function getStudentPaymentFrequency(studentId, frequencySettings) {
  * @param {boolean} useTransaction Whether to wrap in transaction (default: true)
  */
 async function generateAnnualFeeCharges(academicYear) {
-  return db
-    .withTransaction(async () => {
-      const annualFeeSetting = await getSetting('annual_fee');
-      const annualFee = parseFloat(annualFeeSetting || '0');
+  return db.withTransaction(async () => {
+    const annualFeeSetting = await getSetting('annual_fee');
+    const annualFee = parseFloat(annualFeeSetting || '0');
 
-      if (annualFee <= 0) {
-        logWarn('[FeeGen] Annual fee is not set or zero. Skipping charge generation.');
-        return { success: true, message: 'Skipped: Fee not configured' };
-      }
+    if (annualFee <= 0) {
+      logWarn('[FeeGen] Annual fee is not set or zero. Skipping charge generation.');
+      return { success: true, message: 'Skipped: Fee not configured' };
+    }
 
-      const students = await db.allQuery(
-        "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+    const students = await db.allQuery(
+      "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+    );
+
+    const chargeDate = new Date().toISOString().split('T')[0];
+    let createdCount = 0;
+
+    for (const student of students) {
+      const existingCharge = await db.getQuery(
+        `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?`,
+        [student.id, academicYear],
       );
 
-      const chargeDate = new Date().toISOString().split('T')[0];
-      let createdCount = 0;
-
-      for (const student of students) {
-        const existingCharge = await db.getQuery(
-          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?`,
-          [student.id, academicYear],
+      if (!existingCharge) {
+        await db.runQuery(
+          `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
+         VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
+          [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
         );
-
-        if (!existingCharge) {
-          await db.runQuery(
-            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-           VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
-            [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
-          );
-          createdCount++;
-        }
+        createdCount++;
       }
-      log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
-      return { success: true, createdCount };
-    })
-    .catch((error) => {
-      logError('Error in generateAnnualFeeCharges:', error);
-      // We return success: false instead of throwing to prevent app crash
-      return { success: false, error: error.message };
-    });
+    }
+    log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
+    return { success: true, createdCount };
+  });
 }
 
 /**
