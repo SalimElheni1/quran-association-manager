@@ -3,6 +3,7 @@ const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
 const { generateMatricule } = require('../services/matriculeService');
 const { requireRoles } = require('../authMiddleware');
+const { handleAuthenticated } = require('./handlerRegistry');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -159,8 +160,8 @@ async function handleDeleteInventoryItem(_, itemId) {
 }
 
 function registerInventoryHandlers() {
-  ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
-  ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
+  handleAuthenticated('inventory:get', createHandler(handleGetInventoryItems));
+  handleAuthenticated('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
   ipcMain.handle(
     'inventory:add',
     requireRoles(['Superadmin', 'Administrator'])(createHandler(handleAddInventoryItem)),

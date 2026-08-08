@@ -1,9 +1,9 @@
-const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
+const { handleAuthenticated } = require('./handlerRegistry');
 
 function registerDashboardHandlers() {
-  ipcMain.handle('get-dashboard-stats', async () => {
+  handleAuthenticated('get-dashboard-stats', async () => {
     try {
       const studentCountQuery = "SELECT COUNT(*) as count FROM students WHERE status = 'active'";
       const teacherCountQuery = 'SELECT COUNT(*) as count FROM teachers';
@@ -28,7 +28,7 @@ function registerDashboardHandlers() {
     }
   });
 
-  ipcMain.handle('get-todays-classes', async () => {
+  handleAuthenticated('get-todays-classes', async () => {
     try {
       const daysOfWeek = [
         'Sunday',

@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
+const { handleAuthenticated, handleSuperadmin } = require('./handlerRegistry');
 
 /**
  * Safely attempt to rollback a transaction if one is active.
@@ -185,7 +186,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('settings:update', async (_event, settingsData) => {
+  handleSuperadmin('settings:update', async (_event, settingsData) => {
     try {
       log(
         '[DEBUG] settings:update IPC handler called with settingsData:',
@@ -301,7 +302,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('settings:uploadLogo', async () => {
+  handleSuperadmin('settings:uploadLogo', async () => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
@@ -324,7 +325,7 @@ function registerSettingsHandlers(refreshSettings) {
   });
 
   // Age Groups handlers
-  ipcMain.handle('ageGroups:get', async () => {
+  handleAuthenticated('ageGroups:get', async () => {
     try {
       const results = await db.allQuery(
         'SELECT * FROM age_groups WHERE is_active = 1 ORDER BY min_age ASC',
@@ -336,7 +337,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('ageGroups:create', async (_event, ageGroupData) => {
+  handleSuperadmin('ageGroups:create', async (_event, ageGroupData) => {
     try {
       log('[DEBUG] ageGroups:create - Input data:', JSON.stringify(ageGroupData));
       const { v4: uuidv4 } = require('uuid');
@@ -402,7 +403,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('ageGroups:update', async (_event, id, ageGroupData) => {
+  handleSuperadmin('ageGroups:update', async (_event, id, ageGroupData) => {
     try {
       const schema = Joi.object({
         name: Joi.string().required().min(1).max(100),
@@ -444,7 +445,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('ageGroups:delete', async (_event, id) => {
+  handleSuperadmin('ageGroups:delete', async (_event, id) => {
     try {
       await db.runQuery('UPDATE age_groups SET is_active = 0 WHERE id = ?', [id]);
       return { success: true, message: 'تم إلغاء تفعيل الفئة العمرية بنجاح.' };
@@ -454,7 +455,7 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
-  ipcMain.handle('ageGroups:matchStudent', async (_event, studentAge, studentGender) => {
+  handleAuthenticated('ageGroups:matchStudent', async (_event, studentAge, studentGender) => {
     try {
       if (studentAge === null || studentAge === undefined) {
         return { success: false, message: 'عمر الطالب غير محدد' };

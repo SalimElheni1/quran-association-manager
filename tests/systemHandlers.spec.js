@@ -4,6 +4,11 @@ const {
 } = require('../src/main/handlers/systemHandlers');
 
 // Mock dependencies
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+  requireAuth: jest.fn((handler) => handler),
+  getUserFromEvent: jest.fn(async () => ({ id: 1, username: 'tester', roles: ['Superadmin'] })),
+}));
 jest.mock('electron', () => ({
   ipcMain: {
     handle: jest.fn(),

@@ -40,6 +40,11 @@ This guide explains how to set up the Google Cloud Project and OAuth 2.0 credent
    ```
 3. Restart the application.
 
+For packaged builds (where no `.env` is available), copy
+`src/main/config/credentials.template.js` to `src/main/config/credentials.local.js` and fill in the
+same values before running `npm run dist`. `credentials.local.js` is git-ignored and must never be
+committed.
+
 ## 6. Verification
 1. Go to **Settings > Backup**.
 2. Click **Connect Google Account**.

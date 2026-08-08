@@ -1,8 +1,8 @@
-const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
 const { mapStatus, mapCategory } = require('../utils/translations');
+const { handleAdmin, handleAuthenticated } = require('./handlerRegistry');
 
 /**
  * Calculates age from date of birth.
@@ -74,7 +74,7 @@ const classFields = [
 ];
 
 function registerClassHandlers() {
-  ipcMain.handle('classes:add', async (_event, classData) => {
+  handleAdmin('classes:add', async (_event, classData) => {
     try {
       const validatedData = await classValidationSchema.validateAsync(classData, {
         abortEarly: false,
@@ -108,7 +108,7 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:update', async (_event, id, classData) => {
+  handleAdmin('classes:update', async (_event, id, classData) => {
     try {
       const validatedData = await classValidationSchema.validateAsync(classData, {
         abortEarly: false,
@@ -138,13 +138,13 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:delete', (_event, id) => {
+  handleAdmin('classes:delete', (_event, id) => {
     if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للحذف.');
     const sql = 'DELETE FROM classes WHERE id = ?';
     return db.runQuery(sql, [id]);
   });
 
-  ipcMain.handle('classes:get', async (_event, filters) => {
+  handleAuthenticated('classes:get', async (_event, filters) => {
     let sql = `
       SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender, c.age_group_id,
              c.teacher_id, t.name as teacher_name,
@@ -213,7 +213,7 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:getById', (_event, id) => {
+  handleAuthenticated('classes:getById', (_event, id) => {
     const sql = `
       SELECT c.*, t.name as teacher_name
       FROM classes c
@@ -223,7 +223,7 @@ function registerClassHandlers() {
     return db.getQuery(sql, [id]);
   });
 
-  ipcMain.handle('classes:getEnrollmentData', async (_event, { classId, classAgeGroupId }) => {
+  handleAdmin('classes:getEnrollmentData', async (_event, { classId, classAgeGroupId }) => {
     try {
       const ageGroup = await db.getQuery(
         `SELECT id, name, min_age, max_age, gender
@@ -290,7 +290,7 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
+  handleAdmin('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
     try {
       // Track which students were added/removed for charge regeneration
       const oldEnrollments = await db.allQuery(
@@ -352,7 +352,7 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:getForStudent', async (_event, { studentGender, studentAge }) => {
+  handleAuthenticated('classes:getForStudent', async (_event, { studentGender, studentAge }) => {
     try {
       const ageGroups = await db.allQuery(
         `SELECT id, name, min_age, max_age, gender

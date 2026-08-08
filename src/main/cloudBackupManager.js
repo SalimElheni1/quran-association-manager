@@ -114,11 +114,13 @@ const generatePKCE = () => {
 const connectGoogle = async () => {
   return new Promise((resolve, reject) => {
     const { verifier, challenge } = generatePKCE();
+    const expectedState = crypto.randomBytes(16).toString('hex');
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
+      state: expectedState,
       code_challenge: challenge,
       code_challenge_method: 'S256'
     });
@@ -131,6 +133,13 @@ const connectGoogle = async () => {
         if (req.url.startsWith('/?code=')) {
           const queryObject = url.parse(req.url, true).query;
           const code = queryObject.code;
+
+          // Reject redirects that did not originate from the authorization request we started.
+          if (queryObject.state !== expectedState) {
+            res.end('Authentication failed: state mismatch.');
+            server.close();
+            return reject(new Error('OAuth state mismatch.'));
+          }
 
           res.end('Authentication successful! You can close this window and return to the app.');
           server.close();

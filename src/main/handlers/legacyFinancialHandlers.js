@@ -1,6 +1,7 @@
-const { ipcMain, BrowserWindow } = require('electron');
+const { BrowserWindow } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
+const { handleFinance } = require('./handlerRegistry');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -431,29 +432,29 @@ async function handleGetFinancialSummary(event, year) {
 }
 
 function registerLegacyFinancialHandlers() {
-  ipcMain.handle('get-expenses', createHandler(handleGetExpenses));
-  ipcMain.handle('add-expense', createHandler(handleAddExpense));
-  ipcMain.handle('update-expense', createHandler(handleUpdateExpense));
-  ipcMain.handle('delete-expense', createHandler(handleDeleteExpense));
+  handleFinance('get-expenses', createHandler(handleGetExpenses));
+  handleFinance('add-expense', createHandler(handleAddExpense));
+  handleFinance('update-expense', createHandler(handleUpdateExpense));
+  handleFinance('delete-expense', createHandler(handleDeleteExpense));
 
-  ipcMain.handle('get-donations', createHandler(handleGetDonations));
-  ipcMain.handle('add-donation', createHandler(handleAddDonation));
-  ipcMain.handle('update-donation', createHandler(handleUpdateDonation));
-  ipcMain.handle('delete-donation', createHandler(handleDeleteDonation));
+  handleFinance('get-donations', createHandler(handleGetDonations));
+  handleFinance('add-donation', createHandler(handleAddDonation));
+  handleFinance('update-donation', createHandler(handleUpdateDonation));
+  handleFinance('delete-donation', createHandler(handleDeleteDonation));
 
-  ipcMain.handle('get-salaries', createHandler(handleGetSalaries));
-  ipcMain.handle('add-salary', createHandler(handleAddSalary));
-  ipcMain.handle('update-salary', createHandler(handleUpdateSalary));
-  ipcMain.handle('delete-salary', createHandler(handleDeleteSalary));
+  handleFinance('get-salaries', createHandler(handleGetSalaries));
+  handleFinance('add-salary', createHandler(handleAddSalary));
+  handleFinance('update-salary', createHandler(handleUpdateSalary));
+  handleFinance('delete-salary', createHandler(handleDeleteSalary));
 
-  ipcMain.handle('get-payments', createHandler(handleGetPayments));
-  ipcMain.handle('add-payment', createHandler(handleAddPayment));
-  ipcMain.handle('update-payment', createHandler(handleUpdatePayment));
-  ipcMain.handle('delete-payment', createHandler(handleDeletePayment));
+  handleFinance('get-payments', createHandler(handleGetPayments));
+  handleFinance('add-payment', createHandler(handleAddPayment));
+  handleFinance('update-payment', createHandler(handleUpdatePayment));
+  handleFinance('delete-payment', createHandler(handleDeletePayment));
 
-  ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
-  ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
-  ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
+  handleFinance('get-financial-summary', createHandler(handleGetFinancialSummary));
+  handleFinance('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
+  handleFinance('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
 }
 
 module.exports = {

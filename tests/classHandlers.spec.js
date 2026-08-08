@@ -5,6 +5,11 @@ const { classValidationSchema } = require('../src/main/validationSchemas');
 const { log, error: logError } = require('../src/main/logger');
 
 // Mock dependencies
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+  requireAuth: jest.fn((handler) => handler),
+  getUserFromEvent: jest.fn(async () => ({ id: 1, username: 'tester', roles: ['Superadmin'] })),
+}));
 jest.mock('../src/db/db');
 jest.mock('../src/main/validationSchemas', () => ({
   classValidationSchema: {

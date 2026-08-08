@@ -1,9 +1,9 @@
-const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { mapGender } = require('../utils/translations');
+const { handleAdmin, handleAuthenticated } = require('./handlerRegistry');
 
 const teacherFields = [
   'matricule',
@@ -22,7 +22,7 @@ const teacherFields = [
 ];
 
 function registerTeacherHandlers() {
-  ipcMain.handle('teachers:add', async (_event, teacherData) => {
+  handleAdmin('teachers:add', async (_event, teacherData) => {
     try {
       const matricule = await generateMatricule('teacher');
       const dataWithMatricule = { ...teacherData, matricule };
@@ -45,7 +45,7 @@ function registerTeacherHandlers() {
     }
   });
 
-  ipcMain.handle('teachers:update', async (_event, id, teacherData) => {
+  handleAdmin('teachers:update', async (_event, id, teacherData) => {
     try {
       const validatedData = await teacherValidationSchema.validateAsync(teacherData, {
         abortEarly: false,
@@ -66,7 +66,7 @@ function registerTeacherHandlers() {
     }
   });
 
-  ipcMain.handle('teachers:delete', async (_event, id) => {
+  handleAdmin('teachers:delete', async (_event, id) => {
     try {
       if (!id || typeof id !== 'number') throw new Error('معرف المعلم صالح مطلوب للحذف.');
       const sql = 'DELETE FROM teachers WHERE id = ?';
@@ -77,7 +77,7 @@ function registerTeacherHandlers() {
     }
   });
 
-  ipcMain.handle('teachers:get', async (_event, filters) => {
+  handleAuthenticated('teachers:get', async (_event, filters) => {
     try {
       let sql =
         'SELECT id, matricule, name, contact_info, specialization, gender FROM teachers WHERE 1=1';
@@ -131,7 +131,7 @@ function registerTeacherHandlers() {
     }
   });
 
-  ipcMain.handle('teachers:getById', async (_event, id) => {
+  handleAuthenticated('teachers:getById', async (_event, id) => {
     try {
       return await db.getQuery('SELECT * FROM teachers WHERE id = ?', [id]);
     } catch (error) {

@@ -1,6 +1,6 @@
-const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
+const { handleFinance } = require('./handlerRegistry');
 
 function createHandler(handler) {
   return async (event, ...args) => {
@@ -168,13 +168,13 @@ async function handleCheckReceiptExists(event, { receiptNumber, transactionType,
 }
 
 function registerReceiptHandlers() {
-  ipcMain.handle('receipt-books:get', createHandler(handleGetReceiptBooks));
-  ipcMain.handle('receipt-books:get-active', createHandler(handleGetActiveReceiptBook));
-  ipcMain.handle('receipt-books:add', createHandler(handleAddReceiptBook));
-  ipcMain.handle('receipt-books:update', createHandler(handleUpdateReceiptBook));
-  ipcMain.handle('receipt-books:delete', createHandler(handleDeleteReceiptBook));
-  ipcMain.handle('receipt-books:get-next-number', createHandler(handleGetNextReceiptNumber));
-  ipcMain.handle('receipt-books:check-exists', createHandler(handleCheckReceiptExists));
+  handleFinance('receipt-books:get', createHandler(handleGetReceiptBooks));
+  handleFinance('receipt-books:get-active', createHandler(handleGetActiveReceiptBook));
+  handleFinance('receipt-books:add', createHandler(handleAddReceiptBook));
+  handleFinance('receipt-books:update', createHandler(handleUpdateReceiptBook));
+  handleFinance('receipt-books:delete', createHandler(handleDeleteReceiptBook));
+  handleFinance('receipt-books:get-next-number', createHandler(handleGetNextReceiptNumber));
+  handleFinance('receipt-books:check-exists', createHandler(handleCheckReceiptExists));
 }
 
 module.exports = {

@@ -154,10 +154,13 @@ async function fetchFinancialData(period) {
   return { summary, payments, salaries, donations, expenses, inventory };
 }
 
+const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
   }
+  let knownExpressions = new Set();
   // Map logical field keys (from UI) to actual DB columns or expressions per export type
   function buildFieldSelectionFor(type, fields) {
     // Comprehensive mapping from UI logical keys to DB columns or SQL expressions.
@@ -270,20 +273,24 @@ async function fetchExportData({ type, fields, options = {} }) {
     };
 
     const map = maps[type] || {};
+    knownExpressions = new Set(Object.values(map).filter((v) => !SAFE_IDENTIFIER.test(v)));
     return fields
       .map((f) => {
         if (map[f]) return map[f];
-        // default: use as-is (assume it's a valid column or aliased column key)
-        return f;
+        // Unmapped keys are only accepted as plain identifiers; they are still checked
+        // against the target table's columns below. Anything else (SQL expressions,
+        // sub-selects, aliases) is rejected to keep the SELECT list non-injectable.
+        return SAFE_IDENTIFIER.test(f) ? f : null;
       })
-      .join(', ');
+      .filter(Boolean);
   }
 
   // Build mapped field list (not yet joined) so we can validate against table columns
-  const mappedFields = buildFieldSelectionFor(type, fields)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const mappedFields = buildFieldSelectionFor(type, fields);
+
+  // A mapped expression (e.g. "t.name as teacher_name") is trusted because it comes from the
+  // static maps above; anything else must be a column of the table being exported.
+  const isTrustedExpression = (field) => knownExpressions.has(field);
 
   let query = '';
   let params = [];
@@ -306,8 +313,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       const allowed = [];
       const omitted = [];
       for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+        if (isTrustedExpression(mf)) {
           allowed.push(mf);
           continue;
         }
@@ -352,7 +358,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       const allowedT = [];
       const omittedT = [];
       for (const mf of mappedFields) {
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+        if (isTrustedExpression(mf)) {
           allowedT.push(mf);
           continue;
         }
@@ -390,13 +396,11 @@ async function fetchExportData({ type, fields, options = {} }) {
       const omittedU = [];
 
       for (const mf of mappedFields) {
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowedU.push(mf);
-          continue;
-        }
         if (mf === 'role') {
           // Role comes from roles table, add alias
           allowedU.push('r.name as role');
+        } else if (isTrustedExpression(mf)) {
+          allowedU.push(mf);
         } else if (userCols.has(mf)) {
           allowedU.push(mf);
         } else {
@@ -457,8 +461,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       const allowed = [];
       const omitted = [];
       for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+        if (isTrustedExpression(mf)) {
           allowed.push(mf);
           continue;
         }
@@ -496,8 +499,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       const allowed = [];
       const omitted = [];
       for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
+        if (isTrustedExpression(mf)) {
           allowed.push(mf);
           continue;
         }

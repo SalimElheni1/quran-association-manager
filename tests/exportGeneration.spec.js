@@ -4,6 +4,11 @@ const exportManager = require('../src/main/exportManager');
 const { dialog } = require('electron');
 
 // Mock the dependencies
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+  requireAuth: jest.fn((handler) => handler),
+  getUserFromEvent: jest.fn(async () => ({ id: 1, username: 'tester', roles: ['Superadmin'] })),
+}));
 jest.mock('../src/main/exportManager', () => ({
   getExportHeaderData: jest.fn().mockResolvedValue({
     nationalAssociationName: 'National Assoc',

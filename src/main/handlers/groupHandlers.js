@@ -1,6 +1,6 @@
-const { ipcMain } = require('electron');
 const { runQuery, getQuery, allQuery } = require('../../db/db');
 const { mapCategory } = require('../utils/translations');
+const { handleAdmin, handleAuthenticated } = require('./handlerRegistry');
 
 /**
  * Calculates age from date of birth.
@@ -30,7 +30,7 @@ function calculateAge(birthDateString) {
 
 function registerGroupHandlers() {
   // Groups Management
-  ipcMain.handle('groups:get', async (event, filters = {}) => {
+  handleAuthenticated('groups:get', async (event, filters = {}) => {
     try {
       let query = `
         SELECT g.*,
@@ -71,7 +71,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:add', async (event, groupData) => {
+  handleAdmin('groups:add', async (event, groupData) => {
     try {
       const { name, description, category, studentIds } = groupData;
       const query = `
@@ -98,7 +98,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:update', async (event, id, groupData) => {
+  handleAdmin('groups:update', async (event, id, groupData) => {
     try {
       const { name, description, category, studentIds } = groupData;
       const query = `
@@ -132,7 +132,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:delete', async (event, id) => {
+  handleAdmin('groups:delete', async (event, id) => {
     try {
       // The ON DELETE CASCADE constraint on student_groups table will handle removing assignments.
       // No need for a separate transaction here unless more complex logic is needed.
@@ -146,7 +146,7 @@ function registerGroupHandlers() {
   });
 
   // Student-group assignments
-  ipcMain.handle('groups:getGroupStudents', async (event, groupId) => {
+  handleAuthenticated('groups:getGroupStudents', async (event, groupId) => {
     try {
       const query = `
         SELECT s.*, sg.joined_at FROM students s
@@ -162,7 +162,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:addStudentToGroup', async (event, { studentId, groupId }) => {
+  handleAdmin('groups:addStudentToGroup', async (event, { studentId, groupId }) => {
     try {
       const query = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
       await runQuery(query, [studentId, groupId]);
@@ -177,7 +177,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:removeStudentFromGroup', async (event, { studentId, groupId }) => {
+  handleAdmin('groups:removeStudentFromGroup', async (event, { studentId, groupId }) => {
     try {
       const query = 'DELETE FROM student_groups WHERE student_id = ? AND group_id = ?';
       await runQuery(query, [studentId, groupId]);
@@ -188,7 +188,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:getStudentGroups', async (event, studentId) => {
+  handleAuthenticated('groups:getStudentGroups', async (event, studentId) => {
     try {
       const query = `
         SELECT g.* FROM groups g
@@ -203,7 +203,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:getAssignmentData', async (event, groupId) => {
+  handleAdmin('groups:getAssignmentData', async (event, groupId) => {
     try {
       const group = await getQuery('SELECT * FROM groups WHERE id = ?', [groupId]);
       if (!group) {
@@ -257,7 +257,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:updateGroupStudents', async (event, { groupId, studentIds }) => {
+  handleAdmin('groups:updateGroupStudents', async (event, { groupId, studentIds }) => {
     try {
       // Using a transaction to ensure atomicity
       await runQuery('BEGIN TRANSACTION;');
@@ -283,7 +283,7 @@ function registerGroupHandlers() {
   });
 
   // Enhanced enrollment with groups
-  ipcMain.handle('groups:getEligibleGroupsForClass', async (event, classId) => {
+  handleAuthenticated('groups:getEligibleGroupsForClass', async (event, classId) => {
     try {
       const classData = await getQuery('SELECT * FROM classes WHERE id = ?', [classId]);
       if (!classData) {
@@ -321,7 +321,7 @@ function registerGroupHandlers() {
     }
   });
 
-  ipcMain.handle('groups:getEligibleStudentsForGroup', async (event, groupCategory) => {
+  handleAuthenticated('groups:getEligibleStudentsForGroup', async (event, groupCategory) => {
     try {
       const categoryToAgeGroup = {
         Men: { gender: 'male_only', minAge: 18 },

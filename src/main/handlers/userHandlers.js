@@ -6,6 +6,7 @@ const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
+const { handleAuthenticated, handleSuperadmin } = require('./handlerRegistry');
 
 const userFields = [
   'matricule',
@@ -94,7 +95,7 @@ function registerUserHandlers() {
     }),
   );
 
-  ipcMain.handle('users:getById', async (_event, id) => {
+  handleSuperadmin('users:getById', async (_event, id) => {
     const user = await db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
     if (user) {
       const roles = await db.allQuery(
@@ -280,7 +281,7 @@ function registerUserHandlers() {
   );
 
   // Lightweight handler to update only onboarding-related fields without triggering full user validation
-  ipcMain.handle('users:updateGuide', async (_event, { id, guideData }) => {
+  handleAuthenticated('users:updateGuide', async (_event, { id, guideData }) => {
     try {
       // Accept numeric strings too (renderer may pass id as string). Coerce to number.
       const numericId = Number(id);

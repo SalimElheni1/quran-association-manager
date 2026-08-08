@@ -11,6 +11,13 @@ const { internalGetSettingsHandler } = require('./settingsHandlers');
 const { notifyError, notifySuccess } = require('../notifier');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
+const {
+  handleAdmin,
+  handleAuthenticated,
+  handleFinance,
+  handleSuperadmin,
+} = require('./handlerRegistry');
+const { getUserFromEvent } = require('../authMiddleware');
 
 async function handleGetBackupReminderStatus() {
   try {
@@ -46,7 +53,7 @@ function registerSystemHandlers() {
     return app.getVersion();
   });
 
-  ipcMain.handle('export:generate', async (_event, { exportType, format, columns, options }) => {
+  handleFinance('export:generate', async (_event, { exportType, format, columns, options }) => {
     try {
       const { filePath } = await dialog.showSaveDialog({
         title: `Save ${exportType} Export`,
@@ -114,7 +121,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('import:generate-template', async () => {
+  handleAdmin('import:generate-template', async () => {
     try {
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Import Template',
@@ -135,7 +142,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('import:execute', async (_event, { selectedSheets }) => {
+  handleAdmin('import:execute', async (_event, { selectedSheets }) => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
         title: 'Select Excel File to Import',
@@ -156,7 +163,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('dialog:openDirectory', async () => {
+  handleAuthenticated('dialog:openDirectory', async () => {
     try {
       const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openDirectory'],
@@ -171,7 +178,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:run', async (_event, settings) => {
+  handleAdmin('backup:run', async (_event, settings) => {
     try {
       let backupFilePath = null;
 
@@ -203,7 +210,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:runCloud', async (_event, settings, createdBy) => {
+  handleAdmin('backup:runCloud', async (_event, settings, createdBy) => {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const tempPath = path.join(app.getPath('temp'), `cloud-backup-${timestamp}.qdb`);
@@ -240,7 +247,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:getStatus', () => {
+  handleAuthenticated('backup:getStatus', () => {
     try {
       const store = new Store();
       const lastBackupStatus = store.get('last_backup_status');
@@ -251,11 +258,14 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (_event, { password, userId, filePath }) => {
-    if (!password || !userId) {
+  handleSuperadmin('db:import', async (event, { password, filePath }) => {
+    if (!password) {
       return { success: false, message: 'بيانات المصادقة غير كاملة.' };
     }
     try {
+      // The password is always re-checked against the account of the current session, never
+      // against a user id supplied by the renderer.
+      const { id: userId } = await getUserFromEvent(event);
       const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
       if (!currentUser) {
         return { success: false, message: 'المستخدم الحالي غير موجود.' };
@@ -295,9 +305,9 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
+  handleAuthenticated('backup:get-reminder-status', handleGetBackupReminderStatus);
 
-  ipcMain.handle('backup:listCloud', async (_event, settings) => {
+  handleAdmin('backup:listCloud', async (_event, settings) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       const result = await cloudBackupManager.listCloudBackups(settings);
@@ -308,7 +318,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:downloadCloud', async (_event, fileId, fileName) => {
+  handleAdmin('backup:downloadCloud', async (_event, fileId, fileName) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       return await cloudBackupManager.downloadBackup(fileId, fileName);
@@ -318,7 +328,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:downloadFromLink', async (_event, link) => {
+  handleAdmin('backup:downloadFromLink', async (_event, link) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       return await cloudBackupManager.downloadFromLink(link);
@@ -328,7 +338,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:deleteCloud', async (_event, id) => {
+  handleSuperadmin('backup:deleteCloud', async (_event, id) => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       return await cloudBackupManager.deleteBackup(id);
@@ -338,7 +348,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:googleConnect', async () => {
+  handleSuperadmin('backup:googleConnect', async () => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       const result = await cloudBackupManager.connectGoogle();
@@ -349,7 +359,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:googleDisconnect', async () => {
+  handleSuperadmin('backup:googleDisconnect', async () => {
     try {
       const cloudBackupManager = require('../cloudBackupManager');
       return await cloudBackupManager.disconnectGoogle();
@@ -360,7 +370,7 @@ function registerSystemHandlers() {
   });
 
   // Log management handlers for testing
-  ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {
+  handleSuperadmin('logs:get-recent', async (_event, { lines = 100 } = {}) => {
     try {
       const logFilePath = getLogFilePath();
       if (!logFilePath || !fs.existsSync(logFilePath)) {
@@ -378,7 +388,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('logs:get-filtered', async (_event, { keyword, lines = 100 } = {}) => {
+  handleSuperadmin('logs:get-filtered', async (_event, { keyword, lines = 100 } = {}) => {
     try {
       const logFilePath = getLogFilePath();
       if (!logFilePath || !fs.existsSync(logFilePath)) {
@@ -396,7 +406,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('logs:clear', async () => {
+  handleSuperadmin('logs:clear', async () => {
     try {
       clearLogFile();
       return { success: true, message: 'Logs cleared' };
@@ -406,7 +416,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('logs:get-file-path', async () => {
+  handleSuperadmin('logs:get-file-path', async () => {
     try {
       const logFilePath = getLogFilePath();
       return { success: true, path: logFilePath };
@@ -438,7 +448,7 @@ function registerSystemHandlers() {
     notifySuccess(message);
   });
 
-  ipcMain.handle('app:relaunch', () => {
+  handleAuthenticated('app:relaunch', () => {
     app.relaunch();
     app.exit(0);
   });
