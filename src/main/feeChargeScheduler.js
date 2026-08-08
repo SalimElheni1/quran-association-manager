@@ -62,10 +62,11 @@ const generatePendingAnnualCharges = async (academicYear) => {
 const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false) => {
   try {
     if (!force) {
-      // Check if monthly charges already exist for this month/year
+      // Check if monthly charges already exist for this billing period
+      const billingMonth = `${academicYear}-${month.toString().padStart(2, '0')}`;
       const existingCharges = await db.getQuery(
-        'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND academic_year = ? AND created_at >= ?',
-        ['MONTHLY', academicYear, `${academicYear}-${month.toString().padStart(2, '0')}-01`],
+        'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND billing_month = ?',
+        ['MONTHLY', billingMonth],
       );
 
       if (existingCharges.count > 0) {

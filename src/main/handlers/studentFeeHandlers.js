@@ -243,6 +243,7 @@ async function generateMonthlyFeeCharges(academicYear, month, force = false) {
       }
 
       const chargeDate = new Date().toISOString().split('T')[0];
+      const billingMonth = `${academicYear}-${month.toString().padStart(2, '0')}`;
       const monthNames = [
         'يناير',
         'فبراير',
@@ -268,8 +269,8 @@ async function generateMonthlyFeeCharges(academicYear, month, force = false) {
 
       for (const student of students) {
         const existingCharge = await db.getQuery(
-          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND academic_year = ? AND description LIKE ? AND strftime('%m', charge_date) = ?`,
-          [student.id, academicYear, `%${monthName}%`, month.toString().padStart(2, '0')],
+          `SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'MONTHLY' AND billing_month = ?`,
+          [student.id, billingMonth],
         );
 
         if (existingCharge && !force) continue;
@@ -310,8 +311,8 @@ async function generateMonthlyFeeCharges(academicYear, month, force = false) {
           if (discount > 0) totalMonthlyFee *= 1 - discount / 100;
 
           await db.runQuery(
-            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)`,
+            `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)`,
             [
               student.id,
               chargeDate,
@@ -319,6 +320,7 @@ async function generateMonthlyFeeCharges(academicYear, month, force = false) {
               totalMonthlyFee,
               academicYear,
               paymentFrequency,
+              billingMonth,
             ],
           );
           createdCount++;
@@ -506,16 +508,19 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           currentAcademicYear,
         );
 
+        const currentBillingMonth = `${currentAcademicYear}-${currentMonth
+          .toString()
+          .padStart(2, '0')}`;
+
         // Check existing charges BEFORE delete
         const existingCurrent = await db.allQuery(
           `
           SELECT id, amount, charge_date FROM student_fee_charges
           WHERE student_id = ? 
           AND fee_type = 'MONTHLY' 
-          AND academic_year = ?
-          AND strftime('%m', charge_date) = ?
+          AND billing_month = ?
         `,
-          [studentId, currentAcademicYear, currentMonth.toString().padStart(2, '0')],
+          [studentId, currentBillingMonth],
         );
 
         log(`[ChargeRegen] Found ${existingCurrent.length} existing current month charge(s):`);
@@ -529,10 +534,9 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           DELETE FROM student_fee_charges
           WHERE student_id = ? 
           AND fee_type = 'MONTHLY' 
-          AND academic_year = ?
-          AND strftime('%m', charge_date) = ?
+          AND billing_month = ?
         `,
-          [studentId, currentAcademicYear, currentMonth.toString().padStart(2, '0')],
+          [studentId, currentBillingMonth],
         );
 
         log(`[ChargeRegen] ✓ Deleted ${existingCurrent.length} old charge(s)`);
@@ -553,8 +557,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
             await db.runQuery(
               `
               INSERT INTO student_fee_charges 
-              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
             `,
               [
                 studentId,
@@ -563,6 +567,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
                 currentFees.total,
                 currentAcademicYear,
                 paymentFrequency,
+                currentBillingMonth,
               ],
             );
 
@@ -590,16 +595,17 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           nextAcademicYear,
         );
 
+        const nextBillingMonth = `${nextAcademicYear}-${nextMonth.toString().padStart(2, '0')}`;
+
         // Check existing charges BEFORE delete
         const existingNext = await db.allQuery(
           `
           SELECT id, amount, charge_date FROM student_fee_charges
           WHERE student_id = ?
           AND fee_type = 'MONTHLY'
-          AND academic_year = ?
-          AND strftime('%m', charge_date) = ?
+          AND billing_month = ?
         `,
-          [studentId, nextAcademicYear, nextMonth.toString().padStart(2, '0')],
+          [studentId, nextBillingMonth],
         );
 
         log(`[ChargeRegen] Found ${existingNext.length} existing next month charge(s):`);
@@ -613,10 +619,9 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           DELETE FROM student_fee_charges
           WHERE student_id = ?
           AND fee_type = 'MONTHLY'
-          AND academic_year = ?
-          AND strftime('%m', charge_date) = ?
+          AND billing_month = ?
         `,
-          [studentId, nextAcademicYear, nextMonth.toString().padStart(2, '0')],
+          [studentId, nextBillingMonth],
         );
 
         log(`[ChargeRegen] ✓ Deleted ${existingNext.length} old charge(s)`);
@@ -637,8 +642,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
             await db.runQuery(
               `
               INSERT INTO student_fee_charges
-              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+              (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+              VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
             `,
               [
                 studentId,
@@ -647,6 +652,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
                 nextFees.total,
                 nextAcademicYear,
                 paymentFrequency,
+                nextBillingMonth,
               ],
             );
 
@@ -775,17 +781,18 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       );
 
       if (currentMonthFees.total > 0) {
-        // Delete any existing charges for this student for this month
-        const monthStr = currentMonth.toString().padStart(2, '0');
+        // Delete any existing charges for this student for this billing period
+        const currentBillingMonth = `${currentAcademicYear}-${currentMonth
+          .toString()
+          .padStart(2, '0')}`;
         await db.runQuery(
           `
           DELETE FROM student_fee_charges
           WHERE student_id = ? 
           AND fee_type = 'MONTHLY' 
-          AND academic_year = ?
-          AND strftime('%m', charge_date) = ?
+          AND billing_month = ?
         `,
-          [studentId, currentAcademicYear, monthStr],
+          [studentId, currentBillingMonth],
         );
 
         const frequencySettings = await getPaymentFrequencySettings();
@@ -819,8 +826,8 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
           await db.runQuery(
             `
             INSERT INTO student_fee_charges 
-            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency)
-            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?)
+            (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month)
+            VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?)
           `,
             [
               studentId,
@@ -833,6 +840,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
               currentMonthFees.total,
               currentAcademicYear,
               paymentFrequency,
+              currentBillingMonth,
             ],
           );
           chargesGenerated++;
