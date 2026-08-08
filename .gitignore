@@ -14,6 +14,11 @@ yarn-error.log*
 # Environment variables
 .env
 
+# Credentials and sensitive files
+src/main/config/credentials.js
+**/credentials.js
+!credentials.template.js
+
 # OS-specific
 .DS_Store
 
