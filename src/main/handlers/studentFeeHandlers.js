@@ -1586,6 +1586,12 @@ async function recordStudentPayment(event, paymentDetails) {
       ],
     );
 
+    // Update the account balance for this income (keeps accounts.current_balance in sync)
+    await db.runQuery('UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?', [
+      amount,
+      1,
+    ]);
+
     // Link the transaction to the payment
     await db.runQuery('UPDATE student_payments SET transaction_id = ? WHERE id = ?', [
       transactionResult.id,
