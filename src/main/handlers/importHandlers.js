@@ -1,8 +1,9 @@
-const { ipcMain, dialog, BrowserWindow } = require('electron');
+const { dialog, BrowserWindow } = require('electron');
 const { importExcelData } = require('../importManager');
 const { getAllSheets, getSheetInfo } = require('../importConstants');
 const { generateExcelTemplate } = require('../exportManager');
 const { error: logError } = require('../logger');
+const { handleAdmin } = require('./handlerRegistry');
 
 /**
  * Register Excel import IPC handlers
@@ -11,7 +12,7 @@ function registerImportHandlers() {
   /**
    * Import Excel data - single step
    */
-  ipcMain.handle('import:excel', async (_event, filePath, selectedSheets) => {
+  handleAdmin('import:excel', async (_event, filePath, selectedSheets) => {
     try {
       // Map UI sheet names to canonical sheet names if needed
       const sheetNameMap = {
@@ -59,7 +60,7 @@ function registerImportHandlers() {
   /**
    * Get information about all available sheets
    */
-  ipcMain.handle('import:get-sheets', async () => {
+  handleAdmin('import:get-sheets', async () => {
     try {
       const sheets = getAllSheets();
       return { success: true, data: sheets };
@@ -72,7 +73,7 @@ function registerImportHandlers() {
   /**
    * Get information about a specific sheet
    */
-  ipcMain.handle('import:get-sheet-info', async (_event, sheetName) => {
+  handleAdmin('import:get-sheet-info', async (_event, sheetName) => {
     try {
       const sheetInfo = getSheetInfo(sheetName);
       if (!sheetInfo) {
@@ -88,7 +89,7 @@ function registerImportHandlers() {
   /**
    * Generate import template for specific sheet(s)
    */
-  ipcMain.handle('generate-import-template', async (_event, options = {}) => {
+  handleAdmin('generate-import-template', async (_event, options = {}) => {
     try {
       // Map UI import type names to their corresponding sheet names for template generation
       const importTypeToSheetMap = {

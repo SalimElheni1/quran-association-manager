@@ -26,12 +26,16 @@ const getUserFromToken = async (token) => {
   }
 };
 
+const getUserFromEvent = async (event) => {
+  // Get token from the renderer process
+  const token = await event.sender.executeJavaScript('localStorage.getItem("token")');
+  return await getUserFromToken(token);
+};
+
 const requireRoles = (allowedRoles) => {
   return (originalHandler) => {
     return async (event, ...args) => {
-      // Get token from the renderer process
-      const token = await event.sender.executeJavaScript('localStorage.getItem("token")');
-      const user = await getUserFromToken(token);
+      const user = await getUserFromEvent(event);
       const hasRole = user.roles.some((role) => allowedRoles.includes(role));
 
       if (!hasRole) {
@@ -44,7 +48,20 @@ const requireRoles = (allowedRoles) => {
   };
 };
 
+/**
+ * Wraps a handler so that it only runs for a request carrying a valid session token,
+ * without restricting it to specific roles.
+ */
+const requireAuth = (originalHandler) => {
+  return async (event, ...args) => {
+    await getUserFromEvent(event);
+    return await originalHandler(event, ...args);
+  };
+};
+
 module.exports = {
   getUserFromToken,
+  getUserFromEvent,
   requireRoles,
+  requireAuth,
 };

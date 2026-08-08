@@ -53,6 +53,8 @@ jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
+  requireAuth: jest.fn((handler) => handler),
+  getUserFromEvent: jest.fn(async () => ({ id: 1, username: 'tester', roles: ['Superadmin'] })),
 }));
 
 describe('Inventory Handlers', () => {

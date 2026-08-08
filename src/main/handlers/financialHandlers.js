@@ -10,6 +10,7 @@ const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateTransaction, translateArray } = require('../utils/translations');
+const { handleFinance } = require('./handlerRegistry');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -733,8 +734,8 @@ function registerFinancialHandlers() {
   ipcMain.handle('accounts:add', requireRoles(['Superadmin', 'Administrator'])(handleAddAccount));
 
   // Categories
-  ipcMain.handle('categories:get', handleGetCategories);
-  ipcMain.handle('in-kind-categories:get', handleGetInKindCategories);
+  handleFinance('categories:get', handleGetCategories);
+  handleFinance('in-kind-categories:get', handleGetInKindCategories);
   ipcMain.handle(
     'in-kind-categories:add',
     requireRoles(['Superadmin', 'Administrator'])(handleAddInKindCategory),

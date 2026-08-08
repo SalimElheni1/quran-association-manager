@@ -19,6 +19,7 @@ const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateStudent } = require('../utils/translations');
+const { handleAuthenticated } = require('./handlerRegistry');
 
 /**
  * Calculates age from date of birth string.
@@ -280,7 +281,7 @@ function registerStudentHandlers() {
    * @returns {Promise<Object|null>} Complete student object or null if not found
    * @throws {Error} If database query fails
    */
-  ipcMain.handle('students:getById', async (_event, id) => {
+  handleAuthenticated('students:getById', async (_event, id) => {
     try {
       const student = await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
       if (!student) return null;
@@ -613,7 +614,7 @@ function registerStudentHandlers() {
     }),
   );
 
-  ipcMain.handle('surahs:get', async () => {
+  handleAuthenticated('surahs:get', async () => {
     try {
       const result = await db.allQuery('SELECT id, name_ar, name_en FROM surahs ORDER BY id');
       return result;
@@ -623,7 +624,7 @@ function registerStudentHandlers() {
     }
   });
 
-  ipcMain.handle('hizbs:get', async () => {
+  handleAuthenticated('hizbs:get', async () => {
     try {
       const result = await db.allQuery('SELECT id, hizb_number FROM hizbs ORDER BY id');
       return result;
@@ -634,7 +635,7 @@ function registerStudentHandlers() {
   });
 
   // Get students that match a specific age group (for class enrollment)
-  ipcMain.handle('students:getByAgeGroup', async (_event, ageGroupId) => {
+  handleAuthenticated('students:getByAgeGroup', async (_event, ageGroupId) => {
     try {
       if (!ageGroupId) {
         return { success: false, message: 'معرف الفئة العمرية غير محدد' };

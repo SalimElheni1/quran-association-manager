@@ -68,6 +68,7 @@ const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
 const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 const backupManager = require('./backupManager');
+const { handleAuthenticated, handleSuperadmin } = require('./handlers/handlerRegistry');
 const {
   startScheduler: startFeeChargeScheduler,
   stopScheduler: stopFeeChargeScheduler,
@@ -76,6 +77,8 @@ const {
 
 const store = new Store();
 let initialCredentials = null;
+
+const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico'];
 
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
@@ -278,38 +281,39 @@ const initializeApp = async () => {
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
         const url = request.url.replace('safe-image://', '');
-        const decodedUrl = decodeURI(url);
+        const decodedUrl = decodeURI(url).split('?')[0].split('#')[0];
 
-        // If it's an absolute path, try it directly
-        if (path.isAbsolute(decodedUrl)) {
-          if (fs.existsSync(decodedUrl)) return callback({ path: decodedUrl });
+        // Only relative paths inside the whitelisted roots may be served: absolute paths or
+        // traversal segments would otherwise expose the whole filesystem to the renderer.
+        if (path.isAbsolute(decodedUrl) || /(^|[\\/])\.\.([\\/]|$)/.test(decodedUrl)) {
+          logError(`[safe-image] Rejected unsafe path: ${decodedUrl}`);
+          return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+        }
+
+        if (!ALLOWED_IMAGE_EXTENSIONS.includes(path.extname(decodedUrl).toLowerCase())) {
+          logError(`[safe-image] Rejected non-image path: ${decodedUrl}`);
           return callback({ error: -6 });
         }
 
-        // First check userData assets folder (where uploaded logos are copied)
-        const userDataPath = app.getPath('userData');
-        const userAssetPath = path.join(userDataPath, decodedUrl);
-        if (fs.existsSync(userAssetPath)) {
-          return callback({ path: userAssetPath });
-        }
-
-        // Next check the app's public assets. When packaged, resourcesPath points
-        // to the folder containing the app.asar; public assets may either be
-        // in the unpacked resources or inside app.asar — attempt resourcesPath/public first.
-        let publicPath;
+        // Roots the renderer is allowed to read images from: the userData assets folder
+        // (uploaded logos) and the app's bundled public assets.
+        const roots = [app.getPath('userData')];
         if (app.isPackaged) {
-          publicPath = path.join(process.resourcesPath, 'public', decodedUrl);
+          roots.push(path.join(process.resourcesPath, 'public'));
+          roots.push(process.resourcesPath);
         } else {
-          publicPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
-        }
-        if (fs.existsSync(publicPath)) {
-          return callback({ path: publicPath });
+          roots.push(path.join(__dirname, '..', '..', 'public'));
         }
 
-        // As a last resort, check for the resource inside an unpacked assets folder
-        const alternative = path.join(process.resourcesPath || app.getAppPath(), decodedUrl);
-        if (fs.existsSync(alternative)) {
-          return callback({ path: alternative });
+        for (const root of roots) {
+          const resolvedRoot = path.resolve(root);
+          const candidate = path.resolve(resolvedRoot, decodedUrl);
+          if (
+            (candidate === resolvedRoot || candidate.startsWith(resolvedRoot + path.sep)) &&
+            fs.existsSync(candidate)
+          ) {
+            return callback({ path: candidate });
+          }
         }
 
         logError(
@@ -340,7 +344,7 @@ const initializeApp = async () => {
     ipcMain.handle('clear-initial-credentials', () => {
       initialCredentials = null;
     });
-    ipcMain.handle('export:generate-dev-template', async () => {
+    handleSuperadmin('export:generate-dev-template', async () => {
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Dev Excel Template',
         defaultPath: `quran-assoc-dev-template-${Date.now()}.xlsx`,
@@ -359,7 +363,7 @@ const initializeApp = async () => {
       return { success: false, message: 'Save cancelled by user.' };
     });
 
-    ipcMain.handle('dialog:openFile', async (_event, options) => {
+    handleAuthenticated('dialog:openFile', async (_event, options) => {
       return await dialog.showOpenDialog(options);
     });
 

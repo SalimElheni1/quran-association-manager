@@ -35,4 +35,7 @@ lib/
 *.bat
 
 # Analysis tools
-.codeboarding/src/main/config/credentials.js
+.codeboarding/
+
+# Local secrets (embedded into packaged builds)
+src/main/config/credentials.local.js

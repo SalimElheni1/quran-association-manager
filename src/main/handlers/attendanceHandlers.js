@@ -1,9 +1,9 @@
-const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { log, error: logError } = require('../logger');
+const { handleAttendance, handleAuthenticated } = require('./handlerRegistry');
 
 function registerAttendanceHandlers() {
-  ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
+  handleAuthenticated('attendance:getClassesForDay', async (_event, date) => {
     try {
       // Using date parameter to filter classes that are active on the specified date
       const sql = `
@@ -24,7 +24,7 @@ function registerAttendanceHandlers() {
     }
   });
 
-  ipcMain.handle('attendance:getStudentsForClass', async (_event, classId) => {
+  handleAuthenticated('attendance:getStudentsForClass', async (_event, classId) => {
     try {
       const sql = `
         SELECT s.id, s.name, s.date_of_birth
@@ -40,7 +40,7 @@ function registerAttendanceHandlers() {
     }
   });
 
-  ipcMain.handle('attendance:getForDate', async (_event, { classId, date }) => {
+  handleAuthenticated('attendance:getForDate', async (_event, { classId, date }) => {
     try {
       const sql = `
         SELECT student_id, status
@@ -59,7 +59,7 @@ function registerAttendanceHandlers() {
     }
   });
 
-  ipcMain.handle('db:get-attendance-summary-for-class', async (event, classId) => {
+  handleAuthenticated('db:get-attendance-summary-for-class', async (event, classId) => {
     if (!classId) return [];
     // This SQL query is efficient. It groups by date, counts records for each date,
     // and orders them with the most recent date first.
@@ -76,7 +76,7 @@ function registerAttendanceHandlers() {
     return rows;
   });
 
-  ipcMain.handle('attendance:save', async (_event, { classId, date, records }) => {
+  handleAttendance('attendance:save', async (_event, { classId, date, records }) => {
     try {
       await db.runQuery('BEGIN TRANSACTION');
       await db.runQuery('DELETE FROM attendance WHERE class_id = ? AND date = ?', [classId, date]);
