@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { toast } from 'react-toastify';
+import { error as logError } from '@renderer/utils/logger';
 
 const initialFormData = {
   item_name: '',
@@ -24,7 +26,10 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
       window.electronAPI
         .getInKindCategories()
         .then(setCategories)
-        .catch(() => {});
+        .catch((err) => {
+          logError('Failed to fetch in-kind categories:', err);
+          toast.error('فشل في تحميل تصنيفات المواد العينية.');
+        });
     }
   }, [show]);
 

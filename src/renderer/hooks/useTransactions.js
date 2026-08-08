@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { error as logError } from '@renderer/utils/logger';
+import { showErrorToast } from '@renderer/utils/toast';
 
 /**
  * Custom hook for managing transactions with pagination support
  * @param {Object} filters - Filter criteria for transactions
  * @param {number} filters.page - Page number (optional, enables pagination)
  * @param {number} filters.limit - Items per page (optional, enables pagination)
- * @returns {Object} - transactions, loading, refresh function, pagination data
+ * @returns {Object} - transactions, loading, error, refresh function, pagination data
  */
 export function useTransactions(filters = {}) {
   const [transactions, setTransactions] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -32,10 +34,13 @@ export function useTransactions(filters = {}) {
         setTransactions(Array.isArray(data) ? data : []);
         setPagination(null);
       }
+      setError(null);
     } catch (err) {
       logError('Error fetching transactions:', err);
       setTransactions([]);
       setPagination(null);
+      setError(err);
+      showErrorToast('فشل في تحميل العمليات المالية.');
     } finally {
       setLoading(false);
     }
@@ -58,6 +63,7 @@ export function useTransactions(filters = {}) {
     transactions,
     pagination,
     loading,
+    error,
     refresh: fetchTransactions,
   };
 }

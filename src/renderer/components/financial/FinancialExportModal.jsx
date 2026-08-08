@@ -62,11 +62,16 @@ function FinancialExportModal({ show, handleClose }) {
       }
       period = { startDate: customStartDate, endDate: customEndDate };
     } else {
-      const firstTransaction = await window.electronAPI.getTransactions({ limit: 1 });
-      const startDate =
-        firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
-      const endDate = new Date().toISOString().split('T')[0];
-      period = { startDate, endDate };
+      try {
+        const firstTransaction = await window.electronAPI.getTransactions({ limit: 1 });
+        const startDate =
+          firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
+        const endDate = new Date().toISOString().split('T')[0];
+        period = { startDate, endDate };
+      } catch (error) {
+        setMessage({ type: 'danger', text: `✖️ تعذر تحديد الفترة الزمنية: ${error.message}` });
+        return;
+      }
     }
 
     try {

@@ -22,6 +22,7 @@ import LoginPage from '@renderer/pages/LoginPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import { showErrorToast, showSuccessToast } from '@renderer/utils/toast';
+import { error as logError } from '@renderer/utils/logger';
 
 // Lazy load heavy pages
 const StudentsPage = React.lazy(() => import('@renderer/pages/StudentsPage'));
@@ -60,37 +61,22 @@ function App() {
    * Listens for error and success toast events from the main process.
    */
   useEffect(() => {
-    // Listen for error toast events
-    const handleErrorToast = (event, message) => {
-      showErrorToast(message);
-    };
+    const handleErrorToast = (message) => showErrorToast(message);
+    const handleSuccessToast = (message) => showSuccessToast(message);
 
-    // Listen for success toast events
-    const handleSuccessToast = (event, message) => {
-      showSuccessToast(message);
-    };
-
-    // Set up listeners
-    // Note: In Electron, we need to use the global api directly since we're in a sandboxed context
-    try {
-      // Using the electron renderer process API directly since preload API is for invoking main process
-      const { ipcRenderer } = require('electron');
-      ipcRenderer.on('ui:show-error-toast', handleErrorToast);
-      ipcRenderer.on('ui:show-success-toast', handleSuccessToast);
-    } catch (e) {
-      // Fallback: try using the window methods if electron API import fails
-      console.warn('Could not set up toast IPC listeners directly:', e.message);
+    // The renderer is context-isolated, so the listeners must come from the preload bridge.
+    const api = window.electronAPI;
+    if (!api || typeof api.onShowErrorToast !== 'function') {
+      logError('Toast notifications from the main process are unavailable: preload API missing.');
+      return undefined;
     }
 
-    // Cleanup listeners on unmount
+    const unsubscribeError = api.onShowErrorToast(handleErrorToast);
+    const unsubscribeSuccess = api.onShowSuccessToast(handleSuccessToast);
+
     return () => {
-      try {
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.removeListener('ui:show-error-toast', handleErrorToast);
-        ipcRenderer.removeListener('ui:show-success-toast', handleSuccessToast);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      unsubscribeError();
+      unsubscribeSuccess();
     };
   }, []);
 
