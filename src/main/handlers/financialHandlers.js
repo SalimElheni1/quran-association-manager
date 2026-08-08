@@ -406,7 +406,7 @@ async function handleGetFinancialSummary(_event, period) {
     const incomeSql = `
       SELECT
         CASE 
-          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category
         END as category,
@@ -416,10 +416,10 @@ async function handleGetFinancialSummary(_event, period) {
       WHERE transaction_date BETWEEN ? AND ?
         AND type = 'INCOME'
         AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
-        AND (receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب')
+        AND (receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment')
       GROUP BY 
         CASE 
-          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category
         END

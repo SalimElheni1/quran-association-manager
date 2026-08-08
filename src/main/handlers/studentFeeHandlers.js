@@ -1634,7 +1634,7 @@ async function recordStudentPayment(event, paymentDetails) {
     const transactionResult = await db.runQuery(
       `
       INSERT INTO transactions (type, category, amount, transaction_date, description, payment_method, check_number, voucher_number, receipt_type, account_id, related_person_name, related_entity_type, related_entity_id, created_by_user_id)
-      VALUES ('INCOME', 'رسوم الطلاب', ?, ?, ?, ?, ?, ?, 'رسوم الطلاب', 1, ?, 'Student', ?, ?)
+      VALUES ('INCOME', 'رسوم الطلاب', ?, ?, ?, ?, ?, ?, 'fee_payment', 1, ?, 'Student', ?, ?)
     `,
       [
         amount,
@@ -1817,7 +1817,7 @@ async function refundStudentPayment(paymentId, userId = null) {
           await db.runQuery(
             `INSERT INTO transactions
              (type, category, amount, transaction_date, description, payment_method, receipt_type, account_id, related_entity_type, related_entity_id, created_by_user_id)
-             VALUES ('EXPENSE', 'استرجاع رسوم', ?, ?, ?, ?, 'رسوم الطلاب', ?, 'Student', ?, ?)`,
+             VALUES ('EXPENSE', 'استرجاع رسوم', ?, ?, ?, ?, 'fee_payment', ?, 'Student', ?, ?)`,
             [
               txn.amount,
               new Date().toISOString().split('T')[0],

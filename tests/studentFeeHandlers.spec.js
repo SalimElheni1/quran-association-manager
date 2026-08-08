@@ -705,6 +705,44 @@ describe('Student Fee Handlers', () => {
         [100, 'PAID', 2],
       );
     });
+
+    it('should write the unified receipt_type (fee_payment) on the payment transaction (D3)', async () => {
+      const paymentDetails = {
+        student_id: 1,
+        amount: 100,
+        payment_method: 'نقدي',
+        payment_type: 'رسوم الطلاب',
+      };
+      const event = { sender: { userId: 1 } };
+
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
+      db.runQuery.mockReset();
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
+        }
+        return Promise.resolve(null); // No duplicate receipt
+      });
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes("fee_type = 'CREDIT'") && sql.includes('amount_paid > 0')) {
+          return Promise.resolve([]); // No existing credit
+        }
+        if (sql.includes('fee_type !=')) {
+          return Promise.resolve([]); // No outstanding charges
+        }
+        return Promise.resolve([{ id: 1 }]); // Has unpaid charges -> skip auto-generation
+      });
+
+      await recordStudentPayment(event, paymentDetails);
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining("'fee_payment'"),
+        expect.any(Array),
+      );
+    });
   });
 
   // ============================================
