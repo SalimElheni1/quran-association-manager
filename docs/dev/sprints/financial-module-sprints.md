@@ -72,12 +72,13 @@ Goal: make the financial numbers trustworthy — account balances, charge genera
 - **Result:** full jest suite went from 41 failed / 434 passed → 30 failed / 444 passed; same 23 failing suites (no new failures, 11 fixed). Lint clean.
 - **Done when:** force regeneration behaves as documented without deleting payment history; refresh-all and selective refresh both do what their names say.
 
-### H6. Fix `fee_payment` receipt-book CHECK constraint
-- **Files:** migration `051-*` (or 017 amendment strategy) + `src/main/services/receiptService.js` (L24, L53-65)
+### H6. Fix `fee_payment` receipt-book CHECK constraint — DONE
+- **Files:** migration `052-extend-receipt-type-check.sql` (table rebuild) + `src/main/services/receiptService.js` (L24, L53-65)
 - **Bug:** D1 (audit §D, HIGH latent).
 - **Work:**
-  1. Extend the `receipt_books.receipt_type` CHECK to include `'fee_payment'` via a new migration (SQLite requires table rebuild) OR map `'fee_payment'` to an allowed value.
-  2. Unify the two receipt-number systems (D2) only if in scope; at minimum document the divergence.
+  1. Rebuilt `receipt_books` via migration `052` with the CHECK extended to `('payment', 'donation', 'expense', 'salary', 'fee_payment')` (copy data → drop → rename → recreate `idx_receipt_books_status`). Verified against real SQLite: existing rows + FKs preserved, `fee_payment` book inserts succeed, bogus types still rejected, FK enforcement intact.
+  2. Because `payments/donations/expenses/salaries` reference `receipt_books(id)` and FK enforcement is ON before migrations run, `DROP TABLE` alone fails (SQLite FK check on the implicit delete). Added FK toggling around each migration in `src/db/db.js` `runMigrations` (PRAGMA can't change inside a transaction; child refs are by name and survive the rename). This also future-proofs any later parent-table rebuilds.
+  3. D2 documented (not unified — out of scope): `receiptService.generateReceiptNumber` (RCP-YYYY-NNNN, seeds `start-1`, L215) and legacy `handleGetNextReceiptNumber` (BK-…-NNNN, seeds `start`, receiptHandlers.js:61) both `UPDATE current_receipt_number` on the same book → double-increment/skips if both are used. Renderer only uses the legacy `receipt-books:get-next-number('payment')` path; the `receipts:generate` path is not exposed in preload (still latent). D3 noted: `recordStudentPayment` writes `transactions.receipt_type = 'رسوم الطلاب'` (Arabic, no CHECK) — differs from every `receipt_books` type.
 - **Done when:** `receipts:generate` with `receiptType='fee_payment'` no longer throws on a fresh DB.
 
 ### H7. Fix latent update-transaction sign bug

@@ -186,9 +186,16 @@ async function runMigrations() {
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         // better-sqlite3 transactions are synchronous.
+        // PRAGMA foreign_keys cannot be changed inside a transaction, and some
+        // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
+        // child tables reference. Disable FK enforcement around the migration so
+        // the rebuild succeeds; child references are by name and survive the rename.
+        db.pragma('foreign_keys = OFF');
         applyMigration(file, migrationSql);
+        db.pragma('foreign_keys = ON');
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
+        db.pragma('foreign_keys = ON');
         // If the error is "duplicate column name", it means the migration was likely
         // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
