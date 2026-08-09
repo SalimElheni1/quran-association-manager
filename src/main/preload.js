@@ -227,15 +227,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
-  listCloudBackups: (settings) => ipcRenderer.invoke('backup:listCloud', settings),
-  downloadCloudBackup: (fileId, fileName) =>
-    ipcRenderer.invoke('backup:downloadCloud', fileId, fileName),
-  downloadCloudBackupFromLink: (link) => ipcRenderer.invoke('backup:downloadFromLink', link),
-  deleteCloudBackup: (id) => ipcRenderer.invoke('backup:deleteCloud', id),
-  runCloudBackup: (settings, createdBy) =>
-    ipcRenderer.invoke('backup:runCloud', settings, createdBy),
-  connectGoogle: () => ipcRenderer.invoke('backup:googleConnect'),
-  disconnectGoogle: () => ipcRenderer.invoke('backup:googleDisconnect'),
 
   // User Management API (for Superadmin)
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),

@@ -106,8 +106,6 @@ const runBackup = async (settings, backupFilePath) => {
     });
     log(message, `Path: ${backupFilePath}`);
 
-    // Local backup logic only. Cloud backup logic is now entirely separate
-    // and handled by cloudBackupManager.js via its own scheduler or IPC handlers.
     return {
       success: true,
       message: `تم إنشاء النسخة الاحتياطية بنجاح في: ${backupFilePath}`,

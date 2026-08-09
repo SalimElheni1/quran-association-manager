@@ -228,9 +228,6 @@ const initializeApp = async () => {
       if (settings) {
         // Start backup scheduler
         backupManager.startScheduler(settings);
-        // Start cloud backup scheduler
-        const cloudBackupManager = require('./cloudBackupManager');
-        cloudBackupManager.startCloudScheduler(settings);
 
         // Start fee charge scheduler
         startFeeChargeScheduler(settings);
@@ -446,12 +443,6 @@ app.on('will-quit', async () => {
   try {
     // Stop automated schedulers
     backupManager.stopScheduler();
-    try {
-      const cloudBackupManager = require('./cloudBackupManager');
-      if (cloudBackupManager.stopCloudScheduler) cloudBackupManager.stopCloudScheduler();
-    } catch (e) {
-      // Ignore: cloud backup manager may be unavailable
-    }
     stopFeeChargeScheduler();
     log('Schedulers stopped successfully.');
   } catch (error) {

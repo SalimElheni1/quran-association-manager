@@ -201,8 +201,7 @@ async function replaceDatabase(importedDbPath, password) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupPath = path.join(settings.backup_path, `pre-import-backup-${timestamp}.qdb`);
       log(`Creating safeguard backup before import at: ${backupPath}`);
-      // Disable cloud upload for this safeguard backup to avoid cluttering cloud storage
-      await backupManager.runBackup({ ...settings, cloud_backup_enabled: false }, backupPath);
+      await backupManager.runBackup(settings, backupPath);
     } else {
       logWarn('Skipping auto-backup before import: No backup path configured.');
     }
