@@ -18,7 +18,7 @@ const {
   allQuery,
 } = require('../db/db');
 const { generateMatricule } = require('./services/matriculeService');
-const { setDbSalt } = require('./keyManager');
+const { setDbSalt, getDbKey } = require('./keyManager');
 
 const CLASS_GENDER_MAP = {
   ذكر: 'men',
@@ -39,6 +39,25 @@ const CLASS_GENDER_MAP = {
 };
 
 const mainStore = new Store();
+
+/**
+ * Extracts raw ZIP buffer from encrypted or plaintext file.
+ * @param {Buffer} fileBuffer
+ * @returns {Buffer}
+ */
+function extractZipFromBuffer(fileBuffer) {
+  if (
+    fileBuffer.length >= 4 &&
+    fileBuffer[0] === 0x50 &&
+    fileBuffer[1] === 0x4b &&
+    fileBuffer[2] === 0x03 &&
+    fileBuffer[3] === 0x04
+  ) {
+    return fileBuffer;
+  }
+  const masterKey = getDbKey();
+  return backupManager.decryptBackup(fileBuffer, masterKey);
+}
 
 async function executeSqlScriptSafely(sqlScript) {
   // Get current database tables and their columns
@@ -119,13 +138,11 @@ async function executeSqlScriptSafely(sqlScript) {
 
 function fixStatementColumns(statement, columns, invalidColumns) {
   try {
-    // Find the VALUES part
     const valuesMatch = statement.match(/VALUES\s*\(([^)]+)\)/i);
     if (!valuesMatch) return null;
 
     const values = valuesMatch[1].split(',').map((v) => v.trim());
 
-    // Remove invalid columns and their corresponding values
     const validIndices = [];
     const validColumns = [];
 
@@ -138,7 +155,6 @@ function fixStatementColumns(statement, columns, invalidColumns) {
 
     const validValues = validIndices.map((idx) => values[idx]);
 
-    // Reconstruct the statement
     const tableMatch = statement.match(
       /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(\s]+)["']?/i,
     );
@@ -154,16 +170,29 @@ function fixStatementColumns(statement, columns, invalidColumns) {
 
 async function validateDatabaseFile(filePath) {
   try {
-    const zipFileContent = await fs.readFile(filePath);
-    const zip = new PizZip(zipFileContent);
+    const rawBuffer = await fs.readFile(filePath);
+    const zipBuffer = extractZipFromBuffer(rawBuffer);
+    const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
-    let configFile = zip.file('salt.json'); // Legacy: 'config.json'
-    if (!configFile) {
-      configFile = zip.file('config.json');
-    }
+    let configFile = zip.file('salt.json') || zip.file('config.json');
+
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
+
+    const signatureFile = zip.file('signature.txt');
+    if (signatureFile) {
+      const sqlScript = sqlFile.asText();
+      const masterKey = getDbKey();
+      const isValidSig = backupManager.verifySignature(sqlScript, masterKey, signatureFile.asText());
+      if (!isValidSig) {
+        return {
+          isValid: false,
+          message: 'توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.',
+        };
+      }
+    }
+
     return { isValid: true, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
   } catch (error) {
     logError('Error during backup validation:', error);
@@ -194,7 +223,6 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
 async function replaceDatabase(importedDbPath, password) {
   const currentDbPath = getDatabasePath();
 
-  // Auto-backup safeguard
   try {
     const settings = mainStore.get('settings') || {};
     if (settings.backup_path) {
@@ -207,26 +235,32 @@ async function replaceDatabase(importedDbPath, password) {
     }
   } catch (e) {
     logError('Failed to create auto-backup before import:', e);
-    // Proceed with import even if backup fails, but user is warned effectively by the log if they check.
   }
 
   try {
     if (isDbOpen()) {
       await closeDatabase();
     }
-    const zipFileContent = await fs.readFile(importedDbPath);
-    const zip = new PizZip(zipFileContent);
+    const rawBuffer = await fs.readFile(importedDbPath);
+    const zipBuffer = extractZipFromBuffer(rawBuffer);
+    const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
-    let configFile = zip.file('salt.json');
-    // For backward compatibility, check for the old config file name
-    if (!configFile) {
-      configFile = zip.file('config.json');
-    }
+    let configFile = zip.file('salt.json') || zip.file('config.json');
 
     if (!sqlFile || !configFile) {
       throw new Error('Could not find required files (backup.sql, salt.json) in backup package.');
     }
+
     const sqlScript = sqlFile.asText();
+    const signatureFile = zip.file('signature.txt');
+    if (signatureFile) {
+      const masterKey = getDbKey();
+      const isValidSig = backupManager.verifySignature(sqlScript, masterKey, signatureFile.asText());
+      if (!isValidSig) {
+        throw new Error('Backup HMAC signature mismatch! The backup file is corrupted or tampered with.');
+      }
+    }
+
     const configBuffer = configFile.asNodeBuffer();
     const configJson = JSON.parse(configBuffer.toString());
     const newSalt = configJson['db-salt'];
@@ -236,20 +270,17 @@ async function replaceDatabase(importedDbPath, password) {
     setDbSalt(newSalt);
     log('Salt configuration updated from backup.');
 
-    // Delete main DB file
     if (fsSync.existsSync(currentDbPath)) {
       log(`Deleting old database file at ${currentDbPath}...`);
       await unlinkWithRetry(currentDbPath);
     }
 
-    // Delete WAL file if exists
     const walPath = `${currentDbPath}-wal`;
     if (fsSync.existsSync(walPath)) {
       log(`Deleting old WAL file at ${walPath}...`);
       await unlinkWithRetry(walPath);
     }
 
-    // Delete SHM file if exists
     const shmPath = `${currentDbPath}-shm`;
     if (fsSync.existsSync(shmPath)) {
       log(`Deleting old SHM file at ${shmPath}...`);
@@ -260,7 +291,6 @@ async function replaceDatabase(importedDbPath, password) {
     log('New database initialized successfully.');
     log('Processing SQL script to import data...');
 
-    // Temporarily disable foreign key constraints during import
     log('Disabling foreign key constraints for import...');
     await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
 
@@ -268,12 +298,10 @@ async function replaceDatabase(importedDbPath, password) {
       await executeSqlScriptSafely(sqlScript);
       log('Data import completed successfully.');
     } finally {
-      // Always re-enable foreign key constraints
       log('Re-enabling foreign key constraints...');
       await dbExec(getDb(), 'PRAGMA foreign_keys = ON');
     }
 
-    // Migrate users without roles to user_roles table (for old backups)
     log('Checking for users without role assignments...');
     const usersWithoutRoles = await allQuery(`
       SELECT u.id, u.username
@@ -284,7 +312,6 @@ async function replaceDatabase(importedDbPath, password) {
     if (usersWithoutRoles.length > 0) {
       log(`Found ${usersWithoutRoles.length} users without roles. Assigning default roles...`);
       for (const user of usersWithoutRoles) {
-        // Assign Administrator role as default for imported users
         const roleId = await getQuery('SELECT id FROM roles WHERE name = ?', ['Administrator']);
         if (roleId) {
           await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
@@ -296,7 +323,6 @@ async function replaceDatabase(importedDbPath, password) {
       }
     }
 
-    // Fix matricule formats for imported data (convert old 6-digit to new 4-digit format)
     log('Checking for matricules that need format conversion...');
     const matriculeTables = [
       { name: 'students', prefix: 'S-' },
@@ -308,7 +334,6 @@ async function replaceDatabase(importedDbPath, password) {
 
     let matriculeFixes = 0;
     for (const table of matriculeTables) {
-      // Find matricules that are longer than expected (old 6-digit format)
       const matriculesToFix = await allQuery(`
         SELECT id, matricule
         FROM ${table.name}
@@ -318,14 +343,12 @@ async function replaceDatabase(importedDbPath, password) {
       `);
 
       for (const record of matriculesToFix) {
-        // Extract the numeric part and convert to 4-digit format
         const parts = record.matricule.split('-');
         if (parts.length === 2) {
           const prefix = parts[0] + '-';
           const number = parseInt(parts[1], 10);
           const newMatricule = prefix + number.toString().padStart(4, '0');
 
-          // Update the record
           await runQuery(`UPDATE ${table.name} SET matricule = ? WHERE id = ?`, [
             newMatricule,
             record.id,
@@ -343,7 +366,6 @@ async function replaceDatabase(importedDbPath, password) {
       log('All matricules were already in the correct format.');
     }
 
-    // Generate missing charges for students after import
     log('Checking for students without charges...');
     const { checkAndGenerateChargesForAllStudents } = require('./handlers/studentFeeHandlers');
     const chargeGenResult = await checkAndGenerateChargesForAllStudents();
@@ -387,33 +409,26 @@ const getColumnIndex = (headerRow, headerText) => {
   return index;
 };
 
-// Safe helper to get a cell value from a data row by header text.
-// Returns null when the header is not found instead of calling row.getCell(-1).
 const getCellValueByHeader = (headerRow, dataRow, headerText) => {
   const idx = getColumnIndex(headerRow, headerText);
   if (!idx || idx < 1) return null;
   try {
     const cell = dataRow.getCell(idx);
     if (!cell) return null;
-    // Handle hyperlinks which have a .text property
     return cell.value?.text || cell.value;
   } catch (e) {
-    // Defensive: if ExcelJS throws for any reason, return null so import can continue gracefully
     logWarn(`Failed to read cell for header "${headerText}": ${e.message}`);
     return null;
   }
 };
 
-// Normalize sheet names for tolerant matching (remove Arabic diacritics, normalize chars, trim)
 const normalizeSheetName = (s) => {
   if (!s || typeof s !== 'string') return s;
-  // NFKC normalization, remove common Arabic diacritics/tashkeel, collapse spaces
   const withoutDiacritics = s
     .normalize('NFKC')
     .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    // map Arabic alef/yaa/taa variants that commonly differ in input files
     .replace(/ى/g, 'ي')
     .replace(/أ|إ|آ/g, 'ا');
   return withoutDiacritics;
@@ -421,7 +436,6 @@ const normalizeSheetName = (s) => {
 
 const findWorksheetTolerant = (workbook, sheetName) => {
   if (!workbook || !sheetName) return null;
-  // exact first
   let ws = workbook.getWorksheet(sheetName);
   if (ws) return ws;
 
@@ -430,7 +444,6 @@ const findWorksheetTolerant = (workbook, sheetName) => {
     if (normalizeSheetName(candidate.name) === target) return candidate;
   }
 
-  // common Arabic plural/singular fallback (quick heuristic)
   if (sheetName === 'المعلمون' || sheetName === 'المعلمين') {
     ws = workbook.getWorksheet(sheetName === 'المعلمون' ? 'المعلمين' : 'المعلمون');
     if (ws) return ws;
@@ -439,26 +452,19 @@ const findWorksheetTolerant = (workbook, sheetName) => {
   return null;
 };
 
-// Parse a human-friendly schedule cell into the internal JSON array format.
-// Accepts either a JSON string/array or a simple Arabic string like:
-// "الإثنين 08:00-10:00; الأربعاء 09:00-11:00" or "Monday 08:00-10:00|Wednesday 09:00-11:00"
 const parseScheduleCell = (raw) => {
   if (!raw) return null;
-  // If already a JSON array string or JS array, try parse
   if (typeof raw === 'object') {
     return raw;
   }
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
-    // Try JSON
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) return parsed;
     } catch (e) {
-      // Not JSON, fall through to friendly parse
     }
 
-    // Split on semicolon or pipe
     const parts = trimmed
       .split(/;|\|/)
       .map((p) => p.trim())
@@ -489,18 +495,15 @@ const parseScheduleCell = (raw) => {
 
     const schedule = [];
     for (const part of parts) {
-      // Try to capture "day time-range" e.g. "الإثنين 08:00-10:00" or "Monday 08:00-10:00"
       const m = part.match(/^(\S+)\s+([0-2]?\d:[0-5]\d\s*-\s*[0-2]?\d:[0-5]\d)\s*$/);
       if (m) {
         let dayToken = m[1];
         const timeToken = m[2].replace(/\s+/g, '');
-        // Map Arabic day to English key if needed
         const dayKey = arabicDayMap[dayToken] || enDayMapLower[dayToken.toLowerCase()] || dayToken;
         schedule.push({ day: dayKey, time: timeToken });
         continue;
       }
 
-      // If not matching the strict pattern, attempt a relaxed parse: find time range then the remaining is day
       const timeMatch = part.match(/([0-2]?\d:[0-5]\d\s*-\s*[0-2]?\d:[0-5]\d)/);
       if (timeMatch) {
         const timeToken = timeMatch[1].replace(/\s+/g, '');
@@ -509,8 +512,6 @@ const parseScheduleCell = (raw) => {
         schedule.push({ day: dayKey, time: timeToken });
         continue;
       }
-
-      // As a last resort, skip badly formatted part
     }
 
     return schedule.length > 0 ? schedule : null;
@@ -527,9 +528,9 @@ async function importExcelData(filePath, selectedSheets) {
   const allSheetProcessors = {
     الطلاب: processStudentRow,
     المعلمون: processTeacherRow,
-    المعلمين: processTeacherRow, // Added for pluralization
+    المعلمين: processTeacherRow,
     المستخدمون: processUserRow,
-    المستخدمين: processUserRow, // Added for pluralization
+    المستخدمين: processUserRow,
     الفصول: processClassRow,
     'العمليات المالية': processTransactionRow,
     'رسوم الطلاب': processStudentFeesRow,
@@ -548,7 +549,6 @@ async function importExcelData(filePath, selectedSheets) {
       continue;
     }
 
-    // Try tolerant lookup for worksheet name (accept small variations in Arabic naming)
     let worksheet = findWorksheetTolerant(workbook, sheetName);
     if (!worksheet) {
       if (selectedSheets && selectedSheets.includes(sheetName)) {
@@ -576,8 +576,8 @@ async function importExcelData(filePath, selectedSheets) {
       results.errors.push(
         `ورقة "${sheetName}" ينقصها الأعمدة المطلوبة: ${missingColumns.join(', ')}`,
       );
-      results.errorCount += worksheet.rowCount - 2; // Approximate error count
-      continue; // Skip processing this sheet
+      results.errorCount += worksheet.rowCount - 2;
+      continue;
     }
 
     let processedRows = 0;
@@ -687,7 +687,6 @@ async function processStudentRow(row, headerRow) {
     const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
     if (matricule) {
-      // Update existing record
       const existingStudent = await getQuery('SELECT id FROM students WHERE matricule = ?', [
         matricule,
       ]);
@@ -696,7 +695,7 @@ async function processStudentRow(row, headerRow) {
       }
 
       if (fields.length === 0) {
-        return { success: true, message: 'لا يوجد بيانات لتحديثها.' }; // Nothing to update
+        return { success: true, message: 'لا يوجد بيانات لتحديثها.' };
       }
 
       const setClauses = fields.map((field) => `${field} = ?`).join(', ');
@@ -704,7 +703,6 @@ async function processStudentRow(row, headerRow) {
       await runQuery(`UPDATE students SET ${setClauses} WHERE matricule = ?`, values);
       return { success: true };
     }
-    // Insert new record
     const existingStudent = await getQuery(
       'SELECT id FROM students WHERE name = ? OR national_id = ?',
       [data.name, data.national_id],
@@ -765,7 +763,6 @@ async function processTeacherRow(row, headerRow) {
     const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
     if (matricule) {
-      // Update existing record
       const existingTeacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [
         matricule,
       ]);
@@ -782,7 +779,6 @@ async function processTeacherRow(row, headerRow) {
       await runQuery(`UPDATE teachers SET ${setClauses} WHERE matricule = ?`, values);
       return { success: true };
     }
-    // Insert new record
     const existingTeacher = await getQuery('SELECT id FROM teachers WHERE national_id = ?', [
       data.national_id,
     ]);
@@ -814,15 +810,13 @@ async function processUserRow(row, headerRow) {
   try {
     const matricule = getCellValueByHeader(headerRow, row, 'الرقم التعريفي');
 
-    // Get the role from the template (might be in English)
     const roleValue = getCellValueByHeader(headerRow, row, 'الدور');
-    // Map common role names to database format if needed
     const roleMappings = {
       Superadmin: 'Superadmin',
       Administrator: 'Administrator',
       FinanceManager: 'FinanceManager',
       SessionSupervisor: 'SessionSupervisor',
-      Manager: 'Administrator', // Fallback mapping for template
+      Manager: 'Administrator',
       مدير: 'Administrator',
       محاسب: 'FinanceManager',
     };
@@ -860,7 +854,6 @@ async function processUserRow(row, headerRow) {
     }
 
     if (matricule) {
-      // Update existing record - need to handle user roles
       const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
       if (!existingUser) {
         return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
@@ -869,7 +862,6 @@ async function processUserRow(row, headerRow) {
       await runQuery('BEGIN TRANSACTION');
 
       try {
-        // Update basic user data
         const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
         if (fields.length > 0) {
           const setClauses = fields.map((field) => `${field} = ?`).join(', ');
@@ -877,10 +869,8 @@ async function processUserRow(row, headerRow) {
           await runQuery(`UPDATE users SET ${setClauses} WHERE matricule = ?`, values);
         }
 
-        // Update roles - remove existing and add new
         await runQuery('DELETE FROM user_roles WHERE user_id = ?', [existingUser.id]);
 
-        // Get role ID and assign
         const roleRecord = await getQuery('SELECT id FROM roles WHERE name = ?', [mappedRole]);
         if (roleRecord) {
           await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
@@ -897,7 +887,6 @@ async function processUserRow(row, headerRow) {
       }
     }
 
-    // Insert new record
     const existingUser = await getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
     if (existingUser) {
       return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
@@ -909,7 +898,6 @@ async function processUserRow(row, headerRow) {
     await runQuery('BEGIN TRANSACTION');
 
     try {
-      // Insert main user record
       const allFields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
       const userFields = [...allFields, 'matricule', 'password'];
       const placeholders = userFields.map(() => '?').join(', ');
@@ -924,7 +912,6 @@ async function processUserRow(row, headerRow) {
         values,
       );
 
-      // Assign role
       const roleRecord = await getQuery('SELECT id FROM roles WHERE name = ?', [mappedRole]);
       if (!roleRecord) {
         throw new Error(`Role "${mappedRole}" not found.`);
@@ -948,7 +935,6 @@ async function processUserRow(row, headerRow) {
 
 async function processClassRow(row, headerRow) {
   try {
-    // Accept either teacher matricule (معرف المعلم) or teacher name (اسم المعلم)
     const teacherMatricule = getCellValueByHeader(headerRow, row, 'معرف المعلم');
     const teacherName = getCellValueByHeader(headerRow, row, 'اسم المعلم');
 
@@ -959,12 +945,10 @@ async function processClassRow(row, headerRow) {
         return { success: false, message: `لم يتم العثور على معلم بالمعرف "${teacherMatricule}".` };
       }
     } else if (teacherName) {
-      // Try to find teacher by name (case-insensitive)
       teacher = await getQuery('SELECT id FROM teachers WHERE LOWER(name) = LOWER(?)', [
         teacherName,
       ]);
       if (!teacher) {
-        // Try a LIKE search as fallback
         const likeMatch = await getQuery('SELECT id FROM teachers WHERE name LIKE ?', [
           `%${teacherName}%`,
         ]);
@@ -999,7 +983,6 @@ async function processClassRow(row, headerRow) {
       gender: getCellValueByHeader(headerRow, row, 'الجنس'),
     };
 
-    // Normalize class gender to allowed DB values
     try {
       if (data.gender) {
         const rawGender = String(data.gender).trim();
@@ -1007,10 +990,8 @@ async function processClassRow(row, headerRow) {
         data.gender = CLASS_GENDER_MAP[rawGender] || CLASS_GENDER_MAP[lower] || data.gender;
       }
     } catch (e) {
-      /* ignore and keep original */
     }
 
-    // Normalize class status to DB keys
     try {
       if (data.status) {
         const rawStatus = String(data.status).trim();
@@ -1018,7 +999,6 @@ async function processClassRow(row, headerRow) {
           CLASS_STATUS_MAP[rawStatus] || CLASS_STATUS_MAP[rawStatus.toLowerCase()] || data.status;
       }
     } catch (e) {
-      /* ignore and keep original */
     }
 
     if (!data.name) {
@@ -1038,7 +1018,6 @@ async function processClassRow(row, headerRow) {
 }
 
 async function processTransactionRow(row, headerRow) {
-  // Arabic translations for transaction types and payment methods
   const TRANSACTION_TYPE_MAP = {
     مدخول: 'INCOME',
     مصروف: 'EXPENSE',
@@ -1053,7 +1032,6 @@ async function processTransactionRow(row, headerRow) {
     'تحويل بنكي': 'TRANSFER',
   };
 
-  // Map old category names to new ones
   const CATEGORY_MAP = {
     'رواتب المعلمين': 'منح ومرتبات',
     'رواتب الإداريين': 'منح ومرتبات',
@@ -1064,7 +1042,6 @@ async function processTransactionRow(row, headerRow) {
     'مصاريف أخرى': 'نفقات متنوعة',
   };
 
-  // Get data
   const rawType = row.getCell(getColumnIndex(headerRow, 'النوع')).value;
   const rawCategory = row.getCell(getColumnIndex(headerRow, 'الفئة')).value;
   const rawPaymentMethod = row.getCell(getColumnIndex(headerRow, 'طريقة الدفع')).value;
@@ -1082,7 +1059,6 @@ async function processTransactionRow(row, headerRow) {
     related_person_name: row.getCell(getColumnIndex(headerRow, 'اسم الشخص')).value,
   };
 
-  // Validation
   if (
     !data.type ||
     !data.category ||
@@ -1092,7 +1068,6 @@ async function processTransactionRow(row, headerRow) {
   )
     return { success: false, message: 'النوع، الفئة، المبلغ، التاريخ، وطريقة الدفع مطلوبة.' };
 
-  // Validate transaction type
   if (!['INCOME', 'EXPENSE'].includes(data.type)) {
     return {
       success: false,
@@ -1100,7 +1075,6 @@ async function processTransactionRow(row, headerRow) {
     };
   }
 
-  // Validate category exists in database
   const validCategories = await allQuery(
     'SELECT name FROM categories WHERE type = ? AND is_active = 1',
     [data.type === 'INCOME' ? 'INCOME' : 'EXPENSE'],
@@ -1114,7 +1088,6 @@ async function processTransactionRow(row, headerRow) {
     };
   }
 
-  // Validate receipt type for cash donations
   const VALID_RECEIPT_TYPES = ['تبرع', 'هبة', 'صدقة', 'زكاة'];
   const receiptTypeIndex = getColumnIndex(headerRow, 'نوع الوصل');
 
@@ -1129,7 +1102,6 @@ async function processTransactionRow(row, headerRow) {
     };
   }
 
-  // Validate payment method
   if (!['CASH', 'CHECK', 'TRANSFER'].includes(data.payment_method)) {
     return {
       success: false,
@@ -1137,14 +1109,12 @@ async function processTransactionRow(row, headerRow) {
     };
   }
 
-  // 500 TND rule - Arabic translation
   if (data.amount > 500 && data.payment_method === 'CASH')
     return {
       success: false,
       message: 'المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي.',
     };
 
-  // Generate matricule
   const year = new Date(data.transaction_date).getFullYear();
   const prefix = data.type === 'INCOME' ? 'I' : 'E';
   const lastTransaction = await getQuery(
@@ -1158,7 +1128,6 @@ async function processTransactionRow(row, headerRow) {
   }
   const matricule = `${prefix}-${year}-${sequence.toString().padStart(3, '0')}`;
 
-  // Generate voucher number ONLY if not provided (user's request)
   if (!data.voucher_number) {
     const { generateVoucherNumber } = require('./services/voucherService');
     data.voucher_number = await generateVoucherNumber();
@@ -1261,7 +1230,6 @@ async function processGroupRow(row, headerRow) {
     const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
 
     if (matricule) {
-      // Update existing record
       const existingGroup = await getQuery('SELECT id FROM groups WHERE matricule = ?', [
         matricule,
       ]);
@@ -1279,7 +1247,6 @@ async function processGroupRow(row, headerRow) {
       return { success: true };
     }
 
-    // Insert new record
     const existingGroup = await getQuery('SELECT id FROM groups WHERE name = ?', [data.name]);
     if (existingGroup) {
       return { success: false, message: `المجموعة "${data.name}" موجودة بالفعل.` };
@@ -1332,13 +1299,11 @@ async function processInventoryRow(row, headerRow) {
       return { success: false, message: 'اسم العنصر، الفئة، الكمية، وقيمة الوحدة مطلوبة.' };
     }
 
-    // Check if item already exists - if so, update quantity instead of rejecting
     const existingItem = await getQuery(
       'SELECT id, quantity, unit_value FROM inventory_items WHERE item_name = ? COLLATE NOCASE',
       [data.item_name],
     );
     if (existingItem) {
-      // Update existing item: add to quantity and recalculate total_value
       const newQuantity = existingItem.quantity + data.quantity;
       const newTotalValue = newQuantity * existingItem.unit_value;
       await runQuery('UPDATE inventory_items SET quantity = ?, total_value = ? WHERE id = ?', [
@@ -1389,7 +1354,6 @@ const ATTENDANCE_MAP_AR_TO_EN = {
   غائب: 'absent',
 };
 
-// Mapping for class status values (database uses: 'pending','active','completed')
 const CLASS_STATUS_MAP = {
   'قيد الانتظار': 'pending',
   قيد_الانتظار: 'pending',
@@ -1402,7 +1366,6 @@ const CLASS_STATUS_MAP = {
 
 async function processStudentFeesRow(row, headerRow) {
   try {
-    // Helper function to get and trim cell values, preserving leading zeros for receipt numbers
     const getTrimmedCellValue = (headerText, preserveLeadingZeros = false) => {
       const cell = row.getCell(getColumnIndex(headerRow, headerText));
       if (!cell || !cell.value) return null;
@@ -1413,7 +1376,6 @@ async function processStudentFeesRow(row, headerRow) {
       return String(value).trim();
     };
 
-    // Payment method mapping
     const PAYMENT_METHOD_MAP = {
       نقدي: 'CASH',
       شيك: 'CHECK',
@@ -1421,7 +1383,6 @@ async function processStudentFeesRow(row, headerRow) {
       'تحويل بنكي': 'TRANSFER',
     };
 
-    // Payment type mapping
     const PAYMENT_TYPE_MAP = {
       'رسوم شهرية': 'MONTHLY',
       'رسوم سنوية': 'ANNUAL',
@@ -1444,7 +1405,6 @@ async function processStudentFeesRow(row, headerRow) {
       notes: getTrimmedCellValue('ملاحظات'),
     };
 
-    // Validation with better error messages
     if (!data.student_matricule) {
       return { success: false, message: 'رقم التعريفي للطالب مطلوب.' };
     }
@@ -1461,7 +1421,6 @@ async function processStudentFeesRow(row, headerRow) {
       return { success: false, message: 'طريقة الدفع مطلوبة.' };
     }
 
-    // Validate student exists
     const student = await getQuery('SELECT id FROM students WHERE matricule = ?', [
       data.student_matricule,
     ]);
@@ -1472,19 +1431,16 @@ async function processStudentFeesRow(row, headerRow) {
       };
     }
 
-    // Map payment method
     const mappedPaymentMethod = PAYMENT_METHOD_MAP[data.payment_method] || data.payment_method;
     if (!['CASH', 'CHECK', 'TRANSFER'].includes(mappedPaymentMethod)) {
       return { success: false, message: 'طريقة الدفع يجب أن تكون نقدي، شيك، أو تحويل.' };
     }
 
-    // Map payment type
     const mappedPaymentType = PAYMENT_TYPE_MAP[data.payment_type] || data.payment_type;
     if (!['MONTHLY', 'ANNUAL', 'SPECIAL'].includes(mappedPaymentType)) {
       return { success: false, message: 'نوع الدفعة يجب أن يكون رسوم شهرية، سنوية، أو خاصة.' };
     }
 
-    // For SPECIAL payments, validate class exists if class_matricule is provided
     let classId = null;
     if (mappedPaymentType === 'SPECIAL' && data.class_matricule) {
       const classData = await getQuery('SELECT id FROM classes WHERE matricule = ?', [
@@ -1521,7 +1477,6 @@ async function processStudentFeesRow(row, headerRow) {
       }
     }
 
-    // Record the payment using the existing handler
     const paymentDetails = {
       student_id: student.id,
       amount: parseFloat(data.amount),
@@ -1531,12 +1486,11 @@ async function processStudentFeesRow(row, headerRow) {
       receipt_number: data.receipt_number,
       check_number: data.check_number,
       notes: data.notes,
-      class_id: classId, // This will be stored in the class_id column
+      class_id: classId,
     };
 
-    // Use the existing recordStudentPayment function
     await require('./handlers/studentFeeHandlers').recordStudentPayment(
-      { sender: { userId: 1 } }, // Mock event with userId
+      { sender: { userId: 1 } },
       paymentDetails,
     );
 
@@ -1553,7 +1507,6 @@ const exported = {
   importExcelData,
 };
 
-// Conditionally export internal functions for testing
 if (process.env.NODE_ENV === 'test') {
   exported.processStudentRow = processStudentRow;
   exported.processTeacherRow = processTeacherRow;

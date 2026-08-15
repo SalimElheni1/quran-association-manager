@@ -1,6 +1,5 @@
 // tests/backupManager.spec.js
 
-// Mock all dependencies at the top level
 jest.mock('fs', () => ({
   promises: {
     writeFile: jest.fn().mockResolvedValue(),
@@ -12,7 +11,6 @@ jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/keyManager');
 
-// A proper mock for electron-store
 const mockStore = {
   get: jest.fn(),
   set: jest.fn(),
@@ -30,7 +28,6 @@ describe('backupManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    // Make setInterval return a dummy ID
     global.setInterval = jest.fn(() => 123);
     global.clearInterval = jest.fn();
 
@@ -50,6 +47,9 @@ describe('backupManager', () => {
       const mockZip = { file: jest.fn(), generate: jest.fn().mockReturnValue(Buffer.from('zip')) };
       PizZip.mockImplementation(() => mockZip);
       keyManager.getDbSalt.mockReturnValue('test-salt');
+      keyManager.getDbKey.mockReturnValue(
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      );
       db.allQuery
         .mockResolvedValueOnce([{ name: 'students' }])
         .mockResolvedValueOnce([{ id: 1, name: 'John' }]);

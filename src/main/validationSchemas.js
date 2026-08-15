@@ -1,5 +1,19 @@
 const Joi = require('joi');
 
+const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{};':"\\|,.<>\/?]).{12,}$/;
+
+const strongPasswordSchema = Joi.string()
+  .min(12)
+  .pattern(strongPasswordPattern)
+  .required()
+  .messages({
+    'string.min': 'كلمة المرور يجب أن تكون 12 حرفاً على الأقل',
+    'string.pattern.base':
+      'كلمة المرور يجب أن تحتوي على حرف كبير، حرف صغير، رقم، ورمز خاص (@$!%*?&#)',
+    'string.empty': 'كلمة المرور مطلوبة',
+    'any.required': 'كلمة المرور مطلوبة',
+  });
+
 const studentValidationSchema = Joi.object({
   matricule: Joi.string()
     .pattern(/^S-\d{4}$/)
@@ -144,11 +158,7 @@ const userValidationSchema = Joi.object({
     'string.empty': 'اسم المستخدم مطلوب',
     'any.required': 'اسم المستخدم مطلوب',
   }),
-  password: Joi.string().min(8).required().messages({
-    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-    'string.empty': 'كلمة المرور مطلوبة',
-    'any.required': 'كلمة المرور مطلوبة',
-  }),
+  password: strongPasswordSchema,
   first_name: Joi.string().min(2).max(50).required().messages({
     'string.empty': 'الاسم الأول مطلوب',
     'any.required': 'الاسم الأول مطلوب',
@@ -194,9 +204,15 @@ const userValidationSchema = Joi.object({
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({
-  password: Joi.string().min(8).allow(null, '').messages({
-    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-  }),
+  password: Joi.string()
+    .min(12)
+    .pattern(strongPasswordPattern)
+    .allow(null, '')
+    .messages({
+      'string.min': 'كلمة المرور يجب أن تكون 12 حرفاً على الأقل',
+      'string.pattern.base':
+        'كلمة المرور يجب أن تحتوي على حرف كبير، حرف صغير، رقم، ورمز خاص (@$!%*?&#)',
+    }),
   status: Joi.string().valid('active', 'inactive').required(),
   roles: Joi.array()
     .items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'))
@@ -208,11 +224,7 @@ const passwordUpdateValidationSchema = Joi.object({
     'string.empty': 'كلمة المرور الحالية مطلوبة',
     'any.required': 'كلمة المرور الحالية مطلوبة',
   }),
-  new_password: Joi.string().min(6).required().messages({
-    'string.min': 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
-    'string.empty': 'كلمة المرور الجديدة مطلوبة',
-    'any.required': 'كلمة المرور الجديدة مطلوبة',
-  }),
+  new_password: strongPasswordSchema,
   confirm_new_password: Joi.any().valid(Joi.ref('new_password')).required().messages({
     'any.only': 'كلمة المرور الجديدة غير متطابقة',
     'any.required': 'يجب تأكيد كلمة المرور الجديدة',
@@ -276,4 +288,6 @@ module.exports = {
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
   transactionValidationSchema,
+  strongPasswordPattern,
+  strongPasswordSchema,
 };

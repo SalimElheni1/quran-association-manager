@@ -4,6 +4,46 @@ const path = require('path');
 
 let logFilePath = null;
 
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'current_password',
+  'new_password',
+  'confirm_new_password',
+  'token',
+  'jwt',
+  'secret',
+  'jwt_secret',
+  'national_id',
+  'credit_card',
+  'authorization',
+]);
+
+/**
+ * Sanitizes sensitive properties in objects to prevent PII/credential leaks in logs.
+ * @param {any} data
+ * @returns {any}
+ */
+function sanitizeForLog(data) {
+  if (data === null || data === undefined) return data;
+  if (typeof data !== 'object') return data;
+
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForLog(item));
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (SENSITIVE_KEYS.has(key.toLowerCase())) {
+      sanitized[key] = '[REDACTED]';
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeForLog(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 /**
  * Initialize log file path (called after app is ready)
  */
@@ -18,54 +58,47 @@ const initializeLogFile = () => {
  */
 const writeToFile = (level, args) => {
   if (!logFilePath) {
-    // Try to initialize if not already done
     initializeLogFile();
   }
 
-  if (logFilePath) {
+  if (logFilePath && typeof fs.appendFileSync === 'function') {
     try {
       const timestamp = new Date().toISOString();
-      const message = args
+      const sanitizedArgs = args.map((arg) => sanitizeForLog(arg));
+      const message = sanitizedArgs
         .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
         .join(' ');
       const logLine = `[${timestamp}] [${level}] ${message}\n`;
 
       fs.appendFileSync(logFilePath, logLine, 'utf-8');
     } catch (e) {
-      // Silently fail if we can't write to file
-      console.error('Failed to write to log file:', e);
+      // Silently ignore log write errors
     }
   }
 };
 
 const log = (...args) => {
-  // In a plain Node.js script (like our verification script), `app` will be undefined.
-  // In Electron, we check if the app is packaged.
-  // This ensures console logs appear during development and in our script, but not in production.
   if (!app || (app && !app.isPackaged)) {
-    console.log(...args);
+    const sanitizedArgs = args.map((arg) => sanitizeForLog(arg));
+    console.log(...sanitizedArgs);
   }
 
-  // Always write to file
   writeToFile('LOG', args);
 };
 
 const warn = (...args) => {
   if (!app || (app && !app.isPackaged)) {
-    console.warn(...args);
+    const sanitizedArgs = args.map((arg) => sanitizeForLog(arg));
+    console.warn(...sanitizedArgs);
   }
 
-  // Always write to file
   writeToFile('WARN', args);
 };
 
 const error = (...args) => {
-  // Errors are important, so we always log them.
-  // The production crash logger will handle uncaught exceptions,
-  // but this is useful for handled errors.
-  console.error(...args);
+  const sanitizedArgs = args.map((arg) => sanitizeForLog(arg));
+  console.error(...sanitizedArgs);
 
-  // Always write to file
   writeToFile('ERROR', args);
 };
 
@@ -78,10 +111,9 @@ const getLogFilePath = () => logFilePath;
  * Clear the log file (useful before starting test scenarios)
  */
 const clearLogFile = () => {
-  if (logFilePath) {
+  if (logFilePath && typeof fs.writeFileSync === 'function') {
     try {
       fs.writeFileSync(logFilePath, '', 'utf-8');
-      console.log(`Log file cleared: ${logFilePath}`);
     } catch (e) {
       console.error('Failed to clear log file:', e);
     }
@@ -95,4 +127,5 @@ module.exports = {
   initializeLogFile,
   getLogFilePath,
   clearLogFile,
+  sanitizeForLog,
 };

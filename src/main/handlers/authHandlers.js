@@ -7,15 +7,47 @@ const {
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
 } = require('../validationSchemas');
-const Joi = require('joi'); // Keep Joi for the complex password confirmation
+const Joi = require('joi');
 const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const { error: logError } = require('../logger');
 
+// Sliding window rate limiter for auth:login
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const loginAttemptsMap = new Map();
+
+function checkLoginRateLimit(identifier) {
+  const now = Date.now();
+  const attempts = (loginAttemptsMap.get(identifier) || []).filter(
+    (t) => now - t < LOCKOUT_WINDOW_MS,
+  );
+  loginAttemptsMap.set(identifier, attempts);
+
+  if (attempts.length >= MAX_LOGIN_ATTEMPTS) {
+    const oldestAttempt = attempts[0];
+    const retryAfter = Math.ceil((oldestAttempt + LOCKOUT_WINDOW_MS - now) / 1000);
+    return { isLimited: true, retryAfter };
+  }
+
+  return { isLimited: false, retryAfter: 0 };
+}
+
+function recordFailedLoginAttempt(identifier) {
+  const now = Date.now();
+  const attempts = loginAttemptsMap.get(identifier) || [];
+  attempts.push(now);
+  loginAttemptsMap.set(identifier, attempts);
+}
+
+function clearLoginAttempts(identifier) {
+  loginAttemptsMap.delete(identifier);
+}
+
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
     current_password: Joi.string().allow(null, ''),
-    new_password: Joi.string().min(6).allow(null, ''),
+    new_password: Joi.string().min(12).allow(null, ''),
     confirm_new_password: Joi.any()
       .valid(Joi.ref('new_password'))
       .when('new_password', {
@@ -58,7 +90,6 @@ const getProfileHandler = async (token) => {
   );
   userProfile.roles = roles.map((r) => r.name);
 
-  // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
   try {
     userProfile.need_guide = !!userProfile.need_guide;
   } catch (e) {
@@ -81,7 +112,6 @@ const updateProfileHandler = async (token, profileData) => {
     stripUnknown: true,
   });
 
-  // Check for username uniqueness
   if (validatedData.username) {
     const existingUser = await db.getQuery('SELECT id FROM users WHERE username = ?', [
       validatedData.username,
@@ -100,7 +130,7 @@ const updateProfileHandler = async (token, profileData) => {
     if (!isMatch) {
       throw new Error('كلمة المرور الحالية غير صحيحة.');
     }
-    validatedData.password = await bcrypt.hash(validatedData.new_password, 10);
+    validatedData.password = await bcrypt.hash(validatedData.new_password, 12);
   }
 
   const fieldsToExclude = [
@@ -143,7 +173,7 @@ const updatePasswordHandler = async (token, passwordData) => {
   if (!isMatch) {
     throw new Error('كلمة المرور الحالية غير صحيحة.');
   }
-  const hashedPassword = await bcrypt.hash(validatedData.new_password, 10);
+  const hashedPassword = await bcrypt.hash(validatedData.new_password, 12);
 
   const sql = 'UPDATE users SET password = ? WHERE id = ?';
   await db.runQuery(sql, [hashedPassword, userId]);
@@ -154,20 +184,33 @@ const updatePasswordHandler = async (token, passwordData) => {
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (_event, { username, password }) => {
     try {
-      // The database is now initialized on app startup, not here.
-      // We just need to make sure it's open.
+      const identifier = username || 'anonymous';
+      const rateLimitStatus = checkLoginRateLimit(identifier);
+
+      if (rateLimitStatus.isLimited) {
+        return {
+          success: false,
+          retryAfter: rateLimitStatus.retryAfter,
+          message: `تم تجاوز عدد محاولات تسجيل الدخول المسموح بها. يرجى الانتظار ${rateLimitStatus.retryAfter} ثانية.`,
+        };
+      }
+
       if (!db.isDbOpen()) {
         await db.initializeDatabase();
       }
 
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
       if (!user) {
+        recordFailedLoginAttempt(identifier);
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
+        recordFailedLoginAttempt(identifier);
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
+
+      clearLoginAttempts(identifier);
 
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
@@ -177,14 +220,12 @@ function registerAuthHandlers() {
 
       await refreshSettings();
 
-      // After successful login, cache the logo path for offline access
       try {
         const store = new Store();
         const { settings } = await internalGetSettingsHandler();
         if (settings?.regional_local_logo_path) {
           store.set('cached_logo_path', settings.regional_local_logo_path);
         } else {
-          // If no specific logo is set, clear the cache
           store.delete('cached_logo_path');
         }
       } catch (e) {
@@ -205,7 +246,7 @@ function registerAuthHandlers() {
           first_name: user.first_name,
           last_name: user.last_name,
           roles: userRoles,
-          need_guide: !!user.need_guide, // Ensure need_guide is passed to the renderer
+          need_guide: !!user.need_guide,
         },
       };
     } catch (error) {
@@ -256,4 +297,7 @@ function registerAuthHandlers() {
 
 module.exports = {
   registerAuthHandlers,
+  checkLoginRateLimit,
+  recordFailedLoginAttempt,
+  clearLoginAttempts,
 };

@@ -780,8 +780,18 @@ function registerFinancialHandlers() {
   );
 
   // Categories
-  ipcMain.handle('categories:get', handleGetCategories);
-  ipcMain.handle('in-kind-categories:get', handleGetInKindCategories);
+  ipcMain.handle(
+    'categories:get',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(
+      handleGetCategories,
+    ),
+  );
+  ipcMain.handle(
+    'in-kind-categories:get',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(
+      handleGetInKindCategories,
+    ),
+  );
   ipcMain.handle(
     'in-kind-categories:add',
     requireRoles(['Superadmin', 'Administrator'])(handleAddInKindCategory),

@@ -11,6 +11,18 @@ const { log, error: logError, warn: logWarn } = require('../main/logger');
 // --- Refactor: `db` is now a better-sqlite3 instance ---
 let db; // This will hold our database connection object
 
+/**
+ * Validates that an encryption key is a strict 64-character hex string.
+ * @param {string} key
+ * @returns {boolean}
+ */
+function validateHexKey(key) {
+  if (typeof key !== 'string' || !/^[0-9a-fA-F]{64}$/.test(key)) {
+    throw new Error('Invalid encryption key format: Must be a 64-character hex string.');
+  }
+  return true;
+}
+
 // Helper function to get database file path
 function getDatabasePath() {
   // Check if running in Electron or a plain Node.js script
@@ -52,8 +64,8 @@ async function seedSuperadmin() {
     if (!existingAdmin) {
       log('No superadmin found. Seeding default superadmin...');
 
-      const tempPassword = '123456';
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const tempPassword = crypto.randomBytes(12).toString('base64url').slice(0, 16);
+      const hashedPassword = await bcrypt.hash(tempPassword, 12);
       const username = 'superadmin';
 
       // Insert the user without the 'role' column (removed in migration 026)
@@ -133,23 +145,12 @@ function isDbEncrypted(filePath) {
  */
 async function migrateToEncrypted(dbPath, key) {
   log('Plaintext database detected. Starting migration to encrypted format...');
+  validateHexKey(key);
 
-  // Implementation for better-sqlite3-multiple-ciphers rekey/migration
-  // Basic strategy: open plaintext, rekey it.
   try {
     const tempDb = new Database(dbPath);
-    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey,
-    // or if the library supports it, use standard sqlcipher_export if compatible.
-    // However, simplest valid approach with sqlite3mc often is:
-    // 1. Open as plaintext.
-    // 2. PRAGMA rekey = 'key';
-
-    // Note: older better-sqlite3 bindings didn't support rekey easily.
-    // better-sqlite3-multiple-ciphers supports the "rekey" pragma for SQLCipher.
-
     log('Applying rekey pragma...');
     tempDb.pragma(`rekey = '${key}'`);
-    // Force a write to ensure encryption is applied? VACUUM is often good practice.
     tempDb.exec('VACUUM');
     tempDb.close();
 
@@ -171,10 +172,6 @@ async function runMigrations() {
   const migrationFiles = fs.readdirSync(migrationsDir).sort();
   const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
 
-  // We need to use synchronous exec inside the loop, but we wrap it in our async logic.
-  // Actually, since this function is async, we can just call our promisified helpers.
-  // But for better-sqlite3 transaction logic, we can use the synchronous transaction feature.
-
   const applyMigration = db.transaction((file, migrationSql) => {
     db.exec(migrationSql);
     db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
@@ -185,22 +182,14 @@ async function runMigrations() {
       log(`Applying migration: ${file}`);
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        // better-sqlite3 transactions are synchronous.
-        // PRAGMA foreign_keys cannot be changed inside a transaction, and some
-        // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
-        // child tables reference. Disable FK enforcement around the migration so
-        // the rebuild succeeds; child references are by name and survive the rename.
         db.pragma('foreign_keys = OFF');
         applyMigration(file, migrationSql);
         db.pragma('foreign_keys = ON');
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
         db.pragma('foreign_keys = ON');
-        // If the error is "duplicate column name", it means the migration was likely
-        // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
           logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
-          // Manually insert into migrations table so it doesn't run again
           try {
             db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
           } catch (e) {
@@ -230,6 +219,7 @@ async function initializeDatabase() {
   const dbPath = getDatabasePath();
   log(`[DB_LOG] Database path: ${dbPath}`);
   const key = getDbKey();
+  validateHexKey(key);
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
@@ -345,7 +335,6 @@ async function initializeDatabase() {
 }
 
 // --- Refactor: Promisify the synchronous API ---
-// This maintains compatibility with the rest of the application.
 
 function getDb() {
   if (!db || !db.open) {
@@ -367,8 +356,6 @@ function dbRun(database, sql, params = []) {
 }
 
 function runQuery(sql, params = []) {
-  // Use module-level db implicitly if not passed, but matching original structure:
-  // Original runQuery called dbRun(getDb(), ...)
   try {
     return dbRun(getDb(), sql, params);
   } catch (err) {
@@ -470,4 +457,5 @@ module.exports = {
   isDbOpen,
   dbExec,
   withTransaction,
+  validateHexKey,
 };

@@ -18,7 +18,7 @@
  * @requires electron-store - Persistent settings storage
  */
 
-const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, session } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
@@ -143,19 +143,8 @@ const initializeApp = async () => {
     // =================================================================================
     // JWT SECRET MANAGEMENT
     // =================================================================================
-    let jwtSecret;
-    if (app.isPackaged) {
-      jwtSecret = store.get('jwt_secret');
-      if (!jwtSecret) {
-        log('JWT secret not found in store, generating a new one...');
-        jwtSecret = crypto.randomBytes(32).toString('hex');
-        store.set('jwt_secret', jwtSecret);
-        log('New JWT secret generated and stored.');
-      }
-    } else {
-      jwtSecret = process.env.JWT_SECRET;
-    }
-
+    const { getJwtSecret } = require('./keyManager');
+    const jwtSecret = getJwtSecret();
     if (!jwtSecret) {
       throw new Error(
         'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
@@ -289,54 +278,62 @@ const initializeApp = async () => {
     }
     // =============================================================================
 
+    // SEC-014 & SEC-019: Set Content Security Policy & Security Response Headers
+    if (session && session.defaultSession) {
+      session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            'Content-Security-Policy': [
+              "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: safe-image:; font-src 'self' data:; connect-src 'self' ws: http://localhost:3000;",
+            ],
+            'Strict-Transport-Security': ['max-age=31536000; includeSubDomains'],
+            'X-Frame-Options': ['DENY'],
+            'X-Content-Type-Options': ['nosniff'],
+            'Referrer-Policy': ['strict-origin-when-cross-origin'],
+          },
+        });
+      });
+    }
+
     const mainWindow = createWindow();
 
     // Register a custom protocol to safely serve images from the app's data directory.
     // This prevents exposing the entire filesystem to the renderer process.
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
-        const url = request.url.replace('safe-image://', '');
-        const decodedUrl = decodeURI(url);
+        const rawUrl = request.url.replace('safe-image://', '');
+        const decodedUrl = decodeURI(rawUrl);
 
-        // If it's an absolute path, try it directly
-        if (path.isAbsolute(decodedUrl)) {
-          if (fs.existsSync(decodedUrl)) return callback({ path: decodedUrl });
-          return callback({ error: -6 });
+        // SEC-009: Reject path traversal or absolute paths outside permitted roots
+        if (decodedUrl.includes('..') || path.isAbsolute(decodedUrl)) {
+          logError(`[safe-image] Blocked path traversal attempt: ${decodedUrl}`);
+          return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
         }
 
-        // First check userData assets folder (where uploaded logos are copied)
+        const normalized = path.normalize(decodedUrl).replace(/^(\.\.[\/\\])+/, '');
+
         const userDataPath = app.getPath('userData');
-        const userAssetPath = path.join(userDataPath, decodedUrl);
-        if (fs.existsSync(userAssetPath)) {
+        const userAssetPath = path.join(userDataPath, normalized);
+        if (userAssetPath.startsWith(userDataPath) && fs.existsSync(userAssetPath)) {
           return callback({ path: userAssetPath });
         }
 
-        // Next check the app's public assets. When packaged, resourcesPath points
-        // to the folder containing the app.asar; public assets may either be
-        // in the unpacked resources or inside app.asar — attempt resourcesPath/public first.
         let publicPath;
         if (app.isPackaged) {
-          publicPath = path.join(process.resourcesPath, 'public', decodedUrl);
+          publicPath = path.join(process.resourcesPath, 'public', normalized);
         } else {
-          publicPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+          publicPath = path.join(__dirname, '..', '..', 'public', normalized);
         }
         if (fs.existsSync(publicPath)) {
           return callback({ path: publicPath });
         }
 
-        // As a last resort, check for the resource inside an unpacked assets folder
-        const alternative = path.join(process.resourcesPath || app.getAppPath(), decodedUrl);
-        if (fs.existsSync(alternative)) {
-          return callback({ path: alternative });
-        }
-
-        logError(
-          `[safe-image] File not found (checked userData, public, resources): ${decodedUrl}`,
-        );
-        return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+        logError(`[safe-image] File not found: ${normalized}`);
+        return callback({ error: -6 });
       } catch (error) {
         logError('[safe-image] protocol handler error:', error);
-        callback({ error: -2 }); // net::FAILED
+        callback({ error: -2 });
       }
     });
 

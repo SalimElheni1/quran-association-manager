@@ -29,8 +29,21 @@ const getUserFromToken = async (token) => {
 const requireRoles = (allowedRoles) => {
   return (originalHandler) => {
     return async (event, ...args) => {
-      // Get token from the renderer process
-      const token = await event.sender.executeJavaScript('localStorage.getItem("token")');
+      // Extract token safely from invocation arguments or event context
+      let token = null;
+
+      if (event && event.authToken) {
+        token = event.authToken;
+      } else if (args.length > 0 && typeof args[args.length - 1] === 'object' && args[args.length - 1] !== null && args[args.length - 1].authToken) {
+        token = args[args.length - 1].authToken;
+      } else if (args.length > 0 && typeof args[0] === 'string' && args[0].startsWith('ey')) {
+        token = args[0];
+      } else if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null && args[0].token) {
+        token = args[0].token;
+      } else if (event && event.sender && event.sender.authToken) {
+        token = event.sender.authToken;
+      }
+
       const user = await getUserFromToken(token);
       const hasRole = user.roles.some((role) => allowedRoles.includes(role));
 
@@ -38,7 +51,6 @@ const requireRoles = (allowedRoles) => {
         throw new Error('Insufficient permissions.');
       }
 
-      // Call the original handler with the event and arguments
       return await originalHandler(event, ...args);
     };
   };
