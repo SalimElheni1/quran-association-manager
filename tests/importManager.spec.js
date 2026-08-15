@@ -1,6 +1,5 @@
 // tests/importManager.spec.js
 
-// Mock all dependencies at the top level
 jest.mock('fs', () => ({
   promises: {
     readFile: jest.fn(),
@@ -35,7 +34,7 @@ const {
   getQuery,
 } = require('../src/db/db');
 const { generateMatricule } = require('../src/main/services/matriculeService');
-const { setDbSalt } = require('../src/main/keyManager');
+const { setDbSalt, getDbKey } = require('../src/main/keyManager');
 const {
   validateDatabaseFile,
   replaceDatabase,
@@ -45,15 +44,22 @@ const {
 describe('importManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getDbKey.mockReturnValue(
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    );
   });
 
   describe('validateDatabaseFile', () => {
     it('should validate a correct backup file', async () => {
-      const mockZipContent = Buffer.from('mock zip content');
+      const mockZipContent = Buffer.from('PK\x03\x04mock zip content');
       const mockSqlFile = { asText: () => 'SELECT * FROM students;' };
       const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "test-salt"}') };
       const mockZip = {
-        file: jest.fn().mockReturnValueOnce(mockSqlFile).mockReturnValueOnce(mockConfigFile),
+        file: jest.fn((name) => {
+          if (name === 'backup.sql') return mockSqlFile;
+          if (name === 'salt.json' || name === 'config.json') return mockConfigFile;
+          return null;
+        }),
       };
 
       fs.readFile.mockResolvedValue(mockZipContent);
@@ -67,11 +73,15 @@ describe('importManager', () => {
 
   describe.skip('replaceDatabase', () => {
     it('should successfully replace database', async () => {
-      const mockZipContent = Buffer.from('mock zip content');
+      const mockZipContent = Buffer.from('PK\x03\x04mock zip content');
       const mockSqlFile = { asText: () => 'CREATE TABLE students (id INTEGER);' };
       const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "new-test-salt"}') };
       const mockZip = {
-        file: jest.fn().mockReturnValueOnce(mockSqlFile).mockReturnValueOnce(mockConfigFile),
+        file: jest.fn((name) => {
+          if (name === 'backup.sql') return mockSqlFile;
+          if (name === 'salt.json' || name === 'config.json') return mockConfigFile;
+          return null;
+        }),
       };
       fs.readFile.mockResolvedValue(mockZipContent);
       PizZip.mockImplementation(() => mockZip);
@@ -80,7 +90,6 @@ describe('importManager', () => {
       fsSync.existsSync.mockReturnValue(true);
       app.relaunch = jest.fn();
       app.quit = jest.fn();
-      // Ensure getDb returns a simple object, as dbExec is mocked anyway
       getDb.mockReturnValue({});
 
       const result = await replaceDatabase('/path/to/backup.zip', 'password123');
@@ -124,6 +133,7 @@ describe('importManager', () => {
       const mockWorkbook = {
         xlsx: { readFile: jest.fn().mockResolvedValue() },
         getWorksheet: jest.fn(() => mockWorksheet),
+        worksheets: [mockWorksheet],
       };
       ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
 

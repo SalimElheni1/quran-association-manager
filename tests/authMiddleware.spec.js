@@ -85,6 +85,7 @@ describe('Auth Middleware', () => {
 
   describe('requireRoles', () => {
     const mockEvent = {
+      authToken: mockToken,
       sender: {
         executeJavaScript: jest.fn(),
       },
@@ -93,7 +94,7 @@ describe('Auth Middleware', () => {
     const mockHandler = jest.fn().mockResolvedValue({ success: true });
 
     beforeEach(() => {
-      mockEvent.sender.executeJavaScript.mockResolvedValue(mockToken);
+      mockEvent.authToken = mockToken;
     });
 
     it('should allow access when user has required role', async () => {
@@ -142,12 +143,10 @@ describe('Auth Middleware', () => {
       expect(mockHandler).not.toHaveBeenCalled();
     });
 
-    it('should handle missing token from localStorage', async () => {
-      mockEvent.sender.executeJavaScript.mockResolvedValue(null);
-
+    it('should handle missing token', async () => {
       const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
 
-      await expect(wrappedHandler(mockEvent)).rejects.toThrow('Authentication token not provided.');
+      await expect(wrappedHandler({})).rejects.toThrow('Authentication token not provided.');
       expect(mockHandler).not.toHaveBeenCalled();
     });
 
