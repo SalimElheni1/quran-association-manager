@@ -4,6 +4,13 @@ let isOpen = false;
 const mockUser = { id: 1, username: 'testuser', first_name: 'Test', last_name: 'User' };
 const mockAdminRoles = [{ name: 'Administrator' }];
 
+function validateHexKey(key) {
+  if (typeof key !== 'string' || !/^[0-9a-fA-F]{64}$/.test(key)) {
+    throw new Error('Invalid encryption key format: Must be a 64-character hex string.');
+  }
+  return true;
+}
+
 const getQuery = jest.fn((sql, params) => {
   // Mock the user lookup for the auth middleware
   if (sql.includes('SELECT id, username FROM users WHERE id = ?') && params[0] === 1) {
@@ -78,4 +85,5 @@ module.exports = {
   getDatabasePath: jest.fn(),
   dbClose: jest.fn(() => Promise.resolve()),
   resetMocks,
+  validateHexKey,
 };

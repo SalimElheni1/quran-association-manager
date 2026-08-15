@@ -1,6 +1,5 @@
 // tests/importManager.comprehensive.spec.js
 
-// Mock dependencies first
 jest.mock('fs', () => ({
   promises: {
     readFile: jest.fn(),
@@ -22,7 +21,7 @@ const fs = require('fs').promises;
 const PizZip = require('pizzip');
 const ExcelJS = require('exceljs');
 const { runQuery, getQuery } = require('../src/db/db');
-
+const { getDbKey } = require('../src/main/keyManager');
 const { generateMatricule } = require('../src/main/services/matriculeService');
 
 describe('importManager - Comprehensive Tests', () => {
@@ -30,6 +29,9 @@ describe('importManager - Comprehensive Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getDbKey.mockReturnValue(
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    );
     const manager = require('../src/main/importManager');
     validateDatabaseFile = manager.validateDatabaseFile;
     importExcelData = manager.importExcelData;
@@ -37,7 +39,7 @@ describe('importManager - Comprehensive Tests', () => {
 
   describe('validateDatabaseFile - Edge Cases', () => {
     it('should handle legacy config.json file', async () => {
-      const mockZipContent = Buffer.from('mock zip content');
+      const mockZipContent = Buffer.from('PK\x03\x04mock zip content');
       const mockSqlFile = { asText: () => 'SELECT * FROM students;' };
       const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "test-salt"}') };
       const mockZip = {
@@ -89,6 +91,7 @@ describe('importManager - Comprehensive Tests', () => {
       const mockWorkbook = {
         xlsx: { readFile: jest.fn().mockResolvedValue() },
         getWorksheet: jest.fn(() => mockWorksheet),
+        worksheets: [mockWorksheet],
       };
       ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
 

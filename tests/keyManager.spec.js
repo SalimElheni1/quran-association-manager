@@ -3,6 +3,7 @@ jest.mock('crypto');
 jest.mock('../src/main/logger', () => ({
   log: jest.fn(),
   error: jest.fn(),
+  warn: jest.fn(),
 }));
 
 const mockKeyStore = {
@@ -29,12 +30,20 @@ jest.mock('electron-store', () => {
 });
 
 const crypto = require('crypto');
-const { getDbKey, getDbSalt, setDbSalt, getSaltConfigPath } = require('../src/main/keyManager');
+const {
+  getDbKey,
+  getDbSalt,
+  setDbSalt,
+  getJwtSecret,
+  getSaltConfigPath,
+  _resetInMemoryCache,
+} = require('../src/main/keyManager');
 const { log, error: logError } = require('../src/main/logger');
 
 describe('keyManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    _resetInMemoryCache();
   });
 
   describe('getDbKey', () => {
@@ -132,6 +141,25 @@ describe('keyManager', () => {
       expect(crypto.randomBytes).toHaveBeenCalledWith(16);
       expect(mockSaltStore.set).toHaveBeenCalledWith('db-salt', newSaltHex);
       expect(result).toBe(newSaltHex);
+    });
+  });
+
+  describe('getJwtSecret', () => {
+    it('should derive JWT secret using hkdfSync', () => {
+      const existingKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      mockKeyStore.get.mockReturnValue(existingKey);
+      crypto.hkdfSync.mockReturnValue(Buffer.from('derived-jwt-secret-bytes-32-chars'));
+
+      const secret = getJwtSecret();
+
+      expect(crypto.hkdfSync).toHaveBeenCalledWith(
+        'sha256',
+        expect.any(Buffer),
+        expect.any(Buffer),
+        expect.any(Buffer),
+        32,
+      );
+      expect(typeof secret).toBe('string');
     });
   });
 

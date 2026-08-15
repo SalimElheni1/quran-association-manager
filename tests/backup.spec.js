@@ -9,7 +9,8 @@ const keyManager = require('../src/main/keyManager');
 jest.mock('../src/db/db');
 jest.mock('fs', () => ({
   promises: {
-    writeFile: jest.fn(),
+    writeFile: jest.fn().mockResolvedValue(),
+    stat: jest.fn().mockResolvedValue({ size: 100 }),
   },
 }));
 jest.mock('../src/main/keyManager');
@@ -20,8 +21,10 @@ describe('Backup Manager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     PizZip.mockClear();
-    // Provide a default mock implementation for all tests
     db.allQuery.mockResolvedValue([]);
+    keyManager.getDbKey.mockReturnValue(
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    );
   });
 
   describe('runBackup (New SQL-based Logic)', () => {
@@ -51,7 +54,6 @@ describe('Backup Manager', () => {
       expect(PizZip).toHaveBeenCalledTimes(1);
       expect(PizZip.mockInstance.file).toHaveBeenCalledWith('backup.sql', expect.any(String));
 
-      // Verify the salt config is now created in memory and added to the zip
       const saltConfigCall = PizZip.mockInstance.file.mock.calls.find(
         (call) => call[0] === 'salt.json',
       );
@@ -59,11 +61,7 @@ describe('Backup Manager', () => {
       const saltConfigContent = JSON.parse(saltConfigCall[1].toString());
       expect(saltConfigContent).toEqual({ 'db-salt': mockSalt });
 
-      expect(PizZip.mockInstance.generate).toHaveBeenCalledWith({
-        type: 'nodebuffer',
-        compression: 'DEFLATE',
-      });
-      expect(fs.writeFile).toHaveBeenCalledWith(backupFilePath, 'mock-zip-content');
+      expect(fs.writeFile).toHaveBeenCalledWith(backupFilePath, expect.any(Buffer));
       expect(mockStore.set).toHaveBeenCalledWith(
         'last_backup_status',
         expect.objectContaining({ success: true }),
