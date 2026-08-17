@@ -30,34 +30,7 @@ async function safeRollback() {
 }
 
 // Joi schema for settings validation
-const settingsValidationSchema = Joi.object({
-  national_association_name: Joi.string().allow(''),
-  regional_association_name: Joi.string().allow(''),
-  local_branch_name: Joi.string().allow(''),
-  president_full_name: Joi.string().allow(''),
-  national_logo_path: Joi.string().allow(''),
-  regional_local_logo_path: Joi.string().allow(''),
-  backup_path: Joi.string().allow(''),
-  backup_enabled: Joi.boolean(),
-  backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
-
-  backup_reminder_enabled: Joi.boolean(),
-  backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
-  backup_time: Joi.string()
-    .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
-    .allow(''),
-  annual_fee: Joi.number().min(0).allow(null),
-  standard_monthly_fee: Joi.number().min(0).allow(null),
-  auto_charge_generation_enabled: Joi.boolean(),
-  charge_generation_frequency: Joi.string().valid('daily', 'weekly'),
-  pre_generate_months_ahead: Joi.number().integer().min(1).max(12),
-  last_charge_generation_check: Joi.string().allow(null, ''),
-  men_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  women_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  kids_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  academic_year_start_month: Joi.number().integer().min(1).max(12),
-  charge_generation_day: Joi.number().integer().min(1).max(28),
-});
+const settingsValidationSchema = require('../settingsValidation')(Joi);
 
 const defaultSettings = {
   national_association_name: 'الرابطة الوطنية للقرآن الكريم',
@@ -84,6 +57,7 @@ const defaultSettings = {
   academic_year_start_month: 9,
   charge_generation_day: 25,
   last_charge_generation_check: '',
+  association_transfer_key: '',
 };
 
 const internalGetSettingsHandler = async () => {
@@ -134,9 +108,13 @@ const validateLogoPath = (logoPath) => {
 };
 
 const internalUpdateSettingsHandler = async (settingsData) => {
-  const filteredData = { ...settingsData };
-  delete filteredData.adultAgeThreshold;
-  delete filteredData.adult_age_threshold;
+  const { SETTINGS_KEYS } = require('../settingsValidation');
+  const filteredData = {};
+  for (const [key, value] of Object.entries(settingsData || {})) {
+    if (SETTINGS_KEYS.includes(key)) {
+      filteredData[key] = value;
+    }
+  }
 
   if (filteredData.national_logo_path && !validateLogoPath(filteredData.national_logo_path)) {
     filteredData.national_logo_path = defaultSettings.national_logo_path;

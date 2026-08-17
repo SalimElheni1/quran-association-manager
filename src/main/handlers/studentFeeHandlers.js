@@ -1637,8 +1637,8 @@ async function recordStudentPayment(event, paymentDetails) {
       SPECIAL: 'رسوم خاصة',
     };
     const paymentTypeAr = paymentTypeMap[payment_type] || payment_type || 'رسوم';
-
-    const transactionDescription = `دفعة رسوم من الطالب: ${student.name} - ${paymentTypeAr}`;
+    const studentName = student ? student.name : 'الطالب';
+    const transactionDescription = `دفعة رسوم من الطالب: ${studentName} - ${paymentTypeAr}`;
     const targetAccountId = account_id ? parseInt(account_id, 10) : 1;
 
     const transactionResult = await db.runQuery(
@@ -1654,9 +1654,9 @@ async function recordStudentPayment(event, paymentDetails) {
         check_number,
         receipt_number,
         targetAccountId,
-        student.name,
+        studentName,
         student_id,
-        event.sender.userId,
+        (event && event.sender && event.sender.userId) ? event.sender.userId : 1,
       ],
     );
 
@@ -1691,6 +1691,7 @@ async function recordStudentPayment(event, paymentDetails) {
         logError('Failed to rollback transaction:', rollbackError);
       }
     }
+    process.stderr.write((error && error.stack ? error.stack : String(error)) + '\n');
     logError('Error in recordStudentPayment:', error);
     if (error.message === 'DUPLICATE_RECEIPT') {
       throw new Error('رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.');

@@ -516,6 +516,12 @@ describe('Student Fee Handlers', () => {
         if (sql.includes('FROM students')) {
           return Promise.resolve({ id: 1, name: 'Student 1', matricule: 'S-001' });
         }
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve({ value: '2024-2025' });
+        }
+        if (sql.includes('FROM student_payments') && sql.includes('WHERE id =')) {
+          return Promise.resolve({ id: 1, student_id: 1, amount: 100 });
+        }
         return Promise.resolve(null); // No duplicate receipt
       });
       db.allQuery.mockImplementation((sql) => {
@@ -593,10 +599,15 @@ describe('Student Fee Handlers', () => {
       };
 
       db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
-      db.getQuery.mockResolvedValueOnce({ id: 1 }); // Duplicate receipt found
+      db.getQuery.mockImplementation((sql) => {
+        if (sql.includes('receipt_number')) {
+          return Promise.resolve({ id: 1 });
+        }
+        return Promise.resolve(null);
+      });
 
       await expect(recordStudentPayment(null, paymentDetails)).rejects.toThrow(
-        'فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.',
+        'رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.',
       );
 
       expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
@@ -854,16 +865,8 @@ describe('Student Fee Handlers', () => {
 
       // Should create transaction with unified receipt_type
       expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO transactions'),
-        expect.arrayContaining([
-          expect.anything(),
-          expect.anything(),
-          expect.anything(),
-          expect.anything(),
-          expect.anything(),
-          expect.anything(),
-          'fee_payment', // receipt_type should be 'fee_payment'
-        ]),
+        expect.stringContaining("'fee_payment'"),
+        expect.any(Array),
       );
     });
   });

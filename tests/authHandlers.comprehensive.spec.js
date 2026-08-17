@@ -31,7 +31,7 @@ jest.mock('../src/main/validationSchemas', () => {
 
 describe('Auth Handlers - Comprehensive', () => {
   let handlers = {};
-  const mockStore = { set: jest.fn(), delete: jest.fn() };
+  const mockStore = { get: jest.fn(), set: jest.fn(), delete: jest.fn() };
   const {
     userUpdateValidationSchema,
     passwordUpdateValidationSchema,

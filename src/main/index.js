@@ -295,44 +295,46 @@ const initializeApp = async () => {
     // This prevents exposing the entire filesystem to the renderer process.
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
-        const url = request.url.replace('safe-image://', '');
-        const decodedUrl = decodeURI(url);
+        const rawUrl = request.url.replace('safe-image://', '');
+        const decodedUrl = decodeURIComponent(rawUrl).replace(/\\/g, '/');
 
-        // If it's an absolute path, try it directly
-        if (path.isAbsolute(decodedUrl)) {
-          if (fs.existsSync(decodedUrl)) return callback({ path: decodedUrl });
+        // Reject traversal sequences or null bytes
+        if (decodedUrl.includes('..') || decodedUrl.includes('\0')) {
+          logError(`[safe-image] Traversal attempt blocked: ${decodedUrl}`);
           return callback({ error: -6 });
         }
 
-        // First check userData assets folder (where uploaded logos are copied)
+        const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
+
         const userDataPath = app.getPath('userData');
-        const userAssetPath = path.join(userDataPath, decodedUrl);
-        if (fs.existsSync(userAssetPath)) {
-          return callback({ path: userAssetPath });
+        let targetPath = path.resolve(userDataPath, decodedUrl);
+        if (path.isAbsolute(decodedUrl)) {
+          targetPath = path.resolve(decodedUrl);
         }
 
-        // Next check the app's public assets. When packaged, resourcesPath points
-        // to the folder containing the app.asar; public assets may either be
-        // in the unpacked resources or inside app.asar — attempt resourcesPath/public first.
+        const ext = path.extname(targetPath).toLowerCase();
+        if (!allowedExts.includes(ext)) {
+          logError(`[safe-image] Non-image file type rejected: ${ext}`);
+          return callback({ error: -6 });
+        }
+
+        if (fs.existsSync(targetPath)) {
+          return callback({ path: targetPath });
+        }
+
+        // Check public assets folder
         let publicPath;
         if (app.isPackaged) {
-          publicPath = path.join(process.resourcesPath, 'public', decodedUrl);
+          publicPath = path.resolve(process.resourcesPath, 'public', decodedUrl);
         } else {
-          publicPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+          publicPath = path.resolve(__dirname, '..', '..', 'public', decodedUrl);
         }
+
         if (fs.existsSync(publicPath)) {
           return callback({ path: publicPath });
         }
 
-        // As a last resort, check for the resource inside an unpacked assets folder
-        const alternative = path.join(process.resourcesPath || app.getAppPath(), decodedUrl);
-        if (fs.existsSync(alternative)) {
-          return callback({ path: alternative });
-        }
-
-        logError(
-          `[safe-image] File not found (checked userData, public, resources): ${decodedUrl}`,
-        );
+        logError(`[safe-image] File not found (checked userData, public): ${decodedUrl}`);
         return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
       } catch (error) {
         logError('[safe-image] protocol handler error:', error);

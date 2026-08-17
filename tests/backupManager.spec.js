@@ -50,6 +50,7 @@ describe('backupManager', () => {
       const mockZip = { file: jest.fn(), generate: jest.fn().mockReturnValue(Buffer.from('zip')) };
       PizZip.mockImplementation(() => mockZip);
       keyManager.getDbSalt.mockReturnValue('test-salt');
+      keyManager.getDbKey.mockReturnValue('test-db-key');
       db.allQuery
         .mockResolvedValueOnce([{ name: 'students' }])
         .mockResolvedValueOnce([{ id: 1, name: 'John' }]);
@@ -57,6 +58,43 @@ describe('backupManager', () => {
       const result = await backupManager.runBackup(settings, '/path/to/backup.qdb');
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('encryptBackup/decryptBackup', () => {
+    it('should round-trip encrypt and decrypt with the same password', () => {
+      const original = Buffer.from('hello backup content');
+      const encrypted = backupManager.encryptBackup(original, 'transfer-secret');
+      expect(Buffer.isBuffer(encrypted)).toBe(true);
+      expect(encrypted.length).toBe(44 + original.length);
+      const decrypted = backupManager.decryptBackup(encrypted, 'transfer-secret');
+      expect(decrypted.equals(original)).toBe(true);
+    });
+
+    it('should throw when decrypting with the wrong password', () => {
+      const encrypted = backupManager.encryptBackup(Buffer.from('secret data'), 'right-key');
+      expect(() => backupManager.decryptBackup(encrypted, 'wrong-key')).toThrow();
+    });
+
+    it('should throw for a buffer too short to be an encrypted backup', () => {
+      expect(() => backupManager.decryptBackup(Buffer.from('tiny'), 'key')).toThrow(
+        'Invalid encrypted backup file structure',
+      );
+    });
+  });
+
+  describe('generateSignature/verifySignature', () => {
+    it('should verify a valid signature and reject tampered data', () => {
+      const signature = backupManager.generateSignature('SELECT 1;', 'secret-key');
+      expect(backupManager.verifySignature('SELECT 1;', 'secret-key', signature)).toBe(true);
+      expect(backupManager.verifySignature('SELECT 2;', 'secret-key', signature)).toBe(false);
+      expect(backupManager.verifySignature('SELECT 1;', 'other-key', signature)).toBe(false);
+    });
+
+    it('should reject missing or malformed signatures', () => {
+      expect(backupManager.verifySignature('data', 'key', '')).toBe(false);
+      expect(backupManager.verifySignature('data', 'key', null)).toBe(false);
+      expect(backupManager.verifySignature('data', 'key', 'not-hex')).toBe(false);
     });
   });
 

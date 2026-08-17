@@ -1,13 +1,79 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
-const { log, error: logError } = require('./logger');
-const { getDbSalt } = require('./keyManager');
+const { log, error: logError, warn: logWarn } = require('./logger');
+const { getDbSalt, getDbKey } = require('./keyManager');
 const schema = require('../db/schema');
 
 const store = new Store();
+
+/**
+ * Encrypts a buffer using AES-256-GCM with PBKDF2 key derivation (100k iterations).
+ * Format: salt(16) || iv(12) || authTag(16) || ciphertext
+ * @param {Buffer} buffer
+ * @param {string} passwordOrKey
+ * @returns {Buffer}
+ */
+function encryptBackup(buffer, passwordOrKey) {
+  const salt = crypto.randomBytes(16);
+  const key = crypto.pbkdf2Sync(passwordOrKey, salt, 100000, 32, 'sha256');
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([salt, iv, authTag, ciphertext]);
+}
+
+/**
+ * Decrypts a buffer encrypted with AES-256-GCM (PBKDF2 100k iterations).
+ * @param {Buffer} encryptedBuffer
+ * @param {string} passwordOrKey
+ * @returns {Buffer}
+ */
+function decryptBackup(encryptedBuffer, passwordOrKey) {
+  if (!Buffer.isBuffer(encryptedBuffer) || encryptedBuffer.length < 44) {
+    throw new Error('Invalid encrypted backup file structure: Buffer too short.');
+  }
+  const salt = encryptedBuffer.subarray(0, 16);
+  const iv = encryptedBuffer.subarray(16, 28);
+  const authTag = encryptedBuffer.subarray(28, 44);
+  const ciphertext = encryptedBuffer.subarray(44);
+
+  const key = crypto.pbkdf2Sync(passwordOrKey, salt, 100000, 32, 'sha256');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
+
+/**
+ * Generates an HMAC-SHA256 signature for data string/buffer using a secret key.
+ * @param {string|Buffer} data
+ * @param {string} key
+ * @returns {string} Hex signature string
+ */
+function generateSignature(data, key) {
+  return crypto.createHmac('sha256', key).update(data).digest('hex');
+}
+
+/**
+ * Verifies an HMAC-SHA256 signature using timing-safe comparison.
+ * @param {string|Buffer} data
+ * @param {string} key
+ * @param {string} signatureHex
+ * @returns {boolean}
+ */
+function verifySignature(data, key, signatureHex) {
+  if (!signatureHex || typeof signatureHex !== 'string') return false;
+  const expectedHex = generateSignature(data, key);
+  const sigBuf = Buffer.from(signatureHex.trim(), 'hex');
+  const expBuf = Buffer.from(expectedHex, 'hex');
+  if (sigBuf.length === 0 || sigBuf.length !== expBuf.length) return false;
+  return crypto.timingSafeEqual(sigBuf, expBuf);
+}
 
 /**
  * Generates a complete SQL script including schema and data.
@@ -56,44 +122,71 @@ async function generateSqlReplaceStatements() {
 
 /**
  * Runs the database backup process.
- * This creates a zip file containing a full SQL dump and the encryption salt config.
+ * This creates an encrypted zip file containing a full SQL dump, encryption salt, HMAC signature, and optional assets.
  * @param {Object} settings - The application settings object.
  * @param {string} backupFilePath - The path to save the backup file.
+ * @param {string} [userPassword] - Optional user password / transfer key for cross-device backup encryption.
  * @returns {Promise<{success: boolean, message: string}>}
  */
-const runBackup = async (settings, backupFilePath) => {
+const runBackup = async (settings, backupFilePath, userPassword) => {
   log('SQL-based backup process started...');
 
   try {
-    // 1. Get DB salt (this will create it if it doesn't exist)
     const dbSalt = getDbSalt();
-    log(`Using database salt for backup.`);
+    const dbKey = getDbKey();
 
-    // 2. Generate SQL data dump
+    const encryptionKey = userPassword || (settings && settings.association_transfer_key) || dbKey;
+    const signingKey = encryptionKey;
+
     log('Generating SQL dump...');
     const sqlDump = await generateSqlReplaceStatements();
     log('SQL dump generated successfully.');
 
-    // 3. Create salt configuration content
-    const saltConfig = {
-      'db-salt': dbSalt,
-    };
+    const saltConfig = { 'db-salt': dbSalt };
     const saltFileContent = Buffer.from(JSON.stringify(saltConfig, null, 2));
+    const signature = generateSignature(sqlDump, signingKey);
 
-    // 4. Create a zip package
     const zip = new PizZip();
     zip.file('backup.sql', sqlDump);
-    zip.file('salt.json', saltFileContent); // Use a more descriptive name
+    zip.file('salt.json', saltFileContent);
+    zip.file('signature.txt', signature);
+
+    // Bundle student photos & logos from userData/assets (recursively) if present
+    try {
+      const electron = require('electron');
+      const app = electron.app;
+      if (app && typeof app.getPath === 'function') {
+        const assetsDir = path.join(app.getPath('userData'), 'assets');
+        const walkAssets = (dir, relativePrefix) => {
+          if (!fsSync.existsSync(dir)) return;
+          for (const entry of fsSync.readdirSync(dir)) {
+            const entryPath = path.join(dir, entry);
+            const stat = fsSync.statSync(entryPath);
+            const zipPath = `assets/${relativePrefix}${entry}`.replace(/\\/g, '/');
+            if (stat.isDirectory()) {
+              walkAssets(entryPath, `${relativePrefix}${entry}/`);
+            } else if (stat.isFile()) {
+              zip.file(zipPath, fsSync.readFileSync(entryPath));
+            }
+          }
+        };
+        walkAssets(assetsDir, '');
+      }
+    } catch (assetErr) {
+      if (typeof logWarn === 'function') {
+        logWarn('Asset backup note:', assetErr.message);
+      }
+    }
 
     const zipContent = zip.generate({
       type: 'nodebuffer',
       compression: 'DEFLATE',
     });
 
-    // 5. Write the package to the destination
-    await fs.writeFile(backupFilePath, zipContent);
+    const encryptedContent = encryptBackup(zipContent, encryptionKey);
 
-    // Ensure it's flushed/written before getting stats
+    await fs.writeFile(backupFilePath, encryptedContent);
+
     const stats = await fs.stat(backupFilePath);
     const fileSize = stats.size;
     log(`Backup file written: ${backupFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
@@ -114,6 +207,11 @@ const runBackup = async (settings, backupFilePath) => {
     };
   } catch (error) {
     logError('Detailed backup error:', error);
+    store.set('last_backup_status', {
+      success: false,
+      message: `فشل النسخة الاحتياطية: ${error.message}`,
+      timestamp: new Date().toISOString(),
+    });
     return { success: false, message: `فشل النسخة الاحتياطية: ${error.message}` };
   }
 };
@@ -136,15 +234,12 @@ const isBackupDue = (settings) => {
   const lastBackupDate = new Date(lastBackup.timestamp);
   const diffHours = (now.getTime() - lastBackupDate.getTime()) / (1000 * 60 * 60);
 
-  // Check if specific time is set (e.g., "14:30")
   if (settings.backup_time) {
     const [hours, minutes] = settings.backup_time.split(':').map(Number);
     const scheduledTimeToday = new Date(now);
     scheduledTimeToday.setHours(hours, minutes, 0, 0);
 
-    // If it's too early today, don't run yet if we've run recently
     if (now < scheduledTimeToday) {
-      // Only allow if it's been more than a full cycle
       switch (settings.backup_frequency) {
         case 'daily':
           return diffHours >= 24;
@@ -157,26 +252,21 @@ const isBackupDue = (settings) => {
       }
     }
 
-    // It's after the scheduled time today.
-    // Have we already run today?
     const hasRunToday = lastBackupDate.toDateString() === now.toDateString();
     if (hasRunToday) {
-      // Even if it's after the time, if we already ran today, we wait for next cycle or tomorrow
       switch (settings.backup_frequency) {
         case 'weekly':
           return diffHours >= 24 * 7;
         case 'monthly':
           return diffHours >= 24 * 30;
         default:
-          return false; // Daily should wait for tomorrow
+          return false;
       }
     }
 
-    // It's after the time and we haven't run today.
     return true;
   }
 
-  // Fallback to frequency-only logic
   switch (settings.backup_frequency) {
     case 'daily':
       return diffHours >= 24;
@@ -194,7 +284,7 @@ const isBackupDue = (settings) => {
  * @param {Object} settings - The application settings object.
  */
 const startScheduler = (settings) => {
-  stopScheduler(); // Stop any existing scheduler first
+  stopScheduler();
 
   if (!settings.backup_enabled) {
     log('Backup scheduler is disabled.');
@@ -203,12 +293,8 @@ const startScheduler = (settings) => {
 
   log(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
 
-  // Check every hour to see if a backup is due
   schedulerIntervalId = setInterval(
     async () => {
-      // Re-fetch settings in case they changed, though restarting the scheduler is better.
-      // For simplicity here, we use the settings from when it was started.
-      // A more robust implementation would fetch settings inside the interval.
       if (settings.backup_enabled && isBackupDue(settings)) {
         log('Scheduled backup is due. Running now...');
         if (settings.backup_path) {
@@ -221,7 +307,7 @@ const startScheduler = (settings) => {
       }
     },
     1000 * 60 * 60,
-  ); // Check every hour
+  );
 };
 
 /**
@@ -239,5 +325,9 @@ module.exports = {
   runBackup,
   startScheduler,
   stopScheduler,
-  isBackupDue, // Exported for testing purposes
+  isBackupDue,
+  encryptBackup,
+  decryptBackup,
+  generateSignature,
+  verifySignature,
 };

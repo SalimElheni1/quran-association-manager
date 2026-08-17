@@ -2,7 +2,7 @@ const Joi = require('joi');
 
 const studentValidationSchema = Joi.object({
   matricule: Joi.string()
-    .pattern(/^S-\d{4}$/)
+    .pattern(/^S-[\d-]{4,15}$/)
     .messages({
       'string.pattern.base': 'الرقم التعريفي للطالب غير صالح.',
     }),
@@ -71,10 +71,7 @@ const studentPaymentValidationSchema = Joi.object({
     }),
     otherwise: Joi.string().allow(null, ''),
   }),
-  receipt_number: Joi.string().required().messages({
-    'string.empty': 'رقم الوصل مطلوب',
-    'any.required': 'رقم الوصل مطلوب',
-  }),
+  receipt_number: Joi.string().allow(null, ''),
 }).unknown(true);
 
 const classValidationSchema = Joi.object({

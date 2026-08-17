@@ -176,8 +176,20 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('backup:run', async (_event, settings) => {
+  ipcMain.handle('backup:run', async (_event, settingsOrOptions, backupPassword) => {
     try {
+      let settings = settingsOrOptions || {};
+      let pass = backupPassword;
+
+      if (settingsOrOptions && settingsOrOptions.settings) {
+        settings = settingsOrOptions.settings;
+        pass = settingsOrOptions.backupPassword || backupPassword;
+      }
+
+      if (!settingsOrOptions) {
+        return { success: false, message: 'Backup path is required.' };
+      }
+
       let backupFilePath = null;
 
       if (settings.backup_path) {
@@ -201,7 +213,7 @@ function registerSystemHandlers() {
       }
 
       log(`Starting manual backup to: ${backupFilePath}`);
-      return await backupManager.runBackup(settings, backupFilePath);
+      return await backupManager.runBackup(settings, backupFilePath, pass);
     } catch (error) {
       logError('Error in backup:run IPC wrapper:', error);
       return { success: false, message: error.message };
@@ -219,7 +231,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (_event, { password, userId, filePath }) => {
+  ipcMain.handle('db:import', async (_event, { password, userId, filePath, backupPassword }) => {
     if (!password || !userId) {
       return { success: false, message: 'بيانات المصادقة غير كاملة.' };
     }
@@ -249,11 +261,14 @@ function registerSystemHandlers() {
         importedDbPath = filePaths[0];
       }
 
-      const validationResult = await importManager.validateDatabaseFile(importedDbPath);
+      const validationResult = await importManager.validateDatabaseFile(
+        importedDbPath,
+        backupPassword,
+      );
       if (!validationResult.isValid) {
         return { success: false, message: validationResult.message };
       }
-      return await importManager.replaceDatabase(importedDbPath, password);
+      return await importManager.replaceDatabase(importedDbPath, password, backupPassword);
     } catch (error) {
       logError('Error during database import process:', error);
       return {

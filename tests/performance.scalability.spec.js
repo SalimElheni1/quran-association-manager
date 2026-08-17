@@ -1,7 +1,10 @@
 const { ipcMain } = require('electron');
 const { registerStudentHandlers } = require('../src/main/handlers/studentHandlers');
 const { registerClassHandlers } = require('../src/main/handlers/classHandlers');
-const { registerStudentFeeHandlers } = require('../src/main/handlers/studentFeeHandlers');
+const {
+  registerStudentFeeHandlers,
+  calculateStudentMonthlyCharges,
+} = require('../src/main/handlers/studentFeeHandlers');
 const db = require('../src/db/db');
 
 // Mock dependencies for performance testing
@@ -277,7 +280,7 @@ describe('Performance & Scalability Tests', () => {
 
       // Verify no conflicts occurred (all operations succeeded or failed gracefully)
       const conflictRate =
-        results.filter((r) => r.success === false && r.error?.includes('conflict')).length /
+        results.filter((r) => r && r.success === false && r.error?.includes('conflict')).length /
         financialOperations.length;
       expect(conflictRate).toBe(0); // No conflicts expected
     }, 15000);
@@ -483,11 +486,7 @@ describe('Performance & Scalability Tests', () => {
 
         await Promise.all(
           randomStudents.map((student) =>
-            ipcMain.invoke('student-fees:calculateMonthlyCharges', {
-              studentId: student.id,
-              month: (i % 12) + 1,
-              academicYear: '2024-2025',
-            }),
+            calculateStudentMonthlyCharges(student.id, (i % 12) + 1, '2024-2025'),
           ),
         );
       }

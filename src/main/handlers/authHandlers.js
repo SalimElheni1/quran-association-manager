@@ -12,6 +12,37 @@ const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const { error: logError } = require('../logger');
 
+let authStore = null;
+const getAuthStore = () => {
+  if (!authStore) authStore = new Store();
+  return authStore;
+};
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_DURATION_MS = 5 * 60 * 1000;
+
+const getLoginLockoutState = () => getAuthStore().get('login_lockout') || null;
+
+const getRemainingLockMinutes = (lockedUntil) =>
+  Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
+
+const recordFailedLoginAttempt = () => {
+  const now = Date.now();
+  const prev = getLoginLockoutState() || {};
+  const windowExpired = now - (prev.lastFailAt || 0) > LOGIN_LOCK_DURATION_MS;
+  const failCount = windowExpired ? 1 : (prev.failCount || 0) + 1;
+  const state = { failCount, lastFailAt: now, lockedUntil: null };
+  if (failCount >= MAX_LOGIN_ATTEMPTS) {
+    state.lockedUntil = now + LOGIN_LOCK_DURATION_MS;
+  }
+  getAuthStore().set('login_lockout', state);
+  return state;
+};
+
+const clearLoginLockout = () => {
+  getAuthStore().delete('login_lockout');
+};
+
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
     current_password: Joi.string().allow(null, ''),
@@ -160,14 +191,26 @@ function registerAuthHandlers() {
         await db.initializeDatabase();
       }
 
+      const lockState = getLoginLockoutState();
+      if (lockState && lockState.lockedUntil && Date.now() < lockState.lockedUntil) {
+        return {
+          success: false,
+          message: `تم قفل تسجيل الدخول مؤقتاً بسبب عدة محاولات فاشلة. حاول مرة أخرى بعد ${getRemainingLockMinutes(lockState.lockedUntil)} دقيقة.`,
+        };
+      }
+
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
       if (!user) {
+        recordFailedLoginAttempt();
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
+        recordFailedLoginAttempt();
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
+
+      clearLoginLockout();
 
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
@@ -256,4 +299,8 @@ function registerAuthHandlers() {
 
 module.exports = {
   registerAuthHandlers,
+  getLoginLockoutState,
+  recordFailedLoginAttempt,
+  clearLoginLockout,
+  getRemainingLockMinutes,
 };

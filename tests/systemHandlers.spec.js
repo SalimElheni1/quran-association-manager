@@ -17,9 +17,12 @@ jest.mock('electron', () => ({
     showOpenDialog: jest.fn(),
   },
 }));
-jest.mock('../../db/db');
 jest.mock('../src/main/logger', () => ({
+  log: jest.fn(),
+  warn: jest.fn(),
   error: jest.fn(),
+  getLogFilePath: jest.fn(),
+  clearLogFile: jest.fn(),
 }));
 jest.mock('../src/main/exportManager');
 jest.mock('../src/main/importManager');
@@ -408,7 +411,7 @@ describe('systemHandlers', () => {
 
   describe('backup:run', () => {
     it('should run backup successfully', async () => {
-      const settings = { backup_path: '/mock/backup/path' };
+      const settings = {};
       const mockResult = { success: true, message: 'Backup completed' };
 
       dialog.showSaveDialog.mockResolvedValue({
@@ -422,14 +425,17 @@ describe('systemHandlers', () => {
       expect(dialog.showSaveDialog).toHaveBeenCalledWith({
         title: 'Save Database Backup',
         defaultPath: expect.stringContaining('backup-'),
-        filters: [{ name: 'Quran DB Backups', extensions: ['qdb'] }],
+        filters: [
+          { name: 'Quran DB Backups (*.qdb)', extensions: ['qdb', 'QDB'] },
+          { name: 'All Files (*.*)', extensions: ['*'] },
+        ],
       });
-      expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/path/to/backup.qdb');
+      expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/path/to/backup.qdb', undefined);
       expect(result).toBe(mockResult);
     });
 
     it('should handle user cancellation', async () => {
-      const settings = { backup_path: '/mock/backup/path' };
+      const settings = {};
       dialog.showSaveDialog.mockResolvedValue({ canceled: true });
 
       const result = await handlers['backup:run'](null, settings);
@@ -448,7 +454,7 @@ describe('systemHandlers', () => {
     });
 
     it('should handle backup errors', async () => {
-      const settings = { backup_path: '/mock/backup/path' };
+      const settings = {};
       const error = new Error('Backup failed');
 
       dialog.showSaveDialog.mockResolvedValue({
@@ -522,8 +528,8 @@ describe('systemHandlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [userId]);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, 'hashed-password');
-      expect(importManager.validateDatabaseFile).toHaveBeenCalledWith('/path/to/backup.qdb');
-      expect(importManager.replaceDatabase).toHaveBeenCalledWith('/path/to/backup.qdb', password);
+      expect(importManager.validateDatabaseFile).toHaveBeenCalledWith('/path/to/backup.qdb', undefined);
+      expect(importManager.replaceDatabase).toHaveBeenCalledWith('/path/to/backup.qdb', password, undefined);
       expect(result).toBe(mockImportResult);
     });
 

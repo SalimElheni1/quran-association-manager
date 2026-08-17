@@ -76,9 +76,23 @@ function getSaltConfigPath() {
   return saltStore.path;
 }
 
+/**
+ * Returns the derived JWT secret based on the DB encryption key using HKDF-SHA256.
+ * @returns {string} The derived JWT secret as a hex string.
+ */
+function getJwtSecret() {
+  const dbKey = getDbKey();
+  const ikm = Buffer.from(dbKey, 'hex');
+  const salt = Buffer.from('quran-jwt-salt-v1');
+  const info = Buffer.from('quran-manager-jwt-secret-v1');
+  const derived = crypto.hkdfSync('sha256', ikm, salt, info, 32);
+  return Buffer.from(derived).toString('hex');
+}
+
 module.exports = {
   getDbKey,
   getDbSalt,
   setDbSalt,
   getSaltConfigPath,
+  getJwtSecret,
 };

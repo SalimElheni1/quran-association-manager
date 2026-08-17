@@ -5,12 +5,22 @@ const Store = require('electron-store');
 const PizZip = require('pizzip');
 const keyManager = require('../src/main/keyManager');
 
-// Mock dependencies
-jest.mock('../src/db/db');
+jest.mock('pizzip', () => {
+  const mockFile = jest.fn();
+  const mockGenerate = jest.fn().mockReturnValue(Buffer.from('mock-zip-bytes'));
+  const MockPizZip = jest.fn(() => ({
+    file: mockFile,
+    generate: mockGenerate,
+  }));
+  MockPizZip.mockInstance = { file: mockFile, generate: mockGenerate };
+  return MockPizZip;
+});
 jest.mock('fs', () => ({
   promises: {
-    writeFile: jest.fn(),
+    writeFile: jest.fn().mockResolvedValue(),
+    stat: jest.fn().mockResolvedValue({ size: 100 }),
   },
+  existsSync: jest.fn().mockReturnValue(false),
 }));
 jest.mock('../src/main/keyManager');
 
@@ -20,6 +30,7 @@ describe('Backup Manager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     PizZip.mockClear();
+    keyManager.getDbKey.mockReturnValue('mock-db-key');
     // Provide a default mock implementation for all tests
     db.allQuery.mockResolvedValue([]);
   });
@@ -63,7 +74,7 @@ describe('Backup Manager', () => {
         type: 'nodebuffer',
         compression: 'DEFLATE',
       });
-      expect(fs.writeFile).toHaveBeenCalledWith(backupFilePath, 'mock-zip-content');
+      expect(fs.writeFile).toHaveBeenCalledWith(backupFilePath, expect.any(Buffer));
       expect(mockStore.set).toHaveBeenCalledWith(
         'last_backup_status',
         expect.objectContaining({ success: true }),

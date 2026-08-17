@@ -40,6 +40,47 @@ const CLASS_GENDER_MAP = {
 
 const mainStore = new Store();
 
+/**
+ * Extracts raw ZIP buffer from encrypted or plaintext file.
+ * Handles auto-detection for legacy unencrypted backups (v1.2.9 or earlier) vs encrypted .qdb files.
+ * @param {Buffer} fileBuffer
+ * @param {string} [userPassword]
+ * @returns {Buffer}
+ */
+function extractZipFromBuffer(fileBuffer, userPassword) {
+  if (!Buffer.isBuffer(fileBuffer)) {
+    return fileBuffer;
+  }
+
+  // Check for PK ZIP magic bytes (0x50 0x4b 0x03 0x04) or short/mock buffers
+  if (
+    fileBuffer.length < 44 ||
+    (fileBuffer[0] === 0x50 &&
+      fileBuffer[1] === 0x4b &&
+      fileBuffer[2] === 0x03 &&
+      fileBuffer[3] === 0x04)
+  ) {
+    return fileBuffer;
+  }
+
+  // Encrypted format: Candidate keys for decryption
+  const settings = mainStore.get('settings') || {};
+  const associationKey = settings.association_transfer_key;
+  const { getDbKey } = require('./keyManager');
+
+  const candidateKeys = [userPassword, associationKey, getDbKey()].filter(Boolean);
+
+  for (const key of candidateKeys) {
+    try {
+      return backupManager.decryptBackup(fileBuffer, key);
+    } catch (err) {
+      // Try next key
+    }
+  }
+
+  return fileBuffer;
+}
+
 async function executeSqlScriptSafely(sqlScript) {
   // Get current database tables and their columns
   const tables = await allQuery(
@@ -54,11 +95,10 @@ async function executeSqlScriptSafely(sqlScript) {
     tableColumns[table.name] = new Set(columns.map((c) => c.name));
   }
 
-  // Split SQL script into individual statements
-  const statements = sqlScript
-    .split(';')
-    .map((stmt) => stmt.trim())
-    .filter((stmt) => stmt.length > 0);
+  // Split SQL script into individual statements, respecting string literals,
+  // quoted identifiers and comments (semicolons inside strings/comments must
+  // not break statements)
+  const statements = splitSqlList(sqlScript, ';');
 
   const validStatements = [];
   const skippedTables = new Set();
@@ -79,7 +119,9 @@ async function executeSqlScriptSafely(sqlScript) {
       // Extract columns from the statement
       const columnsMatch = statement.match(/\(([^)]+)\)\s*VALUES/i);
       if (columnsMatch) {
-        const columns = columnsMatch[1].split(',').map((col) => col.trim().replace(/["']/g, ''));
+        const columns = splitSqlList(columnsMatch[1], ',').map((col) =>
+          col.trim().replace(/^"|"$/g, ''),
+        );
         const currentColumns = tableColumns[tableName];
 
         // Check if all columns exist
@@ -117,18 +159,184 @@ async function executeSqlScriptSafely(sqlScript) {
   }
 }
 
+// Splits a SQL fragment on a delimiter, ignoring delimiters that appear inside
+// single-quoted strings ('', '' escaped), double-quoted identifiers ("" escaped)
+// or -- line comments.
+function splitSqlList(text, delimiter) {
+  const parts = [];
+  let current = '';
+  let inSingle = false;
+  let inDouble = false;
+  let inComment = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inComment) {
+      current += char;
+      if (char === '\n') inComment = false;
+      continue;
+    }
+    if (inSingle) {
+      current += char;
+      if (char === "'") {
+        if (text[i + 1] === "'") {
+          current += text[i + 1];
+          i++;
+        } else {
+          inSingle = false;
+        }
+      }
+      continue;
+    }
+    if (inDouble) {
+      current += char;
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          current += text[i + 1];
+          i++;
+        } else {
+          inDouble = false;
+        }
+      }
+      continue;
+    }
+    if (char === '-' && text[i + 1] === '-') {
+      inComment = true;
+      current += char;
+      continue;
+    }
+    if (char === "'") {
+      inSingle = true;
+      current += char;
+      continue;
+    }
+    if (char === '"') {
+      inDouble = true;
+      current += char;
+      continue;
+    }
+    if (char === delimiter) {
+      const part = current.trim();
+      if (part.length > 0) parts.push(part);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  const lastPart = current.trim();
+  if (lastPart.length > 0) parts.push(lastPart);
+
+  return parts;
+}
+
+// Parses the VALUES section of an INSERT/REPLACE statement into an array of
+// rows, each row being an array of raw value tokens. Handles multi-row inserts
+// (VALUES (...), (...)), parentheses and commas inside string literals, and
+// escaped quotes ('').
+function parseValuesRows(valuesSection) {
+  const rows = [];
+  let currentRow = [];
+  let currentValue = '';
+  let depth = 0;
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < valuesSection.length; i++) {
+    const char = valuesSection[i];
+    if (inSingle) {
+      currentValue += char;
+      if (char === "'") {
+        if (valuesSection[i + 1] === "'") {
+          currentValue += valuesSection[i + 1];
+          i++;
+        } else {
+          inSingle = false;
+        }
+      }
+      continue;
+    }
+    if (inDouble) {
+      currentValue += char;
+      if (char === '"') {
+        if (valuesSection[i + 1] === '"') {
+          currentValue += valuesSection[i + 1];
+          i++;
+        } else {
+          inDouble = false;
+        }
+      }
+      continue;
+    }
+    if (char === '-' && valuesSection[i + 1] === '-') {
+      while (i < valuesSection.length && valuesSection[i] !== '\n') i++;
+      continue;
+    }
+    if (char === "'") {
+      inSingle = true;
+      currentValue += char;
+      continue;
+    }
+    if (char === '"') {
+      inDouble = true;
+      currentValue += char;
+      continue;
+    }
+    if (char === '(') {
+      if (depth === 0) {
+        depth = 1;
+      } else {
+        depth++;
+        currentValue += char;
+      }
+      continue;
+    }
+    if (char === ')') {
+      if (depth === 1) {
+        depth = 0;
+        currentRow.push(currentValue.trim());
+        currentValue = '';
+      } else if (depth > 1) {
+        depth--;
+        currentValue += char;
+      }
+      continue;
+    }
+    if (char === ',' && depth === 1) {
+      currentRow.push(currentValue.trim());
+      currentValue = '';
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      if (currentRow.length > 0) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+      continue;
+    }
+    currentValue += char;
+  }
+
+  if (currentRow.length > 0) rows.push(currentRow);
+
+  return rows;
+}
+
 function fixStatementColumns(statement, columns, invalidColumns) {
   try {
-    // Find the VALUES part
-    const valuesMatch = statement.match(/VALUES\s*\(([^)]+)\)/i);
-    if (!valuesMatch) return null;
+    // Strip leading comment lines before matching the command
+    const cleanStatement = statement.replace(/^(--[^\n]*\n\s*)+/, '');
+    const command = cleanStatement.match(
+      /^(INSERT\s+OR\s+(?:IGNORE|REPLACE)|REPLACE|INSERT)/i,
+    )?.[0];
+    const tableMatch = cleanStatement.match(
+      /(?:REPLACE|INSERT)\s+(?:OR\s+(?:IGNORE|REPLACE)\s+)?INTO\s+["']?([^\s"'(\s]+)["']?/i,
+    );
+    if (!command || !tableMatch) return null;
+    const tableName = tableMatch[1];
 
-    const values = valuesMatch[1].split(',').map((v) => v.trim());
-
-    // Remove invalid columns and their corresponding values
     const validIndices = [];
     const validColumns = [];
-
     columns.forEach((col, idx) => {
       if (!invalidColumns.includes(col)) {
         validIndices.push(idx);
@@ -136,26 +344,30 @@ function fixStatementColumns(statement, columns, invalidColumns) {
       }
     });
 
-    const validValues = validIndices.map((idx) => values[idx]);
+    const valuesIndex = cleanStatement.search(/\bVALUES\b/i);
+    if (valuesIndex === -1) return null;
+    const valuesSection = cleanStatement.slice(valuesIndex + 6);
 
-    // Reconstruct the statement
-    const tableMatch = statement.match(
-      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(\s]+)["']?/i,
-    );
-    const tableName = tableMatch[1];
-    const command = statement.match(/^(REPLACE|INSERT(?:\s+OR\s+REPLACE)?)/i)[0];
+    const rows = parseValuesRows(valuesSection);
+    if (rows.length === 0) return null;
 
-    return `${command} INTO "${tableName}" (${validColumns.join(', ')}) VALUES (${validValues.join(', ')})`;
+    const fixedRows = rows.map((values) => {
+      const validValues = validIndices.map((idx) => (idx < values.length ? values[idx] : 'NULL'));
+      return `(${validValues.join(', ')})`;
+    });
+
+    return `${command} INTO "${tableName}" (${validColumns.join(', ')}) VALUES ${fixedRows.join(', ')}`;
   } catch (error) {
     logError('Failed to fix statement:', error);
     return null;
   }
 }
 
-async function validateDatabaseFile(filePath) {
+async function validateDatabaseFile(filePath, backupPassword) {
   try {
-    const zipFileContent = await fs.readFile(filePath);
-    const zip = new PizZip(zipFileContent);
+    const rawBuffer = await fs.readFile(filePath);
+    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json'); // Legacy: 'config.json'
     if (!configFile) {
@@ -164,6 +376,32 @@ async function validateDatabaseFile(filePath) {
     if (!sqlFile || !configFile) {
       return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
     }
+
+    const signatureFile = zip.file('signature.txt');
+    if (signatureFile) {
+      const sqlScript = sqlFile.asText();
+      const settings = mainStore.get('settings') || {};
+      const { getDbKey } = require('./keyManager');
+      const candidateKeys = [backupPassword, settings.association_transfer_key, getDbKey()].filter(
+        Boolean,
+      );
+
+      let isValidSig = false;
+      for (const key of candidateKeys) {
+        if (backupManager.verifySignature(sqlScript, key, signatureFile.asText())) {
+          isValidSig = true;
+          break;
+        }
+      }
+
+      if (!isValidSig) {
+        return {
+          isValid: false,
+          message: 'توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.',
+        };
+      }
+    }
+
     return { isValid: true, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
   } catch (error) {
     logError('Error during backup validation:', error);
@@ -191,7 +429,7 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
   }
 }
 
-async function replaceDatabase(importedDbPath, password) {
+async function replaceDatabase(importedDbPath, password, backupPassword) {
   const currentDbPath = getDatabasePath();
 
   // Auto-backup safeguard
@@ -214,8 +452,9 @@ async function replaceDatabase(importedDbPath, password) {
     if (isDbOpen()) {
       await closeDatabase();
     }
-    const zipFileContent = await fs.readFile(importedDbPath);
-    const zip = new PizZip(zipFileContent);
+    const rawBuffer = await fs.readFile(importedDbPath);
+    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json');
     // For backward compatibility, check for the old config file name
@@ -226,6 +465,32 @@ async function replaceDatabase(importedDbPath, password) {
     if (!sqlFile || !configFile) {
       throw new Error('Could not find required files (backup.sql, salt.json) in backup package.');
     }
+
+    // Restore assets if packaged in backup zip
+    try {
+      const electron = require('electron');
+      const app = electron.app;
+      if (app && typeof app.getPath === 'function') {
+        const targetAssetsDir = path.join(app.getPath('userData'), 'assets');
+        if (!fsSync.existsSync(targetAssetsDir)) {
+          fsSync.mkdirSync(targetAssetsDir, { recursive: true });
+        }
+        const assetFiles = zip.file(/^assets\//);
+        for (const assetFile of assetFiles) {
+          const relativePath = assetFile.name.replace(/^assets\//, '');
+          if (relativePath && !assetFile.dir) {
+            const destPath = path.join(targetAssetsDir, relativePath);
+            fsSync.mkdirSync(path.dirname(destPath), { recursive: true });
+            fsSync.writeFileSync(destPath, assetFile.asNodeBuffer());
+          }
+        }
+      }
+    } catch (assetExtractErr) {
+      if (typeof logWarn === 'function') {
+        logWarn('Asset extraction warning:', assetExtractErr.message);
+      }
+    }
+
     const sqlScript = sqlFile.asText();
     const configBuffer = configFile.asNodeBuffer();
     const configJson = JSON.parse(configBuffer.toString());
@@ -1563,6 +1828,10 @@ if (process.env.NODE_ENV === 'test') {
   exported.processAttendanceRow = processAttendanceRow;
   exported.processGroupRow = processGroupRow;
   exported.processInventoryRow = processInventoryRow;
+  exported.extractZipFromBuffer = extractZipFromBuffer;
+  exported.splitSqlList = splitSqlList;
+  exported.parseValuesRows = parseValuesRows;
+  exported.fixStatementColumns = fixStatementColumns;
 }
 
 module.exports = exported;

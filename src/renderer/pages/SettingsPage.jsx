@@ -134,7 +134,7 @@ const SettingsPage = () => {
     }
   };
 
-  const handlePasswordConfirm = async (password) => {
+  const handlePasswordConfirm = async (password, backupKey) => {
     const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
     setShowPasswordModal(false);
 
@@ -151,6 +151,7 @@ const SettingsPage = () => {
         password,
         userId: user.id,
         filePath: downloadedFilePath,
+        backupPassword: backupKey || undefined,
       });
 
       if (result.success) {
@@ -403,6 +404,20 @@ const SettingsPage = () => {
                                 <Form.Control type="text" value={settings.backup_path || ''} readOnly />
                               </InputGroup>
                             </Form.Group>
+                            <Form.Group className="mb-3">
+                              <Form.Label className="small">رمز النقل الموحد للمؤسسة (Association Transfer Key)</Form.Label>
+                              <Form.Control
+                                size="sm"
+                                type="text"
+                                name="association_transfer_key"
+                                placeholder="أدخل رمز النقل المشترك لتبادل قواعد البيانات بين أجهزة الجمعية"
+                                value={settings.association_transfer_key || ''}
+                                onChange={handleChange}
+                              />
+                              <Form.Text className="text-muted small">
+                                يُستخدم هذا الرمز لفك تشفير وتأمين النسخ الاحتياطية المتبادلة بين أجهزة الجمعية.
+                              </Form.Text>
+                            </Form.Group>
                             <Form.Check type="switch" label="تفعيل النسخ التلقائي" name="backup_enabled" checked={settings.backup_enabled || false} onChange={handleChange} disabled={!settings.backup_path} className="mb-3" />
                             <Row>
                               <Col md={6}>
@@ -463,6 +478,7 @@ const SettingsPage = () => {
         onConfirm={handlePasswordConfirm}
         title="الخطوة الأخيرة: تأكيد الهوية"
         body="يرجى إدخال كلمة المرور الخاصة بك لتأكيد استبدال قاعدة البيانات وإعادة تشغيل التطبيق."
+        showBackupKeyField
       />
 
     </Container>
