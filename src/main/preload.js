@@ -385,7 +385,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('import:completed', handler);
   },
   getInitialCredentials: () => ipcRenderer.invoke('get-initial-credentials'),
-  clearInitialCredentials: () => ipcRenderer.invoke('clear-initial-credentials'),
+  setupSuperadmin: (credentials) => ipcRenderer.invoke('auth:setup-superadmin', credentials),
 
   // ========================================================================
   // UI NOTIFICATION APIs

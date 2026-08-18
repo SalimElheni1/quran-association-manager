@@ -28,8 +28,8 @@ const ROLES = {
 // Channels callable before authentication (login screen, bootstrap, cosmetic UI).
 const PUBLIC_CHANNELS = new Set([
   'auth:login',
+  'auth:setup-superadmin',
   'get-initial-credentials',
-  'clear-initial-credentials',
   'get-is-packaged',
   'get-app-version',
   'settings:getLogo',

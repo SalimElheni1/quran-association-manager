@@ -11,13 +11,10 @@ jest.mock('@renderer/pages/DashboardPage', () => {
   return DashboardPage;
 });
 jest.mock('@renderer/pages/LoginPage', () => {
-  const LoginPage = ({ initialCredentials, onCloseBanner }) => (
+  const LoginPage = ({ needsSetup }) => (
     <div data-testid="login-page">
       Login Page
-      {initialCredentials && (
-        <div data-testid="credentials-banner">{JSON.stringify(initialCredentials)}</div>
-      )}
-      <button onClick={onCloseBanner}>Close Banner</button>
+      {needsSetup && <div data-testid="needs-setup">setup-required</div>}
     </div>
   );
   LoginPage.displayName = 'LoginPage';
@@ -47,7 +44,7 @@ describe('App Routing and Initialization', () => {
     // Setup a fresh mock for each test
     mockElectronAPI = {
       getInitialCredentials: jest.fn().mockResolvedValue(null),
-      clearInitialCredentials: jest.fn(),
+      onImportCompleted: jest.fn(() => () => {}),
       onShowInitialCredentials: jest.fn(() => () => {}), // Keep for other potential tests if needed
     };
     global.window.electronAPI = mockElectronAPI;
@@ -62,25 +59,54 @@ describe('App Routing and Initialization', () => {
     );
   };
 
-  it('should fetch initial credentials on mount', async () => {
+  it('should check the superadmin setup state on mount', async () => {
     await act(async () => {
       renderApp();
     });
     expect(mockElectronAPI.getInitialCredentials).toHaveBeenCalledTimes(1);
   });
 
-  it('should pass initial credentials to LoginPage', async () => {
-    const credentials = { username: 'superadmin', password: '123' };
-    mockElectronAPI.getInitialCredentials.mockResolvedValue(credentials);
+  it('should pass needsSetup=true to LoginPage when no superadmin exists', async () => {
+    mockElectronAPI.getInitialCredentials.mockResolvedValue({ needsSetup: true });
 
     await act(async () => {
       renderApp(['/login']);
     });
 
     expect(screen.getByTestId('login-page')).toBeInTheDocument();
-    const banner = screen.getByTestId('credentials-banner');
-    expect(banner).toBeInTheDocument();
-    expect(banner.textContent).toBe(JSON.stringify(credentials));
+    expect(screen.getByTestId('needs-setup')).toBeInTheDocument();
+  });
+
+  it('should not require setup when a superadmin already exists', async () => {
+    mockElectronAPI.getInitialCredentials.mockResolvedValue(null);
+
+    await act(async () => {
+      renderApp(['/login']);
+    });
+
+    expect(screen.getByTestId('login-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('needs-setup')).not.toBeInTheDocument();
+  });
+
+  it('should re-check setup state after a DB import', async () => {
+    let importHandler;
+    mockElectronAPI.onImportCompleted.mockImplementation((callback) => {
+      importHandler = callback;
+      return () => {};
+    });
+    mockElectronAPI.getInitialCredentials.mockResolvedValueOnce({ needsSetup: true });
+
+    await act(async () => {
+      renderApp(['/login']);
+    });
+    expect(screen.getByTestId('needs-setup')).toBeInTheDocument();
+
+    mockElectronAPI.getInitialCredentials.mockResolvedValueOnce(null);
+    await act(async () => {
+      importHandler({});
+    });
+
+    expect(screen.queryByTestId('needs-setup')).not.toBeInTheDocument();
   });
 
   it('should render the login page for the /login route', async () => {

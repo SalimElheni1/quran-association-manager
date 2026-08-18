@@ -64,6 +64,13 @@ const mockProtocol = {
   registerFileProtocol: jest.fn(),
 };
 
+// Round-trip safeStorage mock (encryptString/decryptString must be reversible)
+const mockSafeStorage = {
+  isEncryptionAvailable: jest.fn().mockReturnValue(true),
+  encryptString: jest.fn((value) => Buffer.from(`enc:${value}`).toString('base64')),
+  decryptString: jest.fn((buffer) => Buffer.from(buffer, 'base64').toString('utf8').slice(4)),
+};
+
 module.exports = {
   app: mockApp,
   BrowserWindow: mockBrowserWindow,
@@ -75,4 +82,5 @@ module.exports = {
   },
   protocol: mockProtocol,
   autoUpdater: mockAutoUpdater,
+  safeStorage: mockSafeStorage,
 };

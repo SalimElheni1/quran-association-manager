@@ -12,6 +12,8 @@ const fs = {
   access: jest.fn(),
   mkdtempSync: jest.fn(),
   rmSync: jest.fn(),
+  renameSync: jest.fn(),
+  chmodSync: jest.fn(),
   constants: {
     F_OK: 0,
     R_OK: 4,

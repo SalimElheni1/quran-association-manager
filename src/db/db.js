@@ -4,7 +4,6 @@ const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
-const bcrypt = require('bcryptjs');
 const { getDbKey, getDbSalt } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
@@ -39,69 +38,69 @@ function getDatabasePath() {
   return dbPath;
 }
 
-async function seedSuperadmin() {
+/**
+ * Checks whether a Superadmin user already exists.
+ * SEC-04: no default credentials are ever seeded; the first superadmin is
+ * created through the first-run setup flow (auth:setup-superadmin).
+ * @returns {Promise<boolean>} True when at least one Superadmin exists.
+ */
+async function hasSuperadmin() {
   try {
-    // Check if a superadmin already exists using the multi-role system
     const existingAdmin = await getQuery(`
       SELECT u.id FROM users u
       JOIN user_roles ur ON u.id = ur.user_id
       JOIN roles r ON ur.role_id = r.id
       WHERE r.name = 'Superadmin'
     `);
-
-    if (!existingAdmin) {
-      log('No superadmin found. Seeding default superadmin...');
-
-      const tempPassword = '123456';
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
-      const username = 'superadmin';
-
-      // Insert the user without the 'role' column (removed in migration 026)
-      const insertSql = `
-        INSERT INTO users (username, password, first_name, last_name, email)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-
-      const result = await runQuery(insertSql, [
-        username,
-        hashedPassword,
-        'Super',
-        'Admin',
-        'superadmin@example.com',
-      ]);
-
-      if (result.id) {
-        // Set the matricule
-        const matricule = `U-${result.id.toString().padStart(6, '0')}`;
-        await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
-
-        // Assign the Superadmin role using the multi-role system
-        const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
-        if (superadminRole) {
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-            result.id,
-            superadminRole.id,
-          ]);
-        } else {
-          // If the role doesn't exist yet, insert it first
-          const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-            result.id,
-            roleResult.id,
-          ]);
-        }
-      }
-
-      log(`Superadmin created successfully: ${username}`);
-      // Return the credentials so they can be displayed to the user
-      return { username, password: tempPassword };
-    }
-    // If admin already exists, do nothing and return null
-    return null;
+    return !!existingAdmin;
   } catch (error) {
-    logError('Failed to seed superadmin:', error);
-    throw error; // Re-throw the error to be handled by the caller
+    logError('Failed to check for existing superadmin:', error);
+    throw error;
   }
+}
+
+/**
+ * Creates the first Superadmin user with the given credentials.
+ * Used exclusively by the first-run setup flow (SEC-04). The password must
+ * already be hashed by the caller.
+ * @param {string} username - The chosen username (must be unique).
+ * @param {string} hashedPassword - The bcrypt-hashed password.
+ * @returns {Promise<{id: number, username: string}>} The created user.
+ */
+async function createSuperadminUser(username, hashedPassword) {
+  const existing = await getQuery('SELECT id FROM users WHERE username = ?', [username]);
+  if (existing) {
+    throw new Error('اسم المستخدم هذا موجود مسبقاً. الرجاء اختيار اسم آخر.');
+  }
+
+  const result = await runQuery(
+    'INSERT INTO users (username, password, first_name, last_name, email) VALUES (?, ?, ?, ?, ?)',
+    [username, hashedPassword, 'Super', 'Admin', `${username}@local.local`],
+  );
+
+  if (!result.id) {
+    throw new Error('فشل إنشاء المستخدم.');
+  }
+
+  const matricule = `U-${result.id.toString().padStart(6, '0')}`;
+  await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
+
+  const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
+  if (superadminRole) {
+    await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+      result.id,
+      superadminRole.id,
+    ]);
+  } else {
+    const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
+    await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+      result.id,
+      roleResult.id,
+    ]);
+  }
+
+  log(`Superadmin created successfully: ${username}`);
+  return { id: result.id, username };
 }
 
 /**
@@ -318,22 +317,21 @@ async function initializeDatabase() {
     db.pragma('foreign_keys = ON');
 
     // Schema / Seeding
-    let tempCredentials = null;
     if (!dbExists) {
-      log('[DB_LOG] New database detected. Initializing schema and default data...');
+      log('[DB_LOG] New database detected. Initializing schema...');
       db.exec(schema);
       await runMigrations(); // This uses db, which is set now
       getDbSalt();
       log('[DB_LOG] Database salt created.');
-      tempCredentials = await seedSuperadmin(); // Capture credentials
-      log('[DB_LOG] Database schema and default data initialized.');
+      // SEC-04: no default superadmin is seeded. The first-run setup flow
+      // (auth:setup-superadmin) creates the first Superadmin account.
+      log('[DB_LOG] Database schema initialized. First-run superadmin setup required.');
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
 
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
-    return tempCredentials;
   } catch (error) {
     db = null;
     logError(
@@ -470,4 +468,6 @@ module.exports = {
   isDbOpen,
   dbExec,
   withTransaction,
+  hasSuperadmin,
+  createSuperadminUser,
 };

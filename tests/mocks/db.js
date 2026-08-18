@@ -77,5 +77,7 @@ module.exports = {
   getDb: jest.fn(() => db),
   getDatabasePath: jest.fn(),
   dbClose: jest.fn(() => Promise.resolve()),
+  hasSuperadmin: jest.fn(() => Promise.resolve(false)),
+  createSuperadminUser: jest.fn((username) => Promise.resolve({ id: 1, username })),
   resetMocks,
 };

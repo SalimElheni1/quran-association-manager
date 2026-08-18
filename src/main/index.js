@@ -80,7 +80,6 @@ const {
 } = require('./feeChargeScheduler');
 
 const store = new Store();
-let initialCredentials = null;
 
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
@@ -185,10 +184,7 @@ const initializeApp = async () => {
     // This is the new standard: initialize the DB as soon as the app is ready.
     // The key is managed internally, so no password is needed here.
     log('App is ready, initializing database...');
-    const tempCredentials = await db.initializeDatabase();
-    if (tempCredentials) {
-      initialCredentials = tempCredentials;
-    }
+    await db.initializeDatabase();
     log('Database initialized successfully.');
     // =============================================================================
 
@@ -371,9 +367,16 @@ const initializeApp = async () => {
 
     // Register all IPC handlers
     ipcMain.handle('get-is-packaged', () => app.isPackaged);
-    ipcMain.handle('get-initial-credentials', () => initialCredentials);
-    ipcMain.handle('clear-initial-credentials', () => {
-      initialCredentials = null;
+    // SEC-04: computed at call time so the state is correct even after a DB
+    // import (imported databases bring their own superadmin).
+    ipcMain.handle('get-initial-credentials', async () => {
+      try {
+        const needsSetup = !(await db.hasSuperadmin());
+        return needsSetup ? { needsSetup: true } : null;
+      } catch (error) {
+        logError('Failed to check superadmin setup state:', error);
+        return null;
+      }
     });
     ipcMain.handle('export:generate-dev-template', async () => {
       const { filePath } = await dialog.showSaveDialog({

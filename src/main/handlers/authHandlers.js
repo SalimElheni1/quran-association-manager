@@ -175,6 +175,27 @@ const updatePasswordHandler = async (userId, passwordData) => {
   return { success: true, message: 'تم تحديث كلمة المرور بنجاح.' };
 };
 
+const setupSuperadminValidationSchema = Joi.object({
+  username: Joi.string()
+    .pattern(/^[a-zA-Z0-9_]+$/)
+    .min(3)
+    .max(50)
+    .required()
+    .messages({
+      'string.pattern.base': 'اسم المستخدم يجب أن يكون بالإنجليزية: حروف وأرقام فقط',
+      'string.min': 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل',
+      'string.empty': 'اسم المستخدم مطلوب',
+    }),
+  password: Joi.string().min(6).required().messages({
+    'string.min': 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+    'string.empty': 'كلمة المرور مطلوبة',
+  }),
+  confirm_password: Joi.any().valid(Joi.ref('password')).required().messages({
+    'any.only': 'كلمتا المرور غير متطابقتين',
+    'any.required': 'يجب تأكيد كلمة المرور',
+  }),
+});
+
 function registerAuthHandlers() {
   ipcMain.handle('auth:login', async (event, { username, password }) => {
     try {
@@ -204,6 +225,10 @@ function registerAuthHandlers() {
       }
 
       clearLoginLockout();
+
+      // SEC-04 safety net for existing installs: if the account still uses
+      // the legacy default password '123456', force a password change.
+      const mustChangePassword = await bcrypt.compare('123456', user.password);
 
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
@@ -247,6 +272,7 @@ function registerAuthHandlers() {
       return {
         success: true,
         token,
+        mustChangePassword,
         user: {
           id: user.id,
           username: user.username,
@@ -260,6 +286,41 @@ function registerAuthHandlers() {
       logError('Error in auth:login handler:', error.message);
       if (error.message !== 'Incorrect password or corrupt database.') {
         await db.closeDatabase();
+      }
+      return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
+    }
+  });
+
+  ipcMain.handle('auth:setup-superadmin', async (event, credentials) => {
+    try {
+      if (!db.isDbOpen()) {
+        await db.initializeDatabase();
+      }
+
+      // Guard: only allowed when no Superadmin exists yet. Once one exists,
+      // this channel is hard-denied (the DB may have been imported meanwhile).
+      if (await db.hasSuperadmin()) {
+        return { success: false, message: 'تم إنشاء مدير النظام مسبقاً.' };
+      }
+
+      const validatedData = await setupSuperadminValidationSchema.validateAsync(credentials || {}, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      const created = await db.createSuperadminUser(validatedData.username, hashedPassword);
+
+      return {
+        success: true,
+        username: created.username,
+        message: 'تم إنشاء مدير النظام بنجاح. سجّل الدخول الآن.',
+      };
+    } catch (error) {
+      logError('Error in auth:setup-superadmin handler:', error.message);
+      if (error.isJoi) {
+        const messages = error.details.map((d) => d.message).join('; ');
+        return { success: false, message: `بيانات غير صالحة: ${messages}` };
       }
       return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
     }
