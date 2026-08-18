@@ -4,12 +4,6 @@ const path = require('path');
 // Mock all dependencies at the top level. Jest hoists these calls,
 // ensuring they are applied before any module imports.
 jest.mock('../src/main/logger');
-jest.mock('electron-updater', () => ({
-  autoUpdater: {
-    checkForUpdatesAndNotify: jest.fn(),
-    on: jest.fn(),
-  },
-}));
 jest.mock('electron-reloader', () => jest.fn());
 jest.mock('electron-store', () => jest.fn());
 jest.mock('../src/db/db');
@@ -68,7 +62,7 @@ jest.mock('electron', () => ({
 
 describe.skip('Main Process (index.js)', () => {
   let initializeApp;
-  let mockLogger, mockDb, mockAutoUpdater;
+  let mockLogger, mockDb;
 
   beforeEach(() => {
     // Clear mock history before each test, but don't reset modules
@@ -83,7 +77,6 @@ describe.skip('Main Process (index.js)', () => {
     // Import the mocks
     mockLogger = require('../src/main/logger');
     mockDb = require('../src/db/db');
-    mockAutoUpdater = require('electron-updater').autoUpdater;
 
     // Now that mocks are in place, require the module under test
     initializeApp = require('../src/main/index').initializeApp;
@@ -98,13 +91,6 @@ describe.skip('Main Process (index.js)', () => {
   it('should create the main window', async () => {
     await initializeApp();
     expect(mockBrowserWindow).toHaveBeenCalled();
-  });
-
-  it('should check for updates in packaged mode', async () => {
-    mockApp.isPackaged = true;
-    await initializeApp();
-    expect(mockLogger.log).toHaveBeenCalledWith('Setting up auto-updater...');
-    expect(mockAutoUpdater.checkForUpdatesAndNotify).toHaveBeenCalled();
   });
 
   it('should handle database initialization failure gracefully', async () => {

@@ -3,6 +3,7 @@ const fs = {
   writeFile: jest.fn(),
   readFileSync: jest.fn(),
   writeFileSync: jest.fn(),
+  appendFileSync: jest.fn(),
   existsSync: jest.fn(),
   unlinkSync: jest.fn(),
   mkdirSync: jest.fn(),

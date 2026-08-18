@@ -1,25 +1,22 @@
 /**
  * @fileoverview Main Electron process entry point for Quran Branch Manager.
- * Handles application lifecycle, window management, auto-updates, database initialization,
+ * Handles application lifecycle, window management, database initialization,
  * and IPC handler registration.
  *
  * This file serves as the central coordinator for the desktop application, managing:
  * - Application startup and shutdown
  * - Main window creation and management
  * - Database initialization and encryption
- * - Auto-update functionality
  * - IPC handler registration
  * - Security protocols and crash handling
  *
  * @author Quran Branch Manager Team
  * @version 1.0.2-beta
  * @requires electron - Desktop application framework
- * @requires electron-updater - Auto-update functionality
  * @requires electron-store - Persistent settings storage
  */
 
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -256,50 +253,6 @@ const initializeApp = async () => {
 
     Menu.setApplicationMenu(null);
 
-    // =============================================================================
-    // AUTO-UPDATE SETUP
-    // =============================================================================
-    if (app.isPackaged) {
-      log('Setting up auto-updater...');
-      autoUpdater.checkForUpdatesAndNotify();
-
-      autoUpdater.on('update-available', () => {
-        log('Update available.');
-      });
-
-      autoUpdater.on('update-not-available', () => {
-        log('Update not available.');
-      });
-
-      autoUpdater.on('error', (err) => {
-        logError('Error in auto-updater. ' + err);
-      });
-
-      autoUpdater.on('download-progress', (progressObj) => {
-        let log_message = 'Download speed: ' + progressObj.bytesPerSecond;
-        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-        log_message = log_message + ' (' + progressObj.transferred + '/' + progressObj.total + ')';
-        log(log_message);
-      });
-
-      autoUpdater.on('update-downloaded', (info) => {
-        log('Update downloaded. Prompting user to restart.');
-        const dialogOpts = {
-          type: 'info',
-          buttons: ['Restart', 'Later'],
-          title: 'Application Update',
-          message: process.platform === 'win32' ? info.releaseName : info.releaseNotes,
-          detail:
-            'A new version has been downloaded. Restart the application to apply the updates.',
-        };
-
-        dialog.showMessageBox(dialogOpts).then((returnValue) => {
-          if (returnValue.response === 0) autoUpdater.quitAndInstall();
-        });
-      });
-    }
-    // =============================================================================
-
     const mainWindow = createWindow();
 
     // Register a custom protocol to safely serve images from the app's data directory.
@@ -309,8 +262,9 @@ const initializeApp = async () => {
         const rawUrl = request.url.replace('safe-image://', '');
         const decodedUrl = decodeURIComponent(rawUrl).replace(/\\/g, '/');
 
-        // Reject traversal sequences or null bytes
-        if (decodedUrl.includes('..') || decodedUrl.includes('\0')) {
+        // Reject traversal sequences, null bytes, and absolute paths (the
+        // protocol may only serve relative files under userData/public).
+        if (decodedUrl.includes('..') || decodedUrl.includes('\0') || path.isAbsolute(decodedUrl)) {
           logError(`[safe-image] Traversal attempt blocked: ${decodedUrl}`);
           return callback({ error: -6 });
         }
@@ -318,10 +272,7 @@ const initializeApp = async () => {
         const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
 
         const userDataPath = app.getPath('userData');
-        let targetPath = path.resolve(userDataPath, decodedUrl);
-        if (path.isAbsolute(decodedUrl)) {
-          targetPath = path.resolve(decodedUrl);
-        }
+        const targetPath = path.resolve(userDataPath, decodedUrl);
 
         const ext = path.extname(targetPath).toLowerCase();
         if (!allowedExts.includes(ext)) {

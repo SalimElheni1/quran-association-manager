@@ -29,7 +29,6 @@
     "docxtemplater": "^3.66.2",
     "dotenv": "^17.2.1",
     "electron-store": "^8.2.0",
-    "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
     "google-auth-library": "^10.5.0",
     "joi": "^18.0.1",
