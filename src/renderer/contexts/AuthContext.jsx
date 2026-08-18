@@ -3,7 +3,7 @@
  * Manages user authentication state, login/logout operations, and force logout handling.
  *
  * This context provides centralized authentication state management across the application,
- * including token persistence, user session management, and secure logout procedures.
+ * including session state and secure logout procedures.
  *
  * @author Quran Branch Manager Team
  * @version 1.0.2-beta
@@ -26,8 +26,7 @@ const AuthContext = createContext(null);
  * Authentication provider component that manages authentication state and operations.
  *
  * Features:
- * - User session management with JWT tokens
- * - Persistent token storage in localStorage
+ * - User session management (main-process session, no token persistence)
  * - Force logout handling from main process
  * - Secure login/logout operations
  * - Authentication state synchronization
@@ -41,20 +40,14 @@ export function AuthProvider({ children }) {
   /** @type {[Object|null, Function]} Current authenticated user object */
   const [user, setUser] = useState(null);
 
-  /** @type {[string|null, Function]} JWT authentication token */
-  const [token, setToken] = useState(null);
-
   /** @type {[boolean, Function]} Loading state for async operations */
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // Listen for a force-logout event from the main process (e.g., after DB import)
   // This is a safety net to ensure the frontend and backend are in sync.
   useEffect(() => {
     const removeListener = window.electronAPI.onForceLogout(() => {
       log('Received force-logout signal from main process. Logging out.');
-      // Directly call the logout logic here to avoid any state dependencies
-      localStorage.removeItem('token');
-      setToken(null);
       setUser(null);
       window.electronAPI.logout(); // Notify main process
     });
@@ -67,7 +60,7 @@ export function AuthProvider({ children }) {
 
   /**
    * Authenticates a user with username and password.
-   * On successful authentication, persists the token and updates the auth state.
+   * On successful authentication, updates the auth state.
    *
    * @param {string} username - The username to authenticate
    * @param {string} password - The password to authenticate
@@ -77,9 +70,6 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     const response = await window.electronAPI.login({ username, password });
     if (response.success) {
-      // On successful login, persist the token and update state in one atomic step
-      localStorage.setItem('token', response.token);
-      setToken(response.token);
       setUser(response.user);
 
       // If the user needs the guide, dispatch an event to open it.
@@ -103,23 +93,19 @@ export function AuthProvider({ children }) {
   /**
    * Logs out the current user and cleans up authentication state.
    * Performs a complete logout including:
-   * - Clearing localStorage token
    * - Resetting authentication state
    * - Notifying main process to close database connections
    *
    * @returns {void}
    */
   const logout = () => {
-    // 1. Clear the token from localStorage
-    localStorage.removeItem('token');
-    // 2. Clear the token and user from state
-    setToken(null);
+    // 1. Clear the user from state
     setUser(null);
-    // 3. Notify the main process to close the database connection
+    // 2. Notify the main process to close the database connection
     window.electronAPI.logout();
   };
 
-  const value = { user, token, login, logout, isAuthenticated: !!user };
+  const value = { user, login, logout, isAuthenticated: !!user };
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 }
@@ -130,7 +116,6 @@ export function AuthProvider({ children }) {
  *
  * @returns {Object} Authentication context value
  * @returns {Object|null} returns.user - Current authenticated user object
- * @returns {string|null} returns.token - JWT authentication token
  * @returns {Function} returns.login - Login function
  * @returns {Function} returns.logout - Logout function
  * @returns {boolean} returns.isAuthenticated - Authentication status

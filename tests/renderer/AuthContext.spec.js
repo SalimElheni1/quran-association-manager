@@ -9,11 +9,10 @@ jest.mock('../../src/renderer/utils/logger', () => ({
 
 // Test component to access context
 const TestComponent = () => {
-  const { user, token, login, logout, isAuthenticated } = useAuth();
+  const { user, login, logout, isAuthenticated } = useAuth();
   return (
     <div>
       <div data-testid="user">{user ? JSON.stringify(user) : 'null'}</div>
-      <div data-testid="token">{token || 'null'}</div>
       <div data-testid="isAuthenticated">{isAuthenticated.toString()}</div>
       <button data-testid="login-btn" onClick={() => login('test', 'pass')}>
         Login
@@ -50,17 +49,14 @@ describe('AuthContext', () => {
     );
 
     expect(screen.getByTestId('user')).toHaveTextContent('null');
-    expect(screen.getByTestId('token')).toHaveTextContent('null');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
   });
 
   it('should handle successful login', async () => {
     const mockUser = { id: 1, username: 'testuser' };
-    const mockToken = 'test-token';
     mockElectronAPI.login.mockResolvedValue({
       success: true,
       user: mockUser,
-      token: mockToken,
     });
 
     render(
@@ -75,11 +71,8 @@ describe('AuthContext', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('user')).toHaveTextContent(JSON.stringify(mockUser));
-      expect(screen.getByTestId('token')).toHaveTextContent(mockToken);
       expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
     });
-
-    expect(localStorage.getItem('token')).toBe(mockToken);
   });
 
   it('should handle failed login', async () => {
@@ -100,20 +93,15 @@ describe('AuthContext', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('user')).toHaveTextContent('null');
-      expect(screen.getByTestId('token')).toHaveTextContent('null');
       expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
     });
-
-    expect(localStorage.getItem('token')).toBeNull();
   });
 
   it('should handle logout', async () => {
     const mockUser = { id: 1, username: 'testuser' };
-    const mockToken = 'test-token';
     mockElectronAPI.login.mockResolvedValue({
       success: true,
       user: mockUser,
-      token: mockToken,
     });
 
     render(
@@ -137,9 +125,7 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('user')).toHaveTextContent('null');
-    expect(screen.getByTestId('token')).toHaveTextContent('null');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
-    expect(localStorage.getItem('token')).toBeNull();
     expect(mockElectronAPI.logout).toHaveBeenCalled();
   });
 
@@ -149,8 +135,6 @@ describe('AuthContext', () => {
       forceLogoutCallback = callback;
       return () => {};
     });
-
-    localStorage.setItem('token', 'existing-token');
 
     render(
       <AuthProvider>
@@ -164,9 +148,7 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('user')).toHaveTextContent('null');
-    expect(screen.getByTestId('token')).toHaveTextContent('null');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
-    expect(localStorage.getItem('token')).toBeNull();
     expect(mockElectronAPI.logout).toHaveBeenCalled();
   });
 

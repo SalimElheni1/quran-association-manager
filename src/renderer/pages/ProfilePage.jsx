@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@renderer/contexts/AuthContext';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
 
 const ProfilePage = () => {
-  const { token } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,14 +26,8 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!token) {
-        setLoading(false);
-        setError('Not authenticated');
-        return;
-      }
-
       try {
-        const res = await window.electronAPI.getProfile({ token });
+        const res = await window.electronAPI.getProfile();
 
         // Support both shapes: { success: true, profile } and a direct profile object
         let profileObj = null;
@@ -65,7 +57,7 @@ const ProfilePage = () => {
     };
 
     fetchProfile();
-  }, [token]);
+  }, []);
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -82,7 +74,7 @@ const ProfilePage = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await window.electronAPI.updateProfile({ token, profileData: profile });
+      const response = await window.electronAPI.updateProfile({ profileData: profile });
       if (response.success) {
         toast.success(response.message);
       } else {
@@ -100,7 +92,7 @@ const ProfilePage = () => {
     setIsSubmittingPassword(true);
 
     try {
-      const response = await window.electronAPI.updatePassword({ token, passwordData });
+      const response = await window.electronAPI.updatePassword({ passwordData });
       if (response.success) {
         toast.success(response.message);
         setPasswordData({

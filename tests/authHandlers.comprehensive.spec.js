@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const db = require('../src/db/db');
+const sessionManager = require('../src/main/sessionManager');
 const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
 
 jest.mock('bcryptjs');
@@ -32,6 +33,8 @@ jest.mock('../src/main/validationSchemas', () => {
 describe('Auth Handlers - Comprehensive', () => {
   let handlers = {};
   const mockStore = { get: jest.fn(), set: jest.fn(), delete: jest.fn() };
+  const SENDER_ID = 42;
+  const sessionEvent = { sender: { id: SENDER_ID } };
   const {
     userUpdateValidationSchema,
     passwordUpdateValidationSchema,
@@ -44,6 +47,7 @@ describe('Auth Handlers - Comprehensive', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     handlers = {};
+    sessionManager.revokeAllSessions();
     ipcMain.handle.mockImplementation((channel, handler) => {
       handlers[channel] = handler;
     });
@@ -53,6 +57,10 @@ describe('Auth Handlers - Comprehensive', () => {
       Promise.resolve(data),
     );
     registerAuthHandlers();
+  });
+
+  afterAll(() => {
+    sessionManager.revokeAllSessions();
   });
 
   describe('auth:login', () => {
@@ -186,11 +194,15 @@ describe('Auth Handlers - Comprehensive', () => {
       };
       const mockRoles = [{ name: 'Administrator' }];
 
-      jwt.verify.mockReturnValue({ id: 1 });
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'user', roles: ['Administrator'] },
+        null,
+      );
       db.getQuery.mockResolvedValue(mockUser);
       db.allQuery.mockResolvedValue(mockRoles);
 
-      const result = await handlers['auth:getProfile'](null, { token: 'valid-token' });
+      const result = await handlers['auth:getProfile'](sessionEvent);
 
       expect(result.success).toBe(true);
       expect(result.profile.username).toBe('user');
@@ -200,51 +212,41 @@ describe('Auth Handlers - Comprehensive', () => {
     });
 
     it('should normalize need_guide to boolean', async () => {
-      jwt.verify.mockReturnValue({ id: 1 });
+      sessionManager.createSession({ id: SENDER_ID }, { id: 1, username: 'user', roles: [] }, null);
       db.getQuery.mockResolvedValue({ id: 1, username: 'user', need_guide: 0, current_step: 0 });
       db.allQuery.mockResolvedValue([]);
 
-      const result = await handlers['auth:getProfile'](null, { token: 'token' });
+      const result = await handlers['auth:getProfile'](sessionEvent);
 
       expect(result.profile.need_guide).toBe(false);
     });
 
     it('should normalize current_step to number', async () => {
-      jwt.verify.mockReturnValue({ id: 1 });
+      sessionManager.createSession({ id: SENDER_ID }, { id: 1, username: 'user', roles: [] }, null);
       db.getQuery.mockResolvedValue({ id: 1, username: 'user', current_step: '3' });
       db.allQuery.mockResolvedValue([]);
 
-      const result = await handlers['auth:getProfile'](null, { token: 'token' });
+      const result = await handlers['auth:getProfile'](sessionEvent);
 
       expect(result.profile.current_step).toBe(3);
     });
 
-    it('should return error for missing token', async () => {
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Authentication token not provided.');
-      });
-
-      const result = await handlers['auth:getProfile'](null, { token: null });
+    it('should return error when there is no session', async () => {
+      const result = await handlers['auth:getProfile'](sessionEvent);
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Authentication token not provided');
-    });
-
-    it('should return error for invalid token', async () => {
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
-      });
-
-      const result = await handlers['auth:getProfile'](null, { token: 'invalid' });
-
-      expect(result.success).toBe(false);
+      expect(result.message).toContain('Authentication required');
     });
 
     it('should return error when user not found', async () => {
-      jwt.verify.mockReturnValue({ id: 999 });
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 999, username: 'user', roles: [] },
+        null,
+      );
       db.getQuery.mockResolvedValue(null);
 
-      const result = await handlers['auth:getProfile'](null, { token: 'token' });
+      const result = await handlers['auth:getProfile'](sessionEvent);
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('User profile not found.');
@@ -253,15 +255,14 @@ describe('Auth Handlers - Comprehensive', () => {
 
   describe('auth:updateProfile', () => {
     beforeEach(() => {
-      jwt.verify.mockReturnValue({ id: 1 });
+      sessionManager.createSession({ id: SENDER_ID }, { id: 1, username: 'user', roles: [] }, null);
     });
 
     it('should update profile successfully', async () => {
       db.getQuery.mockResolvedValue(null);
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      const result = await handlers['auth:updateProfile'](null, {
-        token: 'token',
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
         profileData: { first_name: 'John', last_name: 'Doe' },
       });
 
@@ -272,8 +273,7 @@ describe('Auth Handlers - Comprehensive', () => {
     it('should check username uniqueness', async () => {
       db.getQuery.mockResolvedValue({ id: 2 });
 
-      const result = await handlers['auth:updateProfile'](null, {
-        token: 'token',
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
         profileData: { username: 'existing' },
       });
 
@@ -285,8 +285,7 @@ describe('Auth Handlers - Comprehensive', () => {
       db.getQuery.mockResolvedValueOnce({ id: 1 });
       db.runQuery.mockResolvedValue({ changes: 1 });
 
-      const result = await handlers['auth:updateProfile'](null, {
-        token: 'token',
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
         profileData: { username: 'sameuser' },
       });
 
@@ -296,8 +295,7 @@ describe('Auth Handlers - Comprehensive', () => {
     it('should return message when no fields to update', async () => {
       userUpdateValidationSchema.validateAsync.mockResolvedValue({});
 
-      const result = await handlers['auth:updateProfile'](null, {
-        token: 'token',
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
         profileData: {},
       });
 
@@ -311,26 +309,35 @@ describe('Auth Handlers - Comprehensive', () => {
       validationError.details = [{ message: 'Invalid field' }];
       userUpdateValidationSchema.validateAsync.mockRejectedValue(validationError);
 
-      const result = await handlers['auth:updateProfile'](null, {
-        token: 'token',
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
         profileData: { invalid: 'data' },
       });
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('بيانات غير صالحة');
     });
+
+    it('should return error when there is no session', async () => {
+      sessionManager.revokeAllSessions();
+
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
+        profileData: { first_name: 'John' },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Authentication required');
+    });
   });
 
   describe('auth:updatePassword', () => {
     beforeEach(() => {
-      jwt.verify.mockReturnValue({ id: 1 });
+      sessionManager.createSession({ id: SENDER_ID }, { id: 1, username: 'user', roles: [] }, null);
     });
 
     it('should return error when user not found', async () => {
       db.getQuery.mockResolvedValue(null);
 
-      const result = await handlers['auth:updatePassword'](null, {
-        token: 'token',
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
         passwordData: { current_password: 'old', new_password: 'new' },
       });
 
@@ -344,8 +351,7 @@ describe('Auth Handlers - Comprehensive', () => {
       validationError.details = [{ message: 'Password too short' }];
       passwordUpdateValidationSchema.validateAsync.mockRejectedValue(validationError);
 
-      const result = await handlers['auth:updatePassword'](null, {
-        token: 'token',
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
         passwordData: { current_password: 'old', new_password: '123' },
       });
 
@@ -359,8 +365,7 @@ describe('Auth Handlers - Comprehensive', () => {
       bcrypt.hash.mockResolvedValue('newhash');
       db.runQuery.mockRejectedValue(new Error('DB error'));
 
-      const result = await handlers['auth:updatePassword'](null, {
-        token: 'token',
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
         passwordData: { current_password: 'old', new_password: 'new' },
       });
 

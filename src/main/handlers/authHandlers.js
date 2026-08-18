@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const db = require('../../db/db');
+const sessionManager = require('../sessionManager');
 const {
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
@@ -60,20 +61,16 @@ const profileUpdateValidationSchema = userUpdateValidationSchema
   })
   .with('new_password', 'current_password');
 
-const getUserIdFromToken = (token) => {
-  if (!token) {
-    throw new Error('Authentication token not provided.');
+const getUserIdFromSession = (event) => {
+  const senderId = event && event.sender ? event.sender.id : null;
+  const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+  if (!session) {
+    throw new Error('Authentication required.');
   }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded.id;
-  } catch (error) {
-    throw new Error('Invalid or expired authentication token.');
-  }
+  return session.userId;
 };
 
-const getProfileHandler = async (token) => {
-  const userId = getUserIdFromToken(token);
+const getProfileHandler = async (userId) => {
   const userProfile = await db.getQuery(
     'SELECT id, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, status, notes, branch_id, need_guide, current_step FROM users WHERE id = ?',
     [userId],
@@ -104,9 +101,7 @@ const getProfileHandler = async (token) => {
   return { success: true, profile: userProfile };
 };
 
-const updateProfileHandler = async (token, profileData) => {
-  const userId = getUserIdFromToken(token);
-
+const updateProfileHandler = async (userId, profileData) => {
   const validatedData = await profileUpdateValidationSchema.validateAsync(profileData, {
     abortEarly: false,
     stripUnknown: true,
@@ -158,9 +153,7 @@ const updateProfileHandler = async (token, profileData) => {
   return { success: true, message: 'تم تحديث الملف الشخصي بنجاح.' };
 };
 
-const updatePasswordHandler = async (token, passwordData) => {
-  const userId = getUserIdFromToken(token);
-
+const updatePasswordHandler = async (userId, passwordData) => {
   const validatedData = await passwordUpdateValidationSchema.validateAsync(passwordData, {
     abortEarly: false,
     stripUnknown: true,
@@ -183,7 +176,7 @@ const updatePasswordHandler = async (token, passwordData) => {
 };
 
 function registerAuthHandlers() {
-  ipcMain.handle('auth:login', async (_event, { username, password }) => {
+  ipcMain.handle('auth:login', async (event, { username, password }) => {
     try {
       // The database is now initialized on app startup, not here.
       // We just need to make sure it's open.
@@ -239,6 +232,18 @@ function registerAuthHandlers() {
         process.env.JWT_SECRET,
         { expiresIn: '8h' },
       );
+
+      // Establish the main-process session for this webContents. All later
+      // IPC authorization reads from this session, not from the token.
+      if (event && event.sender && typeof event.sender.id === 'number') {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        sessionManager.createSession(
+          event.sender,
+          { id: user.id, username: user.username, roles: userRoles },
+          decoded && decoded.exp ? decoded.exp * 1000 : null,
+        );
+      }
+
       return {
         success: true,
         token,
@@ -260,19 +265,18 @@ function registerAuthHandlers() {
     }
   });
 
-  ipcMain.handle('auth:getProfile', async (_event, data) => {
+  ipcMain.handle('auth:getProfile', async (event) => {
     try {
-      const token = data?.token;
-      return await getProfileHandler(token);
+      return await getProfileHandler(getUserIdFromSession(event));
     } catch (error) {
       logError('Error in auth:getProfile IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
 
-  ipcMain.handle('auth:updateProfile', async (_event, { token, profileData }) => {
+  ipcMain.handle('auth:updateProfile', async (event, { profileData }) => {
     try {
-      return await updateProfileHandler(token, profileData);
+      return await updateProfileHandler(getUserIdFromSession(event), profileData);
     } catch (error) {
       logError('Error in auth:updateProfile IPC wrapper:', error);
       if (error.isJoi) {
@@ -283,9 +287,9 @@ function registerAuthHandlers() {
     }
   });
 
-  ipcMain.handle('auth:updatePassword', async (_event, { token, passwordData }) => {
+  ipcMain.handle('auth:updatePassword', async (event, { passwordData }) => {
     try {
-      return await updatePasswordHandler(token, passwordData);
+      return await updatePasswordHandler(getUserIdFromSession(event), passwordData);
     } catch (error) {
       logError('Error in auth:updatePassword IPC wrapper:', error);
       if (error.isJoi) {

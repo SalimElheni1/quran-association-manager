@@ -62,23 +62,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /**
    * Retrieves the current user's profile information.
-   * @param {Object} [data] - Optional data object containing token
-   * @param {string} [data.token] - JWT token (defaults to localStorage token)
    * @returns {Promise<Object>} User profile object or error response
    */
-  getProfile: (data) => {
-    // Allow caller to pass { token } or call without args; when called without args, forward token from localStorage
-    const payload = data ?? { token: localStorage.getItem('token') };
-    return ipcRenderer.invoke('auth:getProfile', payload).then((res) => {
+  getProfile: () =>
+    ipcRenderer.invoke('auth:getProfile').then((res) => {
       // Return profile object or pass through error shape
       if (res && res.success) return res.profile;
       return res;
-    });
-  },
+    }),
 
   /**
    * Updates the current user's profile information.
-   * @param {Object} data - Profile update data including token and profile fields
+   * @param {Object} data - Profile update data
    * @returns {Promise<Object>} Update result
    */
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
@@ -88,7 +83,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Object} data - Password update data
    * @param {string} data.currentPassword - Current password for verification
    * @param {string} data.newPassword - New password
-   * @param {string} data.token - JWT token
    * @returns {Promise<Object>} Update result
    */
   updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),

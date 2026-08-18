@@ -50,11 +50,9 @@ describe('Student Handlers', () => {
       const maxAge = 10;
       const filters = { maxAgeFilter: maxAge.toString() };
 
-      // Spy on Date to control the current year
-      const currentYear = 2024;
-      jest.spyOn(global, 'Date').mockImplementation(() => ({
-        getFullYear: () => currentYear,
-      }));
+      // Control the current year via fake timers (keeps Date.now functional)
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-06-01T00:00:00Z'));
 
       await ipcMain.invoke('students:get', filters);
 
@@ -64,8 +62,8 @@ describe('Student Handlers', () => {
         expect.arrayContaining([]),
       );
 
-      // Restore original Date object
-      jest.restoreAllMocks();
+      // Restore real timers
+      jest.useRealTimers();
     });
   });
 

@@ -47,6 +47,8 @@ const { log, error: logError, initializeLogFile } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
+const sessionManager = require('./sessionManager');
+const { installIpcGuard } = require('./ipcSecurity');
 const {
   registerFinancialHandlers,
   recomputeAccountBalances,
@@ -87,6 +89,13 @@ if (!app.isPackaged) {
 }
 
 // =================================================================================
+// SECURITY: Install the centralized IPC authorization guard BEFORE any handler
+// registration (including module-level ipcMain.on registrations below). Every
+// channel is then authenticated from the main-process session registry only.
+// =================================================================================
+installIpcGuard(ipcMain);
+
+// =================================================================================
 
 /**
  * Creates and configures the main application window.
@@ -112,6 +121,12 @@ const createWindow = () => {
       contextIsolation: true, // CRITICAL: Security - isolate contexts
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
+  });
+
+  // A closed window must never leave a live session behind.
+  const windowWebContentsId = mainWindow.webContents.id;
+  mainWindow.on('closed', () => {
+    sessionManager.revokeSession(windowWebContentsId);
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -433,8 +448,11 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Handle user logout to close the database connection
-ipcMain.on('logout', async () => {
+// Handle user logout: revoke the sender's session and close the database connection
+ipcMain.on('logout', async (event) => {
+  if (event && event.sender && typeof event.sender.id === 'number') {
+    sessionManager.revokeSession(event.sender.id);
+  }
   log('User logging out, closing database connection.');
   await db.closeDatabase();
 });
@@ -451,6 +469,7 @@ app.on('will-quit', async () => {
     logError('Error stopping schedulers:', error);
   }
 
+  sessionManager.revokeAllSessions();
   await db.closeDatabase();
 });
 
