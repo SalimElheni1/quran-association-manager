@@ -130,6 +130,10 @@ function LoginPage({ needsSetup }) {
             <div className="signin-header">
               <img src={displayLogo} alt="Logo" className="signin-logo" />
               <h1>{mustChangePassword ? 'تغيير كلمة المرور' : 'تسجيل الدخول'}</h1>
+              {!mustChangePassword && (
+                <p className="signin-subtitle">الرابطة الوطنية للقرآن الكريم</p>
+              )}
+              <div className="weave-band" aria-hidden="true" />
             </div>
             {mustChangePassword && (
               <Alert variant="warning">

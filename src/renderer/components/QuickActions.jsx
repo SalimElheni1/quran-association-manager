@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import UserPlusIcon from './icons/UserPlusIcon';
 import TeacherIcon from './icons/TeacherIcon';
@@ -9,9 +9,17 @@ function QuickActions() {
   const navigate = useNavigate();
 
   return (
-    <Card className="h-100">
-      <Card.Header as="h5">إجراءات سريعة</Card.Header>
-      <Card.Body>
+    <div className="dashboard-panel">
+      <div className="panel-header">
+        <span className="panel-icon">
+          <UserPlusIcon />
+        </span>
+        <div>
+          <h5 className="panel-title">إجراءات سريعة</h5>
+          <p className="panel-caption">أكثر المهام شيوعاً بين يدي المكوِّن</p>
+        </div>
+      </div>
+      <div style={{ padding: '1.25rem' }}>
         <div className="d-grid gap-3">
           <Button variant="outline-primary" size="lg" onClick={() => navigate('/students')}>
             <UserPlusIcon className="me-2" />
@@ -21,13 +29,13 @@ function QuickActions() {
             <TeacherIcon className="me-2" />
             إضافة معلم جديد
           </Button>
-          <Button variant="outline-info" size="lg" onClick={() => navigate('/classes')}>
+          <Button variant="outline-primary" size="lg" onClick={() => navigate('/classes')}>
             <ClassesIcon className="me-2" />
             إنشاء فصل جديد
           </Button>
         </div>
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 }
 

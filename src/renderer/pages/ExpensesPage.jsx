@@ -68,10 +68,10 @@ function ExpensesPage() {
     try {
       if (selectedTransaction) {
         await window.electronAPI.updateTransaction(selectedTransaction.id, transaction);
-        toast.success('✅ تم تحديث المصروف بنجاح');
+        toast.success('تم تحديث المصروف بنجاح');
       } else {
         await window.electronAPI.addTransaction(transaction);
-        toast.success('✅ تم إضافة المصروف بنجاح');
+        toast.success('تم إضافة المصروف بنجاح');
       }
       setShowModal(false);
       refresh();
@@ -92,7 +92,7 @@ function ExpensesPage() {
 
     try {
       await window.electronAPI.deleteTransaction(transactionToDelete.id || transactionToDelete);
-      toast.success('✅ تم حذف المصروف بنجاح');
+      toast.success('تم حذف المصروف بنجاح');
       refresh();
       window.dispatchEvent(new Event('financial-data-changed'));
     } catch (err) {

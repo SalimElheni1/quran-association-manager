@@ -6,6 +6,25 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './', // Important for Electron to load assets correctly
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // Use the modern-compiler API: faster + lower-memory than the legacy
+        // JS render path, and eliminates the legacy-js-api deprecation.
+        api: 'modern-compiler',
+        // The remaining deprecations originate from Bootstrap's own shipped
+        // SCSS (node_modules/bootstrap/scss/*.scss) which we cannot edit.
+        // Silence them so `npm run dev` and builds stay clean.
+        silenceDeprecations: [
+          'legacy-js-api',
+          'import',
+          'global-builtin',
+          'color-functions',
+          'if-function',
+        ],
+      },
+    },
+  },
   build: {
     outDir: 'dist/renderer',
     minify: 'esbuild',

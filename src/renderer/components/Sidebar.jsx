@@ -16,11 +16,14 @@ import ProfileIcon from './icons/ProfileIcon';
 import InfoIcon from './icons/InfoIcon';
 import LogOutIcon from './icons/LogOutIcon';
 
-function Sidebar() {
+function Sidebar({ collapsed = false }) {
   const { user, logout } = useAuth();
   const { canAccessModule } = usePermissions();
   const navigate = useNavigate();
-  const [associationName, setAssociationName] = useState('الرابطة الوطنية للقرآن الكريم');
+  const [nationalName, setNationalName] = useState('الرابطة الوطنية للقرآن الكريم');
+  const [regionalName, setRegionalName] = useState('');
+  const [branchName, setBranchName] = useState('');
+  const [logoPath, setLogoPath] = useState(null);
 
   useEffect(() => {
     const fetchAssociationName = async () => {
@@ -29,22 +32,32 @@ function Sidebar() {
         if (response.success && response.settings) {
           const { national_association_name, regional_association_name, local_branch_name } =
             response.settings;
-          const parts = [
-            national_association_name,
-            regional_association_name,
-            local_branch_name,
-          ].filter(Boolean); // Filter out empty or null values
-          if (parts.length === 3) {
-            setAssociationName([parts[0], parts[2]].join('  '));
-          } else if (parts.length === 2) {
-            setAssociationName(parts.join('  '));
-          }
+          const national = national_association_name?.trim() || '';
+          const regional = regional_association_name?.trim() || '';
+          const branch = local_branch_name?.trim() || '';
+          if (national) setNationalName(national);
+          if (regional) setRegionalName(regional);
+          if (branch) setBranchName(branch);
         }
       } catch (err) {
         logError('Failed to fetch settings for sidebar:', err);
       }
     };
+
+    const fetchLogo = async () => {
+      try {
+        // Prefer the local branch logo, else the national logo, else nothing.
+        const response = await window.electronAPI.getLogo();
+        if (response.success && response.path) {
+          setLogoPath(response.path);
+        }
+      } catch (err) {
+        logError('Failed to fetch logo for sidebar:', err);
+      }
+    };
+
     fetchAssociationName();
+    fetchLogo();
   }, []);
 
   const handleLogout = () => {
@@ -52,11 +65,29 @@ function Sidebar() {
     navigate('/login');
   };
 
+  const displayName =
+    user && (user.first_name || user.last_name)
+      ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+      : user?.username || '';
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       <div>
         <div className="sidebar-header">
-          <h6>{associationName}</h6>
+          <div className="brand-mark">
+            {logoPath ? (
+              <img src={logoPath} alt="شعار" className="brand-logo" aria-hidden="true" />
+            ) : (
+              <span className="brand-glyph" aria-hidden="true">
+                ق
+              </span>
+            )}
+            <div className="brand-titles">
+              {branchName && <span className="branch-name">{branchName}</span>}
+              <span className="national-name">{nationalName}</span>
+              {regionalName && <span className="regional-name">{regionalName}</span>}
+            </div>
+          </div>
         </div>
         <nav className="nav-links">
           <NavLink to="/" className="nav-link">
@@ -116,10 +147,22 @@ function Sidebar() {
           </NavLink>
         </nav>
       </div>
-      <button onClick={handleLogout} className="logout-btn">
-        <LogOutIcon />
-        <span>خروج</span>
-      </button>
+      <div className="sidebar-footer">
+        {user && (
+          <div className="sidebar-user">
+            <span className="user-avatar" aria-hidden="true">
+              {(displayName || '؟').charAt(0)}
+            </span>
+            <span className="user-meta">
+              <span className="user-name">{displayName}</span>
+            </span>
+          </div>
+        )}
+        <button onClick={handleLogout} className="logout-btn">
+          <LogOutIcon />
+          <span>خروج</span>
+        </button>
+      </div>
     </aside>
   );
 }

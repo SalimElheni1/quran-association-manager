@@ -173,7 +173,7 @@ const StudentFeesTab = () => {
 
     switch (status) {
       case 'PAID':
-        return <Badge bg="success">مدفوع {hasCredit && '💰'}</Badge>;
+        return <Badge bg="success">مدفوع {hasCredit && '+ رصيد'}</Badge>;
       case 'PARTIAL':
         return <Badge bg="warning">جزئياً مدفوع</Badge>;
       case 'UNPAID':
@@ -648,7 +648,7 @@ const StudentFeesTab = () => {
 
           {selectedStudent && selectedStudent.fee_category === 'SPONSORED' && (
             <Alert variant="info" className="mb-4">
-              <h6 className="alert-heading">🎓 طالب مكفول</h6>
+              <h6 className="alert-heading">طالب مكفول</h6>
               <hr />
               <Row>
                 <Col md={6}>
@@ -880,7 +880,7 @@ const StudentFeesTab = () => {
 
               {selectedStudent.fee_category === 'SPONSORED' && (
                 <Alert variant="info" className="mb-3">
-                  <h6 className="alert-heading">🎓 طالب مكفول</h6>
+                  <h6 className="alert-heading">طالب مكفول</h6>
                   <hr />
                   <Row>
                     <Col md={6}>
@@ -897,7 +897,7 @@ const StudentFeesTab = () => {
               {selectedStudent.balanceSummary.totalCredit > 0 &&
                 selectedStudent.balanceSummary.displayType === 'owed' && (
                   <Alert variant="info" className="mb-3">
-                    <strong>💰 رصيد مدفوع مسبقاً:</strong>{' '}
+                    <strong>رصيد مدفوع مسبقاً:</strong>{' '}
                     {selectedStudent.balanceSummary.totalCredit.toFixed(2)} د.ت
                     <br />
                     <small>سيتم تطبيق هذا الرصيد تلقائياً على الرسوم القادمة</small>

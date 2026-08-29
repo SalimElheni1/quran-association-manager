@@ -68,25 +68,25 @@ function FinancialsPage() {
         </Card.Header>
         <Card.Body>
           <Tabs activeKey={activeTab} onSelect={setActiveTab} id="financials-tabs" className="mb-3">
-            <Tab eventKey="dashboard" title="📈 لوحة التحكم">
+            <Tab eventKey="dashboard" title="لوحة التحكم">
               <FinancialDashboard />
             </Tab>
-            <Tab eventKey="income" title="💰 المداخيل">
+            <Tab eventKey="income" title="المداخيل">
               <IncomePage />
             </Tab>
-            <Tab eventKey="student-fees" title="👨‍🎓 رسوم الطلاب">
+            <Tab eventKey="student-fees" title="رسوم الطلاب">
               <StudentFeesTab />
             </Tab>
-            <Tab eventKey="expenses" title="💸 المصاريف">
+            <Tab eventKey="expenses" title="المصاريف">
               <ExpensesPage />
             </Tab>
-            <Tab eventKey="accounts" title="📋 إدارة الفئات">
+            <Tab eventKey="accounts" title="إدارة الفئات">
               <AccountsPage />
             </Tab>
-            <Tab eventKey="inventory" title="📦 الجرد">
+            <Tab eventKey="inventory" title="الجرد">
               <InventoryTab key={inventoryTabKey} />
             </Tab>
-            <Tab eventKey="reports" title="📊 التقارير المالية">
+            <Tab eventKey="reports" title="التقارير المالية">
               <FinancialReportsTab />
             </Tab>
           </Tabs>

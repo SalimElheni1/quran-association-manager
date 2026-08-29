@@ -16,10 +16,45 @@
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  flex-wrap: wrap;
+}
+
+/* gold hairline woven accent along the page header */
+.page-header::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: -1px;
+  width: 64px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+}
+
+.page-header h1 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-header p {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.925rem;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .table-actions {
@@ -29,9 +64,9 @@
 /* New Filter Bar Styles */
 .filter-bar {
   padding: 1rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: var(--surface-paper);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   margin-bottom: 2rem;
 }
 
@@ -87,8 +122,8 @@
   margin-top: 1.5rem;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #0d9488; /* Use primary color from mockup */
-  color: #0d9488;
+  border-bottom: 2px solid var(--primary-color); /* Use primary color from mockup */
+  color: var(--primary-color);
   font-weight: 600;
 }
 
@@ -105,7 +140,7 @@
 }
 
 .detail-label {
-  color: #64748b; /* text-secondary from mockup */
+  color: var(--text-secondary); /* text-secondary from mockup */
   font-size: 0.9rem;
 }
 

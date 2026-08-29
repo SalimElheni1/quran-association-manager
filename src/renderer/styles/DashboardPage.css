@@ -1,35 +1,128 @@
 .dashboard-page .stat-card {
-  border-right: 4px solid var(--primary-color);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-paper);
+  box-shadow: var(--shadow-card);
   transition:
-    transform 0.2s ease-in-out,
-    box-shadow 0.2s ease-in-out;
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* keep the card border neutral regardless of the variant utility */
+.dashboard-page .stat-card.border-primary,
+.dashboard-page .stat-card.border-success,
+.dashboard-page .stat-card.border-info {
+  --bs-border-color: var(--line);
+  border-color: var(--line) !important;
 }
 
 .dashboard-page .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--line-strong);
 }
 
 .stat-card .card-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.375rem;
 }
 
 .stat-card-icon {
-  font-size: 2.5rem;
+  width: 52px;
+  height: 52px;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--primary-color);
-  opacity: 0.5;
+  background: var(--gold-soft);
+  flex-shrink: 0;
+}
+
+.stat-card-icon svg {
+  width: 26px;
+  height: 26px;
 }
 
 .stat-card-content .card-title {
-  font-size: 1.2rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-secondary);
+  margin-bottom: 0.25rem;
 }
 
 .stat-card-content .card-text {
   font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* variant tinting for the icon chip */
+.stat-card.border-primary .stat-card-icon {
+  color: var(--primary-color);
+  background: var(--gold-soft);
+}
+.stat-card.border-success .stat-card-icon {
+  color: #3c6b52;
+  background: rgba(74, 138, 106, 0.16);
+}
+.stat-card.border-info .stat-card-icon {
+  color: var(--gold-strong);
+  background: rgba(197, 160, 89, 0.18);
+}
+
+/* composed panel headers for dashboard panels */
+.dashboard-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-paper);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  height: 100%;
+}
+
+.dashboard-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface-sheet), transparent);
+}
+
+.dashboard-panel .panel-header .panel-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  background: var(--gold-soft);
+  flex-shrink: 0;
+}
+
+.dashboard-panel .panel-header .panel-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dashboard-panel .panel-header .panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.dashboard-panel .panel-header .panel-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }

@@ -155,7 +155,7 @@ function InventoryTab() {
       };
       await window.electronAPI.addInventoryItem(inventoryData);
 
-      toast.success('✅ تم إضافة التبرع العيني بنجاح');
+      toast.success('تم إضافة التبرع العيني بنجاح');
       setShowInKindModal(false);
       fetchItems();
     } catch (err) {

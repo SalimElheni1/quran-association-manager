@@ -106,7 +106,7 @@ function FinancialReportsTab() {
       if (result.cancelled) {
         setWordMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
       } else if (result.success) {
-        setWordMessage({ type: 'success', text: '✅ تم تصدير التقرير المالي بنجاح!' });
+        setWordMessage({ type: 'success', text: 'تم تصدير التقرير المالي بنجاح!' });
       } else {
         setWordMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
       }
@@ -135,7 +135,7 @@ function FinancialReportsTab() {
       if (result.cancelled) {
         setLedgerMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
       } else if (result.success) {
-        setLedgerMessage({ type: 'success', text: '✅ تم تصدير سجل المحاسبة بنجاح!' });
+        setLedgerMessage({ type: 'success', text: 'تم تصدير سجل المحاسبة بنجاح!' });
       } else {
         setLedgerMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
       }
@@ -157,7 +157,7 @@ function FinancialReportsTab() {
       if (result.cancelled) {
         setInventoryMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
       } else if (result.success) {
-        setInventoryMessage({ type: 'success', text: '✅ تم تصدير سجل الجرد بنجاح!' });
+        setInventoryMessage({ type: 'success', text: 'تم تصدير سجل الجرد بنجاح!' });
       } else {
         setInventoryMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
       }
@@ -172,7 +172,7 @@ function FinancialReportsTab() {
   return (
     <div>
       <Card>
-        <Card.Header as="h4">📊 التقارير المالية</Card.Header>
+        <Card.Header as="h4">التقارير المالية</Card.Header>
         <Card.Body>
           <p className="text-muted">
             قم بتصدير التقارير المالية بصيغة Word أو Excel مع تنسيق احترافي وتفاصيل كاملة.
@@ -279,7 +279,7 @@ function FinancialReportsTab() {
                   onClick={handleExportFinancialReport}
                   disabled={wordLoading}
                 >
-                  {wordLoading ? '⏳ جاري التصدير...' : '📥 تصدير التقرير المالي (Word)'}
+                  {wordLoading ? 'جاري التصدير...' : 'تصدير التقرير المالي (Word)'}
                 </Button>
               </Form>
 
@@ -389,7 +389,7 @@ function FinancialReportsTab() {
                 </Row>
 
                 <Button variant="success" onClick={handleExportCashLedger} disabled={ledgerLoading}>
-                  {ledgerLoading ? '⏳ جاري التصدير...' : '📅 تصدير سجل المحاسبة (Excel)'}
+                  {ledgerLoading ? 'جاري التصدير...' : 'تصدير سجل المحاسبة (Excel)'}
                 </Button>
               </Form>
 
@@ -403,7 +403,7 @@ function FinancialReportsTab() {
 
           <Card className="mb-4">
             <Card.Header className="bg-light">
-              <h5 className="mb-0">📦 سجل الجرد</h5>
+              <h5 className="mb-0">سجل الجرد</h5>
             </Card.Header>
             <Card.Body>
               <p className="small text-muted">سجل الأصول الملموسة مجمعة حسب الفئة بصيغة Excel.</p>
@@ -413,7 +413,7 @@ function FinancialReportsTab() {
                 onClick={handleExportInventoryLedger}
                 disabled={inventoryLoading}
               >
-                {inventoryLoading ? '⏳ جاري التصدير...' : '📊 تصدير سجل الجرد (Excel)'}
+                {inventoryLoading ? 'جاري التصدير...' : 'تصدير سجل الجرد (Excel)'}
               </Button>
 
               {inventoryMessage.text && (

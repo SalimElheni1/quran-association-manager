@@ -68,10 +68,10 @@ function IncomePage() {
     try {
       if (selectedTransaction) {
         await window.electronAPI.updateTransaction(selectedTransaction.id, transaction);
-        toast.success('✅ تم تحديث المدخول بنجاح');
+        toast.success('تم تحديث المدخول بنجاح');
       } else {
         await window.electronAPI.addTransaction(transaction);
-        toast.success('✅ تم إضافة المدخول بنجاح');
+        toast.success('تم إضافة المدخول بنجاح');
       }
       setShowModal(false);
       refresh();
@@ -92,7 +92,7 @@ function IncomePage() {
 
     try {
       await window.electronAPI.deleteTransaction(transactionToDelete.id || transactionToDelete);
-      toast.success('✅ تم حذف المدخول بنجاح');
+      toast.success('تم حذف المدخول بنجاح');
       refresh();
       window.dispatchEvent(new Event('financial-data-changed'));
     } catch (err) {

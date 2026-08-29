@@ -82,7 +82,7 @@ function FinancialExportModal({ show, handleClose }) {
       if (result.cancelled) {
         setMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
       } else if (result.success) {
-        setMessage({ type: 'success', text: '✅ تم تصدير التقرير بنجاح!' });
+        setMessage({ type: 'success', text: 'تم تصدير التقرير بنجاح!' });
       } else {
         setMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
       }
@@ -119,7 +119,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-inventory"
                     name="reportType"
-                    label="📦 سجل الجرد"
+                    label="سجل الجرد"
                     value="inventory-register"
                     checked={reportType === 'inventory-register'}
                     onChange={(e) => setReportType(e.target.value)}
@@ -128,7 +128,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-summary"
                     name="reportType"
-                    label="📊 التقرير المالي"
+                    label="التقرير المالي"
                     value="financial-summary"
                     checked={reportType === 'financial-summary'}
                     onChange={(e) => setReportType(e.target.value)}

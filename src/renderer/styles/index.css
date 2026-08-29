@@ -2,13 +2,113 @@
 @import url('./Layout.css');
 @import url('./StudentsPage.css');
 
-/* Add global styles here */
+/* ========================================
+   Design tokens — woven workspace
+   ======================================== */
+:root {
+  /* brand — sage + muted gold + warm off-white */
+  --primary-color: #4a6b5d;
+  --primary-strong: #3a5647;
+  --primary-darker: #2e4637;
+  --sage-deep: #3f5c4e;
+  --sage-navy: #35503f;
+  --gold: #c5a059;
+  --gold-strong: #a9873f;
+  --gold-soft: rgba(197, 160, 89, 0.16);
+
+  /* surfaces */
+  --bg-ivory: #f9f8f3;
+  --surface-paper: #fcfbf7;
+  --surface-sheet: #f3f1e9;
+  --line: #e5e1d4;
+  --line-strong: #d4cfbf;
+
+  /* ink */
+  --text-primary: #2d3748;
+  --text-secondary: #5a6473;
+  --text-muted: #8a8f99;
+  --text-on-sage: #f2f5f2;
+  --text-on-sage-muted: #c4d0c7;
+
+  /* depth */
+  --shadow-soft: 0 10px 30px -12px rgba(53, 80, 63, 0.2);
+  --shadow-card: 0 1px 2px rgba(45, 55, 72, 0.04), 0 6px 20px -10px rgba(45, 55, 72, 0.12);
+  --shadow-card-hover: 0 14px 34px -14px rgba(45, 55, 72, 0.26);
+  --radius-md: 0.75rem;
+
+  /* woven band motif — a single repeating hairline step used as divider */
+  --weave-size: 6px;
+}
+
+html {
+  scrollbar-color: #cfc9b6 transparent;
+}
+
 body {
-  background-color: #f8f9fa;
+  background-color: var(--bg-ivory);
+  background-image:
+    radial-gradient(circle at 88% -8%, rgba(197, 160, 89, 0.07), transparent 44%),
+    radial-gradient(circle at 6% 112%, rgba(74, 107, 93, 0.06), transparent 40%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
-  font-family: 'Cairo', sans-serif; /* From mockup */
+  font-family: 'Cairo', sans-serif;
+  color: var(--text-primary);
+}
+
+/* ---- browser surfaces carry the design ----
+   selection, caret, scrollbars, focus rings */
+
+::selection {
+  background: rgba(197, 160, 89, 0.3);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--line-strong) 90%, transparent);
+  border: 3px solid var(--bg-ivory);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, #b8b09a 90%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--primary-color);
+  text-underline-offset: 3px;
+}
+
+/* woven band divider — hairline with a single carved step */
+.weave-band {
+  height: 1px;
+  background: var(--line-strong);
+  position: relative;
+}
+.weave-band::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 24px;
+  height: 6px;
+  transform: translateY(-3px);
+  background:
+    linear-gradient(180deg, transparent 0 42%, var(--primary-color) 42% 58%, transparent 58% 100%)
+    0 0 / 6px 6px repeat-x;
+  opacity: 0.6;
 }
 
 /* Fix modal close button spacing in RTL mode */
