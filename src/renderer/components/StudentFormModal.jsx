@@ -10,9 +10,6 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
   const [age, setAge] = useState(null);
   const [ageCategory, setAgeCategory] = useState(null);
 
-  const [allGroups, setAllGroups] = useState([]);
-  const [selectedGroups, setSelectedGroups] = useState([]);
-
   // Classes state
   const [allClasses, setAllClasses] = useState([]);
   const [selectedClassIds, setSelectedClassIds] = useState([]);
@@ -90,37 +87,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       }
     };
 
-    const fetchGroupsData = async () => {
-      try {
-        const groupsResult = await window.electronAPI.getGroups();
-        if (groupsResult.success) {
-          const groupOptions = groupsResult.data.map((g) => ({ value: g.id, label: g.name }));
-          setAllGroups(groupOptions);
-
-          if (isEditMode && student) {
-            const studentGroupsResult = await window.electronAPI.getStudentGroups(student.id);
-            if (studentGroupsResult.success) {
-              const studentGroupValues = studentGroupsResult.data.map((g) => ({
-                value: g.id,
-                label: g.name,
-              }));
-              setSelectedGroups(studentGroupValues);
-            } else {
-              toast.error('Failed to load student groups.');
-            }
-          } else {
-            setSelectedGroups([]);
-          }
-        } else {
-          toast.error('Failed to load groups list.');
-        }
-      } catch (error) {
-        toast.error('An error occurred while fetching group data.');
-      }
-    };
-
     if (show) {
-      fetchGroupsData();
       fetchMemorizationData();
     }
   }, [student, show, isEditMode]);
@@ -186,9 +153,13 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const MIN_STUDENT_AGE = 4;
+    if (formData.date_of_birth && age !== null && age < MIN_STUDENT_AGE) {
+      toast.error(`عمر الطالب أقل من الحد الأدنى. يجب أن يكون ${MIN_STUDENT_AGE} سنوات على الأقل.`);
+      return;
+    }
     const finalFormData = {
       ...formData,
-      groupIds: selectedGroups.map((g) => g.value),
       classIds: selectedClassIds,
       surahIds: selectedSurahIds,
       hizbIds: selectedHizbIds,
@@ -237,8 +208,21 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   type="date"
                   name="date_of_birth"
                   value={formData.date_of_birth || ''}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={handleChange}
+                  isInvalid={formData.date_of_birth && age !== null && age < 4}
                 />
+                {age !== null && age !== undefined && (
+                  <Form.Text className={age < 4 ? 'text-danger' : 'text-muted'}>
+                    العمر: {age} سنوات
+                    {age < 4 && ' — أقل من الحد الأدنى (4 سنوات)'}
+                  </Form.Text>
+                )}
+                {formData.date_of_birth && age !== null && age < 4 && (
+                  <Form.Control.Feedback type="invalid" tooltip>
+                    يجب أن يكون عمر الطالب 4 سنوات على الأقل.
+                  </Form.Control.Feedback>
+                )}
               </Form.Group>
             </Row>
             <Row>
@@ -249,29 +233,6 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   <option value="Male">ذكر</option>
                   <option value="Female">أنثى</option>
                 </Form.Select>
-              </Form.Group>
-            </Row>
-            <Row>
-              <Form.Group as={Col} className="mb-3" controlId="formStudentGroups">
-                <Form.Label>المجموعات</Form.Label>
-                <MultiSelectDropdown
-                  options={allGroups}
-                  selectedValues={selectedGroups.map((g) => g.value)}
-                  onSelectionChange={(values) => {
-                    const selected = allGroups.filter((g) => values.includes(g.value));
-                    setSelectedGroups(selected);
-                  }}
-                  placeholder="اختر المجموعات..."
-                  disabled={
-                    allGroups.length === 0 || !formData.gender || formData.gender.trim() === ''
-                  }
-                />
-                {allGroups.length === 0 && (
-                  <Form.Text className="text-muted">لا توجد مجموعات متاحة</Form.Text>
-                )}
-                {(!formData.gender || formData.gender.trim() === '') && allGroups.length > 0 && (
-                  <Form.Text className="text-muted">يرجى تحديد الجنس لعرض المجموعات</Form.Text>
-                )}
               </Form.Group>
             </Row>
             <Row>

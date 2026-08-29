@@ -153,6 +153,7 @@ function LoginPage({ needsSetup }) {
                       setChangePasswordData((prev) => ({ ...prev, current: e.target.value }))
                     }
                     placeholder="أدخل كلمة المرور الحالية"
+                    label={null}
                     required
                   />
                 </Form.Group>
@@ -165,6 +166,7 @@ function LoginPage({ needsSetup }) {
                       setChangePasswordData((prev) => ({ ...prev, next: e.target.value }))
                     }
                     placeholder="6 أحرف على الأقل"
+                    label={null}
                     required
                   />
                 </Form.Group>
@@ -179,6 +181,7 @@ function LoginPage({ needsSetup }) {
                       setChangePasswordData((prev) => ({ ...prev, confirm: e.target.value }))
                     }
                     placeholder="أعد إدخال كلمة المرور الجديدة"
+                    label={null}
                     required
                   />
                 </Form.Group>

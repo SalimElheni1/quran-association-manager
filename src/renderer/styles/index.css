@@ -357,3 +357,33 @@ a {
 }
 
 /* You might need to add the font import to your main index.html for it to load correctly */
+
+/* ========================================
+   Tabs — scoped to bootstrap nav-tabs
+   (overrides the shared .nav-link rules in Layout.css
+   that are intended for the sidebar nav only)
+   ======================================== */
+.nav-tabs .nav-link {
+  color: var(--text-secondary);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+  transition:
+    color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out;
+}
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus {
+  color: var(--primary-strong);
+  border-color: transparent;
+}
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: var(--primary-strong);
+  background: transparent;
+  border-color: transparent;
+  border-bottom-color: var(--gold);
+  font-weight: 700;
+}

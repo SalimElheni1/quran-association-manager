@@ -40,6 +40,14 @@ function calculateAge(dob) {
 }
 
 /**
+ * Minimum age (in years) enforced for registered students.
+ * Per management decision the verification threshold is 4 years old;
+ * a student younger than that cannot be registered.
+ * @type {number}
+ */
+const MIN_STUDENT_AGE = 4;
+
+/**
  * Array of valid student database fields used for INSERT and UPDATE operations.
  * This ensures only valid fields are processed and prevents SQL injection.
  *
@@ -347,6 +355,15 @@ function registerStudentHandlers() {
           stripUnknown: true,
         });
 
+        if (validatedData.date_of_birth) {
+          const studentAge = calculateAge(validatedData.date_of_birth);
+          if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
+            throw new Error(
+              `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
+            );
+          }
+        }
+
         // Convert non-SQLite-bindable types for compatibility
         // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
         for (const key of Object.keys(validatedData)) {
@@ -470,6 +487,15 @@ function registerStudentHandlers() {
           abortEarly: false,
           stripUnknown: true,
         });
+
+        if (validatedData.date_of_birth) {
+          const studentAge = calculateAge(validatedData.date_of_birth);
+          if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
+            throw new Error(
+              `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
+            );
+          }
+        }
 
         // Convert non-SQLite-bindable types for compatibility
         for (const key of Object.keys(validatedData)) {

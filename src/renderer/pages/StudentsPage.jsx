@@ -8,11 +8,8 @@ import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 import SelectionModal from '@renderer/components/SelectionModal';
 import TablePagination from '@renderer/components/common/TablePagination';
-// Placeholder for the new component
-import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
-import GroupFormModal from '../components/GroupFormModal';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
@@ -169,13 +166,6 @@ function StudentsPage() {
     setPendingHizbFilter(hizbFilter);
     setShowHizbFilterModal(false);
   };
-
-  // State for Group Modals
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [editingGroup, setEditingGroup] = useState(null);
-  const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState(null);
-  const [refreshGroups, setRefreshGroups] = useState(false);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -363,74 +353,6 @@ function StudentsPage() {
       toast.error(`فشل حذف الطالب "${studentToDelete.name}".`);
     } finally {
       handleCloseDeleteModal();
-    }
-  };
-
-  // --- Group Handlers ---
-  const handleShowAddGroupModal = () => {
-    setEditingGroup(null);
-    setShowGroupModal(true);
-  };
-
-  const handleShowEditGroupModal = (group) => {
-    setEditingGroup(group);
-    setShowGroupModal(true);
-  };
-
-  const handleCloseGroupModal = () => {
-    setShowGroupModal(false);
-    setEditingGroup(null);
-  };
-
-  const handleSaveGroup = async (formData, groupId) => {
-    try {
-      let result;
-      if (groupId) {
-        result = await window.electronAPI.updateGroup(groupId, formData);
-        if (result.success) toast.success(`تم تحديث المجموعة "${formData.name}" بنجاح!`);
-      } else {
-        result = await window.electronAPI.addGroup(formData);
-        if (result.success) toast.success(`تمت إضافة المجموعة "${formData.name}" بنجاح!`);
-      }
-
-      if (result.success) {
-        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
-        handleCloseGroupModal();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error saving group:', err);
-      toast.error(err.message || 'فشل حفظ المجموعة.');
-    }
-  };
-
-  const handleDeleteGroupRequest = (group) => {
-    setGroupToDelete(group);
-    setShowGroupDeleteModal(true);
-  };
-
-  const handleCloseGroupDeleteModal = () => {
-    setGroupToDelete(null);
-    setShowGroupDeleteModal(false);
-  };
-
-  const confirmGroupDelete = async () => {
-    if (!groupToDelete) return;
-
-    try {
-      const result = await window.electronAPI.deleteGroup(groupToDelete.id);
-      if (result.success) {
-        toast.success(`تم حذف المجموعة "${groupToDelete.name}" بنجاح.`);
-        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error deleting group:', err);
-      toast.error(`فشل حذف المجموعة "${groupToDelete.name}".`);
-    } finally {
-      handleCloseGroupDeleteModal();
     }
   };
 
@@ -672,11 +594,6 @@ function StudentsPage() {
               <PlusIcon className="ms-2" /> إضافة طالب
             </Button>
           )}
-          {activeTab === 'groups' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
-            <Button variant="primary" onClick={handleShowAddGroupModal}>
-              <PlusIcon className="ms-2" /> إضافة مجموعة
-            </Button>
-          )}
         </div>
       </div>
 
@@ -688,13 +605,6 @@ function StudentsPage() {
       >
         <Tab eventKey="students" title="الطلاب">
           {renderStudentsTab()}
-        </Tab>
-        <Tab eventKey="groups" title="المجموعات">
-          <GroupsTabContent
-            onEditGroup={handleShowEditGroupModal}
-            onDeleteGroup={handleDeleteGroupRequest}
-            refreshDependency={refreshGroups}
-          />
         </Tab>
       </Tabs>
 
@@ -717,23 +627,6 @@ function StudentsPage() {
         handleConfirm={confirmDelete}
         title="تأكيد حذف الطالب"
         body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
-        confirmVariant="danger"
-        confirmText="نعم، حذف"
-      />
-
-      <GroupFormModal
-        show={showGroupModal}
-        handleClose={handleCloseGroupModal}
-        onSave={handleSaveGroup}
-        group={editingGroup}
-      />
-
-      <ConfirmationModal
-        show={showGroupDeleteModal}
-        handleClose={handleCloseGroupDeleteModal}
-        handleConfirm={confirmGroupDelete}
-        title="تأكيد حذف المجموعة"
-        body={`هل أنت متأكد من رغبتك في حذف المجموعة "${groupToDelete?.name}"؟ سيتم أيضًا إزالة جميع الطلاب من هذه المجموعة.`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

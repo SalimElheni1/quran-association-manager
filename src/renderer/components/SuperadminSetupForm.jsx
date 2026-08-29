@@ -81,6 +81,7 @@ function SuperadminSetupForm({ onSuccess }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="6 أحرف على الأقل"
+              label={null}
               required
             />
           </Form.Group>
@@ -91,6 +92,7 @@ function SuperadminSetupForm({ onSuccess }) {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="أعد إدخال كلمة المرور"
+              label={null}
               required
             />
           </Form.Group>

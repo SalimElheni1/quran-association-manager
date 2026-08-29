@@ -331,6 +331,18 @@ async function initializeDatabase() {
       await runMigrations();
     }
 
+    // Ensure the Quran reference data (surahs/hizbs) exists so the
+    // memorization pickers are usable on fresh installs. Both seed
+    // functions are idempotent (they skip when the tables are non-empty),
+    // so this never overwrites or duplicates existing reference data.
+    try {
+      const { seedSurahs, seedHizbs } = require('./seederFunctions');
+      await seedSurahs();
+      await seedHizbs();
+    } catch (seedError) {
+      logWarn('[DB_LOG] Could not ensure surahs/hizbs reference data:', seedError.message);
+    }
+
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null;

@@ -115,6 +115,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
                 type="date"
                 name="date_of_birth"
                 value={formData.date_of_birth || ''}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={handleChange}
               />
             </Form.Group>
