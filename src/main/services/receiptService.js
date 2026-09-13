@@ -119,9 +119,10 @@ function validateReceiptNumber(receiptNumber) {
  */
 async function getReceiptBookStats(year = null) {
   try {
-    const yearFilter = year ? `AND strftime('%Y', issued_date) = '${year}'` : '';
+    const yearFilter = year ? `AND strftime('%Y', issued_date) = ?` : '';
 
-    const books = await db.allQuery(`
+    const books = await db.allQuery(
+      `
       SELECT
         book_number,
         receipt_type,
@@ -135,7 +136,9 @@ async function getReceiptBookStats(year = null) {
       FROM receipt_books
       WHERE 1=1 ${yearFilter}
       ORDER BY issued_date DESC
-    `);
+    `,
+      year ? [year] : [],
+    );
 
     return books.map((book) => ({
       ...book,
