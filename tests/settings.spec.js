@@ -53,19 +53,16 @@ describe('Settings Handlers IPC', () => {
 
       const result = await handlers['settings:update'](null, mockSettings);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(backupManager.startScheduler).toHaveBeenCalled();
       expect(mockRefreshSettings).toHaveBeenCalled();
       expect(result.success).toBe(true);
     });
 
     it('should rollback transaction on error', async () => {
-      db.runQuery.mockResolvedValueOnce().mockRejectedValueOnce(new Error('DB write error'));
+      db.runQuery.mockRejectedValueOnce(new Error('DB write error'));
 
       const result = await handlers['settings:update'](null, mockSettings);
 
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
       expect(result.success).toBe(false);
       expect(result.message).toContain('فشل تحديث الإعدادات.');
     });

@@ -312,18 +312,18 @@ function registerClassHandlers() {
       log(`[Enrollment] Removed students: ${removedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
 
-      await db.runQuery('BEGIN TRANSACTION');
-      await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
-      if (studentIds && studentIds.length > 0) {
-        const placeholders = studentIds.map(() => '(?, ?)').join(', ');
-        const params = [];
-        studentIds.forEach((studentId) => {
-          params.push(classId, studentId);
-        });
-        const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
-        await db.runQuery(sql, params);
-      }
-      await db.runQuery('COMMIT');
+      await db.withTransaction(async () => {
+        await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
+        if (studentIds && studentIds.length > 0) {
+          const placeholders = studentIds.map(() => '(?, ?)').join(', ');
+          const params = [];
+          studentIds.forEach((studentId) => {
+            params.push(classId, studentId);
+          });
+          const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
+          await db.runQuery(sql, params);
+        }
+      });
 
       log(`[Enrollment] ✓ Database updated successfully`);
 
@@ -344,7 +344,6 @@ function registerClassHandlers() {
       log(`[Enrollment] ════════════════════════════════════════════════════`);
       return { success: true, affectedStudents };
     } catch (error) {
-      await db.runQuery('ROLLBACK');
       logError('Error updating enrollments:', error);
       throw error;
     }

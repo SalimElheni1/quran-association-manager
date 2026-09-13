@@ -24,6 +24,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
   });
 
   afterEach(() => {
+    db.resetMocks();
     jest.clearAllMocks();
   });
 
@@ -206,7 +207,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       const result = await ipcMain.invoke('student-fees:generateAllCharges', academicYear);
 
       expect(result.success).toBe(true);
-      expect(db.runQuery).toHaveBeenCalled(); // Transaction handling
+      expect(db.withTransaction).toHaveBeenCalled();
 
       // Should generate charges for active students
       expect(db.allQuery).toHaveBeenCalled();
@@ -269,9 +270,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
 
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);
-      // Fix SQL statement format expectations
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT');
+      expect(db.withTransaction).toHaveBeenCalled();
     });
 
     it('should handle concurrent charge regeneration - adjusted expectations', async () => {
@@ -311,17 +310,12 @@ describe('Integration Tests - End-to-End Workflows', () => {
 
       // Mock transaction failure
       db.runQuery
-        .mockResolvedValueOnce({ changes: 1 }) // BEGIN
         .mockResolvedValueOnce({ changes: 1 }) // DELETE old enrollments
         .mockRejectedValueOnce(new Error('Database constraint violation')); // INSERT fails
 
       await expect(ipcMain.invoke('classes:updateEnrollments', enrollmentData)).rejects.toThrow(
         'Database constraint violation',
       );
-
-      // Should rollback the transaction - fix SQL statement format
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK');
     });
 
     it('should handle payment failures gracefully', async () => {
@@ -333,18 +327,12 @@ describe('Integration Tests - End-to-End Workflows', () => {
       };
 
       // Mock payment processing failure
-      db.runQuery
-        .mockResolvedValueOnce({ changes: 1 }) // BEGIN transaction
-        .mockRejectedValueOnce(new Error('Duplicate receipt number')); // Payment fails
+      db.runQuery.mockRejectedValueOnce(new Error('Duplicate receipt number')); // Payment fails
 
       // Expect the error to be caught and re-thrown with generic message
       await expect(ipcMain.invoke('student-fees:recordPayment', paymentData)).rejects.toThrow(
         'Failed to record student payment',
       );
-
-      // Should rollback the transaction
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('BEGIN TRANSACTION'));
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
     });
 
     it('should handle partial failures during bulk refresh gracefully', async () => {
@@ -379,6 +367,8 @@ describe('Integration Tests - End-to-End Workflows', () => {
 
   describe('Financial Transaction Integrity', () => {
     it('should validate payment processing workflow structure', async () => {
+      db.runQuery.mockReset();
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
       const paymentData = {
         student_id: 1,
         amount: 150,
@@ -437,9 +427,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       expect(result).toBeDefined();
       expect(result.student_id).toBe(1);
 
-      // Verify transaction flow structure
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('BEGIN TRANSACTION'));
-      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('COMMIT'));
+      expect(db.withTransaction).toHaveBeenCalled();
 
       // Verify charge updates are attempted
       expect(db.runQuery).toHaveBeenCalledWith(

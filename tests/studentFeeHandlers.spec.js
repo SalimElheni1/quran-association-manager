@@ -174,10 +174,7 @@ describe('Student Fee Handlers', () => {
       await generateMonthlyFeeCharges(academicYear, month, { force: true });
 
       // Per-student delete of the unpaid existing charge, then re-insert
-      expect(db.runQuery).toHaveBeenCalledWith(
-        'DELETE FROM student_fee_charges WHERE id = ?',
-        [1],
-      );
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM student_fee_charges WHERE id = ?', [1]);
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO student_fee_charges'),
         expect.any(Array),
@@ -331,13 +328,10 @@ describe('Student Fee Handlers', () => {
       const result = await refreshStudentCharges(studentId, academicYear, userId);
 
       expect(result.success).toBe(true);
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
     });
 
     it('should handle errors and rollback transaction', async () => {
       const studentId = 1;
-      db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
       db.getQuery
         .mockResolvedValueOnce({
           id: 1,
@@ -346,12 +340,11 @@ describe('Student Fee Handlers', () => {
           fee_category: 'CAN_PAY',
         }) // Student details
         .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month
-        .mockRejectedValueOnce(new Error('Database error')); // failure after BEGIN
+        .mockRejectedValueOnce(new Error('Database error')); // failure during refresh
 
       await expect(refreshStudentCharges(studentId)).rejects.toThrow(
         'فشل في تحديث الرسوم: Database error',
       );
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
     it('should reject a concurrent refresh for the same student (charge-regeneration lock)', async () => {
@@ -533,7 +526,6 @@ describe('Student Fee Handlers', () => {
 
       await recordStudentPayment(event, paymentDetails);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO student_payments'),
         expect.arrayContaining([
@@ -550,7 +542,6 @@ describe('Student Fee Handlers', () => {
           paymentDetails.sponsor_phone,
         ]),
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
     });
 
     it('should respect custom account_id when passed in paymentDetails', async () => {
@@ -598,7 +589,6 @@ describe('Student Fee Handlers', () => {
         receipt_number: 'RCP-001',
       };
 
-      db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
       db.getQuery.mockImplementation((sql) => {
         if (sql.includes('receipt_number')) {
           return Promise.resolve({ id: 1 });
@@ -609,8 +599,6 @@ describe('Student Fee Handlers', () => {
       await expect(recordStudentPayment(null, paymentDetails)).rejects.toThrow(
         'رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.',
       );
-
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
     it('should reject a receipt already used in the unified transactions table', async () => {
@@ -632,8 +620,6 @@ describe('Student Fee Handlers', () => {
       await expect(recordStudentPayment(null, paymentDetails)).rejects.toThrow(
         'رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.',
       );
-
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
     it('should handle payment allocation to charges', async () => {

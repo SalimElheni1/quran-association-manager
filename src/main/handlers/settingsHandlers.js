@@ -129,27 +129,18 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   const validatedData = await settingsValidationSchema.validateAsync(filteredData);
 
   try {
-    // Start transaction
-    await db.runQuery('BEGIN TRANSACTION;');
+    return await db.withTransaction(async () => {
+      for (const [key, value] of Object.entries(validatedData)) {
+        const dbValue = value === null || value === undefined ? '' : String(value);
+        await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
+          key,
+          dbValue,
+        ]);
+      }
 
-    for (const [key, value] of Object.entries(validatedData)) {
-      const dbValue = value === null || value === undefined ? '' : String(value);
-      await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
-        key,
-        dbValue,
-      ]);
-    }
-
-    // Commit transaction
-    await db.runQuery('COMMIT;');
-    return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
+      return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
+    });
   } catch (error) {
-    // Rollback on error
-    try {
-      await db.runQuery('ROLLBACK;');
-    } catch (rollbackError) {
-      logError('Failed to rollback transaction:', rollbackError);
-    }
     logError('Failed to update settings:', error);
     throw new Error('فشل تحديث الإعدادات.');
   }

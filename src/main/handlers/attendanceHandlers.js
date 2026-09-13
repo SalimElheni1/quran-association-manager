@@ -78,24 +78,26 @@ function registerAttendanceHandlers() {
 
   ipcMain.handle('attendance:save', async (_event, { classId, date, records }) => {
     try {
-      await db.runQuery('BEGIN TRANSACTION');
-      await db.runQuery('DELETE FROM attendance WHERE class_id = ? AND date = ?', [classId, date]);
-      if (records && Object.keys(records).length > 0) {
-        const placeholders = Object.keys(records)
-          .map(() => '(?, ?, ?, ?)')
-          .join(', ');
-        const params = [];
-        Object.entries(records).forEach(([studentId, status]) => {
-          params.push(classId, parseInt(studentId), date, status);
-        });
-        const sql = `INSERT INTO attendance (class_id, student_id, date, status) VALUES ${placeholders}`;
-        await db.runQuery(sql, params);
-      }
-      await db.runQuery('COMMIT');
+      await db.withTransaction(async () => {
+        await db.runQuery('DELETE FROM attendance WHERE class_id = ? AND date = ?', [
+          classId,
+          date,
+        ]);
+        if (records && Object.keys(records).length > 0) {
+          const placeholders = Object.keys(records)
+            .map(() => '(?, ?, ?, ?)')
+            .join(', ');
+          const params = [];
+          Object.entries(records).forEach(([studentId, status]) => {
+            params.push(classId, parseInt(studentId), date, status);
+          });
+          const sql = `INSERT INTO attendance (class_id, student_id, date, status) VALUES ${placeholders}`;
+          await db.runQuery(sql, params);
+        }
+      });
       log('Attendance saved successfully');
       return { success: true };
     } catch (error) {
-      await db.runQuery('ROLLBACK');
       logError('Error saving attendance:', error);
       throw error;
     }

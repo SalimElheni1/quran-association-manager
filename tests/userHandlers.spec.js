@@ -78,11 +78,18 @@ describe('userHandlers', () => {
       db.runQuery.mockResolvedValue({ id: 99 });
       db.allQuery.mockResolvedValue([{ id: 1 }]); // Mock role ID lookup
 
-      await handlers['users:add'](null, userData);
+      const result = await handlers['users:add'](null, userData);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
-      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
+      expect(db.withTransaction).toHaveBeenCalled();
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO users'),
+        expect.any(Array),
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)',
+        [99, 1],
+      );
+      expect(result).toEqual({ success: true, id: 99 });
     });
   });
 
@@ -92,11 +99,14 @@ describe('userHandlers', () => {
       userUpdateValidationSchema.validateAsync.mockResolvedValue(userData.userData);
       db.allQuery.mockResolvedValue([]); // No roles to change
 
-      await handlers['users:update'](null, userData);
+      const result = await handlers['users:update'](null, userData);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
-      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
+      expect(db.withTransaction).toHaveBeenCalled();
+      expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE users SET'), [
+        'Updated',
+        1,
+      ]);
+      expect(result).toEqual({ success: true });
     });
   });
 

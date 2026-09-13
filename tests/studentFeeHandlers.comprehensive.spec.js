@@ -48,16 +48,13 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       const result = await ipcMain.invoke('student-fees:generateAllCharges', academicYear);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(result).toEqual({ success: true, message: 'تم إنشاء جميع الرسوم بنجاح' });
     });
 
     it('should handle transaction rollback on error', async () => {
       const academicYear = '2024-2025';
 
-      db.runQuery.mockResolvedValueOnce({ changes: 1 }); // BEGIN
-      db.runQuery.mockRejectedValue(new Error('Database error'));
+      db.withTransaction.mockRejectedValueOnce(new Error('Database error'));
       db.getQuery.mockResolvedValue({ value: '100' }); // annual_fee setting
       db.getQuery.mockResolvedValueOnce({ value: '50' }); // standard_monthly_fee setting
       db.allQuery.mockResolvedValue([{ id: 1 }]); // students
@@ -65,9 +62,6 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       await expect(ipcMain.invoke('student-fees:generateAllCharges', academicYear)).rejects.toThrow(
         'Database error',
       );
-
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
     });
 
     it('should support force regeneration of existing charges', async () => {

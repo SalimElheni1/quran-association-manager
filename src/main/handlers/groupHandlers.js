@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { runQuery, getQuery, allQuery } = require('../../db/db');
+const { runQuery, getQuery, allQuery, withTransaction } = require('../../db/db');
 const { mapCategory } = require('../utils/translations');
 
 /**
@@ -260,23 +260,20 @@ function registerGroupHandlers() {
   ipcMain.handle('groups:updateGroupStudents', async (event, { groupId, studentIds }) => {
     try {
       // Using a transaction to ensure atomicity
-      await runQuery('BEGIN TRANSACTION;');
+      await withTransaction(async () => {
+        // 1. Remove all existing students from the group
+        await runQuery('DELETE FROM student_groups WHERE group_id = ?', [groupId]);
 
-      // 1. Remove all existing students from the group
-      await runQuery('DELETE FROM student_groups WHERE group_id = ?', [groupId]);
-
-      // 2. Add the new list of students to the group
-      if (studentIds && studentIds.length > 0) {
-        const insertQuery = 'INSERT INTO student_groups (group_id, student_id) VALUES (?, ?)';
-        for (const studentId of studentIds) {
-          await runQuery(insertQuery, [groupId, studentId]);
+        // 2. Add the new list of students to the group
+        if (studentIds && studentIds.length > 0) {
+          const insertQuery = 'INSERT INTO student_groups (group_id, student_id) VALUES (?, ?)';
+          for (const studentId of studentIds) {
+            await runQuery(insertQuery, [groupId, studentId]);
+          }
         }
-      }
-
-      await runQuery('COMMIT;');
+      });
       return { success: true };
     } catch (error) {
-      await runQuery('ROLLBACK;');
       console.error(`Error updating students for group ${groupId}:`, error);
       return { success: false, message: 'فشل في تحديث طلاب المجموعة.' };
     }

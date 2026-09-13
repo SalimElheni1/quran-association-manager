@@ -359,78 +359,84 @@ function registerStudentHandlers() {
     requireRoles(['Superadmin', 'Administrator'])(async (_event, studentData) => {
       const { groupIds, classIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
-        await db.runQuery('BEGIN TRANSACTION;');
+        const transactionResult = await db.withTransaction(async () => {
+          const matricule = await generateMatricule('student');
+          const dataWithMatricule = { ...restOfStudentData, matricule };
 
-        const matricule = await generateMatricule('student');
-        const dataWithMatricule = { ...restOfStudentData, matricule };
+          const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
+            abortEarly: false,
+            stripUnknown: true,
+          });
 
-        const validatedData = await studentValidationSchema.validateAsync(dataWithMatricule, {
-          abortEarly: false,
-          stripUnknown: true,
+          if (validatedData.date_of_birth) {
+            const studentAge = calculateAge(validatedData.date_of_birth);
+            if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
+              throw new Error(
+                `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
+              );
+            }
+          }
+
+          // Convert non-SQLite-bindable types for compatibility
+          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+          for (const key of Object.keys(validatedData)) {
+            const value = validatedData[key];
+            if (typeof value === 'boolean') {
+              // Convert booleans to integers (0/1)
+              validatedData[key] = value ? 1 : 0;
+            } else if (value instanceof Date) {
+              // Convert Date objects to ISO strings (YYYY-MM-DD for dates or full ISO for timestamps)
+              // If it's just a date field, ISO string split by T is usually safer for SQLite DATE type
+              validatedData[key] = value.toISOString().split('T')[0];
+            }
+          }
+
+          const fieldsToInsert = studentFields.filter(
+            (field) => validatedData[field] !== undefined,
+          );
+          if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
+
+          const placeholders = fieldsToInsert.map(() => '?').join(', ');
+          const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+          const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+          const result = await db.runQuery(sql, params);
+          const studentId = result.id;
+
+          if (studentId && groupIds && groupIds.length > 0) {
+            const insertGroupSql =
+              'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+            for (const groupId of groupIds) {
+              await db.runQuery(insertGroupSql, [studentId, groupId]);
+            }
+          }
+
+          if (studentId && classIds && classIds.length > 0) {
+            const insertClassSql =
+              'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
+            for (const classId of classIds) {
+              await db.runQuery(insertClassSql, [classId, studentId]);
+            }
+          }
+
+          if (studentId && surahIds && surahIds.length > 0) {
+            const insertSurahSql =
+              'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
+            for (const surahId of surahIds) {
+              await db.runQuery(insertSurahSql, [studentId, surahId]);
+            }
+          }
+
+          if (studentId && hizbIds && hizbIds.length > 0) {
+            const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
+            for (const hizbId of hizbIds) {
+              await db.runQuery(insertHizbSql, [studentId, hizbId]);
+            }
+          }
+
+          return { result, studentId, validatedData };
         });
-
-        if (validatedData.date_of_birth) {
-          const studentAge = calculateAge(validatedData.date_of_birth);
-          if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
-            throw new Error(
-              `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
-            );
-          }
-        }
-
-        // Convert non-SQLite-bindable types for compatibility
-        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-        for (const key of Object.keys(validatedData)) {
-          const value = validatedData[key];
-          if (typeof value === 'boolean') {
-            // Convert booleans to integers (0/1)
-            validatedData[key] = value ? 1 : 0;
-          } else if (value instanceof Date) {
-            // Convert Date objects to ISO strings (YYYY-MM-DD for dates or full ISO for timestamps)
-            // If it's just a date field, ISO string split by T is usually safer for SQLite DATE type
-            validatedData[key] = value.toISOString().split('T')[0];
-          }
-        }
-
-        const fieldsToInsert = studentFields.filter((field) => validatedData[field] !== undefined);
-        if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
-
-        const placeholders = fieldsToInsert.map(() => '?').join(', ');
-        const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
-        const sql = `INSERT INTO students (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-
-        const result = await db.runQuery(sql, params);
-        const studentId = result.id;
-
-        if (studentId && groupIds && groupIds.length > 0) {
-          const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
-          for (const groupId of groupIds) {
-            await db.runQuery(insertGroupSql, [studentId, groupId]);
-          }
-        }
-
-        if (studentId && classIds && classIds.length > 0) {
-          const insertClassSql = 'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
-          for (const classId of classIds) {
-            await db.runQuery(insertClassSql, [classId, studentId]);
-          }
-        }
-
-        if (studentId && surahIds && surahIds.length > 0) {
-          const insertSurahSql = 'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
-          for (const surahId of surahIds) {
-            await db.runQuery(insertSurahSql, [studentId, surahId]);
-          }
-        }
-
-        if (studentId && hizbIds && hizbIds.length > 0) {
-          const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
-          for (const hizbId of hizbIds) {
-            await db.runQuery(insertHizbSql, [studentId, hizbId]);
-          }
-        }
-
-        await db.runQuery('COMMIT;');
+        const { result, studentId, validatedData } = transactionResult;
 
         // Auto-generate charges for new student
         if (
@@ -469,7 +475,6 @@ function registerStudentHandlers() {
 
         return result;
       } catch (error) {
-        await db.runQuery('ROLLBACK;');
         if (error.isJoi)
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
         logError('Error in students:add handler:', error);
@@ -483,91 +488,96 @@ function registerStudentHandlers() {
     requireRoles(['Superadmin', 'Administrator'])(async (_event, id, studentData) => {
       const { groupIds, classIds, surahIds, hizbIds, ...restOfStudentData } = studentData;
       try {
-        await db.runQuery('BEGIN TRANSACTION;');
+        const transactionResult = await db.withTransaction(async () => {
+          // Get current student data to check for fee_category and discount changes
+          const currentStudent = await db.getQuery(
+            'SELECT fee_category, status, discount_percentage FROM students WHERE id = ?',
+            [id],
+          );
+          const oldFeeCategory = currentStudent?.fee_category;
+          const oldDiscount = currentStudent?.discount_percentage || 0;
+          const newDiscount =
+            restOfStudentData.discount_percentage !== undefined
+              ? restOfStudentData.discount_percentage
+              : oldDiscount;
 
-        // Get current student data to check for fee_category and discount changes
-        const currentStudent = await db.getQuery(
-          'SELECT fee_category, status, discount_percentage FROM students WHERE id = ?',
-          [id],
-        );
-        const oldFeeCategory = currentStudent?.fee_category;
-        const oldDiscount = currentStudent?.discount_percentage || 0;
-        const newDiscount =
-          restOfStudentData.discount_percentage !== undefined
-            ? restOfStudentData.discount_percentage
-            : oldDiscount;
+          const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
+            abortEarly: false,
+            stripUnknown: true,
+          });
 
-        const validatedData = await studentValidationSchema.validateAsync(restOfStudentData, {
-          abortEarly: false,
-          stripUnknown: true,
+          if (validatedData.date_of_birth) {
+            const studentAge = calculateAge(validatedData.date_of_birth);
+            if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
+              throw new Error(
+                `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
+              );
+            }
+          }
+
+          // Convert non-SQLite-bindable types for compatibility
+          for (const key of Object.keys(validatedData)) {
+            const value = validatedData[key];
+            if (typeof value === 'boolean') {
+              validatedData[key] = value ? 1 : 0;
+            } else if (value instanceof Date) {
+              validatedData[key] = value.toISOString().split('T')[0];
+            }
+          }
+
+          // Ensure matricule is not updatable
+          const fieldsToUpdate = studentFields.filter(
+            (field) => field !== 'matricule' && validatedData[field] !== undefined,
+          );
+
+          const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+          const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+          const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
+
+          const result = await db.runQuery(sql, params);
+
+          // Update student groups
+          await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
+          if (groupIds && groupIds.length > 0) {
+            const insertGroupSql =
+              'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
+            for (const groupId of groupIds) {
+              await db.runQuery(insertGroupSql, [id, groupId]);
+            }
+          }
+
+          // Update student classes
+          await db.runQuery('DELETE FROM class_students WHERE student_id = ?', [id]);
+          if (classIds && classIds.length > 0) {
+            const insertClassSql =
+              'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
+            for (const classId of classIds) {
+              await db.runQuery(insertClassSql, [classId, id]);
+            }
+          }
+
+          // Update memorization records
+          await db.runQuery('DELETE FROM student_surahs WHERE student_id = ?', [id]);
+          if (surahIds && surahIds.length > 0) {
+            const insertSurahSql =
+              'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
+            for (const surahId of surahIds) {
+              await db.runQuery(insertSurahSql, [id, surahId]);
+            }
+          }
+
+          await db.runQuery('DELETE FROM student_hizbs WHERE student_id = ?', [id]);
+          if (hizbIds && hizbIds.length > 0) {
+            const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
+            for (const hizbId of hizbIds) {
+              await db.runQuery(insertHizbSql, [id, hizbId]);
+            }
+          }
+
+          return { result, oldFeeCategory, oldDiscount, newDiscount, validatedData };
         });
-
-        if (validatedData.date_of_birth) {
-          const studentAge = calculateAge(validatedData.date_of_birth);
-          if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
-            throw new Error(
-              `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
-            );
-          }
-        }
-
-        // Convert non-SQLite-bindable types for compatibility
-        for (const key of Object.keys(validatedData)) {
-          const value = validatedData[key];
-          if (typeof value === 'boolean') {
-            validatedData[key] = value ? 1 : 0;
-          } else if (value instanceof Date) {
-            validatedData[key] = value.toISOString().split('T')[0];
-          }
-        }
-
-        // Ensure matricule is not updatable
-        const fieldsToUpdate = studentFields.filter(
-          (field) => field !== 'matricule' && validatedData[field] !== undefined,
-        );
-
-        const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
-        const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
-        const sql = `UPDATE students SET ${setClauses} WHERE id = ?`;
-
-        const result = await db.runQuery(sql, params);
-
-        // Update student groups
-        await db.runQuery('DELETE FROM student_groups WHERE student_id = ?', [id]);
-        if (groupIds && groupIds.length > 0) {
-          const insertGroupSql = 'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)';
-          for (const groupId of groupIds) {
-            await db.runQuery(insertGroupSql, [id, groupId]);
-          }
-        }
-
-        // Update student classes
-        await db.runQuery('DELETE FROM class_students WHERE student_id = ?', [id]);
-        if (classIds && classIds.length > 0) {
-          const insertClassSql = 'INSERT INTO class_students (class_id, student_id) VALUES (?, ?)';
-          for (const classId of classIds) {
-            await db.runQuery(insertClassSql, [classId, id]);
-          }
-        }
-
-        // Update memorization records
-        await db.runQuery('DELETE FROM student_surahs WHERE student_id = ?', [id]);
-        if (surahIds && surahIds.length > 0) {
-          const insertSurahSql = 'INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)';
-          for (const surahId of surahIds) {
-            await db.runQuery(insertSurahSql, [id, surahId]);
-          }
-        }
-
-        await db.runQuery('DELETE FROM student_hizbs WHERE student_id = ?', [id]);
-        if (hizbIds && hizbIds.length > 0) {
-          const insertHizbSql = 'INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)';
-          for (const hizbId of hizbIds) {
-            await db.runQuery(insertHizbSql, [id, hizbId]);
-          }
-        }
-
-        await db.runQuery('COMMIT;');
+        const { result, oldFeeCategory, oldDiscount, newDiscount, validatedData } =
+          transactionResult;
 
         // Check if discount changed and regenerate charges
         const discountChanged = oldDiscount !== newDiscount;
@@ -629,7 +639,6 @@ function registerStudentHandlers() {
 
         return result;
       } catch (error) {
-        await db.runQuery('ROLLBACK;');
         if (error.isJoi)
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
         logError('Error in students:update handler:', error);

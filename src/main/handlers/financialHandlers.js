@@ -73,7 +73,9 @@ async function recomputeAccountBalances() {
 
     const results = [];
     for (const account of accounts) {
-      const newBalance = roundCurrency((account.initial_balance || 0) + (totals.get(account.id) || 0));
+      const newBalance = roundCurrency(
+        (account.initial_balance || 0) + (totals.get(account.id) || 0),
+      );
       await db.runQuery('UPDATE accounts SET current_balance = ? WHERE id = ?', [
         newBalance,
         account.id,
@@ -206,32 +208,31 @@ async function handleGetEarliestTransactionDate() {
 
 async function handleAddTransaction(event, transaction) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    const result = await db.withTransaction(async () => {
+      // Validate 500 TND rule
+      validate500TndRule(transaction.amount, transaction.payment_method);
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+      // Validate data
+      const validatedData = await transactionValidationSchema.validateAsync(transaction, {
+        abortEarly: false,
+        stripUnknown: false,
+      });
 
-    // Validate data
-    const validatedData = await transactionValidationSchema.validateAsync(transaction, {
-      abortEarly: false,
-      stripUnknown: false,
-    });
+      // Generate matricule
+      const matricule = await generateMatricule(validatedData.type, validatedData.transaction_date);
 
-    // Generate matricule
-    const matricule = await generateMatricule(validatedData.type, validatedData.transaction_date);
-
-    // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
-    if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
-      const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
-        validatedData.voucher_number,
-      ]);
-      if (existing) {
-        validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
+      // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
+      if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
+        const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
+          validatedData.voucher_number,
+        ]);
+        if (existing) {
+          validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
+        }
       }
-    }
 
-    // Insert transaction
-    const sql = `
+      // Insert transaction
+      const sql = `
       INSERT INTO transactions (
         matricule, type, category, amount, transaction_date, description,
         payment_method, check_number, voucher_number, account_id,
@@ -240,29 +241,34 @@ async function handleAddTransaction(event, transaction) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const result = await db.runQuery(sql, [
-      matricule,
-      validatedData.type,
-      validatedData.category,
-      validatedData.amount,
-      new Date(validatedData.transaction_date).toISOString().split('T')[0],
-      validatedData.description,
-      validatedData.payment_method,
-      validatedData.check_number || null,
-      validatedData.voucher_number,
-      validatedData.account_id,
-      validatedData.related_person_name || null,
-      validatedData.related_entity_type || null,
-      validatedData.related_entity_id || null,
-      validatedData.amount > 500 ? 1 : 0,
-      event.sender.userId || null,
-      validatedData.receipt_type || null,
-    ]);
+      const insertResult = await db.runQuery(sql, [
+        matricule,
+        validatedData.type,
+        validatedData.category,
+        validatedData.amount,
+        new Date(validatedData.transaction_date).toISOString().split('T')[0],
+        validatedData.description,
+        validatedData.payment_method,
+        validatedData.check_number || null,
+        validatedData.voucher_number,
+        validatedData.account_id,
+        validatedData.related_person_name || null,
+        validatedData.related_entity_type || null,
+        validatedData.related_entity_id || null,
+        validatedData.amount > 500 ? 1 : 0,
+        event.sender.userId || null,
+        validatedData.receipt_type || null,
+      ]);
 
-    // Update account balance
-    await updateAccountBalance(validatedData.account_id, validatedData.type, validatedData.amount);
+      // Update account balance
+      await updateAccountBalance(
+        validatedData.account_id,
+        validatedData.type,
+        validatedData.amount,
+      );
 
-    await db.runQuery('COMMIT;');
+      return insertResult;
+    });
 
     const newTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
       result.id,
@@ -275,7 +281,6 @@ async function handleAddTransaction(event, transaction) {
 
     return translateTransaction(newTransaction);
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
     }
@@ -289,32 +294,31 @@ async function handleAddTransaction(event, transaction) {
 
 async function handleUpdateTransaction(event, id, transaction) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    await db.withTransaction(async () => {
+      // Validate 500 TND rule
+      validate500TndRule(transaction.amount, transaction.payment_method);
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+      // Get old transaction to reverse balance
+      const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+      if (!oldTransaction) {
+        throw new Error('العملية المالية غير موجودة');
+      }
 
-    // Get old transaction to reverse balance
-    const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
-    if (!oldTransaction) {
-      throw new Error('العملية المالية غير موجودة');
-    }
+      // Validate data
+      const validatedData = await transactionValidationSchema.validateAsync(transaction, {
+        abortEarly: false,
+        stripUnknown: false,
+      });
 
-    // Validate data
-    const validatedData = await transactionValidationSchema.validateAsync(transaction, {
-      abortEarly: false,
-      stripUnknown: false,
-    });
+      // Reverse old balance
+      await updateAccountBalance(
+        oldTransaction.account_id,
+        oldTransaction.type,
+        -oldTransaction.amount,
+      );
 
-    // Reverse old balance
-    await updateAccountBalance(
-      oldTransaction.account_id,
-      oldTransaction.type,
-      -oldTransaction.amount,
-    );
-
-    // Update transaction
-    const sql = `
+      // Update transaction
+      const sql = `
       UPDATE transactions SET
         type = ?, category = ?, amount = ?, transaction_date = ?, description = ?,
         payment_method = ?, check_number = ?, account_id = ?,
@@ -323,28 +327,31 @@ async function handleUpdateTransaction(event, id, transaction) {
       WHERE id = ?
     `;
 
-    await db.runQuery(sql, [
-      validatedData.type,
-      validatedData.category,
-      validatedData.amount,
-      new Date(validatedData.transaction_date).toISOString().split('T')[0],
-      validatedData.description,
-      validatedData.payment_method,
-      validatedData.check_number || null,
-      validatedData.account_id,
-      validatedData.related_person_name || null,
-      validatedData.related_entity_type || null,
-      validatedData.related_entity_id || null,
-      validatedData.amount > 500 ? 1 : 0,
-      validatedData.receipt_type || null,
-      id,
-    ]);
+      await db.runQuery(sql, [
+        validatedData.type,
+        validatedData.category,
+        validatedData.amount,
+        new Date(validatedData.transaction_date).toISOString().split('T')[0],
+        validatedData.description,
+        validatedData.payment_method,
+        validatedData.check_number || null,
+        validatedData.account_id,
+        validatedData.related_person_name || null,
+        validatedData.related_entity_type || null,
+        validatedData.related_entity_id || null,
+        validatedData.amount > 500 ? 1 : 0,
+        validatedData.receipt_type || null,
+        id,
+      ]);
 
-    // Apply new balance using the validated (new) type, so an INCOME→EXPENSE
-    // (or account change) edit reverses and re-applies with the correct sign.
-    await updateAccountBalance(validatedData.account_id, validatedData.type, validatedData.amount);
-
-    await db.runQuery('COMMIT;');
+      // Apply new balance using the validated (new) type, so an INCOME→EXPENSE
+      // (or account change) edit reverses and re-applies with the correct sign.
+      await updateAccountBalance(
+        validatedData.account_id,
+        validatedData.type,
+        validatedData.amount,
+      );
+    });
 
     const updatedTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
 
@@ -355,7 +362,6 @@ async function handleUpdateTransaction(event, id, transaction) {
 
     return translateTransaction(updatedTransaction);
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
     }
@@ -366,21 +372,20 @@ async function handleUpdateTransaction(event, id, transaction) {
 
 async function handleDeleteTransaction(event, transactionId) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    await db.withTransaction(async () => {
+      const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
+        transactionId,
+      ]);
+      if (!transaction) {
+        throw new Error('العملية المالية غير موجودة');
+      }
 
-    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
-      transactionId,
-    ]);
-    if (!transaction) {
-      throw new Error('العملية المالية غير موجودة');
-    }
+      // Reverse balance
+      await updateAccountBalance(transaction.account_id, transaction.type, -transaction.amount);
 
-    // Reverse balance
-    await updateAccountBalance(transaction.account_id, transaction.type, -transaction.amount);
-
-    await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
-
-    await db.runQuery('COMMIT;');
+      await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
+      return transaction;
+    });
 
     // Notify all renderer processes about data change
     BrowserWindow.getAllWindows().forEach((win) => {
@@ -389,7 +394,6 @@ async function handleDeleteTransaction(event, transactionId) {
 
     return { id: transactionId };
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     logError('Error in handleDeleteTransaction:', error);
     throw new Error('فشل في حذف العملية المالية');
   }

@@ -39,16 +39,16 @@ describe('handleUpdateTransaction - balance sign on type change', () => {
     });
 
     // The UPDATE transactions statement must now set the type column.
-    const updateSql = db.runQuery.mock.calls[2][0];
-    const updateParams = db.runQuery.mock.calls[2][1];
+    const updateSql = db.runQuery.mock.calls[1][0];
+    const updateParams = db.runQuery.mock.calls[1][1];
     expect(updateSql).toContain('type = ?');
     expect(updateParams[0]).toBe('INCOME');
 
     // Balance math with the fix (adjustment = amount for INCOME, -amount for EXPENSE):
     //   reverse EXPENSE 100 -> +100 ; re-apply INCOME 100 -> +100
     // (a bug re-applying with the old EXPENSE type would produce -100)
-    const reverseCall = db.runQuery.mock.calls[1];
-    const applyCall = db.runQuery.mock.calls[3];
+    const reverseCall = db.runQuery.mock.calls[0];
+    const applyCall = db.runQuery.mock.calls[2];
     expect(reverseCall[0]).toContain('UPDATE accounts SET current_balance');
     expect(applyCall[0]).toContain('UPDATE accounts SET current_balance');
     expect(reverseCall[1]).toEqual([100, 1]);
