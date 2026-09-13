@@ -1,6 +1,9 @@
 const { ipcMain, BrowserWindow } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
+const { requireRoles } = require('../authMiddleware');
+
+const FINANCIAL_ROLES = ['Superadmin', 'Administrator', 'FinanceManager'];
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -431,29 +434,56 @@ async function handleGetFinancialSummary(event, year) {
 }
 
 function registerLegacyFinancialHandlers() {
-  ipcMain.handle('get-expenses', createHandler(handleGetExpenses));
-  ipcMain.handle('add-expense', createHandler(handleAddExpense));
-  ipcMain.handle('update-expense', createHandler(handleUpdateExpense));
-  ipcMain.handle('delete-expense', createHandler(handleDeleteExpense));
+  ipcMain.handle('get-expenses', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetExpenses)));
+  ipcMain.handle('add-expense', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddExpense)));
+  ipcMain.handle(
+    'update-expense',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateExpense)),
+  );
+  ipcMain.handle(
+    'delete-expense',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteExpense)),
+  );
 
-  ipcMain.handle('get-donations', createHandler(handleGetDonations));
-  ipcMain.handle('add-donation', createHandler(handleAddDonation));
-  ipcMain.handle('update-donation', createHandler(handleUpdateDonation));
-  ipcMain.handle('delete-donation', createHandler(handleDeleteDonation));
+  ipcMain.handle('get-donations', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetDonations)));
+  ipcMain.handle('add-donation', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddDonation)));
+  ipcMain.handle(
+    'update-donation',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateDonation)),
+  );
+  ipcMain.handle(
+    'delete-donation',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteDonation)),
+  );
 
-  ipcMain.handle('get-salaries', createHandler(handleGetSalaries));
-  ipcMain.handle('add-salary', createHandler(handleAddSalary));
-  ipcMain.handle('update-salary', createHandler(handleUpdateSalary));
-  ipcMain.handle('delete-salary', createHandler(handleDeleteSalary));
+  ipcMain.handle('get-salaries', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetSalaries)));
+  ipcMain.handle('add-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddSalary)));
+  ipcMain.handle('update-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateSalary)));
+  ipcMain.handle('delete-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteSalary)));
 
-  ipcMain.handle('get-payments', createHandler(handleGetPayments));
-  ipcMain.handle('add-payment', createHandler(handleAddPayment));
-  ipcMain.handle('update-payment', createHandler(handleUpdatePayment));
-  ipcMain.handle('delete-payment', createHandler(handleDeletePayment));
+  ipcMain.handle('get-payments', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetPayments)));
+  ipcMain.handle('add-payment', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddPayment)));
+  ipcMain.handle(
+    'update-payment',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdatePayment)),
+  );
+  ipcMain.handle(
+    'delete-payment',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeletePayment)),
+  );
 
-  ipcMain.handle('get-financial-summary', createHandler(handleGetFinancialSummary));
-  ipcMain.handle('get-monthly-snapshot', createHandler(handleGetMonthlySnapshot));
-  ipcMain.handle('get-statement-of-activities', createHandler(handleGetStatementOfActivities));
+  ipcMain.handle(
+    'get-financial-summary',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetFinancialSummary)),
+  );
+  ipcMain.handle(
+    'get-monthly-snapshot',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetMonthlySnapshot)),
+  );
+  ipcMain.handle(
+    'get-statement-of-activities',
+    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetStatementOfActivities)),
+  );
 }
 
 module.exports = {

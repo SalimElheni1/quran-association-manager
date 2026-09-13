@@ -17,6 +17,9 @@ const {
 
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
+jest.mock('../src/main/authMiddleware', () => ({
+  requireRoles: jest.fn(() => (handler) => handler),
+}));
 
 describe('Legacy Financial Handlers - Comprehensive', () => {
   let handlers = {};
