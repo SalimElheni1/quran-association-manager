@@ -31,6 +31,20 @@ function registerTeacherHandlers() {
         abortEarly: false,
         stripUnknown: false,
       });
+
+      // Convert non-SQLite-bindable types for compatibility
+      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+      for (const key of Object.keys(validatedData)) {
+        const value = validatedData[key];
+        if (typeof value === 'boolean') {
+          // Convert booleans to integers (0/1)
+          validatedData[key] = value ? 1 : 0;
+        } else if (value instanceof Date) {
+          // Convert Date objects to date-only strings (YYYY-MM-DD)
+          validatedData[key] = value.toISOString().split('T')[0];
+        }
+      }
+
       const fieldsToInsert = teacherFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
       const placeholders = fieldsToInsert.map(() => '?').join(', ');
@@ -51,6 +65,20 @@ function registerTeacherHandlers() {
         abortEarly: false,
         stripUnknown: false,
       });
+
+      // Convert non-SQLite-bindable types for compatibility
+      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+      for (const key of Object.keys(validatedData)) {
+        const value = validatedData[key];
+        if (typeof value === 'boolean') {
+          // Convert booleans to integers (0/1)
+          validatedData[key] = value ? 1 : 0;
+        } else if (value instanceof Date) {
+          // Convert Date objects to date-only strings (YYYY-MM-DD)
+          validatedData[key] = value.toISOString().split('T')[0];
+        }
+      }
+
       const fieldsToUpdate = teacherFields.filter(
         (field) => field !== 'matricule' && validatedData[field] !== undefined,
       );
