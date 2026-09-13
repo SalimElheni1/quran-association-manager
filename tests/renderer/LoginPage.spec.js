@@ -10,9 +10,11 @@ jest.mock('@renderer/utils/logger', () => ({
 }));
 
 const mockLogin = jest.fn();
+const mockClearPasswordChangeRequired = jest.fn();
 jest.mock('@renderer/contexts/AuthContext', () => ({
   useAuth: () => ({
     login: mockLogin,
+    clearPasswordChangeRequired: mockClearPasswordChangeRequired,
   }),
 }));
 
