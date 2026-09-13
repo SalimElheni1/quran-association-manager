@@ -6,6 +6,7 @@ const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
+const sessionManager = require('../sessionManager');
 
 const userFields = [
   'matricule',
@@ -95,7 +96,10 @@ function registerUserHandlers() {
   );
 
   ipcMain.handle('users:getById', async (_event, id) => {
-    const user = await db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
+    const user = await db.getQuery(
+      'SELECT id, branch_id, matricule, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, status, notes, need_guide, current_step FROM users WHERE id = ?',
+      [id],
+    );
     if (user) {
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
@@ -280,10 +284,20 @@ function registerUserHandlers() {
   );
 
   // Lightweight handler to update only onboarding-related fields without triggering full user validation
-  ipcMain.handle('users:updateGuide', async (_event, { id, guideData }) => {
+  const getUserIdFromSession = (event) => {
+    const senderId = event && event.sender ? event.sender.id : null;
+    const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+    if (!session) {
+      throw new Error('Authentication required.');
+    }
+    return session.userId;
+  };
+
+  ipcMain.handle('users:updateGuide', async (event, { id, guideData }) => {
     try {
+      void id;
       // Accept numeric strings too (renderer may pass id as string). Coerce to number.
-      const numericId = Number(id);
+      const numericId = Number(getUserIdFromSession(event));
       if (!numericId || Number.isNaN(numericId)) throw new Error('A valid user ID is required.');
       const allowed = {};
       if (guideData.need_guide !== undefined) allowed.need_guide = guideData.need_guide ? 1 : 0;

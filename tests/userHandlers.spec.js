@@ -52,7 +52,10 @@ describe('userHandlers', () => {
 
       const result = await handlers['users:getById'](null, 1);
 
-      expect(db.getQuery).toHaveBeenCalledWith('SELECT * FROM users WHERE id = ?', [1]);
+      expect(db.getQuery).toHaveBeenCalledWith(
+        'SELECT id, branch_id, matricule, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, status, notes, need_guide, current_step FROM users WHERE id = ?',
+        [1],
+      );
       expect(db.allQuery).toHaveBeenCalledWith(
         expect.stringContaining('SELECT r.name FROM roles'),
         [1],
