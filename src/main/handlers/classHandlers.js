@@ -90,7 +90,7 @@ function registerClassHandlers() {
           validatedData[key] = value ? 1 : 0;
         } else if (value instanceof Date) {
           // Convert Date objects to ISO strings
-          validatedData[key] = value.toISOString();
+          validatedData[key] = value.toISOString().split('T')[0];
         }
       }
 
@@ -121,7 +121,7 @@ function registerClassHandlers() {
         if (typeof value === 'boolean') {
           validatedData[key] = value ? 1 : 0;
         } else if (value instanceof Date) {
-          validatedData[key] = value.toISOString();
+          validatedData[key] = value.toISOString().split('T')[0];
         }
       }
 
