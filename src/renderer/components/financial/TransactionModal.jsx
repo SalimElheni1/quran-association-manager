@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import { useCategories } from '@renderer/hooks/useCategories';
 import { useStudents } from '@renderer/hooks/useStudents';
 import { useClasses } from '@renderer/hooks/useClasses';
@@ -65,15 +66,28 @@ function TransactionModal({
     };
 
     if (isEditMode && transaction) {
-      setFormData({
+      const merged = {
         ...initialData,
         ...transaction,
         transaction_date: transaction.transaction_date
           ? new Date(transaction.transaction_date).toISOString().split('T')[0]
           : initialData.transaction_date,
-      });
+      };
+      setFormData(merged);
+
+      // Set warning if an existing CASH transaction already exceeds 500 TND
+      if (
+        merged.category !== 'التبرعات العينية' &&
+        parseFloat(merged.amount) > 500 &&
+        merged.payment_method === 'CASH'
+      ) {
+        setAmountWarning('⚠️ المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+      } else {
+        setAmountWarning('');
+      }
     } else {
       setFormData(initialData);
+      setAmountWarning('');
     }
   }, [transaction, show, isEditMode, defaultCategory]);
 
@@ -115,6 +129,7 @@ function TransactionModal({
 
     // Validate receipt_type for cash donations
     if (isCashDonation && !formData.receipt_type) {
+      toast.error('الرجاء تحديد نوع الإيصال');
       return;
     }
 
@@ -126,6 +141,7 @@ function TransactionModal({
       parseFloat(formData.amount) > 500 &&
       formData.payment_method === 'CASH'
     ) {
+      toast.error('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
       return;
     }
 

@@ -250,7 +250,7 @@ const StudentFeesTab = () => {
   };
 
   const handlePageSizeChange = (newPageSize) => {
-    setItemsPerPage(10); // Reset to 10 for now, keep fixed
+    setItemsPerPage(newPageSize);
     setCurrentPage(1);
   };
 
