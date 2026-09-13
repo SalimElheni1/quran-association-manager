@@ -418,8 +418,8 @@ async function handleGetFinancialSummary(_event, period) {
       WHERE transaction_date BETWEEN ? AND ?
         AND type = 'INCOME'
         AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
-        AND (receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment')
-      GROUP BY 
+        AND (receipt_type IS NULL OR (receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment'))
+      GROUP BY
         CASE 
           WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
