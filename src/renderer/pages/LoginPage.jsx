@@ -36,7 +36,7 @@ function LoginPage({ needsSetup }) {
     confirm: '',
   });
   const [changeLoading, setChangeLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, clearPasswordChangeRequired } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -109,6 +109,7 @@ function LoginPage({ needsSetup }) {
         },
       });
       if (response.success) {
+        clearPasswordChangeRequired();
         navigate('/');
       } else {
         setError(response.message || 'فشل تغيير كلمة المرور.');

@@ -43,6 +43,9 @@ export function AuthProvider({ children }) {
   /** @type {[boolean, Function]} Loading state for async operations */
   const [loading] = useState(false);
 
+  /** @type {[boolean, Function]} Whether the user must change their password */
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+
   // Listen for a force-logout event from the main process (e.g., after DB import)
   // This is a safety net to ensure the frontend and backend are in sync.
   useEffect(() => {
@@ -71,6 +74,7 @@ export function AuthProvider({ children }) {
     const response = await window.electronAPI.login({ username, password });
     if (response.success) {
       setUser(response.user);
+      setPasswordChangeRequired(!!response.mustChangePassword);
 
       // If the user needs the guide, dispatch an event to open it.
       // A brief timeout ensures the UI is ready before the guide appears.
@@ -101,11 +105,24 @@ export function AuthProvider({ children }) {
   const logout = () => {
     // 1. Clear the user from state
     setUser(null);
-    // 2. Notify the main process to close the database connection
+    // 2. Reset the password change requirement
+    setPasswordChangeRequired(false);
+    // 3. Notify the main process to close the database connection
     window.electronAPI.logout();
   };
 
-  const value = { user, login, logout, isAuthenticated: !!user };
+  const clearPasswordChangeRequired = () => {
+    setPasswordChangeRequired(false);
+  };
+
+  const value = {
+    user,
+    login,
+    logout,
+    isAuthenticated: !!user,
+    passwordChangeRequired,
+    clearPasswordChangeRequired,
+  };
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 }

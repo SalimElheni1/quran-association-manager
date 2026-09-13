@@ -5,10 +5,14 @@ import { useAuth } from '@renderer/contexts/AuthContext';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 
 function ProtectedRoute({ children, requiredPermissions = [], requiredModule = null }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, passwordChangeRequired } = useAuth();
   const { hasAnyPermission, canAccessModule } = usePermissions();
 
   if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (passwordChangeRequired) {
     return <Navigate to="/login" replace />;
   }
 
