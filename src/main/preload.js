@@ -280,6 +280,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateTransaction: (id, transaction) =>
     ipcRenderer.invoke('transactions:update', id, transaction),
   deleteTransaction: (id) => ipcRenderer.invoke('transactions:delete', id),
+  getEarliestTransactionDate: () => ipcRenderer.invoke('transactions:get-earliest-date'),
   getFinancialSummary: (period) => ipcRenderer.invoke('financial:get-summary', period),
   exportFinancialReportPDF: (data) => ipcRenderer.invoke('financial:export-pdf', data),
   exportFinancialReportExcel: (data) => ipcRenderer.invoke('financial:export-excel', data),

@@ -188,6 +188,22 @@ async function handleGetTransactions(event, filters) {
   }
 }
 
+async function handleGetEarliestTransactionDate() {
+  try {
+    const tableCheck = await db.getQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'",
+    );
+    if (!tableCheck) {
+      return { date: null };
+    }
+    const result = await db.getQuery('SELECT MIN(transaction_date) as date FROM transactions');
+    return { date: result?.date || null };
+  } catch (error) {
+    logError('Error in handleGetEarliestTransactionDate:', error);
+    return { date: null };
+  }
+}
+
 async function handleAddTransaction(event, transaction) {
   try {
     await db.runQuery('BEGIN TRANSACTION;');
@@ -751,6 +767,12 @@ function registerFinancialHandlers() {
     'transactions:delete',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleDeleteTransaction),
   );
+  ipcMain.handle(
+    'transactions:get-earliest-date',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      handleGetEarliestTransactionDate,
+    ),
+  );
 
   // Reports
   ipcMain.handle(
@@ -799,6 +821,7 @@ function registerFinancialHandlers() {
 module.exports = {
   registerFinancialHandlers,
   handleGetTransactions,
+  handleGetEarliestTransactionDate,
   handleAddTransaction,
   handleUpdateTransaction,
   handleDeleteTransaction,
