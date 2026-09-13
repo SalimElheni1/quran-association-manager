@@ -182,7 +182,25 @@ function registerStudentHandlers() {
           let totalCount = 0;
           if (havingClauses.length > 0) {
             // For HAVING clauses, we need a different approach to count
-            const countParams = [...params];
+            const countParams = [];
+            if (filters?.searchTerm) {
+              countParams.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
+            }
+            if (filters?.genderFilter && filters.genderFilter !== 'all') {
+              countParams.push(filters.genderFilter);
+            }
+            if (filters?.statusFilter && filters.statusFilter !== 'all') {
+              countParams.push(filters.statusFilter);
+            }
+            if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
+              countParams.push(filters.feeCategoryFilter);
+            }
+            if (filters?.surahIds?.length > 0) {
+              countParams.push(...filters.surahIds);
+            }
+            if (filters?.hizbIds?.length > 0) {
+              countParams.push(...filters.hizbIds);
+            }
             let baseSql = `
               SELECT COUNT(*) as cnt
               FROM students s
@@ -204,22 +222,18 @@ function registerStudentHandlers() {
 
             if (filters?.searchTerm) {
               baseSql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
-              countParams.push(...params.slice(params.length - 2)); // Last 2 params are search terms
             }
 
             if (filters?.genderFilter && filters.genderFilter !== 'all') {
               baseSql += ' AND s.gender = ?';
-              countParams.push(filters.genderFilter);
             }
 
             if (filters?.statusFilter && filters.statusFilter !== 'all') {
               baseSql += ' AND s.status = ?';
-              countParams.push(filters.statusFilter);
             }
 
             if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
               baseSql += ' AND s.fee_category = ?';
-              countParams.push(filters.feeCategoryFilter);
             }
 
             if (havingClauses.length > 0) {
@@ -374,7 +388,7 @@ function registerStudentHandlers() {
           } else if (value instanceof Date) {
             // Convert Date objects to ISO strings (YYYY-MM-DD for dates or full ISO for timestamps)
             // If it's just a date field, ISO string split by T is usually safer for SQLite DATE type
-            validatedData[key] = value.toISOString();
+            validatedData[key] = value.toISOString().split('T')[0];
           }
         }
 
@@ -503,7 +517,7 @@ function registerStudentHandlers() {
           if (typeof value === 'boolean') {
             validatedData[key] = value ? 1 : 0;
           } else if (value instanceof Date) {
-            validatedData[key] = value.toISOString();
+            validatedData[key] = value.toISOString().split('T')[0];
           }
         }
 
