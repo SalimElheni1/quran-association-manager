@@ -179,13 +179,25 @@ function EnrollmentModal({ show, handleClose, classData }) {
   };
 
   const confirmOverrideEnrollment = () => {
-    if (pendingEnrollment) {
+    if (!pendingEnrollment) return;
+
+    if (pendingEnrollment.mode === 'batch') {
+      setEnrolled((prev) =>
+        [...prev, ...pendingEnrollment.students].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setNotEnrolled((prev) =>
+        prev.filter((s) => !pendingEnrollment.students.some((ps) => ps.id === s.id)),
+      );
+      setSelectedNotEnrolledIds(new Set());
+      toast.warning(`تم تسجيل ${pendingEnrollment.students.length} طالب مع تجاوز التحقق من الصحة.`);
+    } else {
       handleEnroll(pendingEnrollment);
       toast.warning(`تم تسجيل ${pendingEnrollment.name} مع تجاوز التحقق من الصحة.`);
-      setShowValidationWarning(false);
-      setPendingEnrollment(null);
-      setValidationWarnings({});
     }
+
+    setShowValidationWarning(false);
+    setPendingEnrollment(null);
+    setValidationWarnings({});
   };
 
   const handleUnenroll = (studentToUnenroll) => {
