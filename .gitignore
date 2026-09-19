@@ -41,3 +41,5 @@ lib/
 
 # Analysis tools
 .codeboarding/src/main/config/credentials.js
+
+qbm-demo/

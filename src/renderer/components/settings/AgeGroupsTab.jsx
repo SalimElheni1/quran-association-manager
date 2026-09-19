@@ -118,6 +118,8 @@ const AgeGroupsTab = () => {
         setSaving(false);
         await fetchAgeGroups();
       } else {
+        console.error('Error in handleSubmit:', response);
+
         toast.error(response?.message || 'حدث خطأ في حفظ الفئة العمرية');
         setSaving(false);
       }

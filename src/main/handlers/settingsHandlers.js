@@ -321,7 +321,7 @@ function registerSettingsHandlers(refreshSettings) {
   ipcMain.handle('ageGroups:create', async (_event, ageGroupData) => {
     try {
       log('[DEBUG] ageGroups:create - Input data:', JSON.stringify(ageGroupData));
-      const { v4: uuidv4 } = require('uuid');
+      const { randomUUID } = require('crypto');
 
       const schema = Joi.object({
         name: Joi.string().required().min(1).max(100),
@@ -347,7 +347,7 @@ function registerSettingsHandlers(refreshSettings) {
         throw validationError;
       }
 
-      const uuid = uuidv4();
+      const uuid = randomUUID();
       log('[DEBUG] ageGroups:create - Generated UUID:', uuid);
 
       let result;

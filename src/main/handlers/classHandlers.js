@@ -215,9 +215,10 @@ function registerClassHandlers() {
 
   ipcMain.handle('classes:getById', (_event, id) => {
     const sql = `
-      SELECT c.*, t.name as teacher_name
+      SELECT c.*, t.name as teacher_name, ag.name as age_group_name
       FROM classes c
       LEFT JOIN teachers t ON c.teacher_id = t.id
+      LEFT JOIN age_groups ag ON c.age_group_id = ag.id
       WHERE c.id = ?
     `;
     return db.getQuery(sql, [id]);
