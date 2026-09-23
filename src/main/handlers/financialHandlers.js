@@ -206,6 +206,21 @@ async function handleGetEarliestTransactionDate() {
   }
 }
 
+const DUPLICATE_VOUCHER_MESSAGE = 'رقم الوصل موجود مسبقاً. الرجاء استخدام رقم آخر';
+
+/**
+ * better-sqlite3 reports extended result codes (SQLITE_CONSTRAINT_UNIQUE), so match the prefix.
+ * @param {Error} error
+ * @returns {boolean}
+ */
+function isDuplicateVoucherError(error) {
+  return (
+    typeof error.code === 'string' &&
+    error.code.startsWith('SQLITE_CONSTRAINT') &&
+    error.message.includes('voucher_number')
+  );
+}
+
 async function handleAddTransaction(event, transaction) {
   try {
     const result = await db.withTransaction(async () => {
@@ -284,8 +299,8 @@ async function handleAddTransaction(event, transaction) {
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
     }
-    if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('voucher_number')) {
-      throw new Error('رقم الوصل موجود مسبقاً. الرجاء استخدام رقم آخر');
+    if (isDuplicateVoucherError(error)) {
+      throw new Error(DUPLICATE_VOUCHER_MESSAGE);
     }
     logError('Error in handleAddTransaction:', error);
     throw new Error(error.message || 'فشل في إضافة العملية المالية');
