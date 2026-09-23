@@ -120,7 +120,12 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<LoginPage needsSetup={needsSetup} />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage needsSetup={needsSetup} onSetupComplete={() => setNeedsSetup(false)} />
+          }
+        />
         <Route
           path="/"
           element={

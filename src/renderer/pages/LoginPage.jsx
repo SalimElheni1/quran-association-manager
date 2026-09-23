@@ -22,7 +22,7 @@ const defaultLogo = 'assets/logos/icon.png';
  * @param {Function} props.onSetupComplete - Called after a successful setup
  * @returns {JSX.Element} The login page
  */
-function LoginPage({ needsSetup }) {
+function LoginPage({ needsSetup, onSetupComplete }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -60,6 +60,7 @@ function LoginPage({ needsSetup }) {
   const handleSetupComplete = (createdUsername) => {
     setShowSetup(false);
     setUsername(createdUsername);
+    if (onSetupComplete) onSetupComplete();
   };
 
   const handleSubmit = async (e) => {
