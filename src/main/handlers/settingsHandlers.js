@@ -506,6 +506,9 @@ function registerSettingsHandlers(refreshSettings) {
         }
 
         const genderMap = {
+          // Stored values (students.gender) — what the enrollment modal sends
+          Male: 'male_only',
+          Female: 'female_only',
           M: 'male_only',
           F: 'female_only',
           male: 'male_only',
