@@ -336,7 +336,7 @@ async function handleUpdateTransaction(event, id, transaction) {
       const sql = `
       UPDATE transactions SET
         type = ?, category = ?, amount = ?, transaction_date = ?, description = ?,
-        payment_method = ?, check_number = ?, account_id = ?,
+        payment_method = ?, check_number = ?, voucher_number = ?, account_id = ?,
         related_person_name = ?, related_entity_type = ?, related_entity_id = ?,
         requires_dual_signature = ?, receipt_type = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -350,6 +350,7 @@ async function handleUpdateTransaction(event, id, transaction) {
         validatedData.description,
         validatedData.payment_method,
         validatedData.check_number || null,
+        validatedData.voucher_number,
         validatedData.account_id,
         validatedData.related_person_name || null,
         validatedData.related_entity_type || null,
@@ -379,6 +380,9 @@ async function handleUpdateTransaction(event, id, transaction) {
   } catch (error) {
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    }
+    if (isDuplicateVoucherError(error)) {
+      throw new Error(DUPLICATE_VOUCHER_MESSAGE);
     }
     logError('Error in handleUpdateTransaction:', error);
     throw new Error(error.message || 'فشل في تحديث العملية المالية');

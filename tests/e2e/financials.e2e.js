@@ -170,6 +170,33 @@ test.describe('financials', () => {
     await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 1));
   });
 
+  test('a mistyped voucher number can be corrected by editing', async ({ authedPage: page }) => {
+    await addIncome(page, { voucher: 'E2E-TYPO', amount: 10 });
+
+    const row = activePane(page).locator('tbody tr', { hasText: 'E2E-TYPO' });
+    await row.getByRole('button', { name: 'تعديل العملية' }).click();
+    await modal(page).locator('input[name="voucher_number"]').fill('E2E-FIXED');
+    await modal(page).getByRole('button', { name: 'حفظ التعديلات' }).click();
+
+    await expectToast(page, 'success', 'تم تحديث المدخول بنجاح');
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-FIXED' })).toBeVisible();
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-TYPO' })).toHaveCount(0);
+  });
+
+  test('editing onto an existing voucher number is rejected', async ({ authedPage: page }) => {
+    await addIncome(page, { voucher: 'E2E-A', amount: 10 });
+    await addIncome(page, { voucher: 'E2E-B', amount: 20 });
+
+    const row = activePane(page).locator('tbody tr', { hasText: 'E2E-B' });
+    await row.getByRole('button', { name: 'تعديل العملية' }).click();
+    await modal(page).locator('input[name="voucher_number"]').fill('E2E-A');
+    await modal(page).getByRole('button', { name: 'حفظ التعديلات' }).click();
+
+    await expectToast(page, 'error', 'رقم الوصل موجود مسبقاً');
+    await expect(modal(page).locator('.modal-title')).toHaveText('تعديل مدخول');
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-B' })).toHaveCount(1);
+  });
+
   test('the dashboard refresh button is shown and refreshes totals', async ({
     authedPage: page,
   }) => {
