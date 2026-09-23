@@ -1,4 +1,4 @@
-const { test, expect, navigate, modal, expectToast } = require('./fixtures');
+const { test, expect, navigate, modal, expectToast, confirmDialog } = require('./fixtures');
 
 // Mid-month date: the dashboard's default period is the current month, and its
 // month bounds are computed via toISOString(), which shifts them by a day in
@@ -157,5 +157,54 @@ test.describe('financials', () => {
     await expectToast(page, 'success', 'تم إضافة المدخول بنجاح');
     await closeVoucherModal(page, 'وصل استلام');
     await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-BIG' })).toBeVisible();
+  });
+
+  test('editing an income amount updates the table and dashboard', async ({ authedPage: page }) => {
+    test.fail(
+      true,
+      'App bug: transactions reach the renderer with payment_method translated to Arabic ' +
+        '(translations.js mapPaymentMethod); the edit modal sends it back and the schema ' +
+        'only accepts CASH/CHECK/TRANSFER',
+    );
+    await addIncome(page, { voucher: 'E2E-EDIT', amount: 200 });
+
+    const row = activePane(page).locator('tbody tr', { hasText: 'E2E-EDIT' });
+    await row.getByRole('button', { name: 'تعديل العملية' }).click();
+    const form = modal(page);
+    await expect(form.locator('.modal-title')).toHaveText('تعديل مدخول');
+    await expect(form.locator('input[name="voucher_number"]')).toHaveValue('E2E-EDIT');
+    await form.locator('input[name="amount"]').fill('325');
+    await form.getByRole('button', { name: 'حفظ' }).click();
+
+    await expectToast(page, 'success', 'تم تحديث المدخول بنجاح');
+    await expect(modal(page)).toHaveCount(0);
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EDIT' })).toHaveCount(1);
+
+    await openTab(page, 'لوحة التحكم');
+    await expect(summaryValue(page, 'إجمالي المداخيل')).toContainText(
+      await formatAmount(page, 325),
+    );
+    await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 1));
+  });
+
+  test('deleting an expense removes it from the table and dashboard', async ({
+    authedPage: page,
+  }) => {
+    await addIncome(page, { voucher: 'E2E-IN-1', amount: 300 });
+    await addExpense(page, { voucher: 'E2E-EX-KEEP', amount: 40 });
+    await addExpense(page, { voucher: 'E2E-EX-DEL', amount: 90 });
+
+    const row = activePane(page).locator('tbody tr', { hasText: 'E2E-EX-DEL' });
+    await row.getByRole('button', { name: 'حذف العملية' }).click();
+    await expect(modal(page).locator('.modal-title')).toHaveText('تأكيد حذف المصروف');
+    await confirmDialog(page);
+
+    await expectToast(page, 'success', 'تم حذف المصروف بنجاح');
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EX-DEL' })).toHaveCount(0);
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EX-KEEP' })).toBeVisible();
+
+    await openTab(page, 'لوحة التحكم');
+    await expect(summaryValue(page, 'إجمالي المصاريف')).toContainText(await formatAmount(page, 40));
+    await expect(summaryValue(page, 'الرصيد الصافي')).toContainText(await formatAmount(page, 260));
   });
 });
