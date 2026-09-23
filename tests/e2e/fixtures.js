@@ -120,10 +120,20 @@ async function expectToast(page, type, text) {
   await expect(page.locator(`.Toastify__toast--${type}`, { hasText: text }).first()).toBeVisible();
 }
 
+/**
+ * Waits until no modal is left, including one still fading out. A closing
+ * react-bootstrap modal drops `.show` first but keeps `modal-open` on the body
+ * and traps focus, so typing into the page right away is silently lost.
+ */
+async function expectNoModal(page) {
+  await expect(page.locator('.modal')).toHaveCount(0);
+  await expect(page.locator('body')).not.toHaveClass(/modal-open/);
+}
+
 /** Confirms the shared ConfirmationModal. */
 async function confirmDialog(page, confirmText = 'نعم، حذف') {
   await modal(page).getByRole('button', { name: confirmText }).click();
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 /** Logs out from the sidebar footer and waits for the login form. */
@@ -141,6 +151,7 @@ module.exports = {
   dismissOnboarding,
   navigate,
   modal,
+  expectNoModal,
   expectToast,
   confirmDialog,
   logout,
