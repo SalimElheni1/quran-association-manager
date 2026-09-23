@@ -8,6 +8,7 @@ import FinancialExportModal from '@renderer/components/financial/FinancialExport
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
+import { toLocalISODate } from '@renderer/utils/dates';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import RefreshIcon from '@renderer/components/icons/RefreshCwIcon';
 
@@ -15,8 +16,8 @@ function FinancialDashboard() {
   const { hasPermission } = usePermissions();
   const today = new Date();
   const [period, setPeriod] = useState({
-    startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0],
+    startDate: toLocalISODate(new Date(today.getFullYear(), today.getMonth(), 1)),
+    endDate: toLocalISODate(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
   });
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -52,7 +53,7 @@ function FinancialDashboard() {
       <div className="page-header">
         <h1>لوحة التحكم المالية</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.FINANCIAL_VIEW) && (
+          {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
             <>
               <Button variant="outline-secondary" onClick={() => refresh()} disabled={loading}>
                 <RefreshIcon className="ms-2" /> {loading ? 'جاري التحديث...' : 'تحديث'}
