@@ -29,4 +29,3 @@ module.exports = {
   processArabicText,
   roundCurrency,
 };
-

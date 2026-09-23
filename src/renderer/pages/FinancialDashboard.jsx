@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Spinner, Button } from 'react-bootstrap';
+import { Row, Col, Spinner, Button } from 'react-bootstrap';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import CategoryChart from '@renderer/components/financial/CategoryChart';
 import PeriodSelector from '@renderer/components/financial/PeriodSelector';
-import TransactionTable from '@renderer/components/financial/TransactionTable';
 import FinancialExportModal from '@renderer/components/financial/FinancialExportModal';
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
