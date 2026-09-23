@@ -517,6 +517,8 @@ function StudentsPage() {
                         variant="outline-info"
                         size="sm"
                         onClick={() => handleShowDetailsModal(student)}
+                        aria-label="عرض تفاصيل الطالب"
+                        title="عرض التفاصيل"
                       >
                         <EyeIcon />
                       </Button>
@@ -525,6 +527,8 @@ function StudentsPage() {
                           variant="outline-success"
                           size="sm"
                           onClick={() => handleShowEditModal(student)}
+                          aria-label="تعديل الطالب"
+                          title="تعديل"
                         >
                           <EditIcon />
                         </Button>
@@ -534,6 +538,8 @@ function StudentsPage() {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => handleDeleteRequest(student)}
+                          aria-label="حذف الطالب"
+                          title="حذف"
                         >
                           <TrashIcon />
                         </Button>
@@ -584,7 +590,7 @@ function StudentsPage() {
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
           )}
-          {activeTab === 'students' && hasPermission(PERMISSIONS.USERS_CREATE) && (
+          {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
             <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
               <ImportIcon className="ms-2" /> استيراد البيانات
             </Button>

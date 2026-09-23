@@ -16,7 +16,7 @@ function QuickActions() {
         </span>
         <div>
           <h5 className="panel-title">إجراءات سريعة</h5>
-          <p className="panel-caption">أكثر المهام شيوعاً بين يدي المكوِّن</p>
+          <p className="panel-caption">المهام الأكثر شيوعاً للمشرف</p>
         </div>
       </div>
       <div style={{ padding: '1.25rem' }}>

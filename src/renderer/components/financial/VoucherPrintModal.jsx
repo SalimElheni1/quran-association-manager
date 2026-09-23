@@ -1,5 +1,7 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
+import PrintIcon from '@renderer/components/icons/PrintIcon';
+import '@renderer/styles/VoucherPrintModal.css';
 
 /**
  * VoucherPrintModal - Print receipt or payment voucher
@@ -12,6 +14,7 @@ function VoucherPrintModal({ show, transaction, onHide }) {
 
   const isReceipt = transaction.type === 'INCOME';
   const title = isReceipt ? 'وصل استلام' : 'إذن بالدفع';
+  const voucherNumber = transaction.voucher_number || transaction.receipt_number || '-';
 
   const handlePrint = () => {
     window.print();
@@ -19,13 +22,19 @@ function VoucherPrintModal({ show, transaction, onHide }) {
 
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('ar-TN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
     }).format(amount);
   };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('ar-TN');
+  };
+
+  const paymentMethodLabels = {
+    CASH: 'نقدي',
+    CHECK: 'شيك',
+    TRANSFER: 'تحويل بنكي',
   };
 
   return (
@@ -34,111 +43,61 @@ function VoucherPrintModal({ show, transaction, onHide }) {
         <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <div className="voucher-print" style={{ padding: '20px', fontFamily: 'Arial' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <h3>{title}</h3>
-            <p>رقم الوصل: {transaction.voucher_number}</p>
+        <div className="voucher-print">
+          <div className="voucher-head">
+            <h3 className="voucher-title">{title}</h3>
+            <p className="voucher-number">رقم الوصل: {voucherNumber}</p>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="voucher-table">
             <tbody>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                  التاريخ:
-                </td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {formatDate(transaction.transaction_date)}
-                </td>
+                <th>التاريخ:</th>
+                <td>{formatDate(transaction.transaction_date || transaction.payment_date)}</td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                  الفئة:
-                </td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {transaction.category}
-                </td>
+                <th>الفئة:</th>
+                <td>{transaction.category || transaction.category_name || 'رسوم الطلاب'}</td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                  المبلغ:
-                </td>
-                <td
-                  style={{
-                    padding: '10px',
-                    border: '1px solid #ddd',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {formatAmount(transaction.amount)} د.ت
-                </td>
+                <th>المبلغ:</th>
+                <td className="voucher-amount">{formatAmount(transaction.amount)} د.ت</td>
               </tr>
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                  طريقة الدفع:
-                </td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {(() => {
-                    const method = transaction.payment_method?.toUpperCase();
-                    switch (method) {
-                      case 'CASH':
-                        return 'نقدي';
-                      case 'CHECK':
-                        return 'شيك';
-                      case 'TRANSFER':
-                        return 'تحويل بنكي';
-                      default:
-                        return method || 'غير محدد';
-                    }
-                  })()}
+                <th>طريقة الدفع:</th>
+                <td>
+                  {paymentMethodLabels[transaction.payment_method?.toUpperCase()] ||
+                    transaction.payment_method ||
+                    'غير محدد'}
                 </td>
               </tr>
               {transaction.check_number && (
                 <tr>
-                  <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                    رقم الشيك:
-                  </td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                    {transaction.check_number}
-                  </td>
+                  <th>رقم الشيك:</th>
+                  <td>{transaction.check_number}</td>
                 </tr>
               )}
               {transaction.related_person_name && (
                 <tr>
-                  <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                    {isReceipt ? 'المستلم من:' : 'المدفوع إلى:'}
-                  </td>
-                  <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                    {transaction.related_person_name}
-                  </td>
+                  <th>{isReceipt ? 'المستلم من:' : 'المدفوع إلى:'}</th>
+                  <td>{transaction.related_person_name}</td>
                 </tr>
               )}
               <tr>
-                <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                  البيان:
-                </td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {transaction.description}
-                </td>
+                <th>البيان:</th>
+                <td>{transaction.description || transaction.notes || '-'}</td>
               </tr>
             </tbody>
           </table>
 
-          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ textAlign: 'center' }}>
+          <div className="voucher-signatures">
+            <div className="voucher-signature">
               <p>التوقيع</p>
-              <div style={{ borderTop: '1px solid #000', width: '150px', marginTop: '30px' }}></div>
+              <div className="voucher-signature-line"></div>
             </div>
-            <div style={{ textAlign: 'center' }}>
+            <div className="voucher-signature">
               <p>الختم</p>
-              <div
-                style={{
-                  border: '1px solid #000',
-                  width: '100px',
-                  height: '100px',
-                  marginTop: '10px',
-                }}
-              ></div>
+              <div className="voucher-stamp"></div>
             </div>
           </div>
         </div>
@@ -148,7 +107,7 @@ function VoucherPrintModal({ show, transaction, onHide }) {
           إغلاق
         </Button>
         <Button variant="primary" onClick={handlePrint}>
-          طباعة
+          <PrintIcon width={18} height={18} className="ms-1" /> طباعة
         </Button>
       </Modal.Footer>
     </Modal>

@@ -115,7 +115,7 @@ function LoginPage({ needsSetup }) {
         setError(response.message || 'فشل تغيير كلمة المرور.');
       }
     } catch (err) {
-      setError('فشل الاتصال بالخادم. حاول مرة أخرى.');
+      setError('تعذر تغيير كلمة المرور. تأكد من صحة كلمة المرور الحالية وحاول مرة أخرى.');
     } finally {
       setChangeLoading(false);
     }

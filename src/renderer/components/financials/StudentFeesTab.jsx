@@ -15,14 +15,18 @@ import {
 import { toast } from 'react-toastify';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import TablePagination from '@renderer/components/common/TablePagination';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
+import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import { error as logError } from '@renderer/utils/logger';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
+import PrintIcon from '@renderer/components/icons/PrintIcon';
+import EyeIcon from '@renderer/components/icons/EyeIcon';
 import { getFeeTypeLabel, getFeeStatusLabel } from '@renderer/utils/feeTypes';
 
 const studentFeesFields = [
@@ -90,6 +94,9 @@ const StudentFeesTab = () => {
   const [resetAcademicYear, setResetAcademicYear] = useState(getAcademicYearString());
   const [accounts, setAccounts] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentAction, setPaymentAction] = useState(null);
+  const [printReceipt, setPrintReceipt] = useState(null);
 
   const loadAccounts = async () => {
     try {
@@ -259,8 +266,10 @@ const StudentFeesTab = () => {
       toast.error('يرجى ملء جميع الحقول الإلزامية.');
       return;
     }
+    if (isSavingPayment) return;
 
     try {
+      setIsSavingPayment(true);
       const paymentDetails = {
         student_id: selectedStudent.id,
         amount: parseFloat(paymentAmount),
@@ -294,6 +303,8 @@ const StudentFeesTab = () => {
     } catch (err) {
       const errorMessage = err.message || 'فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.';
       toast.error(errorMessage);
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
@@ -309,39 +320,34 @@ const StudentFeesTab = () => {
     }
   };
 
-  const handleDeletePayment = async (payment) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم.')) {
-      return;
-    }
-    try {
-      await window.electronAPI.studentFeesDeletePayment(payment.id);
-      toast.success('تم حذف الدفعة بنجاح');
-      if (selectedStudent) {
-        await refreshPaymentHistory(selectedStudent);
-        loadStudents(); // Refresh the list
-      }
-    } catch (err) {
-      toast.error(err.message || 'فشل في حذف الدفعة');
-    }
+  const handleDeletePayment = (payment) => {
+    setPaymentAction({ kind: 'delete', payment });
   };
 
-  const handleRefundPayment = async (payment) => {
-    if (
-      !window.confirm(
-        'هل أنت متأكد من استرجاع هذه الدفعة؟ سيتم عكس الأرصدة والرسوم وتسجيل حركة استرجاع.',
-      )
-    ) {
-      return;
-    }
+  const handleRefundPayment = (payment) => {
+    setPaymentAction({ kind: 'refund', payment });
+  };
+
+  const confirmPaymentAction = async () => {
+    if (!paymentAction) return;
+    const { kind, payment } = paymentAction;
+
     try {
-      await window.electronAPI.studentFeesRefundPayment(payment.id);
-      toast.success('تم استرجاع الدفعة بنجاح');
+      if (kind === 'delete') {
+        await window.electronAPI.studentFeesDeletePayment(payment.id);
+        toast.success('تم حذف الدفعة بنجاح');
+      } else {
+        await window.electronAPI.studentFeesRefundPayment(payment.id);
+        toast.success('تم استرجاع الدفعة بنجاح');
+      }
       if (selectedStudent) {
         await refreshPaymentHistory(selectedStudent);
         loadStudents(); // Refresh the list
       }
     } catch (err) {
-      toast.error(err.message || 'فشل في استرجاع الدفعة');
+      toast.error(err.message || 'فشلت العملية. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setPaymentAction(null);
     }
   };
 
@@ -406,7 +412,7 @@ const StudentFeesTab = () => {
     <>
       {!feesConfigured && (
         <Alert variant="warning" className="mb-3">
-          <strong>⚠️ لم يتم تحديد الرسوم بعد.</strong> يرجى تحديد الرسوم في{' '}
+          <strong>لم يتم تحديد الرسوم بعد.</strong> يرجى تحديد الرسوم في{' '}
           <Alert.Link href="#/settings">إعدادات الرسوم</Alert.Link>
         </Alert>
       )}
@@ -566,7 +572,7 @@ const StudentFeesTab = () => {
                           }}
                           title="عرض التفاصيل"
                         >
-                          👁️
+                          <EyeIcon width={16} height={16} />
                         </Button>
                         <Button
                           size="sm"
@@ -793,14 +799,37 @@ const StudentFeesTab = () => {
                         className="me-1"
                         disabled={!!payment.refunded}
                         onClick={() => handleRefundPayment(payment)}
+                        aria-label="استرجاع الدفعة"
                       >
                         استرجاع
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        className="me-1"
+                        onClick={() =>
+                          setPrintReceipt({
+                            type: 'INCOME',
+                            voucher_number: payment.receipt_number,
+                            transaction_date: payment.payment_date,
+                            category: 'رسوم الطلاب',
+                            amount: payment.amount,
+                            payment_method: payment.payment_method,
+                            related_person_name: selectedStudent?.name,
+                            description: payment.notes || 'رسوم دراسية',
+                          })
+                        }
+                        aria-label="طباعة وصل الدفعة"
+                        title="طباعة الوصل"
+                      >
+                        <PrintIcon width={16} height={16} />
                       </Button>
                       <Button
                         size="sm"
                         variant="danger"
                         disabled={!!payment.refunded}
                         onClick={() => handleDeletePayment(payment)}
+                        aria-label="حذف الدفعة"
                       >
                         حذف
                       </Button>
@@ -818,9 +847,11 @@ const StudentFeesTab = () => {
           <Button
             variant="primary"
             onClick={handleRecordPayment}
-            disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber}
+            disabled={
+              isSavingPayment || !paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber
+            }
           >
-            تسجيل الدفعة
+            {isSavingPayment ? 'جارٍ التسجيل…' : 'تسجيل الدفعة'}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1038,7 +1069,7 @@ const StudentFeesTab = () => {
       {/* Reset Fees Confirmation Modal */}
       <Modal show={showResetConfirmModal} onHide={() => setShowResetConfirmModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ تأكيد إعادة ضبط الرسوم</Modal.Title>
+          <Modal.Title>تأكيد إعادة ضبط الرسوم</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Alert variant="danger">
@@ -1079,6 +1110,37 @@ const StudentFeesTab = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <ConfirmationModal
+        show={!!paymentAction}
+        handleClose={() => setPaymentAction(null)}
+        handleConfirm={confirmPaymentAction}
+        title={paymentAction?.kind === 'refund' ? 'تأكيد استرجاع الدفعة' : 'تأكيد حذف الدفعة'}
+        body={
+          paymentAction ? (
+            <>
+              <p className="mb-2">
+                {paymentAction.kind === 'refund'
+                  ? 'هل أنت متأكد من استرجاع هذه الدفعة؟ سيتم عكس الأرصدة والرسوم وتسجيل حركة استرجاع.'
+                  : 'هل أنت متأكد من حذف هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم.'}
+              </p>
+              <p className="mb-0">
+                <strong>رقم الوصل:</strong> {paymentAction.payment.receipt_number || '-'}{' '}
+                <span className="mx-2">|</span>
+                <strong>المبلغ:</strong> {Number(paymentAction.payment.amount).toFixed(2)} د.ت
+              </p>
+            </>
+          ) : null
+        }
+        confirmVariant={paymentAction?.kind === 'refund' ? 'warning' : 'danger'}
+        confirmText={paymentAction?.kind === 'refund' ? 'نعم، استرجاع' : 'نعم، حذف'}
+      />
+
+      <VoucherPrintModal
+        show={!!printReceipt}
+        transaction={printReceipt}
+        onHide={() => setPrintReceipt(null)}
+      />
     </>
   );
 };

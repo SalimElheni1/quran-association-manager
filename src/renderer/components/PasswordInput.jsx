@@ -46,7 +46,9 @@ const PasswordInput = ({
         />
         <Button
           variant="link"
+          type="button"
           onClick={togglePasswordVisibility}
+          aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
           style={{
             position: 'absolute',
             left: '10px',

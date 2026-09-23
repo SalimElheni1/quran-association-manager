@@ -11,6 +11,13 @@ import { error as logError } from '@renderer/utils/logger';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
+function pluralizeDays(days) {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومين';
+  if (days >= 3 && days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -68,7 +75,7 @@ function DashboardPage() {
           const message =
             days === Infinity
               ? 'لم يتم العثور على نسخة احتياطية سابقة. يُرجى إنشاء واحدة الآن لحماية بياناتك.'
-              : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${days} أيام.`;
+              : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${pluralizeDays(days)}.`;
           setBackupReminder({ show: true, message });
         }
       } catch (error) {
@@ -97,7 +104,7 @@ function DashboardPage() {
               onClick={handleOpenGuideModal}
               className="me-2"
             >
-              تشغيل دليل التعريف
+              تشغيل دليل الإعداد
             </Button>
           </div>
         </div>
@@ -119,8 +126,18 @@ function DashboardPage() {
           </Alert>
         )}
 
-        {/* Section for Key Performance Indicators (KPIs) */}
+        {/* Section for Today's Activities and Quick Actions (today-first) */}
         <Row className="mb-4">
+          <Col lg={8} className="mb-4">
+            <TodaysClasses />
+          </Col>
+          <Col lg={4} className="mb-4">
+            <QuickActions />
+          </Col>
+        </Row>
+
+        {/* Section for Key Performance Indicators (KPIs) */}
+        <Row>
           <StatCard
             title="الطلاب النشطون"
             value={stats.studentCount}
@@ -134,16 +151,6 @@ function DashboardPage() {
             variant="success"
           />
           <StatCard title="الفصول النشطة" value={stats.classCount} icon="school" variant="info" />
-        </Row>
-
-        {/* Section for Today's Activities and Quick Actions */}
-        <Row>
-          <Col lg={8} className="mb-4">
-            <TodaysClasses />
-          </Col>
-          <Col lg={4} className="mb-4">
-            <QuickActions />
-          </Col>
         </Row>
       </div>
 

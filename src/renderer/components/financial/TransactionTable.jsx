@@ -3,6 +3,7 @@ import { Table, Button, Spinner, Badge } from 'react-bootstrap';
 import TablePagination from '@renderer/components/common/TablePagination';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
+import PrintIcon from '@renderer/components/icons/PrintIcon';
 
 function TransactionTable({
   transactions,
@@ -84,7 +85,7 @@ function TransactionTable({
           <th>#</th>
           <th>التاريخ</th>
           {!compact && <th>رقم الوصل</th>}
-          <th>{isIncomeTable ? 'نوع المدخول' : 'الفئة'}</th>
+          <th>الفئة</th>
           {!compact && <th>نوع المدخول</th>}
           <th>المبلغ</th>
           {!compact && <th>طريقة الدفع</th>}
@@ -111,6 +112,8 @@ function TransactionTable({
                     size="sm"
                     onClick={() => onEdit(transaction)}
                     className="me-2"
+                    aria-label="تعديل العملية"
+                    title="تعديل"
                   >
                     <EditIcon />
                   </Button>
@@ -121,13 +124,21 @@ function TransactionTable({
                     size="sm"
                     onClick={() => onDelete(transaction)}
                     className="me-2"
+                    aria-label="حذف العملية"
+                    title="حذف"
                   >
                     <TrashIcon />
                   </Button>
                 )}
                 {onPrint && (
-                  <Button variant="outline-info" size="sm" onClick={() => onPrint(transaction)}>
-                    🖨️ طباعة
+                  <Button
+                    variant="outline-info"
+                    size="sm"
+                    onClick={() => onPrint(transaction)}
+                    aria-label="طباعة الوصل"
+                    title="طباعة الوصل"
+                  >
+                    <PrintIcon width={16} height={16} className="ms-1" /> طباعة
                   </Button>
                 )}
               </td>

@@ -20,6 +20,7 @@ function TransactionModal({
   const [inKindCategories, setInKindCategories] = useState([]);
   const [selectedStudentDetails, setSelectedStudentDetails] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!transaction;
 
   const { categories } = useCategories(type);
@@ -81,7 +82,7 @@ function TransactionModal({
         parseFloat(merged.amount) > 500 &&
         merged.payment_method === 'CASH'
       ) {
-        setAmountWarning('⚠️ المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+        setAmountWarning('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
       } else {
         setAmountWarning('');
       }
@@ -117,7 +118,7 @@ function TransactionModal({
       const method = name === 'payment_method' ? value : formData.payment_method;
 
       if (amount > 500 && method === 'CASH') {
-        setAmountWarning('⚠️ المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+        setAmountWarning('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
       } else {
         setAmountWarning('');
       }
@@ -126,6 +127,7 @@ function TransactionModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSaving) return;
 
     // Validate receipt_type for cash donations
     if (isCashDonation && !formData.receipt_type) {
@@ -162,7 +164,10 @@ function TransactionModal({
       dataToSave.account_id = 1; // الخزينة
     }
 
-    onSave({ ...dataToSave, type }, transaction ? transaction.id : null);
+    setIsSaving(true);
+    Promise.resolve(onSave({ ...dataToSave, type }, transaction ? transaction.id : null)).finally(
+      () => setIsSaving(false),
+    );
   };
 
   return (
@@ -414,8 +419,8 @@ function TransactionModal({
           <Button variant="secondary" onClick={onHide}>
             إلغاء
           </Button>
-          <Button variant="primary" type="submit" disabled={!!amountWarning}>
-            {isEditMode ? 'حفظ التعديلات' : 'حفظ'}
+          <Button variant="primary" type="submit" disabled={!!amountWarning || isSaving}>
+            {isSaving ? 'جارٍ الحفظ…' : isEditMode ? 'حفظ التعديلات' : 'حفظ'}
           </Button>
         </Modal.Footer>
       </Form>

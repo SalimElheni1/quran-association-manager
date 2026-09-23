@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Button, Alert, Spinner, Form, InputGroup } from 'react-bootstrap';
+import FileExcelIcon from '@renderer/components/icons/FileExcelIcon';
+import FolderOpenIcon from '@renderer/components/icons/FolderOpenIcon';
+import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
+import CheckCircleIcon from '@renderer/components/icons/CheckCircleIcon';
 
 function ImportWizard({ show, handleClose, selectedSheets = [] }) {
   const [filePath, setFilePath] = useState('');
@@ -88,7 +92,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
     <Modal show={show} onHide={handleCloseModal} size="lg" backdrop="static">
       <Modal.Header closeButton={!loading}>
         <Modal.Title>
-          <i className="fas fa-file-excel me-2"></i>
+          <FileExcelIcon width={20} height={20} className="me-2" />
           استيراد البيانات من Excel
           {selectedSheets.length > 0 && (
             <span className="badge bg-primary ms-2">{selectedSheets.length} ورقة</span>
@@ -104,7 +108,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
 
             <div className="mb-4">
               <Button variant="primary" onClick={handleFileSelect} className="px-4">
-                <i className="fas fa-folder-open me-2"></i>
+                <FolderOpenIcon width={18} height={18} className="me-2" />
                 تصفح الملفات
               </Button>
             </div>
@@ -141,7 +145,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
         {/* Error Display */}
         {error && (
           <Alert variant="danger">
-            <i className="fas fa-exclamation-triangle me-2"></i>
+            <ExclamationTriangleIcon width={18} height={18} className="me-2" />
             {error}
           </Alert>
         )}
@@ -152,7 +156,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
             <div className="row text-center mb-4">
               <div className="col">
                 <h4 className="text-success">
-                  <i className="fas fa-check-circle me-2"></i>
+                  <CheckCircleIcon width={22} height={22} className="me-2" />
                   تم الاستيراد بنجاح
                 </h4>
               </div>

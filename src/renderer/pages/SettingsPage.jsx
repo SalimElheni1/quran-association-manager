@@ -292,7 +292,7 @@ const SettingsPage = () => {
                         </Col>
                       </Row>
                       <Alert variant="warning" className="mb-4">
-                        <strong>⚠️ تحذير مهم حول تغيير الرسوم:</strong>
+                        <strong>تحذير مهم حول تغيير الرسوم:</strong>
                         <ul className="mb-0 mt-2">
                           <li>
                             تغيير الرسوم السنوية أو الشهرية <strong>لن يؤثر</strong> على الرسوم المولدة مسبقاً

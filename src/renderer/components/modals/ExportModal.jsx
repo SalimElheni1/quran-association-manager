@@ -101,7 +101,7 @@ const ExportModal = ({
         toast.success('تم تصدير الملف بنجاح!');
       } else {
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
-          const errorMsg = 'فشل تصدير DOCX: ملف القالب "export_template_v2.docx" غير موجود.';
+          const errorMsg = 'فشل تصدير DOCX: قالب المستند غير موجود على هذا الجهاز. أعد تثبيت التطبيق أو تواصل مع الدعم الفني.';
           setMessage({
             type: 'warning',
             text: errorMsg,

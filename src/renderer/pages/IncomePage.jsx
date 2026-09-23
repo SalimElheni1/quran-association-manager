@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import TransactionTable from '@renderer/components/financial/TransactionTable';
 import TransactionFilters from '@renderer/components/financial/TransactionFilters';
 import TransactionModal from '@renderer/components/financial/TransactionModal';
+import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
@@ -31,6 +32,8 @@ function IncomePage() {
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printTransaction, setPrintTransaction] = useState(null);
 
   const { transactions, pagination, loading, refresh } = useTransactions(filters);
 
@@ -72,14 +75,22 @@ function IncomePage() {
       } else {
         await window.electronAPI.addTransaction(transaction);
         toast.success('تم إضافة المدخول بنجاح');
+        // Offer a printed receipt right after recording the income
+        setPrintTransaction({ ...transaction, type: 'INCOME' });
+        setShowPrintModal(true);
       }
       setShowModal(false);
       refresh();
       window.dispatchEvent(new Event('financial-data-changed'));
     } catch (err) {
       logError('Error saving income:', err);
-      toast.error(err.message || '❌ فشل في حفظ المدخول');
+      toast.error(err.message || 'فشل في حفظ المدخول');
     }
+  };
+
+  const handlePrint = (transaction) => {
+    setPrintTransaction(transaction);
+    setShowPrintModal(true);
   };
 
   const handleDeleteRequest = (transaction) => {
@@ -97,7 +108,7 @@ function IncomePage() {
       window.dispatchEvent(new Event('financial-data-changed'));
     } catch (err) {
       logError('Error deleting income:', err);
-      toast.error('❌ فشل في حذف المدخول');
+      toast.error('فشل في حذف المدخول');
     } finally {
       setShowDeleteModal(false);
       setTransactionToDelete(null);
@@ -136,6 +147,7 @@ function IncomePage() {
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onPrint={handlePrint}
             pagination={pagination}
             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
             onPageSizeChange={(pageSize, page) =>
@@ -153,6 +165,15 @@ function IncomePage() {
         onSave={handleSave}
         defaultCategory="التبرعات النقدية"
         customTitle={!selectedTransaction ? 'إضافة مدخول' : undefined}
+      />
+
+      <VoucherPrintModal
+        show={showPrintModal}
+        transaction={printTransaction}
+        onHide={() => {
+          setShowPrintModal(false);
+          setPrintTransaction(null);
+        }}
       />
 
       <ConfirmationModal

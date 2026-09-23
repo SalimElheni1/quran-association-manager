@@ -12,7 +12,7 @@ const ProfilePage = () => {
 
   const roleTranslations = {
     Superadmin: 'مدير النظام',
-    Administrator: 'إداري',
+    Administrator: 'الهيئة المديرة',
     FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };

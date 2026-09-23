@@ -52,7 +52,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
 
   const roleOptions = {
     Superadmin: 'مدير النظام',
-    Administrator: 'إداري',
+    Administrator: 'الهيئة المديرة',
     FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };

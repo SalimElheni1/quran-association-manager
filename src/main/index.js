@@ -22,6 +22,20 @@ const path = require('path');
 const crypto = require('crypto');
 
 // =================================================================================
+// E2E TEST MODE (QBM_E2E=1)
+// =================================================================================
+// Isolates all app data (DB, key store, settings, logs) in a throwaway directory.
+// Must run before any module that resolves userData at require time
+// (logger, keyManager, electron-store).
+const isE2E = process.env.QBM_E2E === '1';
+if (isE2E) {
+  if (!process.env.QBM_E2E_USER_DATA) {
+    throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');
+  }
+  app.setPath('userData', process.env.QBM_E2E_USER_DATA);
+}
+
+// =================================================================================
 // PRODUCTION CRASH LOGGER
 // =================================================================================
 if (app.isPackaged) {
@@ -81,7 +95,7 @@ const store = new Store();
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
   require('dotenv').config();
-  require('electron-reloader')(module);
+  if (!isE2E) require('electron-reloader')(module);
 }
 
 // =================================================================================
@@ -129,7 +143,8 @@ const createWindow = () => {
     mainWindow.maximize();
     mainWindow.show(); // Show the window after maximizing
   });
-  if (!app.isPackaged) {
+  // E2E runs load the built renderer (no Vite server, no DevTools window).
+  if (!app.isPackaged && !isE2E) {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {

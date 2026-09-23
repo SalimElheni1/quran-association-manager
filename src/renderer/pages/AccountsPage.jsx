@@ -47,7 +47,7 @@ function AccountsPage() {
       loadInKindCategories();
     } catch (err) {
       logError('Error saving category:', err);
-      toast.error('❌ ' + err.message);
+      toast.error(err.message);
     }
   };
 
@@ -64,7 +64,7 @@ function AccountsPage() {
       loadInKindCategories();
     } catch (err) {
       logError('Error deleting category:', err);
-      toast.error('❌ ' + err.message);
+      toast.error(err.message);
     } finally {
       setShowDeleteModal(false);
       setCategoryToDelete(null);

@@ -190,7 +190,7 @@ function AttendancePage() {
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
           )}
-          {hasPermission(PERMISSIONS.ATTENDANCE_CREATE) && (
+          {hasPermission(PERMISSIONS.ATTENDANCE_MANAGE) && (
             <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
               <ImportIcon className="ms-2" /> استيراد البيانات
             </Button>

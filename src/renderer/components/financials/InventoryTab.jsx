@@ -160,7 +160,7 @@ function InventoryTab() {
       fetchItems();
     } catch (err) {
       logError('Error saving in-kind donation:', err);
-      toast.error('❌ فشل في حفظ التبرع العيني');
+      toast.error('فشل في حفظ التبرع العيني');
     }
   };
 

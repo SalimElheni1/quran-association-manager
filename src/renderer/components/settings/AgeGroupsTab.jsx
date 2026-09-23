@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, Form, Row, Col, Spinner, Table, Badge, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
 
 const CATEGORY_OPTIONS = [
   { value: 'any', label: 'الكل' },
@@ -219,14 +221,14 @@ const AgeGroupsTab = () => {
                         onClick={() => handleEdit(group)}
                         className="me-1"
                       >
-                        ✏️ تعديل
+                        <EditIcon width={16} height={16} className="me-1" /> تعديل
                       </Button>
                       <Button
                         variant="outline-danger"
                         size="sm"
                         onClick={() => handleDeleteClick(group)}
                       >
-                        🗑️ حذف
+                        <TrashIcon width={16} height={16} className="me-1" /> حذف
                       </Button>
                     </td>
                   </tr>

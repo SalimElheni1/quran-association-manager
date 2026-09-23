@@ -333,6 +333,8 @@ function ClassesPage() {
                         variant="outline-info"
                         size="sm"
                         onClick={() => handleShowDetailsModal(cls)}
+                        aria-label="عرض تفاصيل الفصل"
+                        title="عرض التفاصيل"
                       >
                         <EyeIcon />
                       </Button>
@@ -341,6 +343,8 @@ function ClassesPage() {
                           variant="outline-success"
                           size="sm"
                           onClick={() => handleShowEditModal(cls)}
+                          aria-label="تعديل الفصل"
+                          title="تعديل"
                         >
                           <EditIcon />
                         </Button>
@@ -350,6 +354,8 @@ function ClassesPage() {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => handleDeleteRequest(cls)}
+                          aria-label="حذف الفصل"
+                          title="حذف"
                         >
                           <TrashIcon />
                         </Button>

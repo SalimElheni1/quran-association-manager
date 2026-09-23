@@ -15,6 +15,7 @@ import EditIcon from '@renderer/components/icons/EditIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import PlusIcon from '@renderer/components/icons/PlusIcon';
 
 const adminsFields = [
   { key: 'matricule', label: 'الرقم التعريفي' },
@@ -198,7 +199,7 @@ function UsersPage() {
           )}
           {hasPermission(PERMISSIONS.USERS_CREATE) && (
             <Button variant="primary" onClick={handleShowAddModal}>
-              <i className="fas fa-plus ms-2"></i> إضافة مستخدم جديد
+              <PlusIcon className="ms-2" /> إضافة مستخدم جديد
             </Button>
           )}
         </div>

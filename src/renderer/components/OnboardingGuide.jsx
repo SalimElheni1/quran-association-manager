@@ -247,7 +247,7 @@ function OnboardingGuide() {
         .onboarding-overlay { animation: onboarding-fade 240ms ease both; }
         .onboarding-guide { animation: onboarding-slide 260ms ease both; }
         .onboarding-progress { height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
-        .onboarding-progress > i { display: block; height: 6px; background: linear-gradient(90deg,#0d6efd,#6610f2); width: 0%; }
+        .onboarding-progress > i { display: block; height: 6px; background: linear-gradient(90deg,var(--gold-strong),var(--gold)); width: 0%; }
       `}</style>
       <div
         className="onboarding-overlay"

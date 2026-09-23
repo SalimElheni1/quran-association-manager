@@ -43,3 +43,7 @@ lib/
 .codeboarding/src/main/config/credentials.js
 
 qbm-demo/
+
+# Playwright e2e output
+test-results/
+playwright-report/

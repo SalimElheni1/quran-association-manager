@@ -300,7 +300,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
         if (result.success) {
           studentsToEnroll.push(...result.data);
         } else {
-          toast.error(`Failed to get students for group ID ${groupId}.`);
+          toast.error('تعذر جلب طلاب المجموعة المحددة.');
         }
       }
 
@@ -317,7 +317,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       setSelectedGroupIds(new Set());
     } catch (err) {
       logError('Error enrolling groups:', err);
-      toast.error('An error occurred while enrolling groups.');
+      toast.error('حدث خطأ أثناء تسجيل المجموعات.');
     } finally {
       setLoading(false);
     }
@@ -472,7 +472,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       {/* Age/Gender Validation Warning Modal */}
       <Modal show={showValidationWarning} onHide={() => setShowValidationWarning(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ تحذير التحقق من الصحة</Modal.Title>
+          <Modal.Title>تحذير التحقق من الصحة</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="alert alert-warning">
@@ -525,7 +525,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       {/* No Age Group Warning Modal */}
       <Modal show={showNoAgeGroupWarning} onHide={() => setShowNoAgeGroupWarning(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ تحذير</Modal.Title>
+          <Modal.Title>تحذير</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="alert alert-info">

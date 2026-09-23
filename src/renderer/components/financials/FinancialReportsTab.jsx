@@ -108,10 +108,10 @@ function FinancialReportsTab() {
       } else if (result.success) {
         setWordMessage({ type: 'success', text: 'تم تصدير التقرير المالي بنجاح!' });
       } else {
-        setWordMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
+        setWordMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setWordMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
+      setWordMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     } finally {
       setWordLoading(false);
@@ -137,10 +137,10 @@ function FinancialReportsTab() {
       } else if (result.success) {
         setLedgerMessage({ type: 'success', text: 'تم تصدير سجل المحاسبة بنجاح!' });
       } else {
-        setLedgerMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
+        setLedgerMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setLedgerMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
+      setLedgerMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     } finally {
       setLedgerLoading(false);
@@ -159,10 +159,10 @@ function FinancialReportsTab() {
       } else if (result.success) {
         setInventoryMessage({ type: 'success', text: 'تم تصدير سجل الجرد بنجاح!' });
       } else {
-        setInventoryMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
+        setInventoryMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setInventoryMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
+      setInventoryMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     } finally {
       setInventoryLoading(false);
@@ -180,7 +180,7 @@ function FinancialReportsTab() {
 
           <Card className="mb-4">
             <Card.Header className="bg-light">
-              <h5 className="mb-0">📄 التقرير المالي</h5>
+              <h5 className="mb-0">التقرير المالي</h5>
             </Card.Header>
             <Card.Body>
               <p className="small text-muted">

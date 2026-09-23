@@ -132,7 +132,7 @@ describe('Toast Utils', () => {
 
     expect(toast.success).toHaveBeenCalledWith('Success message', {
       position: 'top-right',
-      autoClose: 5000,
+      autoClose: 8000,
       hideProgressBar: false,
       closeOnClick: true,
       pauseOnHover: true,
@@ -147,7 +147,7 @@ describe('Toast Utils', () => {
 
     expect(toast.error).toHaveBeenCalledWith('Error message', {
       position: 'top-right',
-      autoClose: 5000,
+      autoClose: 8000,
       hideProgressBar: false,
       closeOnClick: true,
       pauseOnHover: true,
@@ -162,7 +162,7 @@ describe('Toast Utils', () => {
 
     expect(toast.info).toHaveBeenCalledWith('Info message', {
       position: 'top-right',
-      autoClose: 5000,
+      autoClose: 8000,
       hideProgressBar: false,
       closeOnClick: true,
       pauseOnHover: true,
@@ -177,7 +177,7 @@ describe('Toast Utils', () => {
 
     expect(toast.warn).toHaveBeenCalledWith('Warning message', {
       position: 'top-right',
-      autoClose: 5000,
+      autoClose: 8000,
       hideProgressBar: false,
       closeOnClick: true,
       pauseOnHover: true,

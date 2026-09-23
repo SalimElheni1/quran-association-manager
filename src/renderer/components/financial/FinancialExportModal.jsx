@@ -83,10 +83,10 @@ function FinancialExportModal({ show, handleClose }) {
       } else if (result.success) {
         setMessage({ type: 'success', text: 'تم تصدير التقرير بنجاح!' });
       } else {
-        setMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     }
   };
@@ -229,7 +229,7 @@ function FinancialExportModal({ show, handleClose }) {
           إغلاق
         </Button>
         <Button variant="success" onClick={handleFinancialExport}>
-          📄 تصدير التقرير
+          تصدير التقرير
         </Button>
       </Modal.Footer>
     </Modal>

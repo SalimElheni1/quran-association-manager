@@ -46,7 +46,7 @@ function SuperadminSetupForm({ onSuccess }) {
         setError(response.message || 'فشل إنشاء مدير النظام.');
       }
     } catch (err) {
-      setError('فشل الاتصال بالخادم. حاول مرة أخرى.');
+      setError('تعذر إنشاء مدير النظام. تحقق من البيانات وحاول مرة أخرى.');
     } finally {
       setLoading(false);
     }

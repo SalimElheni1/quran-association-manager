@@ -3,6 +3,8 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
 import TrashIcon from './icons/TrashIcon';
 import PlusIcon from './icons/PlusIcon';
+import ClockIcon from './icons/ClockIcon';
+import CheckCircleIcon from './icons/CheckCircleIcon';
 
 // Unified time options combining prayer times and custom time
 const TIME_OPTIONS = [
@@ -376,7 +378,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                               transition: 'all 0.2s ease',
                             }}
                           >
-                            <i className="fas fa-clock me-1" style={{ fontSize: '10px' }}></i>
+                            <ClockIcon width={12} height={12} className="me-1" />
                             مخصص
                           </Button>
                         </div>
@@ -438,6 +440,8 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => removeScheduleRow(index)}
+                          aria-label="حذف هذا التوقيت"
+                          title="حذف التوقيت"
                           style={{
                             width: '32px',
                             height: '32px',
@@ -470,10 +474,11 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                             className="d-flex align-items-center text-primary"
                             style={{ fontSize: '12px' }}
                           >
-                            <i
-                              className="fas fa-check-circle me-1"
-                              style={{ fontSize: '10px' }}
-                            ></i>
+                            <CheckCircleIcon
+                              width={12}
+                              height={12}
+                              className="me-1"
+                          />
                             الوقت المحدد: <strong className="ms-1">{item.time}</strong>
                           </small>
                         </div>

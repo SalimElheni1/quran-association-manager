@@ -13,7 +13,7 @@ function TodaysClasses() {
 
   const handleClassClick = (classId) => {
     // Navigate to the attendance page, passing the class ID as a URL parameter.
-    navigate(`/attendance?seanceId=${classId}`);
+    navigate(`/attendance?classId=${classId}`);
   };
 
   useEffect(() => {
