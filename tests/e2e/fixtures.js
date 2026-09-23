@@ -54,6 +54,19 @@ const test = base.extend({
     await page.waitForLoadState('domcontentloaded');
     await use(page);
   },
+
+  // Logged in as the superadmin on the dashboard, onboarding guide dismissed.
+  // The renderer is reloaded after setup (like an app restart): App.jsx caches `needsSetup`
+  // for the session, so without it a later logout would show the setup form again.
+  authedPage: async ({ page }, use) => {
+    await setupSuperadmin(page);
+    await expect(page.getByRole('heading', { name: 'تسجيل الدخول' })).toBeVisible();
+    await page.reload();
+    await login(page);
+    await dismissOnboarding(page);
+    await expect(page.locator('.topbar')).toBeVisible();
+    await use(page);
+  },
 });
 
 /** Completes the first-run superadmin setup form. */
@@ -73,4 +86,63 @@ async function login(page, { username, password } = SUPERADMIN) {
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
 }
 
-module.exports = { test, expect, launchApp, setupSuperadmin, login, SUPERADMIN };
+/**
+ * Closes the onboarding guide that opens ~500ms after a user's first login.
+ * No-op when the guide does not appear (user already dismissed it).
+ */
+async function dismissOnboarding(page) {
+  const stop = page.getByRole('button', { name: 'إيقاف العرض' });
+  try {
+    await stop.waitFor({ state: 'visible', timeout: 3000 });
+  } catch {
+    return;
+  }
+  await stop.click();
+  await expect(page.locator('.onboarding-guide')).toBeHidden();
+}
+
+/** Navigates via the sidebar link with the given Arabic label (e.g. 'شؤون الطلاب'). */
+async function navigate(page, label) {
+  await page.locator('a.nav-link', { hasText: label }).click();
+}
+
+/** The currently open react-bootstrap modal. */
+function modal(page) {
+  return page.locator('.modal.show');
+}
+
+/**
+ * Asserts a react-toastify toast is visible.
+ * @param {'success'|'error'|'warning'|'info'} type
+ * @param {string|RegExp} text
+ */
+async function expectToast(page, type, text) {
+  await expect(page.locator(`.Toastify__toast--${type}`, { hasText: text }).first()).toBeVisible();
+}
+
+/** Confirms the shared ConfirmationModal. */
+async function confirmDialog(page, confirmText = 'نعم، حذف') {
+  await modal(page).getByRole('button', { name: confirmText }).click();
+  await expect(modal(page)).toHaveCount(0);
+}
+
+/** Logs out from the sidebar footer and waits for the login form. */
+async function logout(page) {
+  await page.locator('button.logout-btn').click();
+  await expect(page.getByRole('heading', { name: 'تسجيل الدخول' })).toBeVisible();
+}
+
+module.exports = {
+  test,
+  expect,
+  launchApp,
+  setupSuperadmin,
+  login,
+  dismissOnboarding,
+  navigate,
+  modal,
+  expectToast,
+  confirmDialog,
+  logout,
+  SUPERADMIN,
+};
