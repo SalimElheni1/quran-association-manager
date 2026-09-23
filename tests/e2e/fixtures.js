@@ -56,12 +56,8 @@ const test = base.extend({
   },
 
   // Logged in as the superadmin on the dashboard, onboarding guide dismissed.
-  // The renderer is reloaded after setup (like an app restart): App.jsx caches `needsSetup`
-  // for the session, so without it a later logout would show the setup form again.
   authedPage: async ({ page }, use) => {
     await setupSuperadmin(page);
-    await expect(page.getByRole('heading', { name: 'تسجيل الدخول' })).toBeVisible();
-    await page.reload();
     await login(page);
     await dismissOnboarding(page);
     await expect(page.locator('.topbar')).toBeVisible();

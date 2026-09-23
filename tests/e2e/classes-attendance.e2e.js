@@ -1,8 +1,8 @@
 const { test, expect, navigate, modal, expectToast } = require('./fixtures');
 
-function nineYearsAgo() {
+function yearsAgo(years) {
   const d = new Date();
-  d.setFullYear(d.getFullYear() - 9);
+  d.setFullYear(d.getFullYear() - years);
   return d.toISOString().split('T')[0];
 }
 
@@ -11,25 +11,25 @@ function formatDateEnGB(dateStr) {
   return new Date(year, month - 1, day).toLocaleDateString('en-GB');
 }
 
-async function addStudent(page, name, gender = 'ذكر') {
+async function addStudent(page, name, gender = 'ذكر', age = 9) {
   await navigate(page, 'شؤون الطلاب');
   await page.getByRole('button', { name: 'إضافة طالب' }).click();
   await modal(page).locator('#formStudentName').fill(name);
-  await modal(page).locator('#formStudentDob').fill(nineYearsAgo());
+  await modal(page).locator('#formStudentDob').fill(yearsAgo(age));
   await modal(page).locator('#formStudentGender').selectOption({ label: gender });
   await modal(page).getByRole('button', { name: 'إضافة الطالب' }).click();
   await expectToast(page, 'success', `تمت إضافة الطالب "${name}" بنجاح!`);
   await expect(modal(page)).toHaveCount(0);
 }
 
-async function addClass(page, name, status = 'active') {
+async function addClass(page, name, status = 'active', ageGroup = 'الأطفال') {
   await navigate(page, 'الفصول الدراسية');
   await page.getByRole('button', { name: 'إضافة فصل' }).click();
   await expect(modal(page).locator('.modal-title')).toHaveText('إضافة فصل جديد');
   await modal(page).locator('input[name="name"]').fill(name);
 
   const ageOption = modal(page).locator('select[name="age_group_id"] option', {
-    hasText: 'الأطفال',
+    hasText: ageGroup,
   });
   const ageGroupValue = await ageOption.getAttribute('value');
   await modal(page).locator('select[name="age_group_id"]').selectOption(ageGroupValue);
@@ -115,6 +115,18 @@ test.describe('classes, enrollment and attendance', () => {
 
     await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
     await expect(modal(page)).toHaveCount(0);
+  });
+
+  test('enrolls a matching student into a single-gender class without a warning', async ({
+    authedPage: page,
+  }) => {
+    await addClass(page, 'فصل الناشئين', 'active', 'الناشئون (ذكور)');
+    await addStudent(page, 'سليم الناشئ', 'ذكر', 13);
+
+    // enrollStudent saves straight away; a gender warning modal would block it.
+    await enrollStudent(page, 'فصل الناشئين', 'سليم الناشئ');
+    await expectToast(page, 'success', 'تم تسجيل سليم الناشئ بنجاح.');
+    await expect(page.getByText('تحذير التحقق من الصحة')).toHaveCount(0);
   });
 
   test('marks a student absent and persists attendance across navigation', async ({

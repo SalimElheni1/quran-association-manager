@@ -75,8 +75,6 @@ test.describe('forced password change', () => {
 
   test('login with the legacy default password requires a new one', async ({ page }) => {
     await setupSuperadmin(page, LEGACY);
-    await expect(page.getByRole('heading', { name: 'تسجيل الدخول' })).toBeVisible();
-    await page.reload();
 
     await login(page, LEGACY);
     await expect(page.getByRole('heading', { name: 'تغيير كلمة المرور' })).toBeVisible();

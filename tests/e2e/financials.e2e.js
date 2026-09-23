@@ -83,7 +83,9 @@ test.describe('financials', () => {
 
   test('income and expense appear in their tables', async ({ authedPage: page }) => {
     await addIncome(page, { voucher: 'E2E-IN-1', amount: 250 });
-    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-IN-1' })).toBeVisible();
+    const incomeRow = activePane(page).locator('tbody tr', { hasText: 'E2E-IN-1' });
+    await expect(incomeRow).toBeVisible();
+    await expect(incomeRow.locator('.badge.bg-success')).toHaveText('نقدا');
 
     await addExpense(page, { voucher: 'E2E-EX-1', amount: 100 });
     const expenseRow = activePane(page).locator('tbody tr', { hasText: 'E2E-EX-1' });
@@ -111,31 +113,18 @@ test.describe('financials', () => {
     await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 3));
   });
 
-  async function submitDuplicateIncome(page) {
+  test('a duplicate voucher number is rejected with the Arabic message', async ({
+    authedPage: page,
+  }) => {
     await addIncome(page, { voucher: 'E2E-DUP', amount: 50 });
     await activePane(page).getByRole('button', { name: 'إضافة مدخول' }).click();
     await fillTransaction(page, { voucher: 'E2E-DUP', amount: 75, receiptType: 'تبرع' });
     await modal(page).getByRole('button', { name: 'حفظ' }).click();
-  }
 
-  test('a duplicate voucher number is rejected', async ({ authedPage: page }) => {
-    await submitDuplicateIncome(page);
-
-    await expect(page.locator('.Toastify__toast--error')).toBeVisible();
+    await expectToast(page, 'error', 'رقم الوصل موجود مسبقاً');
+    await expect(page.locator('.Toastify__toast--error')).not.toContainText('SQLITE');
     await expect(modal(page).locator('.modal-title')).toHaveText('إضافة مدخول');
     await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-DUP' })).toHaveCount(1);
-  });
-
-  test('a duplicate voucher number shows the Arabic error message', async ({
-    authedPage: page,
-  }) => {
-    test.fail(
-      true,
-      "App bug: financialHandlers checks error.code === 'SQLITE_CONSTRAINT' but better-sqlite3 " +
-        "reports 'SQLITE_CONSTRAINT_UNIQUE', so the raw SQLite message is shown",
-    );
-    await submitDuplicateIncome(page);
-    await expectToast(page, 'error', 'رقم الوصل موجود مسبقاً');
   });
 
   test('cash over 500 blocks saving until paid by check', async ({ authedPage: page }) => {
@@ -160,12 +149,6 @@ test.describe('financials', () => {
   });
 
   test('editing an income amount updates the table and dashboard', async ({ authedPage: page }) => {
-    test.fail(
-      true,
-      'App bug: transactions reach the renderer with payment_method translated to Arabic ' +
-        '(translations.js mapPaymentMethod); the edit modal sends it back and the schema ' +
-        'only accepts CASH/CHECK/TRANSFER',
-    );
     await addIncome(page, { voucher: 'E2E-EDIT', amount: 200 });
 
     const row = activePane(page).locator('tbody tr', { hasText: 'E2E-EDIT' });
@@ -185,6 +168,16 @@ test.describe('financials', () => {
       await formatAmount(page, 325),
     );
     await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 1));
+  });
+
+  test('the dashboard refresh button is shown and refreshes totals', async ({
+    authedPage: page,
+  }) => {
+    const refresh = activePane(page).getByRole('button', { name: 'تحديث' });
+    await expect(refresh).toBeVisible();
+    await refresh.click();
+    await expect(refresh).toBeEnabled();
+    await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 0));
   });
 
   test('deleting an expense removes it from the table and dashboard', async ({
