@@ -3,6 +3,7 @@ import { Modal, Button, Form, Row, Col, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import SelectionModal from './SelectionModal';
 import MultiSelectDropdown from './MultiSelectDropdown';
+import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
 function StudentFormModal({ show, handleClose, onSave, student }) {
   const [formData, setFormData] = useState({});
@@ -56,9 +57,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
       setFormData({
         ...initialData,
         ...student,
-        date_of_birth: student.date_of_birth
-          ? new Date(student.date_of_birth).toISOString().split('T')[0]
-          : '',
+        date_of_birth: toDateInputValue(student.date_of_birth),
       });
       setSelectedSurahIds(student.surahs?.map((s) => s.id) || []);
       setSelectedHizbIds(student.hizbs?.map((h) => h.id) || []);
@@ -208,7 +207,7 @@ function StudentFormModal({ show, handleClose, onSave, student }) {
                   type="date"
                   name="date_of_birth"
                   value={formData.date_of_birth || ''}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={toLocalISODate(new Date())}
                   onChange={handleChange}
                   isInvalid={formData.date_of_birth && age !== null && age < 4}
                 />

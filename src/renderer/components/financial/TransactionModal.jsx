@@ -5,6 +5,7 @@ import { useCategories } from '@renderer/hooks/useCategories';
 import { useStudents } from '@renderer/hooks/useStudents';
 import { useClasses } from '@renderer/hooks/useClasses';
 import SearchableStudentSelect from '@renderer/components/SearchableStudentSelect';
+import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
 function TransactionModal({
   show,
@@ -47,7 +48,7 @@ function TransactionModal({
 
   useEffect(() => {
     const initialData = {
-      transaction_date: new Date().toISOString().split('T')[0],
+      transaction_date: toLocalISODate(new Date()),
       category: defaultCategory || '',
       amount: '',
       description: '',
@@ -71,7 +72,7 @@ function TransactionModal({
         ...initialData,
         ...transaction,
         transaction_date: transaction.transaction_date
-          ? new Date(transaction.transaction_date).toISOString().split('T')[0]
+          ? toDateInputValue(transaction.transaction_date)
           : initialData.transaction_date,
       };
       setFormData(merged);

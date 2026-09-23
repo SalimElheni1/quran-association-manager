@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const ExportModal = ({
   show,
@@ -15,8 +16,8 @@ const ExportModal = ({
   const [filterMode, setFilterMode] = useState('group'); // 'group' only
   const [selectedFields, setSelectedFields] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(toLocalISODate(new Date()));
+  const [endDate, setEndDate] = useState(toLocalISODate(new Date()));
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('all');
   const [groups, setGroups] = useState([]);
@@ -101,7 +102,8 @@ const ExportModal = ({
         toast.success('تم تصدير الملف بنجاح!');
       } else {
         if (result.message.includes('TEMPLATE_NOT_FOUND')) {
-          const errorMsg = 'فشل تصدير DOCX: قالب المستند غير موجود على هذا الجهاز. أعد تثبيت التطبيق أو تواصل مع الدعم الفني.';
+          const errorMsg =
+            'فشل تصدير DOCX: قالب المستند غير موجود على هذا الجهاز. أعد تثبيت التطبيق أو تواصل مع الدعم الفني.';
           setMessage({
             type: 'warning',
             text: errorMsg,

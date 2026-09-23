@@ -4,6 +4,7 @@ import { max, extent } from 'd3-array';
 import { usePermissions } from '@renderer/contexts/AuthContext';
 import ChartCard from '@renderer/components/dashboard/ChartCard';
 import { getAcademicYearString } from '@renderer/utils/academicYear';
+import { toLocalISODate } from '@renderer/utils/dates';
 import { error as logError } from '@renderer/utils/logger';
 
 const MONTHS = [
@@ -43,7 +44,7 @@ function MonthlyFeesTrendChart() {
         const months = [];
         for (let i = 11; i >= 0; i -= 1) {
           const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          months.push({ key: monthKey(m.toISOString().slice(0, 7)), label: MONTHS[m.getMonth()] });
+          months.push({ key: monthKey(toLocalISODate(m)), label: MONTHS[m.getMonth()] });
         }
 
         const payments = await window.electronAPI.getPayments();
@@ -91,7 +92,12 @@ function MonthlyFeesTrendChart() {
     const barWidth = Math.max(2, x.bandwidth());
 
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="مخطط الإيرادات الشهرية لآخر ١٢ شهراً" className="ftn-chart-svg">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="مخطط الإيرادات الشهرية لآخر ١٢ شهراً"
+        className="ftn-chart-svg"
+      >
         <g transform={`translate(${margin.left},${margin.top})`}>
           {y.ticks(4).map((tick) => (
             <line

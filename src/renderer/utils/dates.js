@@ -10,3 +10,17 @@ export const toLocalISODate = (date) => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 };
+
+/**
+ * Converts a stored date (e.g. '2015-03-20', '2015-03-20 10:00:00' or an ISO string)
+ * to the YYYY-MM-DD value a date input expects, without a timezone round-trip
+ * that could move it to the neighbouring day.
+ * @param {string|Date|null|undefined} value
+ * @returns {string} '' when there is no date
+ */
+export const toDateInputValue = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : toLocalISODate(date);
+};

@@ -3,6 +3,7 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
 import { error as logError } from '@renderer/utils/logger';
+import { toDateInputValue } from '@renderer/utils/dates';
 
 function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
   const [formData, setFormData] = useState({});
@@ -30,11 +31,9 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
 
     if (isEditMode && user) {
       // Format date fields for the input controls, which expect 'YYYY-MM-DD'
-      const dob = user.date_of_birth
-        ? new Date(user.date_of_birth).toISOString().split('T')[0]
-        : '';
-      const start = user.start_date ? new Date(user.start_date).toISOString().split('T')[0] : '';
-      const end = user.end_date ? new Date(user.end_date).toISOString().split('T')[0] : '';
+      const dob = toDateInputValue(user.date_of_birth);
+      const start = toDateInputValue(user.start_date);
+      const end = toDateInputValue(user.end_date);
 
       setFormData({
         ...initialData,

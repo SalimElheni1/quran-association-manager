@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
 const initialFormData = {
   item_name: '',
   category: '',
   quantity: 0,
   unit_value: 0,
-  acquisition_date: new Date().toISOString().split('T')[0],
+  acquisition_date: toLocalISODate(new Date()),
   acquisition_source: 'تبرع',
   condition_status: 'New',
   location: '',
@@ -35,8 +36,8 @@ function InventoryFormModal({ show, onHide, onSave, item }) {
           ...initialFormData,
           ...item,
           acquisition_date: item.acquisition_date
-            ? new Date(item.acquisition_date).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0],
+            ? toDateInputValue(item.acquisition_date)
+            : toLocalISODate(new Date()),
         });
       } else {
         setFormData(initialFormData);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { toDateInputValue } from '@renderer/utils/dates';
 
 const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
@@ -39,13 +40,11 @@ const ProfilePage = () => {
         }
 
         if (profileObj) {
-          const formatInputDate = (date) =>
-            date ? new Date(date).toISOString().split('T')[0] : '';
           const formattedProfile = {
             ...profileObj,
-            date_of_birth: formatInputDate(profileObj.date_of_birth),
-            start_date: formatInputDate(profileObj.start_date),
-            end_date: formatInputDate(profileObj.end_date),
+            date_of_birth: toDateInputValue(profileObj.date_of_birth),
+            start_date: toDateInputValue(profileObj.start_date),
+            end_date: toDateInputValue(profileObj.end_date),
           };
           setProfile(formattedProfile);
         }

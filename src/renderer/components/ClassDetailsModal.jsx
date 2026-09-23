@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
 import ClassesIcon from './icons/ClassesIcon';
+import { toDateInputValue } from '@renderer/utils/dates';
 
 // Reusable DetailItem component for consistent display
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
@@ -85,19 +86,11 @@ function ClassDetailsModal({ show, handleClose, classData }) {
           <DetailItem label="أوقات الدراسة" value={formatSchedule(classData.schedule)} />
           <DetailItem
             label="تاريخ البدء"
-            value={
-              classData.start_date
-                ? new Date(classData.start_date).toISOString().split('T')[0]
-                : 'غير محدد'
-            }
+            value={classData.start_date ? toDateInputValue(classData.start_date) : 'غير محدد'}
           />
           <DetailItem
             label="تاريخ الانتهاء"
-            value={
-              classData.end_date
-                ? new Date(classData.end_date).toISOString().split('T')[0]
-                : 'غير محدد'
-            }
+            value={classData.end_date ? toDateInputValue(classData.end_date) : 'غير محدد'}
           />
         </Row>
       </Modal.Body>

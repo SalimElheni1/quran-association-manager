@@ -1,5 +1,6 @@
 import React from 'react';
 import { Form, Row, Col } from 'react-bootstrap';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 /**
  * PeriodSelector - Select predefined or custom date ranges
@@ -36,8 +37,8 @@ function PeriodSelector({ period, onChange }) {
     }
 
     onChange({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+      startDate: toLocalISODate(startDate),
+      endDate: toLocalISODate(endDate),
     });
   };
 

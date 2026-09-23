@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 function TeacherFormModal({ show, handleClose, onSave, teacher }) {
   const [formData, setFormData] = useState({});
@@ -115,7 +116,7 @@ function TeacherFormModal({ show, handleClose, onSave, teacher }) {
                 type="date"
                 name="date_of_birth"
                 value={formData.date_of_birth || ''}
-                max={new Date().toISOString().split('T')[0]}
+                max={toLocalISODate(new Date())}
                 onChange={handleChange}
               />
             </Form.Group>

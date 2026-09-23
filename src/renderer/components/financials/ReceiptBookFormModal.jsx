@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const RECEIPT_TYPES = [
   { value: 'payment', label: 'رسوم دراسية' },
@@ -20,7 +21,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
     start_receipt_number: 1,
     end_receipt_number: 100,
     receipt_type: 'payment',
-    issued_date: new Date().toISOString().split('T')[0],
+    issued_date: toLocalISODate(new Date()),
     notes: '',
     status: 'active',
   });
@@ -44,7 +45,7 @@ function ReceiptBookFormModal({ show, onHide, onSave, book }) {
         start_receipt_number: 1,
         end_receipt_number: 100,
         receipt_type: 'payment',
-        issued_date: new Date().toISOString().split('T')[0],
+        issued_date: toLocalISODate(new Date()),
         notes: '',
         status: 'active',
       });

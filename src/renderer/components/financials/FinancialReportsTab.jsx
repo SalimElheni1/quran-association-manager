@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const ARABIC_MONTHS = [
   'جانفي',
@@ -56,13 +57,13 @@ function FinancialReportsTab() {
   const getWordPeriod = () => {
     if (wordFilterType === 'month') {
       return {
-        startDate: new Date(wordYear, wordMonth, 1).toISOString().split('T')[0],
-        endDate: new Date(wordYear, wordMonth + 1, 0).toISOString().split('T')[0],
+        startDate: toLocalISODate(new Date(wordYear, wordMonth, 1)),
+        endDate: toLocalISODate(new Date(wordYear, wordMonth + 1, 0)),
       };
     } else if (wordFilterType === 'year') {
       return {
-        startDate: new Date(wordYear, 0, 1).toISOString().split('T')[0],
-        endDate: new Date(wordYear, 11, 31).toISOString().split('T')[0],
+        startDate: toLocalISODate(new Date(wordYear, 0, 1)),
+        endDate: toLocalISODate(new Date(wordYear, 11, 31)),
       };
     } else if (wordFilterType === 'custom') {
       return wordStartDate && wordEndDate
@@ -74,13 +75,13 @@ function FinancialReportsTab() {
   const getLedgerPeriod = () => {
     if (ledgerFilterType === 'month') {
       return {
-        startDate: new Date(ledgerYear, ledgerMonth, 1).toISOString().split('T')[0],
-        endDate: new Date(ledgerYear, ledgerMonth + 1, 0).toISOString().split('T')[0],
+        startDate: toLocalISODate(new Date(ledgerYear, ledgerMonth, 1)),
+        endDate: toLocalISODate(new Date(ledgerYear, ledgerMonth + 1, 0)),
       };
     } else if (ledgerFilterType === 'year') {
       return {
-        startDate: new Date(ledgerYear, 0, 1).toISOString().split('T')[0],
-        endDate: new Date(ledgerYear, 11, 31).toISOString().split('T')[0],
+        startDate: toLocalISODate(new Date(ledgerYear, 0, 1)),
+        endDate: toLocalISODate(new Date(ledgerYear, 11, 31)),
       };
     } else if (ledgerFilterType === 'custom') {
       return ledgerStartDate && ledgerEndDate

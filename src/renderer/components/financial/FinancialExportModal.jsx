@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const ARABIC_MONTHS = [
   'جانفي',
@@ -45,12 +46,12 @@ function FinancialExportModal({ show, handleClose }) {
     let period;
 
     if (filterType === 'month') {
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+      const startDate = toLocalISODate(new Date(selectedYear, selectedMonth, 1));
+      const endDate = toLocalISODate(new Date(selectedYear, selectedMonth + 1, 0));
       period = { startDate, endDate };
     } else if (filterType === 'year') {
-      const startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+      const startDate = toLocalISODate(new Date(selectedYear, 0, 1));
+      const endDate = toLocalISODate(new Date(selectedYear, 11, 31));
       period = { startDate, endDate };
     } else if (filterType === 'custom') {
       if (!customStartDate || !customEndDate) {
@@ -63,8 +64,8 @@ function FinancialExportModal({ show, handleClose }) {
       period = { startDate: customStartDate, endDate: customEndDate };
     } else {
       const { date: earliestDate } = await window.electronAPI.getEarliestTransactionDate();
-      const startDate = earliestDate || new Date().toISOString().split('T')[0];
-      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = earliestDate || toLocalISODate(new Date());
+      const endDate = toLocalISODate(new Date());
       period = { startDate, endDate };
     }
 

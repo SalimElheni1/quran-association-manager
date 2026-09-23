@@ -5,6 +5,7 @@ import TrashIcon from './icons/TrashIcon';
 import PlusIcon from './icons/PlusIcon';
 import ClockIcon from './icons/ClockIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+import { toDateInputValue } from '@renderer/utils/dates';
 
 // Unified time options combining prayer times and custom time
 const TIME_OPTIONS = [
@@ -88,12 +89,8 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
 
     if (isEditMode && classData) {
       // Format date fields for the input controls, which expect 'YYYY-MM-DD'
-      const start = classData.start_date
-        ? new Date(classData.start_date).toISOString().split('T')[0]
-        : '';
-      const end = classData.end_date
-        ? new Date(classData.end_date).toISOString().split('T')[0]
-        : '';
+      const start = toDateInputValue(classData.start_date);
+      const end = toDateInputValue(classData.end_date);
 
       setFormData({
         ...initialData,
@@ -474,11 +471,7 @@ function ClassFormModal({ show, handleClose, onSave, classData }) {
                             className="d-flex align-items-center text-primary"
                             style={{ fontSize: '12px' }}
                           >
-                            <CheckCircleIcon
-                              width={12}
-                              height={12}
-                              className="me-1"
-                          />
+                            <CheckCircleIcon width={12} height={12} className="me-1" />
                             الوقت المحدد: <strong className="ms-1">{item.time}</strong>
                           </small>
                         </div>

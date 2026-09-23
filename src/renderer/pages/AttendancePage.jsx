@@ -24,6 +24,7 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const attendanceFields = [
   { key: 'student_name', label: 'اسم الطالب' },
@@ -39,7 +40,7 @@ function AttendancePage() {
 
   const [selectedClass, setSelectedClass] = useState(searchParams.get('classId') || '');
   const [selectedDate, setSelectedDate] = useState(
-    searchParams.get('date') || new Date().toISOString().split('T')[0],
+    searchParams.get('date') || toLocalISODate(new Date()),
   );
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
