@@ -290,6 +290,7 @@ const StudentFeesTab = () => {
       await window.electronAPI.studentFeesRecordPayment(paymentDetails);
 
       toast.success('تم تسجيل الدفعة بنجاح');
+      window.dispatchEvent(new Event('financial-data-changed'));
       setShowPaymentModal(false);
       // Reset all form fields
       setPaymentAmount('');
@@ -340,6 +341,7 @@ const StudentFeesTab = () => {
         await window.electronAPI.studentFeesRefundPayment(payment.id);
         toast.success('تم استرجاع الدفعة بنجاح');
       }
+      window.dispatchEvent(new Event('financial-data-changed'));
       if (selectedStudent) {
         await refreshPaymentHistory(selectedStudent);
         loadStudents(); // Refresh the list
