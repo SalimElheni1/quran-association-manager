@@ -8,6 +8,7 @@
 
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
+const { toLocalISODate } = require('../utils/dates');
 
 /**
  * Receipt number format: RCP-{year}-{sequential_number}
@@ -59,7 +60,7 @@ async function generateReceiptNumber(receiptType = 'fee_payment', issuedBy = nul
             endNumber,
             startNumber - 1, // Will be incremented when first used
             receiptType,
-            new Date().toISOString().split('T')[0],
+            toLocalISODate(),
           ],
         );
 
@@ -217,7 +218,7 @@ async function createReceiptBook(bookData) {
           endNumber,
           startNumber - 1, // Will be incremented when first used
           receiptType,
-          new Date().toISOString().split('T')[0],
+          toLocalISODate(),
         ],
       );
 

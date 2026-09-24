@@ -10,6 +10,7 @@ const { requireRoles } = require('../authMiddleware');
 const { log, error: logError, warn: logWarn } = require('../logger');
 const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
+const { toLocalISODate } = require('../utils/dates');
 // Circular dependency broken: require('./settingsHandlers') moved to where it is needed
 
 // ============================================
@@ -197,7 +198,7 @@ async function generateAnnualFeeCharges(academicYear) {
       "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
     );
 
-    const chargeDate = new Date().toISOString().split('T')[0];
+    const chargeDate = toLocalISODate();
     let createdCount = 0;
 
     for (const student of students) {
@@ -243,7 +244,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
         return { success: true, message: 'Skipped: Fee not configured' };
       }
 
-      const chargeDate = new Date().toISOString().split('T')[0];
+      const chargeDate = toLocalISODate();
       const billingMonth = `${academicYear}-${month.toString().padStart(2, '0')}`;
       const monthNames = [
         'يناير',
@@ -579,7 +580,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
           // Create new charge if total > 0
           if (currentFees.total > 0) {
-            const chargeDate = new Date().toISOString().split('T')[0];
+            const chargeDate = toLocalISODate();
             const monthName = monthNames[currentMonth - 1];
 
             await db.runQuery(
@@ -666,7 +667,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
           // Create new charge if total > 0
           if (nextFees.total > 0) {
-            const chargeDate = new Date().toISOString().split('T')[0];
+            const chargeDate = toLocalISODate();
             const monthName = monthNames[nextMonth - 1];
 
             await db.runQuery(
@@ -783,7 +784,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       if (!existingAnnualCharge) {
         const annualFee = parseFloat((await getSetting('annual_fee')) || '0');
         if (annualFee > 0) {
-          const chargeDate = new Date().toISOString().split('T')[0];
+          const chargeDate = toLocalISODate();
           await db.runQuery(
             `
           INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
@@ -848,7 +849,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
             );
 
             // Create new charge for this month
-            const chargeDate = new Date().toISOString().split('T')[0];
+            const chargeDate = toLocalISODate();
             const monthNames = [
               'يناير',
               'فبراير',
@@ -1150,7 +1151,7 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
 
     let totalChargesGenerated = 0;
     const annualFee = parseFloat((await getSetting('annual_fee')) || '0');
-    const chargeDate = new Date().toISOString().split('T')[0];
+    const chargeDate = toLocalISODate();
 
     for (const student of students) {
       try {
@@ -1590,8 +1591,8 @@ async function recordStudentPayment(event, paymentDetails) {
       `,
           [
             student_id,
-            new Date().toISOString().split('T')[0], // charge_date
-            new Date().toISOString().split('T')[0], // due_date (immediate)
+            toLocalISODate(), // charge_date
+            toLocalISODate(), // due_date (immediate)
             `رصيد زائد من دفعة سابقة (${remainingAmountToApply.toFixed(2)} د.ت)`,
             0, // amount (credit has no charge amount)
             remainingAmountToApply, // amount_paid (the credit amount)
@@ -1626,7 +1627,7 @@ async function recordStudentPayment(event, paymentDetails) {
     `,
         [
           amount,
-          new Date().toISOString().split('T')[0],
+          toLocalISODate(),
           transactionDescription,
           payment_method,
           check_number,
@@ -1804,7 +1805,7 @@ async function refundStudentPayment(paymentId, userId = null) {
              VALUES ('EXPENSE', 'استرجاع رسوم', ?, ?, ?, ?, 'fee_payment', ?, 'Student', ?, ?)`,
             [
               txn.amount,
-              new Date().toISOString().split('T')[0],
+              toLocalISODate(),
               `استرجاع دفعة #${paymentId}`,
               payment.payment_method,
               txn.account_id,

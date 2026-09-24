@@ -2,6 +2,7 @@ const { ipcMain, BrowserWindow } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { toLocalISODate } = require('../utils/dates');
 
 const FINANCIAL_ROLES = ['Superadmin', 'Administrator', 'FinanceManager'];
 
@@ -299,8 +300,7 @@ async function handleGetStatementOfActivities(event, period) {
     endDate = period.endDate;
   } else {
     const now = new Date();
-    startDate =
-      new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    startDate = toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1)) + ' 00:00:00';
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   }
 
@@ -362,8 +362,7 @@ async function handleGetMonthlySnapshot(event, period) {
     endDate = period.endDate;
   } else {
     const now = new Date();
-    startDate =
-      new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] + ' 00:00:00';
+    startDate = toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1)) + ' 00:00:00';
     endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   }
 

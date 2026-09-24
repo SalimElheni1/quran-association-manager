@@ -8,6 +8,7 @@ const ExcelJS = require('exceljs');
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { toLocalISODate } = require('../utils/dates');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -101,7 +102,7 @@ async function generateInventoryRegister(event, { period }) {
       [startDate, endDate],
     );
 
-    const reportDate = new Date().toISOString().split('T')[0];
+    const reportDate = toLocalISODate();
     const { filePath } = await dialog.showSaveDialog({
       title: 'حفظ سجل الجرد',
       defaultPath: `سجل-الجرد-${reportDate}.xlsx`,

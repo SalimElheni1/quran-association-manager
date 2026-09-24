@@ -2,6 +2,7 @@ const { dialog } = require('electron');
 const ExcelJS = require('exceljs');
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
+const { toLocalISODate } = require('../utils/dates');
 
 function formatDateDDMMYYYY(dateStr) {
   if (!dateStr) return '-';
@@ -20,7 +21,7 @@ async function generateInventoryLedger() {
 
     const { filePath } = await dialog.showSaveDialog({
       title: 'حفظ سجل الجرد',
-      defaultPath: `سجل-الجرد-${new Date().toISOString().split('T')[0]}.xlsx`,
+      defaultPath: `سجل-الجرد-${toLocalISODate()}.xlsx`,
       filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
     });
 
