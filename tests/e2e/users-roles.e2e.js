@@ -1,4 +1,13 @@
-const { test, expect, navigate, modal, logout, login, dismissOnboarding } = require('./fixtures');
+const {
+  test,
+  expect,
+  navigate,
+  logout,
+  login,
+  dismissOnboarding,
+  createUser,
+  sidebarLink,
+} = require('./fixtures');
 
 const FINANCE_USER = {
   username: 'financeuser',
@@ -18,32 +27,6 @@ const ALL_MODULE_LINKS = [
   'إدارة المستخدمين',
   'الإعدادات',
 ];
-
-/** Creates a user with exactly one role through the Users page. */
-async function createUser(page, user, roleKey) {
-  await navigate(page, 'إدارة المستخدمين');
-  await page.getByRole('button', { name: 'إضافة مستخدم جديد' }).click();
-  const form = modal(page);
-  await expect(form.locator('.modal-title')).toHaveText('إضافة مستخدم جديد');
-
-  await form.locator('input[name="username"]').fill(user.username);
-  await form.locator('input[name="password"]').fill(user.password);
-  await form.locator('input[name="first_name"]').fill(user.firstName);
-  await form.locator('input[name="last_name"]').fill(user.lastName);
-  await form.locator('input[name="national_id"]').fill(user.nationalId);
-  await form.locator('input[name="phone_number"]').fill(user.phone);
-
-  // Administrator is pre-checked for new users; leave only the requested role.
-  await form.locator('#role-Administrator').uncheck();
-  await form.locator(`#role-${roleKey}`).check();
-
-  await form.getByRole('button', { name: 'إضافة المستخدم' }).click();
-  await expect(modal(page)).toHaveCount(0);
-}
-
-function sidebarLink(page, label) {
-  return page.locator('a.nav-link', { hasText: label });
-}
 
 test.describe('users and roles', () => {
   test('superadmin creates a FinanceManager user', async ({ authedPage: page }) => {

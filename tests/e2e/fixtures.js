@@ -132,6 +132,39 @@ async function confirmDialog(page, confirmText = 'نعم، حذف') {
   await expectNoModal(page);
 }
 
+/**
+ * Creates a user with exactly one role through the Users page.
+ * @param {{ username, password, firstName, lastName, nationalId, phone }} user
+ * @param {'Superadmin'|'Administrator'|'FinanceManager'|'SessionSupervisor'} roleKey
+ */
+async function createUser(page, user, roleKey) {
+  await navigate(page, 'إدارة المستخدمين');
+  await page.getByRole('button', { name: 'إضافة مستخدم جديد' }).click();
+  const form = modal(page);
+  await expect(form.locator('.modal-title')).toHaveText('إضافة مستخدم جديد');
+
+  await form.locator('input[name="username"]').fill(user.username);
+  await form.locator('input[name="password"]').fill(user.password);
+  await form.locator('input[name="first_name"]').fill(user.firstName);
+  await form.locator('input[name="last_name"]').fill(user.lastName);
+  await form.locator('input[name="national_id"]').fill(user.nationalId);
+  await form.locator('input[name="phone_number"]').fill(user.phone);
+
+  // Administrator is pre-checked for new users; leave only the requested role.
+  if (roleKey !== 'Administrator') {
+    await form.locator('#role-Administrator').uncheck();
+    await form.locator(`#role-${roleKey}`).check();
+  }
+
+  await form.getByRole('button', { name: 'إضافة المستخدم' }).click();
+  await expectNoModal(page);
+}
+
+/** A sidebar navigation link by its Arabic label. */
+function sidebarLink(page, label) {
+  return page.locator('a.nav-link', { hasText: label });
+}
+
 /** Logs out from the sidebar footer and waits for the login form. */
 async function logout(page) {
   await page.locator('button.logout-btn').click();
@@ -151,5 +184,7 @@ module.exports = {
   expectToast,
   confirmDialog,
   logout,
+  createUser,
+  sidebarLink,
   SUPERADMIN,
 };
