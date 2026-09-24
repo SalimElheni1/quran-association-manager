@@ -20,7 +20,8 @@
     "postinstall": "electron-builder install-app-deps",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:report": "playwright show-report",
-    "test:e2e:debug": "npm run build && playwright test --debug"
+    "test:e2e:debug": "npm run build && playwright test --debug",
+    "test:e2e:realworld": "npm run build && QBM_REALWORLD=1 playwright test"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",

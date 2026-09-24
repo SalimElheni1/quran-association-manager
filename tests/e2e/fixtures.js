@@ -11,14 +11,17 @@ const SUPERADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
 
 /**
  * Launches the real Electron app against a fresh, throwaway userData directory.
+ * Pass an existing `userDataDir` to relaunch on the same data (e.g. after a restore).
+ * @param {{ userDataDir?: string }} [options]
  * @returns {Promise<{ app: import('@playwright/test').ElectronApplication, userDataDir: string }>}
  */
-async function launchApp() {
+async function launchApp({
+  userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbm-e2e-')),
+} = {}) {
   if (!fs.existsSync(RENDERER_INDEX)) {
     throw new Error(`Renderer build not found at ${RENDERER_INDEX}. Run "npm run build" first.`);
   }
 
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbm-e2e-'));
   const env = {
     ...process.env,
     QBM_E2E: '1',

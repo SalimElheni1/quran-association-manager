@@ -47,3 +47,6 @@ qbm-demo/
 # Playwright e2e output
 test-results/
 playwright-report/
+
+# Real-world e2e handoff (backup + manifest)
+tests/e2e/realworld/.handoff/
