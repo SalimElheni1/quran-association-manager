@@ -240,18 +240,17 @@ function ClassesPage() {
   };
 
   const renderStatusBadge = (status) => {
-    const variants = {
-      'قيد الانتظار': 'warning',
-      نشط: 'success',
-      مكتمل: 'secondary',
+    // Labels match the class form's status options.
+    const statuses = {
+      pending: { label: 'قيد الانتظار', bg: 'warning' },
+      active: { label: 'نشط', bg: 'success' },
+      completed: { label: 'منتهي', bg: 'secondary' },
     };
-
-    const bgColor = variants[status] || 'light';
-    const textColor = bgColor === 'white';
+    const { label, bg } = statuses[status] || { label: status, bg: 'light' };
 
     return (
-      <Badge bg={bgColor} text={textColor} className="p-2">
-        {status}
+      <Badge bg={bg} className="p-2">
+        {label}
       </Badge>
     );
   };

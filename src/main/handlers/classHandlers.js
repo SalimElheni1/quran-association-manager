@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
-const { mapStatus, mapCategory } = require('../utils/translations');
+const { mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
@@ -185,10 +185,9 @@ function registerClassHandlers() {
 
       let classes = await db.allQuery(sql, params);
 
-      // Apply translations to status and gender
+      // Translate gender for display; status stays a code (pending/active/completed) that the UI labels
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender), // class gender uses category mapping (men/women/kids)
       }));
 
@@ -203,10 +202,9 @@ function registerClassHandlers() {
       // Return array directly for backwards compatibility (e.g., AttendancePage)
       sql += ' ORDER BY c.name ASC';
       let classes = await db.allQuery(sql, params);
-      // Apply translations to status and gender
+      // Translate gender for display; status stays a code (pending/active/completed) that the UI labels
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
       return classes;
@@ -403,7 +401,6 @@ function registerClassHandlers() {
 
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
 

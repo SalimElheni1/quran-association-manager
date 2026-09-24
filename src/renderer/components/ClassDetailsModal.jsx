@@ -53,7 +53,7 @@ function ClassDetailsModal({ show, handleClose, classData }) {
   const statusTranslations = {
     pending: 'قيد الانتظار',
     active: 'نشط',
-    completed: 'مكتمل',
+    completed: 'منتهي',
   };
 
   const statusVariants = {
