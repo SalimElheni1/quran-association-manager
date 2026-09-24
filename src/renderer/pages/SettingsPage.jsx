@@ -20,6 +20,9 @@ import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 
+const MISSING_TRANSFER_KEY_WARNING =
+  'لم يتم تعيين رمز النقل: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز. أدخل رمز النقل واضغط «حفظ جميع التغييرات» قبل إنشاء النسخة الاحتياطية.';
+
 const SettingsPage = () => {
   const { state } = useLocation();
   const { user } = useAuth();
@@ -417,6 +420,13 @@ const SettingsPage = () => {
                               <Form.Text className="text-muted small">
                                 يُستخدم هذا الرمز لفك تشفير وتأمين النسخ الاحتياطية المتبادلة بين أجهزة الجمعية.
                               </Form.Text>
+                              {/* Without a transfer key, backups are encrypted with this machine's own
+                                  database key and cannot be restored anywhere else. */}
+                              {!settings.association_transfer_key?.trim() && (
+                                <Alert variant="warning" className="small mt-2 mb-0">
+                                  {MISSING_TRANSFER_KEY_WARNING}
+                                </Alert>
+                              )}
                             </Form.Group>
                             <Form.Check type="switch" label="تفعيل النسخ التلقائي" name="backup_enabled" checked={settings.backup_enabled || false} onChange={handleChange} disabled={!settings.backup_path} className="mb-3" />
                             <Row>

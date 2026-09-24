@@ -144,6 +144,29 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     await expect(activePane(page).locator('tbody tr', { hasText: groupToEdit })).toBeVisible();
   });
 
+  test('backup tab warns while no association transfer key is set', async ({
+    authedPage: page,
+  }) => {
+    await openTab(page, 'النسخ الاحتياطي');
+    const warning = activePane(page).locator('.alert-warning', {
+      hasText: 'لم يتم تعيين رمز النقل',
+    });
+    await expect(warning).toBeVisible();
+
+    await activePane(page).locator('input[name="association_transfer_key"]').fill('branch-key-1');
+    await expect(warning).toHaveCount(0);
+    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+
+    await navigate(page, 'الرئيسية');
+    await navigate(page, 'الإعدادات');
+    await openTab(page, 'النسخ الاحتياطي');
+    await expect(activePane(page).locator('input[name="association_transfer_key"]')).toHaveValue(
+      'branch-key-1',
+    );
+    await expect(warning).toHaveCount(0);
+  });
+
   test('manual backup writes a non-empty backup file', async ({
     authedPage,
     electronApp,
