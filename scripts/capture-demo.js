@@ -108,7 +108,7 @@ async function walk(win) {
 
   for (const route of ROUTES) {
     const clicked = await goRoute(win, route.selector);
-    await sleep(vid(route.key === '01-dashboard' ? 600 : 1000));
+    await sleep(route.key === '01-dashboard' ? 600 : 1000);
     const file = clicked ? await capturePage(win, route.key) : await capturePage(win, route.key);
     console.log(`[qbm-demo] ${route.key} → ${path.relative(process.cwd(), file)}`);
   }
@@ -116,7 +116,7 @@ async function walk(win) {
   app.quit();
 }
 
-const { app, BrowserWindow } = require('electron');
+const { app } = require('electron');
 
 // Boot against the SAME userData as your real daily dev flow, otherwise the
 // app opens a fresh empty ~/.config/Electron/ DB and dies at src/db/db.js:353

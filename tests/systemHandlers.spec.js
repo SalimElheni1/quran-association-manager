@@ -430,7 +430,11 @@ describe('systemHandlers', () => {
           { name: 'All Files (*.*)', extensions: ['*'] },
         ],
       });
-      expect(backupManager.runBackup).toHaveBeenCalledWith(settings, '/path/to/backup.qdb', undefined);
+      expect(backupManager.runBackup).toHaveBeenCalledWith(
+        settings,
+        '/path/to/backup.qdb',
+        undefined,
+      );
       expect(result).toBe(mockResult);
     });
 
@@ -528,8 +532,15 @@ describe('systemHandlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [userId]);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, 'hashed-password');
-      expect(importManager.validateDatabaseFile).toHaveBeenCalledWith('/path/to/backup.qdb', undefined);
-      expect(importManager.replaceDatabase).toHaveBeenCalledWith('/path/to/backup.qdb', password, undefined);
+      expect(importManager.validateDatabaseFile).toHaveBeenCalledWith(
+        '/path/to/backup.qdb',
+        undefined,
+      );
+      expect(importManager.replaceDatabase).toHaveBeenCalledWith(
+        '/path/to/backup.qdb',
+        password,
+        undefined,
+      );
       expect(result).toBe(mockImportResult);
     });
 
