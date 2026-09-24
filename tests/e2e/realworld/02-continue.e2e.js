@@ -18,7 +18,10 @@ const {
   expectNoModal,
   expectToast,
 } = require('../fixtures');
-const { readManifest, HANDOFF_DIR } = require('./data');
+const ExcelJS = require('exceljs');
+const { readManifest, HANDOFF_DIR, ARTIFACTS_DIR, preserveAppData } = require('./data');
+
+const ARTIFACTS = path.join(ARTIFACTS_DIR, '02-continue');
 
 const NEW_STUDENTS = [
   { name: 'سفيان بن عبد الكريم العودي', gender: 'Male', age: 25 },
@@ -621,6 +624,27 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       await expectNoModal(page);
     });
 
+    await test.step('export every student, including the new ones', async () => {
+      fs.rmSync(ARTIFACTS, { recursive: true, force: true });
+      fs.mkdirSync(ARTIFACTS, { recursive: true });
+      const exportPath = path.join(ARTIFACTS, 'exported-students.xlsx');
+      await stubDialogs(app, { saveTo: exportPath });
+      await navigate(page, 'شؤون الطلاب');
+      await page.getByRole('button', { name: 'تصدير البيانات' }).click();
+      await modal(page).getByRole('button', { name: 'تصدير إلى Excel' }).click();
+      await expectToast(page, 'success', 'تم تصدير الملف بنجاح!');
+      await modal(page).getByRole('button', { name: 'إغلاق' }).click();
+      await expectNoModal(page);
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(exportPath);
+      const cells = [];
+      workbook.getWorksheet('الطلاب').eachRow((row) => cells.push(...row.values.map(String)));
+      for (const name of [...manifest.students.sample, ...NEW_STUDENTS.map((s) => s.name)]) {
+        expect(cells).toContain(name);
+      }
+    });
+
     await test.step('make a new backup and assert a non-empty .qdb', async () => {
       const backupDir = testInfo.outputPath('final-backup');
       fs.mkdirSync(backupDir, { recursive: true });
@@ -640,6 +664,11 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       const backupFilePath = path.join(backupDir, backups[0]);
       const stats = fs.statSync(backupFilePath);
       expect(stats.size).toBeGreaterThan(0);
+      fs.copyFileSync(backupFilePath, path.join(ARTIFACTS, 'backup.qdb'));
+    });
+
+    await test.step('preserve the app data for inspection', async () => {
+      await preserveAppData(app, path.join(ARTIFACTS, 'app-data'));
     });
   } finally {
     if (app) await app.close().catch(() => {});

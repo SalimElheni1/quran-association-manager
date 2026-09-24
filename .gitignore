@@ -50,3 +50,6 @@ playwright-report/
 
 # Real-world e2e handoff (backup + manifest)
 tests/e2e/realworld/.handoff/
+
+# Real-world e2e artifacts kept for inspection (app data, backups, exports)
+e2e-artifacts/

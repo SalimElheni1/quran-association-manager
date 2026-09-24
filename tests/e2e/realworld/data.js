@@ -9,6 +9,20 @@ const path = require('path');
 const HANDOFF_DIR = path.join(__dirname, '.handoff');
 const MANIFEST_PATH = path.join(HANDOFF_DIR, 'manifest.json');
 
+/**
+ * Everything a run produces, kept for people to inspect (gitignored): per phase the app
+ * data (open it with `npm run e2e:open-data`), backups, imported and exported files.
+ */
+const ARTIFACTS_DIR = path.resolve(__dirname, '..', '..', '..', 'e2e-artifacts', 'realworld');
+
+/** Copies the app's userData dir (database + key store) once the app is closed. */
+async function preserveAppData(electronApp, targetDir) {
+  const userDataDir = await electronApp.evaluate(({ app }) => app.getPath('userData'));
+  await electronApp.close();
+  fs.rmSync(targetDir, { recursive: true, force: true });
+  fs.cpSync(userDataDir, targetDir, { recursive: true });
+}
+
 // Small LCG so the data is pseudo-random but identical on every run.
 function rng(seed) {
   let state = seed;
@@ -257,6 +271,8 @@ function readManifest() {
 module.exports = {
   HANDOFF_DIR,
   MANIFEST_PATH,
+  ARTIFACTS_DIR,
+  preserveAppData,
   buildStudents,
   TEACHERS,
   CLASSES,
