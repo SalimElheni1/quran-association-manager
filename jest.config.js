@@ -29,7 +29,7 @@ module.exports = {
         '^@renderer/(.*)$': '<rootDir>/src/renderer/$1',
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
       },
-      transformIgnorePatterns: ['node_modules/(?!(react-bootstrap)/)'],
+      transformIgnorePatterns: ['node_modules/(?!(react-bootstrap|d3-[a-z-]+|internmap)/)'],
       transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
         '\\.(css|less|scss|sass)$': 'jest-transform-stub',

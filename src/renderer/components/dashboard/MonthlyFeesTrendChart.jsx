@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { scaleBand, scaleLinear } from 'd3-scale';
-import { max, extent } from 'd3-array';
-import { usePermissions } from '@renderer/contexts/AuthContext';
+import { max } from 'd3-array';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 import ChartCard from '@renderer/components/dashboard/ChartCard';
 import { getAcademicYearString } from '@renderer/utils/academicYear';
 import { toLocalISODate } from '@renderer/utils/dates';
@@ -22,7 +23,6 @@ const MONTHS = [
   'ديسمبر',
 ];
 
-const pad2 = (n) => String(n).padStart(2, '0');
 const monthKey = (d) => d.slice(0, 7); // 'YYYY-MM'
 
 /**
@@ -34,9 +34,10 @@ function MonthlyFeesTrendChart() {
   const { hasPermission } = usePermissions();
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
-  const canView = hasPermission('FINANCIALS_VIEW');
+  const canView = hasPermission(PERMISSIONS.FINANCIALS_VIEW);
 
   useEffect(() => {
+    if (!canView) return undefined;
     let cancelled = false;
     const load = async () => {
       try {
@@ -67,7 +68,7 @@ function MonthlyFeesTrendChart() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canView]);
 
   const chart = useMemo(() => {
     if (!data) return null;
@@ -140,6 +141,8 @@ function MonthlyFeesTrendChart() {
       </svg>
     );
   }, [data]);
+
+  if (!canView) return null;
 
   return (
     <ChartCard
