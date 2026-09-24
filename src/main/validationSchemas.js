@@ -239,9 +239,14 @@ const transactionValidationSchema = Joi.object({
     'any.only': 'طريقة الدفع غير صالحة',
     'any.required': 'طريقة الدفع مطلوبة',
   }),
-  voucher_number: Joi.string().required().messages({
-    'string.empty': 'رقم الوصل مطلوب',
-    'any.required': 'رقم الوصل مطلوب',
+  // In-kind donations don't need a voucher number (the form marks it optional).
+  voucher_number: Joi.string().when('category', {
+    is: 'التبرعات العينية',
+    then: Joi.string().allow('', null),
+    otherwise: Joi.string().required().messages({
+      'string.empty': 'رقم الوصل مطلوب',
+      'any.required': 'رقم الوصل مطلوب',
+    }),
   }),
   check_number: Joi.string().when('payment_method', {
     is: 'CHECK',

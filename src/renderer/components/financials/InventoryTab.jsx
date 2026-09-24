@@ -156,6 +156,7 @@ function InventoryTab() {
       await window.electronAPI.addInventoryItem(inventoryData);
 
       toast.success('تم إضافة التبرع العيني بنجاح');
+      window.dispatchEvent(new Event('financial-data-changed'));
       setShowInKindModal(false);
       fetchItems();
     } catch (err) {
