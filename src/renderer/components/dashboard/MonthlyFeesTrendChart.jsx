@@ -25,10 +25,16 @@ const MONTHS = [
 
 const monthKey = (d) => d.slice(0, 7); // 'YYYY-MM'
 
+// Fee payments are recorded as income under this category; refunds add an expense under the other.
+const FEES_CATEGORY = 'رسوم الطلاب';
+const FEE_REFUNDS_CATEGORY = 'استرجاع رسوم';
+
+const categoryTotal = (rows, category) =>
+  (rows || []).filter((r) => r.category === category).reduce((sum, r) => sum + (r.total || 0), 0);
+
 /**
- * MonthlyFeesTrendChart — 12-month bar of collected fee payments.
- * Data: window.electronAPI.getPayments() → { amount, payment_date, ... }
- * Buckets payments by YYYY-MM across the last 12 calendar months.
+ * MonthlyFeesTrendChart — 12-month bar of net student fees collected
+ * (fee income minus fee refunds), one financial summary per calendar month.
  */
 function MonthlyFeesTrendChart() {
   const { hasPermission } = usePermissions();
@@ -44,20 +50,28 @@ function MonthlyFeesTrendChart() {
         const now = new Date();
         const months = [];
         for (let i = 11; i >= 0; i -= 1) {
-          const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          months.push({ key: monthKey(toLocalISODate(m)), label: MONTHS[m.getMonth()] });
+          const first = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const last = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+          months.push({
+            key: monthKey(toLocalISODate(first)),
+            label: MONTHS[first.getMonth()],
+            period: { startDate: toLocalISODate(first), endDate: toLocalISODate(last) },
+          });
         }
 
-        const payments = await window.electronAPI.getPayments();
-        const byMonth = new Map(months.map((m) => [m.key, 0]));
-        (payments || []).forEach((p) => {
-          if (p && p.payment_date) {
-            const key = p.payment_date.slice(0, 7);
-            if (byMonth.has(key)) byMonth.set(key, byMonth.get(key) + (p.amount || 0));
-          }
-        });
+        const summaries = await Promise.all(
+          months.map((m) => window.electronAPI.getFinancialSummary(m.period)),
+        );
         if (!cancelled) {
-          setData({ months: months.map((m) => ({ ...m, total: byMonth.get(m.key) || 0 })) });
+          setData({
+            months: months.map(({ key, label }, i) => ({
+              key,
+              label,
+              total:
+                categoryTotal(summaries[i]?.incomeByCategory, FEES_CATEGORY) -
+                categoryTotal(summaries[i]?.expensesByCategory, FEE_REFUNDS_CATEGORY),
+            })),
+          });
         }
       } catch (err) {
         logError('MonthlyFeesTrendChart failed:', err);
@@ -75,9 +89,10 @@ function MonthlyFeesTrendChart() {
     const months = data.months;
     const maxTotal = max(months, (d) => d.total) || 0;
 
-    const width = 520;
-    const height = 220;
-    const margin = { top: 12, right: 10, bottom: 30, left: 34 };
+    // Drawn close to its full-width rendered size so labels keep their natural size.
+    const width = 960;
+    const height = 260;
+    const margin = { top: 12, right: 12, bottom: 30, left: 56 };
     const innerW = width - margin.left - margin.right;
     const innerH = height - margin.top - margin.bottom;
 
@@ -110,6 +125,18 @@ function MonthlyFeesTrendChart() {
               className="ftn-chart-gridline"
             />
           ))}
+          {y.ticks(4).map((tick) => (
+            <text
+              key={`yl-${tick}`}
+              x={-8}
+              y={y(tick)}
+              dy="0.32em"
+              textAnchor="end"
+              className="ftn-chart-ylabel"
+            >
+              {tick.toLocaleString('ar-TN')}
+            </text>
+          ))}
           {months.map((d) => {
             const h = innerH - y(d.total);
             return (
@@ -134,7 +161,7 @@ function MonthlyFeesTrendChart() {
               textAnchor="middle"
               className="ftn-chart-xlabel"
             >
-              {i % 2 === 0 ? months[i].label : ''}
+              {months[i].label}
             </text>
           ))}
         </g>
@@ -150,7 +177,11 @@ function MonthlyFeesTrendChart() {
       subtitle={`السنة الدراسية ${getAcademicYearString()}`}
       loading={!data && !error}
       empty={!!error}
-      footer={<span className="text-muted">مجموع الرسوم المحصّلة شهرياً حسب تاريخ الدفع</span>}
+      footer={
+        <span className="text-muted">
+          صافي رسوم الطلاب المحصّلة شهرياً، بعد خصم المبالغ المسترجعة
+        </span>
+      }
     >
       {chart}
     </ChartCard>

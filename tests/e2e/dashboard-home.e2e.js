@@ -1,4 +1,15 @@
-const { test, expect, navigate, modal, expectNoModal, expectToast } = require('./fixtures');
+const {
+  test,
+  expect,
+  navigate,
+  modal,
+  expectNoModal,
+  expectToast,
+  createUser,
+  logout,
+  login,
+  dismissOnboarding,
+} = require('./fixtures');
 
 function yearsAgoISODate(years) {
   const date = new Date();
@@ -221,5 +232,78 @@ test.describe('Dashboard home page', () => {
     // Guide should close
     await expect(page.locator('.onboarding-guide')).toBeHidden();
     await expect(page.locator('.onboarding-overlay')).toBeHidden();
+  });
+
+  test("fee chart shows this month's net fees and drops refunds", async ({ authedPage: page }) => {
+    const chart = page.locator('.chart-card', { hasText: 'الإيرادات الشهرية' });
+    await expect(chart).toBeVisible();
+    const currentMonthBar = chart.locator('rect.ftn-chart-bar title').last();
+    await expect(currentMonthBar).toContainText(': 0 ');
+
+    // Annual fee, one student, generated charge, a 50 payment.
+    await navigate(page, 'الإعدادات');
+    await page.getByRole('tab', { name: 'إعدادات الرسوم' }).click();
+    await page.locator('input[name="annual_fee"]').fill('120');
+    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+    await navigate(page, 'شؤون الطلاب');
+    await addStudent(page, { name: 'رامي بن نبيل الفرجاني', dob: yearsAgoISODate(9) });
+    await navigate(page, 'الشؤون المالية');
+    await page.getByRole('tab', { name: 'رسوم الطلاب' }).click();
+    const pane = page.locator('.tab-pane.active');
+    await pane.getByRole('button', { name: 'توليد الرسوم' }).click();
+    await modal(page).getByRole('button', { name: 'توليد الرسوم' }).click();
+    await expectToast(page, 'success', 'تم إنشاء جميع الرسوم بنجاح');
+    await expectNoModal(page);
+    const feeRow = pane.locator('tbody tr', { hasText: 'رامي بن نبيل الفرجاني' });
+    await feeRow.locator('button.btn-success').click();
+    await modal(page).locator('input[type="number"]').first().fill('50');
+    await modal(page).getByPlaceholder('أدخل رقم الوصل').fill('CHART-001');
+    await modal(page).getByRole('button', { name: 'تسجيل الدفعة' }).click();
+    await expectToast(page, 'success', 'تم تسجيل الدفعة بنجاح');
+    await expectNoModal(page);
+
+    await navigate(page, 'الرئيسية');
+    await expect(currentMonthBar).toContainText(': 50 ');
+
+    // Refund it: the bar goes back to 0.
+    await navigate(page, 'الشؤون المالية');
+    await page.getByRole('tab', { name: 'رسوم الطلاب' }).click();
+    await feeRow.locator('button.btn-success').click();
+    await modal(page)
+      .locator('tbody tr', { hasText: 'CHART-001' })
+      .getByRole('button', { name: 'استرجاع الدفعة' })
+      .click();
+    const confirm = page.locator('.modal.show', {
+      has: page.locator('.modal-title', { hasText: 'تأكيد استرجاع الدفعة' }),
+    });
+    await confirm.getByRole('button', { name: 'نعم، استرجاع' }).click();
+    await expectToast(page, 'success', 'تم استرجاع الدفعة بنجاح');
+    await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+
+    await navigate(page, 'الرئيسية');
+    await expect(currentMonthBar).toContainText(': 0 ');
+  });
+
+  test('fee chart is hidden from roles without access to finances', async ({
+    authedPage: page,
+  }) => {
+    const supervisor = {
+      username: 'chartsupervisor',
+      password: 'supervisor-pass-1',
+      firstName: 'وليد',
+      lastName: 'المشرف',
+      nationalId: '41234567',
+      phone: '93234567',
+    };
+    await createUser(page, supervisor, 'SessionSupervisor');
+    await logout(page);
+    await login(page, supervisor);
+    await dismissOnboarding(page);
+
+    await expect(page.locator('h1', { hasText: 'لوحة التحكم الرئيسية' })).toBeVisible();
+    await expect(page.locator('.stat-card').first()).toBeVisible();
+    await expect(page.locator('.chart-card')).toHaveCount(0);
   });
 });

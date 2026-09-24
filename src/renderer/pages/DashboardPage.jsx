@@ -6,6 +6,9 @@ import { toast } from 'react-toastify';
 import StatCard from '@renderer/components/StatCard';
 import QuickActions from '@renderer/components/QuickActions';
 import TodaysClasses from '@renderer/components/TodaysClasses';
+import MonthlyFeesTrendChart from '@renderer/components/dashboard/MonthlyFeesTrendChart';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 import '@renderer/styles/DashboardPage.css';
 import { error as logError } from '@renderer/utils/logger';
 import { useAuth } from '@renderer/contexts/AuthContext';
@@ -20,6 +23,8 @@ function pluralizeDays(days) {
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canViewFinancials = hasPermission(PERMISSIONS.FINANCIALS_VIEW);
   const [stats, setStats] = useState({
     studentCount: null,
     teacherCount: null,
@@ -152,6 +157,15 @@ function DashboardPage() {
           />
           <StatCard title="الفصول النشطة" value={stats.classCount} icon="school" variant="info" />
         </Row>
+
+        {/* Fee collection trend, for users who can see the finances */}
+        {canViewFinancials && (
+          <Row className="mt-2">
+            <Col lg={12} className="mb-4">
+              <MonthlyFeesTrendChart />
+            </Col>
+          </Row>
+        )}
       </div>
 
       <Modal show={showGuideModal} onHide={handleCloseGuideModal} centered>
