@@ -118,6 +118,115 @@ const ENROLLED_CLASSES_SQL = `
   WHERE cs.student_id = ? AND c.status = 'active'
 `;
 
+// The age groups of a student's active classes, with their fee amounts (NULL = branch amount).
+const ENROLLED_FEE_GROUPS_SQL = `
+  SELECT DISTINCT ag.id, ag.name, ag.min_age, ag.annual_fee, ag.monthly_fee
+  FROM classes c
+  JOIN class_students cs ON c.id = cs.class_id
+  JOIN age_groups ag ON ag.id = c.age_group_id
+  WHERE cs.student_id = ? AND c.status = 'active'
+  ORDER BY ag.min_age, ag.id
+`;
+
+/**
+ * The branch fee amounts from the fee settings, used by age groups without their own fees.
+ * @returns {Promise<{annual: number, monthly: number}>}
+ */
+async function getBranchFees() {
+  return {
+    annual: parseFloat((await getSetting('annual_fee')) || '0') || 0,
+    monthly: parseFloat((await getSetting('standard_monthly_fee')) || '0') || 0,
+  };
+}
+
+/**
+ * Whether any annual / monthly fee is configured, for the branch or for an active age group.
+ * @returns {Promise<{annual: boolean, monthly: boolean}>}
+ */
+async function getConfiguredFeeKinds(branchFees = null) {
+  const fees = branchFees || (await getBranchFees());
+  const groups =
+    (await db.getQuery(
+      `SELECT MAX(CASE WHEN annual_fee > 0 THEN 1 ELSE 0 END) AS annual,
+              MAX(CASE WHEN monthly_fee > 0 THEN 1 ELSE 0 END) AS monthly
+       FROM age_groups WHERE is_active = 1`,
+    )) || {};
+  return {
+    annual: fees.annual > 0 || Number(groups.annual) === 1,
+    monthly: fees.monthly > 0 || Number(groups.monthly) === 1,
+  };
+}
+
+/**
+ * Works out which age group's fees a student pays.
+ * - No class in an age group: the branch amounts.
+ * - One age group, or several with the same amounts: that amount.
+ * - Several age groups with different amounts: the group an administrator chose for the student
+ *   (students.fee_age_group_id); until one is chosen, the group with the higher fee, and
+ *   `needsChoice` is true so the fees list can flag the student.
+ * @param {number} studentId
+ * @param {{annual: number, monthly: number}} [branchFees] Branch amounts, when already loaded.
+ * @returns {Promise<{annualFee: number, monthlyFee: number, group: object|null, groups: Array, needsChoice: boolean}>}
+ */
+async function resolveStudentFeeGroup(studentId, branchFees = null) {
+  const fees = branchFees || (await getBranchFees());
+  const rows = (await db.allQuery(ENROLLED_FEE_GROUPS_SQL, [studentId])) || [];
+  const groups = rows
+    .filter((row) => row && row.id !== undefined && row.id !== null)
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      annualFee: row.annual_fee ?? fees.annual,
+      monthlyFee: row.monthly_fee ?? fees.monthly,
+    }));
+
+  if (groups.length === 0) {
+    return {
+      annualFee: fees.annual,
+      monthlyFee: fees.monthly,
+      group: null,
+      groups,
+      needsChoice: false,
+    };
+  }
+
+  const student = await db.getQuery('SELECT fee_age_group_id FROM students WHERE id = ?', [
+    studentId,
+  ]);
+  const chosen = groups.find((g) => Number(g.id) === Number(student?.fee_age_group_id));
+  const amountsDiffer = groups.some(
+    (g) => g.annualFee !== groups[0].annualFee || g.monthlyFee !== groups[0].monthlyFee,
+  );
+  const group =
+    chosen ||
+    [...groups].sort((a, b) => b.monthlyFee - a.monthlyFee || b.annualFee - a.annualFee)[0];
+
+  return {
+    annualFee: group.annualFee,
+    monthlyFee: group.monthlyFee,
+    group,
+    groups,
+    needsChoice: amountsDiffer && !chosen,
+  };
+}
+
+/**
+ * Re-bills this academic year's annual charge of a student at their current age group's fee,
+ * as long as nothing has been paid on it (a paid or partly paid charge is never changed).
+ * @param {number} studentId
+ * @param {string} academicYear
+ */
+async function rebillUnpaidAnnualCharge(studentId, academicYear) {
+  const { annualFee } = await resolveStudentFeeGroup(studentId);
+  if (!(annualFee > 0)) return;
+  await db.runQuery(
+    `UPDATE student_fee_charges SET amount = ?
+     WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?
+       AND (amount_paid IS NULL OR amount_paid = 0) AND amount != ?`,
+    [annualFee, studentId, academicYear, annualFee],
+  );
+}
+
 /**
  * Resolves a student's payment frequency from their active classes' age groups.
  * The most restrictive frequency wins: if any standard class is ANNUAL, the student pays ANNUAL.
@@ -165,10 +274,8 @@ function buildMonthlyChargeDescription(monthName, academicYear, paymentFrequency
  */
 async function generateAnnualFeeCharges(academicYear) {
   return db.withTransaction(async () => {
-    const annualFeeSetting = await getSetting('annual_fee');
-    const annualFee = parseFloat(annualFeeSetting || '0');
-
-    if (annualFee <= 0) {
+    const branchFees = await getBranchFees();
+    if (!(await getConfiguredFeeKinds(branchFees)).annual) {
       logWarn('[FeeGen] Annual fee is not set or zero. Skipping charge generation.');
       return { success: true, message: 'Skipped: Fee not configured' };
     }
@@ -187,6 +294,9 @@ async function generateAnnualFeeCharges(academicYear) {
       );
 
       if (!existingCharge) {
+        // The annual fee of the student's age group (or the branch fee).
+        const { annualFee } = await resolveStudentFeeGroup(student.id, branchFees);
+        if (!(annualFee > 0)) continue;
         await db.runQuery(
           `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
          VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
@@ -213,10 +323,12 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
   const { force = false } = options;
   return db
     .withTransaction(async () => {
-      const standardFeeSetting = await getSetting('standard_monthly_fee');
-      const standardMonthlyFee = parseFloat(standardFeeSetting || '0');
+      const branchFees = await getBranchFees();
+      const hasSpecialFeeClasses = await db.getQuery(
+        "SELECT 1 AS found FROM classes WHERE status = 'active' AND fee_type = 'special' AND monthly_fee > 0 LIMIT 1",
+      );
 
-      if (standardMonthlyFee <= 0) {
+      if (!(await getConfiguredFeeKinds(branchFees)).monthly && !hasSpecialFeeClasses) {
         logWarn(
           `[FeeGen] Standard monthly fee is not set or zero. Skipping monthly charges for month ${month}.`,
         );
@@ -278,6 +390,11 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
 
         let totalMonthlyFee = 0;
         const hasStandardClass = enrolledClasses.some((c) => c.fee_type === 'standard');
+        // The monthly fee of the student's age group (or the branch fee).
+        const { monthlyFee: standardMonthlyFee } = await resolveStudentFeeGroup(
+          student.id,
+          branchFees,
+        );
         if ((enrolledClasses.length === 0 || hasStandardClass) && standardMonthlyFee > 0) {
           totalMonthlyFee += standardMonthlyFee;
         }
@@ -332,7 +449,8 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
  */
 async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
   try {
-    const standardMonthlyFee = parseFloat((await getSetting('standard_monthly_fee')) || '0');
+    // The monthly fee of the student's age group (or the branch fee).
+    const { monthlyFee: standardMonthlyFee } = await resolveStudentFeeGroup(studentId);
 
     const student = await db.getQuery('SELECT discount_percentage FROM students WHERE id = ?', [
       studentId,
@@ -458,6 +576,13 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
     const paymentFrequency = await getStudentPaymentFrequency(studentId);
 
     log(`[ChargeRegen] Current Month: ${currentMonth}/${currentAcademicYear}`);
+
+    // The unpaid annual charge follows the fees of the student's current age group.
+    try {
+      await rebillUnpaidAnnualCharge(studentId, currentAcademicYear);
+    } catch (error) {
+      logError(`[ChargeRegen] Failed to re-bill the annual charge of student ${studentId}:`, error);
+    }
 
     const monthNames = [
       'يناير',
@@ -643,7 +768,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       );
 
       if (!existingAnnualCharge) {
-        const annualFee = parseFloat((await getSetting('annual_fee')) || '0');
+        const { annualFee } = await resolveStudentFeeGroup(studentId);
         if (annualFee > 0) {
           const chargeDate = toLocalISODate();
           await db.runQuery(
@@ -1003,7 +1128,7 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
     }
 
     let totalChargesGenerated = 0;
-    const annualFee = parseFloat((await getSetting('annual_fee')) || '0');
+    const branchFees = await getBranchFees();
     const chargeDate = toLocalISODate();
 
     for (const student of students) {
@@ -1015,6 +1140,9 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
           "SELECT id FROM student_fee_charges WHERE student_id = ? AND fee_type = 'ANNUAL' AND academic_year = ?",
           [student.id, currentAcademicYear],
         );
+        const { annualFee } = existingAnnual
+          ? { annualFee: 0 }
+          : await resolveStudentFeeGroup(student.id, branchFees);
         if (!existingAnnual && annualFee > 0) {
           await db.runQuery(
             "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')",
@@ -1217,6 +1345,31 @@ async function getStudentBalanceSummary(studentId, academicYear = null) {
     logError('Error in getStudentBalanceSummary:', error);
     throw new Error('Failed to get student balance summary.');
   }
+}
+
+/**
+ * Sets the age group whose fees a student pays (for students in classes of several age groups),
+ * then re-bills this academic year's charges that have no payment yet: the annual charge and
+ * the current month.
+ * @param {number} studentId
+ * @param {number|null} ageGroupId One of the age groups of the student's classes, or null to
+ *   clear the choice.
+ * @returns {Promise<object>} The student's fee group after the change.
+ */
+async function setStudentFeeGroup(studentId, ageGroupId) {
+  const current = await resolveStudentFeeGroup(studentId);
+  if (ageGroupId !== null && !current.groups.some((g) => Number(g.id) === Number(ageGroupId))) {
+    throw new Error('الفئة العمرية المختارة ليست من فئات فصول هذا الطالب.');
+  }
+  await db.runQuery('UPDATE students SET fee_age_group_id = ? WHERE id = ?', [
+    ageGroupId,
+    studentId,
+  ]);
+
+  // Re-bills the unpaid annual charge and the current month.
+  await triggerChargeRegenerationForStudent(studentId);
+  notifyFinancialDataChanged();
+  return resolveStudentFeeGroup(studentId);
 }
 
 /**
@@ -1801,6 +1954,36 @@ function registerStudentFeeHandlers() {
   );
 
   ipcMain.handle(
+    'student-fees:getFeeGroup',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, studentId) => {
+      try {
+        const resolved = await resolveStudentFeeGroup(studentId);
+        const student = await db.getQuery('SELECT fee_age_group_id FROM students WHERE id = ?', [
+          studentId,
+        ]);
+        return { ...resolved, chosenGroupId: student?.fee_age_group_id ?? null };
+      } catch (error) {
+        logError('Error getting student fee group:', error);
+        throw new Error('Failed to get student fee group.');
+      }
+    }),
+  );
+
+  ipcMain.handle(
+    'student-fees:setFeeGroup',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, { studentId, ageGroupId }) => {
+        try {
+          return await setStudentFeeGroup(studentId, ageGroupId ?? null);
+        } catch (error) {
+          logError('Error setting student fee group:', error);
+          throw new Error(error.message || 'Failed to set student fee group.');
+        }
+      },
+    ),
+  );
+
+  ipcMain.handle(
     'student-fees:recordPayment',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, paymentDetails) => {
@@ -1874,6 +2057,8 @@ function registerStudentFeeHandlers() {
             }
           }
 
+          const branchFees = await getBranchFees();
+
           // Get fee status for each student, filtering out exempt/sponsored students
           const studentsWithFees = await Promise.all(
             students.map(async (student) => {
@@ -1887,6 +2072,8 @@ function registerStudentFeeHandlers() {
               }
 
               const feeStatus = await getStudentFeeStatus(student.id, academicYear);
+              // Classes in age groups with different fees and no group chosen yet.
+              const { needsChoice } = await resolveStudentFeeGroup(student.id, branchFees);
               return {
                 id: student.id,
                 name: student.name,
@@ -1898,6 +2085,7 @@ function registerStudentFeeHandlers() {
                 totalPaid: feeStatus.totalPaid,
                 balance: feeStatus.balance,
                 previousYearsBalance: previousBalances.get(student.id) || 0,
+                needsFeeGroupChoice: needsChoice,
               };
             }),
           );
@@ -2097,14 +2285,17 @@ async function checkAndGenerateChargesForAllStudents(settings) {
     }
 
     // Use provided settings to check if fees are configured
-    const annualFee = parseFloat(settings.annual_fee || '0');
-    const monthlyFee = parseFloat(settings.standard_monthly_fee || '0');
+    // Fees may be set for the branch or for individual age groups.
+    const configured = await getConfiguredFeeKinds({
+      annual: parseFloat(settings.annual_fee || '0') || 0,
+      monthly: parseFloat(settings.standard_monthly_fee || '0') || 0,
+    });
 
     log(
-      `[checkAndGenerateChargesForAllStudents] Annual fee: ${annualFee}, Monthly fee: ${monthlyFee}`,
+      `[checkAndGenerateChargesForAllStudents] Annual fee configured: ${configured.annual}, Monthly fee configured: ${configured.monthly}`,
     );
 
-    if (annualFee <= 0 && monthlyFee <= 0) {
+    if (!configured.annual && !configured.monthly) {
       log(
         '[checkAndGenerateChargesForAllStudents] Fees not configured yet - skipping charge generation',
       );
@@ -2128,7 +2319,7 @@ async function checkAndGenerateChargesForAllStudents(settings) {
       let chargesGenerated = false;
 
       // Generate annual charges if configured
-      if (annualFee > 0) {
+      if (configured.annual) {
         log(
           `[checkAndGenerateChargesForAllStudents] Generating annual charges for ${students.length} students...`,
         );
@@ -2149,16 +2340,14 @@ async function checkAndGenerateChargesForAllStudents(settings) {
 
       // Generate monthly charges if configured
       // Generate for current month only during initial setup (not future months)
-      if (monthlyFee > 0) {
+      if (configured.monthly) {
         const currentMonth = new Date().getMonth() + 1;
         const currentAcademicYear = academicYear;
 
         log(
           `[checkAndGenerateChargesForAllStudents] Generating monthly charges for current month: ${currentMonth}, year: ${currentAcademicYear}`,
         );
-        log(
-          `[checkAndGenerateChargesForAllStudents] Monthly fee: ${monthlyFee}, Students count: ${students.length}`,
-        );
+        log(`[checkAndGenerateChargesForAllStudents] Students count: ${students.length}`);
 
         try {
           log(
@@ -2252,6 +2441,8 @@ module.exports = {
   getStudentFeeStatus,
   getStudentBalanceSummary,
   getStudentPreviousYearsArrears,
+  resolveStudentFeeGroup,
+  setStudentFeeGroup,
   recordStudentPayment,
   deleteStudentPayment,
   refundStudentPayment,

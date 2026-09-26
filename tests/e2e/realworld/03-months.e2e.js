@@ -648,3 +648,160 @@ test('months: the academic year rolls over in September and keeps last year’s 
     fs.rmSync(state.userDataDir, { recursive: true, force: true });
   }
 });
+
+// This test manages its own launches too.
+// eslint-disable-next-line no-empty-pattern
+test('months: each age group has its own fees, and a student in two groups is billed by the chosen one', async ({}) => {
+  test.setTimeout(10 * 60_000);
+  const september = '2026-09-10T08:30:00';
+  const launched = await launchApp({ now: september });
+  const state = { ...launched, page: await launched.app.firstWindow() };
+  await state.page.waitForLoadState('domcontentloaded');
+  await setAppDate(state.app, state.page, september);
+
+  const KIDS_GROUP = 'الأطفال';
+  const MEN_GROUP = 'الرجال';
+  const INTENSIVE_GROUP = 'حلقات مكثفة';
+  const kid = 'كريم بن سالم العياري'; // children's group only
+  const both = 'ياسين بن عادل الزواري'; // children's group and the intensive group
+  const man = 'منير بن رضا الحامدي'; // men's group, which keeps the branch fees
+  const kidsFees = { annual: 25, monthly: 15 };
+  const intensiveMonthly = 40;
+
+  const groupRow = (page, name) =>
+    activePane(page).locator('tbody tr', {
+      has: page.locator('td:first-child', { hasText: new RegExp(`^${name}$`) }),
+    });
+  async function editGroupFees(page, name, { annual, monthly }) {
+    await groupRow(page, name).getByRole('button', { name: 'تعديل' }).click();
+    await modal(page).locator('input[name="annual_fee"]').fill(String(annual));
+    await modal(page).locator('input[name="monthly_fee"]').fill(String(monthly));
+    await modal(page).getByRole('button', { name: 'حفظ' }).click();
+    await expectToast(page, 'success', 'تم تحديث الفئة العمرية بنجاح.');
+    await expectNoModal(page);
+  }
+
+  try {
+    await test.step('September: branch fees, and fees for two age groups', async () => {
+      const { page } = state;
+      await setupSuperadmin(page);
+      await login(page);
+      await dismissOnboarding(page);
+      await navigate(page, 'الإعدادات');
+      await openTab(page, 'إعدادات الرسوم');
+      await page.locator('input[name="annual_fee"]').fill(String(ANNUAL_FEE));
+      await page.locator('input[name="standard_monthly_fee"]').fill(String(MONTHLY_FEE));
+      await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+      await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+
+      await openTab(page, 'فئات عمرية');
+      await editGroupFees(page, KIDS_GROUP, kidsFees);
+      // Columns: name | ages | gender | payment system | annual | monthly | description | actions
+      await expect(groupRow(page, KIDS_GROUP).locator('td').nth(4)).toHaveText('25.00');
+      await expect(groupRow(page, KIDS_GROUP).locator('td').nth(5)).toHaveText('15.00');
+      await expect(groupRow(page, MEN_GROUP).locator('td').nth(4)).toHaveText('30.00 (افتراضي)');
+      await expect(groupRow(page, MEN_GROUP).locator('td').nth(5)).toHaveText('20.00 (افتراضي)');
+
+      // A second group for the same ages, with a higher monthly fee and the branch annual fee.
+      await activePane(page).getByRole('button', { name: 'إضافة فئة جديدة' }).click();
+      await modal(page).locator('input[name="name"]').fill(INTENSIVE_GROUP);
+      await modal(page).locator('select[name="gender"]').selectOption('any');
+      await modal(page).locator('input[name="min_age"]').fill('6');
+      await modal(page).locator('input[name="max_age"]').fill('11');
+      await modal(page).locator('input[name="monthly_fee"]').fill(String(intensiveMonthly));
+      await modal(page).getByRole('button', { name: 'حفظ' }).click();
+      await expectToast(page, 'success', 'تم إنشاء الفئة العمرية بنجاح.');
+      await expectNoModal(page);
+      await expect(groupRow(page, INTENSIVE_GROUP).locator('td').nth(4)).toHaveText(
+        '30.00 (افتراضي)',
+      );
+
+      await addStudent(page, { name: kid, dob: yearsBefore(september, 9), gender: 'Male' });
+      await addStudent(page, { name: both, dob: yearsBefore(september, 9), gender: 'Male' });
+      await addStudent(page, { name: man, dob: yearsBefore(september, 35), gender: 'Male' });
+      await addClass(page, 'حلقة البراعم', 'الأطفال');
+      await addClass(page, 'حلقة المكثف', INTENSIVE_GROUP);
+      await addClass(page, 'حلقة الرجال', 'الرجال');
+      await enroll(page, 'حلقة البراعم', [kid, both]);
+      await enroll(page, 'حلقة المكثف', [both]);
+      await enroll(page, 'حلقة الرجال', [man]);
+    });
+
+    await test.step('each student is billed by their age group', async () => {
+      const { page } = state;
+      await openFeesTab(page);
+      await expectBalance(page, kid, { due: kidsFees.annual + kidsFees.monthly, paid: 0 });
+      await expectBalance(page, man, { due: ANNUAL_FEE + MONTHLY_FEE, paid: 0 });
+      // In two groups with different fees: the higher one until a group is chosen.
+      await expectBalance(page, both, { due: ANNUAL_FEE + intensiveMonthly, paid: 0 });
+      await expect(feeRow(page, both).locator('td').first()).toContainText('اختر فئة الرسوم');
+      await expect(feeRow(page, kid).locator('td').first()).not.toContainText('اختر فئة الرسوم');
+      await activePane(page).locator('select.filter-select').selectOption('FEE_GROUP');
+      await expect(activePane(page).locator('tbody tr')).toHaveCount(1);
+      await expect(activePane(page).locator('tbody tr')).toContainText(both);
+      await activePane(page).locator('select.filter-select').selectOption('ALL');
+    });
+
+    await test.step('the admin chooses the children’s group for the student in two groups', async () => {
+      const { page } = state;
+      await feeRow(page, both).locator('button[title="عرض التفاصيل"]').click();
+      const chooser = modal(page).locator('[data-section="fee-group"]');
+      await expect(chooser).toContainText('تطبق الرسوم الأعلى حتى تختار الفئة');
+      const select = chooser.getByLabel('فئة الرسوم');
+      const option = select.locator('option', { hasText: KIDS_GROUP });
+      await expect(option).toContainText('سنوي 25.00 / شهري 15.00');
+      await select.selectOption(await option.getAttribute('value'));
+      await chooser.getByRole('button', { name: 'حفظ فئة الرسوم' }).click();
+      await expectToast(page, 'success', 'تم حفظ فئة الرسوم وتحديث رسوم السنة غير المدفوعة');
+      await expect(chooser).toContainText(`يدفع الطالب رسوم فئة "${KIDS_GROUP}".`);
+      await modal(page).getByRole('button', { name: 'إغلاق', exact: true }).click();
+      await expectNoModal(page);
+
+      await expectBalance(page, both, { due: kidsFees.annual + kidsFees.monthly, paid: 0 });
+      await expect(feeRow(page, both).locator('td').first()).not.toContainText('اختر فئة الرسوم');
+      await payFee(page, kid, kidsFees.annual + kidsFees.monthly, 'G-2026-1');
+      await expectBalance(page, kid, {
+        due: kidsFees.annual + kidsFees.monthly,
+        paid: kidsFees.annual + kidsFees.monthly,
+      });
+    });
+
+    const newKidsMonthly = 18;
+    await test.step('a new monthly fee for the children applies from next month', async () => {
+      const { page } = state;
+      await navigate(page, 'الإعدادات');
+      await openTab(page, 'فئات عمرية');
+      await editGroupFees(page, KIDS_GROUP, { annual: kidsFees.annual, monthly: newKidsMonthly });
+      // September's bills are unchanged.
+      await openFeesTab(page);
+      await expectBalance(page, both, { due: kidsFees.annual + kidsFees.monthly, paid: 0 });
+    });
+
+    await test.step('October: the month is billed at each group’s fee', async () => {
+      await openAppOn(state, '2026-10-03T08:30:00');
+      const { page } = state;
+      await openFeesTab(page);
+      const kidsDue = kidsFees.annual + kidsFees.monthly + newKidsMonthly;
+      await expectBalance(page, kid, { due: kidsDue, paid: kidsFees.annual + kidsFees.monthly });
+      await expectBalance(page, both, { due: kidsDue, paid: 0 });
+      await expectBalance(page, man, { due: ANNUAL_FEE + 2 * MONTHLY_FEE, paid: 0 });
+
+      await feeRow(page, both).locator('button[title="عرض التفاصيل"]').click();
+      const details = modal(page);
+      await expect(
+        details.locator('tr', { hasText: 'رسوم شهرية سبتمبر - 2026-2027' }),
+      ).toContainText(`${kidsFees.monthly.toFixed(2)} د.ت`);
+      await expect(
+        details.locator('tr', { hasText: 'رسوم شهرية أكتوبر - 2026-2027' }),
+      ).toContainText(`${newKidsMonthly.toFixed(2)} د.ت`);
+      await expect(details.locator('tr', { hasText: 'رسوم سنوية - 2026-2027' })).toContainText(
+        `${kidsFees.annual.toFixed(2)} د.ت`,
+      );
+      await details.getByRole('button', { name: 'إغلاق', exact: true }).click();
+      await expectNoModal(page);
+    });
+  } finally {
+    await state.app.close().catch(() => {});
+    fs.rmSync(state.userDataDir, { recursive: true, force: true });
+  }
+});

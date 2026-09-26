@@ -36,6 +36,11 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
   payment or refreshing charges no longer bills future months. Next month is still billed from
   the configured generation day (default 25). On upgrade, untouched monthly charges two or more
   months ahead are removed; they are recreated when their month arrives.
+- **Fees per age group.** Each age group can set its own annual and monthly fee; groups left
+  empty keep the branch fees, so nothing changes on upgrade. A student in classes of age groups
+  with different fees pays the higher fee and is flagged "اختر فئة الرسوم" until an administrator
+  picks the group in the fee details. A new group fee applies from the next bill; while a
+  student's annual charge is unpaid, it follows their group when their classes change.
 - **Earlier years' unpaid fees are kept apart.** A fee payment now settles charges of its own
   academic year only; it no longer pays off last year's arrears first. Arrears are flagged on
   the student's row, listed by year in the fee details, and paid from there.
@@ -46,6 +51,8 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
 
 - Monthly fees chart on the home dashboard for finance roles (net fees per month, after refunds).
 - Payment system field and column in the age groups settings.
+- Annual and monthly fee per age group, and a per-student fee group choice in the fee details
+  (with a "بحاجة لاختيار فئة الرسوم" filter in the fees list).
 - Warning in the backup tab while no association transfer key is set.
 - Voucher numbers can be corrected when editing a transaction.
 - Previous years' arrears in student fees: a "متخلدات سابقة" flag and filter in the fees list,

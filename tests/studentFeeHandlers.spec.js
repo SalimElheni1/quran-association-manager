@@ -23,6 +23,8 @@ const {
   getStudentFeeStatus,
   getStudentBalanceSummary,
   getStudentPreviousYearsArrears,
+  resolveStudentFeeGroup,
+  setStudentFeeGroup,
   recordStudentPayment,
   checkAndGenerateChargesForAllStudents,
   getCurrentAcademicYear,
@@ -162,14 +164,23 @@ describe('Student Fee Handlers', () => {
     it('should force regenerate charges when force=true', async () => {
       const academicYear = '2024-2025';
       const month = 10;
-      db.allQuery
-        .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
-        .mockResolvedValueOnce([
+      db.allQuery.mockImplementation((sql) => {
+        if (sql.includes('FROM students')) {
+          return Promise.resolve([{ id: 1, gender: 'men', discount_percentage: 0 }]);
+        }
+        if (sql.includes('age_groups ag')) return Promise.resolve([]); // No age group fees
+        // Enrolled classes (payment system from the class's age group)
+        return Promise.resolve([
           { fee_type: 'standard', monthly_fee: 50, payment_frequency: 'MONTHLY' },
-        ]); // Enrolled classes (payment system from the class's age group)
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
-        .mockResolvedValueOnce({ id: 1, amount_paid: 0 }); // Existing unpaid charge
+        ]);
+      });
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        if (sql.includes('billing_month')) return Promise.resolve({ id: 1, amount_paid: 0 }); // Existing unpaid charge
+        return Promise.resolve(null);
+      });
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       await generateMonthlyFeeCharges(academicYear, month, { force: true });
@@ -868,6 +879,104 @@ describe('Student Fee Handlers', () => {
   // ============================================
   // IPC HANDLERS
   // ============================================
+
+  describe('fees per age group', () => {
+    const branch = { annual: 30, monthly: 20 };
+    const kids = { id: 1, name: 'الأطفال', annual_fee: null, monthly_fee: null };
+    const men = { id: 2, name: 'الرجال', annual_fee: 50, monthly_fee: 35 };
+
+    const mockGroups = (groups, feeAgeGroupId = null) => {
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('age_groups ag') ? groups : []),
+      );
+      db.getQuery.mockImplementation((sql) =>
+        Promise.resolve(
+          sql.includes('FROM students')
+            ? {
+                id: 7,
+                name: 'Student',
+                status: 'active',
+                fee_category: 'CAN_PAY',
+                fee_age_group_id: feeAgeGroupId,
+              }
+            : null,
+        ),
+      );
+    };
+
+    it('uses the branch fees for a student in no age group', async () => {
+      mockGroups([]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        annualFee: 30,
+        monthlyFee: 20,
+        group: null,
+        needsChoice: false,
+      });
+    });
+
+    it('uses the group fees, falling back to the branch fees when a group has none', async () => {
+      mockGroups([men]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        annualFee: 50,
+        monthlyFee: 35,
+        needsChoice: false,
+      });
+      mockGroups([kids]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        annualFee: 30,
+        monthlyFee: 20,
+      });
+    });
+
+    it('applies the higher fee and asks for a choice when groups differ', async () => {
+      mockGroups([kids, men]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        monthlyFee: 35,
+        group: expect.objectContaining({ id: 2 }),
+        needsChoice: true,
+      });
+    });
+
+    it("uses the administrator's choice", async () => {
+      mockGroups([kids, men], 1);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        annualFee: 30,
+        monthlyFee: 20,
+        group: expect.objectContaining({ id: 1 }),
+        needsChoice: false,
+      });
+    });
+
+    it('needs no choice when the groups have the same fees', async () => {
+      mockGroups([kids, { ...kids, id: 3, name: 'الناشئون' }]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        needsChoice: false,
+      });
+    });
+
+    it('rejects a group that is not one of the student classes', async () => {
+      mockGroups([kids, men]);
+      await expect(setStudentFeeGroup(1, 99)).rejects.toThrow('ليست من فئات فصول هذا الطالب');
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE students SET fee_age_group_id'),
+        expect.anything(),
+      );
+    });
+
+    it('saves the choice and re-bills the unpaid annual charge', async () => {
+      mockGroups([kids, men]);
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      await setStudentFeeGroup(7, 1);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE students SET fee_age_group_id = ? WHERE id = ?',
+        [1, 7],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining("fee_type = 'ANNUAL'"),
+        expect.arrayContaining([7]),
+      );
+    });
+  });
 
   describe('previous academic years', () => {
     const charges = [

@@ -101,6 +101,10 @@ const StudentFeesTab = () => {
   // and the amount still owed for it.
   const [paymentYear, setPaymentYear] = useState(getAcademicYearString());
   const [paymentBalance, setPaymentBalance] = useState(0);
+  // Fee group of the student in the details dialog, for students in several age groups.
+  const [feeGroup, setFeeGroup] = useState(null);
+  const [feeGroupChoice, setFeeGroupChoice] = useState('');
+  const [isSavingFeeGroup, setIsSavingFeeGroup] = useState(false);
 
   const loadAccounts = async () => {
     try {
@@ -228,6 +232,9 @@ const StudentFeesTab = () => {
         case 'ARREARS':
           matchesStatus = student.previousYearsBalance > 0;
           break;
+        case 'FEE_GROUP':
+          matchesStatus = !!student.needsFeeGroupChoice;
+          break;
         case 'ALL':
         default:
           matchesStatus = true;
@@ -266,6 +273,36 @@ const StudentFeesTab = () => {
   const handlePageSizeChange = (newPageSize) => {
     setItemsPerPage(newPageSize);
     setCurrentPage(1);
+  };
+
+  const openChargesModal = async (student) => {
+    const [balanceSummary, group] = await Promise.all([
+      window.electronAPI.studentFeesGetBalanceSummary(student.id, academicYear),
+      window.electronAPI.studentFeesGetFeeGroup(student.id),
+    ]);
+    setSelectedStudent({ ...student, balanceSummary });
+    setFeeGroup(group);
+    setFeeGroupChoice(group?.group?.id ? String(group.group.id) : '');
+    setShowChargesModal(true);
+  };
+
+  const handleSaveFeeGroup = async () => {
+    if (!selectedStudent || !feeGroupChoice || isSavingFeeGroup) return;
+    try {
+      setIsSavingFeeGroup(true);
+      await window.electronAPI.studentFeesSetFeeGroup(
+        selectedStudent.id,
+        parseInt(feeGroupChoice, 10),
+      );
+      toast.success('تم حفظ فئة الرسوم وتحديث رسوم السنة غير المدفوعة');
+      window.dispatchEvent(new Event('financial-data-changed'));
+      await openChargesModal(selectedStudent);
+      loadStudents();
+    } catch (err) {
+      toast.error(err.message || 'فشل في حفظ فئة الرسوم');
+    } finally {
+      setIsSavingFeeGroup(false);
+    }
   };
 
   const openPaymentModal = async (student, year = academicYear, balance = student.balance) => {
@@ -554,6 +591,7 @@ const StudentFeesTab = () => {
                     <option value="UNPAID">غير مدفوع</option>
                     <option value="EXEMPT">معفى</option>
                     <option value="ARREARS">عليهم متخلدات سابقة</option>
+                    <option value="FEE_GROUP">بحاجة لاختيار فئة الرسوم</option>
                   </Form.Select>
                 </div>
               </div>
@@ -583,6 +621,16 @@ const StudentFeesTab = () => {
                             متخلدات سابقة: {student.previousYearsBalance.toFixed(2)} د.ت
                           </Badge>
                         )}
+                        {student.needsFeeGroupChoice && (
+                          <Badge
+                            bg="warning"
+                            text="dark"
+                            className="ms-2"
+                            title="الطالب في فصول من فئات عمرية برسوم مختلفة؛ تطبق الرسوم الأعلى حتى يتم الاختيار من التفاصيل"
+                          >
+                            اختر فئة الرسوم
+                          </Badge>
+                        )}
                       </td>
                       <td>{student.totalDue?.toFixed(2) || 0} د.ت</td>
                       <td>{student.totalPaid?.toFixed(2) || 0} د.ت</td>
@@ -603,15 +651,7 @@ const StudentFeesTab = () => {
                           size="sm"
                           variant="info"
                           className="me-2"
-                          onClick={async () => {
-                            const balanceSummary =
-                              await window.electronAPI.studentFeesGetBalanceSummary(
-                                student.id,
-                                academicYear,
-                              );
-                            setSelectedStudent({ ...student, balanceSummary });
-                            setShowChargesModal(true);
-                          }}
+                          onClick={() => openChargesModal(student)}
                           title="عرض التفاصيل"
                         >
                           <EyeIcon width={16} height={16} />
@@ -954,6 +994,50 @@ const StudentFeesTab = () => {
                       <strong>هاتف الكافل:</strong> {selectedStudent.sponsor_phone || 'غير محدد'}
                     </Col>
                   </Row>
+                </Alert>
+              )}
+
+              {/* Students in classes of several age groups: which group's fees they pay */}
+              {feeGroup?.groups?.length > 1 && (
+                <Alert
+                  variant={feeGroup.needsChoice ? 'warning' : 'light'}
+                  className="mb-3 border"
+                  data-section="fee-group"
+                >
+                  <strong>فئة الرسوم:</strong>{' '}
+                  {feeGroup.needsChoice
+                    ? 'الطالب في فصول من فئات عمرية برسوم مختلفة. تطبق الرسوم الأعلى حتى تختار الفئة.'
+                    : `يدفع الطالب رسوم فئة "${feeGroup.group?.name}".`}
+                  <div className="d-flex gap-2 mt-2 align-items-center">
+                    <Form.Select
+                      aria-label="فئة الرسوم"
+                      value={feeGroupChoice}
+                      onChange={(e) => setFeeGroupChoice(e.target.value)}
+                      style={{ maxWidth: '420px' }}
+                    >
+                      {feeGroup.groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} — سنوي {Number(g.annualFee).toFixed(2)} / شهري{' '}
+                          {Number(g.monthlyFee).toFixed(2)} د.ت
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveFeeGroup}
+                      disabled={
+                        isSavingFeeGroup ||
+                        (!feeGroup.needsChoice &&
+                          String(feeGroup.chosenGroupId ?? '') === feeGroupChoice)
+                      }
+                    >
+                      {isSavingFeeGroup ? 'جارٍ الحفظ…' : 'حفظ فئة الرسوم'}
+                    </Button>
+                  </div>
+                  <small className="text-muted d-block mt-1">
+                    يطبق على رسوم هذه السنة غير المدفوعة وعلى الفواتير القادمة.
+                  </small>
                 </Alert>
               )}
 

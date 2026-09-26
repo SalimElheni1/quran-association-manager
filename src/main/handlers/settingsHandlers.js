@@ -337,6 +337,9 @@ function registerSettingsHandlers(refreshSettings) {
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
         // How classes of this age group pay: monthly charges, or the annual charge only.
         payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
+        // Fee amounts of this age group; null uses the branch amounts from the fee settings.
+        annual_fee: Joi.number().min(0).allow(null).default(null),
+        monthly_fee: Joi.number().min(0).allow(null).default(null),
         is_active: Joi.boolean().default(true),
       });
 
@@ -355,8 +358,8 @@ function registerSettingsHandlers(refreshSettings) {
       let result;
       try {
         result = await db.runQuery(
-          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, payment_frequency, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, payment_frequency, annual_fee, monthly_fee, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             uuid,
             validatedData.name,
@@ -365,6 +368,8 @@ function registerSettingsHandlers(refreshSettings) {
             validatedData.max_age || null,
             validatedData.gender,
             validatedData.payment_frequency,
+            validatedData.annual_fee,
+            validatedData.monthly_fee,
             validatedData.is_active ? 1 : 0,
           ],
         );
@@ -403,6 +408,9 @@ function registerSettingsHandlers(refreshSettings) {
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
         // How classes of this age group pay: monthly charges, or the annual charge only.
         payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
+        // Fee amounts of this age group; null uses the branch amounts from the fee settings.
+        annual_fee: Joi.number().min(0).allow(null).default(null),
+        monthly_fee: Joi.number().min(0).allow(null).default(null),
         is_active: Joi.boolean().default(true),
       });
 
@@ -411,7 +419,8 @@ function registerSettingsHandlers(refreshSettings) {
       await db.runQuery(
         `UPDATE age_groups SET
          name = ?, description = ?, min_age = ?, max_age = ?,
-         gender = ?, payment_frequency = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+         gender = ?, payment_frequency = ?, annual_fee = ?, monthly_fee = ?, is_active = ?,
+         updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
           validatedData.name,
@@ -420,6 +429,8 @@ function registerSettingsHandlers(refreshSettings) {
           validatedData.max_age || null,
           validatedData.gender,
           validatedData.payment_frequency,
+          validatedData.annual_fee,
+          validatedData.monthly_fee,
           validatedData.is_active ? 1 : 0,
           id,
         ],

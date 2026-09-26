@@ -133,6 +133,8 @@ const CHANNEL_ROLES = {
   'student-fees:getClassesWithSpecialFees': ROLES.FINANCE,
   'student-fees:getStatus': ROLES.FINANCE,
   'student-fees:getBalanceSummary': ROLES.FINANCE,
+  'student-fees:getFeeGroup': ROLES.FINANCE,
+  'student-fees:setFeeGroup': ROLES.FINANCE,
   'student-fees:recordPayment': ROLES.FINANCE,
   'student-fees:deletePayment': ROLES.FINANCE,
   'student-fees:refundPayment': ROLES.FINANCE,

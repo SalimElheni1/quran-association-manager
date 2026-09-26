@@ -311,9 +311,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       const month = 10;
       const academicYear = '2024-2025';
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 0 }); // Student discount
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
+      });
       db.allQuery.mockResolvedValue([
         { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
       ]);
@@ -330,9 +333,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       const month = 10;
       const academicYear = '2024-2025';
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 0 }); // Student discount
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
+      });
       db.allQuery.mockResolvedValue([
         { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
         { id: 2, name: 'Special Class', fee_type: 'special', monthly_fee: 30 },
@@ -350,9 +356,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       const month = 10;
       const academicYear = '2024-2025';
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 20 }); // 20% discount
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        return Promise.resolve({ discount_percentage: 20, fee_age_group_id: null });
+      });
       db.allQuery.mockResolvedValue([
         { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
       ]);
@@ -369,9 +378,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       const month = 10;
       const academicYear = '2024-2025';
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 0 });
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
+      });
       db.allQuery.mockResolvedValue([]); // No classes
 
       const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);
@@ -418,9 +430,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       db.getQuery.mockReset();
       db.allQuery.mockReset();
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 0 }); // Student discount
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          return Promise.resolve(params[0] === 'standard_monthly_fee' ? { value: '50' } : null);
+        }
+        return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
+      });
       // The standard class's age group pays annually.
       db.allQuery.mockResolvedValueOnce([
         {
