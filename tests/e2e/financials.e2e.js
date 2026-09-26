@@ -71,6 +71,11 @@ function formatAmount(page, value) {
   );
 }
 
+/** A count as the summary cards show it: a whole number. */
+function formatCount(page, value) {
+  return page.evaluate((v) => new Intl.NumberFormat('ar-TN').format(v), value);
+}
+
 function summaryValue(page, title) {
   return activePane(page).locator('.card-body', { hasText: title }).locator('h3');
 }
@@ -110,7 +115,7 @@ test.describe('financials', () => {
     await expect(summaryValue(page, 'الرصيد الصافي')).toContainText(
       await formatAmount(page, 270.5),
     );
-    await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 3));
+    await expect(summaryValue(page, 'عدد العمليات')).toHaveText(await formatCount(page, 3));
   });
 
   test('a duplicate voucher number is rejected with the Arabic message', async ({
@@ -167,7 +172,7 @@ test.describe('financials', () => {
     await expect(summaryValue(page, 'إجمالي المداخيل')).toContainText(
       await formatAmount(page, 325),
     );
-    await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 1));
+    await expect(summaryValue(page, 'عدد العمليات')).toHaveText(await formatCount(page, 1));
   });
 
   test('a mistyped voucher number can be corrected by editing', async ({ authedPage: page }) => {
@@ -204,7 +209,7 @@ test.describe('financials', () => {
     await expect(refresh).toBeVisible();
     await refresh.click();
     await expect(refresh).toBeEnabled();
-    await expect(summaryValue(page, 'عدد العمليات')).toContainText(await formatAmount(page, 0));
+    await expect(summaryValue(page, 'عدد العمليات')).toHaveText(await formatCount(page, 0));
   });
 
   test('deleting an expense removes it from the table and dashboard', async ({

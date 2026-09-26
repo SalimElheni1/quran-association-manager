@@ -126,6 +126,11 @@ function formatNumber(page, value) {
   );
 }
 
+/** A count as the summary cards show it: a whole number. */
+function formatCount(page, value) {
+  return page.evaluate((v) => new Intl.NumberFormat('ar-TN').format(v), value);
+}
+
 function summaryValue(page, title) {
   return activePane(page)
     .locator('.card-title', { hasText: title })
@@ -445,14 +450,14 @@ test('months: a branch runs its finances from September to January', async ({}, 
         expect(ledger[key]).toEqual(balance);
         await expectBalance(page, studentName(key), balance);
       }
-      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toContainText(
-        await formatNumber(page, 5),
+      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toHaveText(
+        await formatCount(page, 5),
       );
-      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toContainText(
-        await formatNumber(page, 2),
+      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toHaveText(
+        await formatCount(page, 2),
       );
-      await expect(summaryValue(page, 'الطلاب غير المسددين')).toContainText(
-        await formatNumber(page, 1),
+      await expect(summaryValue(page, 'الطلاب غير المسددين')).toHaveText(
+        await formatCount(page, 1),
       );
     });
 

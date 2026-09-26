@@ -90,6 +90,11 @@ function formatNumber(page, value) {
   );
 }
 
+/** A count as the summary cards show it: a whole number. */
+function formatCount(page, value) {
+  return page.evaluate((v) => new Intl.NumberFormat('ar-TN').format(v), value);
+}
+
 // SummaryCard renders the value in the h3 right after its .card-title; cards can sit inside
 // another card's body (fees tab), so anchor on the title, not on a containing .card-body.
 function summaryValue(page, title) {
@@ -470,22 +475,22 @@ test('real-world seed: run a branch at scale and leave a backup for phase 2', as
     await expect(summaryValue(page, 'الرصيد الصافي')).toContainText(
       await formatNumber(page, incomeTotal - expenseTotal),
     );
-    await expect(summaryValue(page, 'عدد العمليات')).toContainText(
-      await formatNumber(page, transactionCount),
+    await expect(summaryValue(page, 'عدد العمليات')).toHaveText(
+      await formatCount(page, transactionCount),
     );
   });
 
   await test.step('fee status summary', async () => {
     await openTab(page, 'رسوم الطلاب');
     const paid = fees.full.length + fees.byFinanceUser.length;
-    await expect(summaryValue(page, 'عدد الطلاب المسددين')).toContainText(
-      await formatNumber(page, paid),
+    await expect(summaryValue(page, 'عدد الطلاب المسددين')).toHaveText(
+      await formatCount(page, paid),
     );
-    await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toContainText(
-      await formatNumber(page, fees.partial.length),
+    await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toHaveText(
+      await formatCount(page, fees.partial.length),
     );
-    await expect(summaryValue(page, 'الطلاب غير المسددين')).toContainText(
-      await formatNumber(page, allStudents.length - paid - fees.partial.length),
+    await expect(summaryValue(page, 'الطلاب غير المسددين')).toHaveText(
+      await formatCount(page, allStudents.length - paid - fees.partial.length),
     );
   });
 

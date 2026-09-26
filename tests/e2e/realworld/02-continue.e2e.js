@@ -78,6 +78,11 @@ function formatNumber(page, value) {
   );
 }
 
+/** A count as the summary cards show it: a whole number. */
+function formatCount(page, value) {
+  return page.evaluate((v) => new Intl.NumberFormat('ar-TN').format(v), value);
+}
+
 function summaryValue(page, title) {
   return activePane(page)
     .locator('.card-title', { hasText: title })
@@ -445,21 +450,21 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       await expect(summaryValue(page, 'الرصيد الصافي')).toContainText(
         await formatNumber(page, manifest.finance.incomeTotal - manifest.finance.expenseTotal),
       );
-      await expect(summaryValue(page, 'عدد العمليات')).toContainText(
-        await formatNumber(page, manifest.finance.transactionCount),
+      await expect(summaryValue(page, 'عدد العمليات')).toHaveText(
+        await formatCount(page, manifest.finance.transactionCount),
       );
     });
 
     await test.step('fee status summary survived', async () => {
       await openTab(page, 'رسوم الطلاب');
-      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toContainText(
-        await formatNumber(page, expectedInitialPaid),
+      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toHaveText(
+        await formatCount(page, expectedInitialPaid),
       );
-      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toContainText(
-        await formatNumber(page, expectedInitialPartial),
+      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toHaveText(
+        await formatCount(page, expectedInitialPartial),
       );
-      await expect(summaryValue(page, 'الطلاب غير المسددين')).toContainText(
-        await formatNumber(page, expectedInitialUnpaid),
+      await expect(summaryValue(page, 'الطلاب غير المسددين')).toHaveText(
+        await formatCount(page, expectedInitialUnpaid),
       );
     });
 
@@ -571,14 +576,14 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       await navigate(page, 'الشؤون المالية');
       await openTab(page, 'رسوم الطلاب');
       const expectedPaid = expectedInitialPaid + expectedInitialPartial;
-      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toContainText(
-        await formatNumber(page, expectedPaid),
+      await expect(summaryValue(page, 'عدد الطلاب المسددين')).toHaveText(
+        await formatCount(page, expectedPaid),
       );
-      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toContainText(
-        await formatNumber(page, 0),
+      await expect(summaryValue(page, 'الطلاب الذين دفعوا جزئياً')).toHaveText(
+        await formatCount(page, 0),
       );
-      await expect(summaryValue(page, 'الطلاب غير المسددين')).toContainText(
-        await formatNumber(page, expectedInitialUnpaid + NEW_STUDENTS.length),
+      await expect(summaryValue(page, 'الطلاب غير المسددين')).toHaveText(
+        await formatCount(page, expectedInitialUnpaid + NEW_STUDENTS.length),
       );
     });
 
@@ -597,8 +602,8 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       await expect(summaryValue(page, 'الرصيد الصافي')).toContainText(
         await formatNumber(page, expectedIncome - expectedExpense),
       );
-      await expect(summaryValue(page, 'عدد العمليات')).toContainText(
-        await formatNumber(
+      await expect(summaryValue(page, 'عدد العمليات')).toHaveText(
+        await formatCount(
           page,
           manifest.finance.transactionCount + manifest.fees.partial.length + 1,
         ),
