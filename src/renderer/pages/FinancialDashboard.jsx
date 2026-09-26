@@ -1,46 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Row, Col, Spinner, Button } from 'react-bootstrap';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import CategoryChart from '@renderer/components/financial/CategoryChart';
-import PeriodSelector from '@renderer/components/financial/PeriodSelector';
+import PeriodSelector, { getPresetPeriod } from '@renderer/components/financial/PeriodSelector';
 import FinancialExportModal from '@renderer/components/financial/FinancialExportModal';
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
-import { toLocalISODate } from '@renderer/utils/dates';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import RefreshIcon from '@renderer/components/icons/RefreshCwIcon';
 
 function FinancialDashboard() {
   const { hasPermission } = usePermissions();
-  const today = new Date();
-  const [period, setPeriod] = useState({
-    startDate: toLocalISODate(new Date(today.getFullYear(), today.getMonth(), 1)),
-    endDate: toLocalISODate(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
-  });
+  // Opens on the current month; a preset (month, year, ...) follows today's date, so a
+  // dashboard left open across the end of a month moves on to the new month.
+  const [preset, setPreset] = useState('month');
+  const [period, setPeriod] = useState(() => getPresetPeriod('month'));
   const [showExportModal, setShowExportModal] = useState(false);
 
   const { summary, loading, refresh } = useFinancialSummary(period);
 
+  const latest = useRef({ preset, period, refresh });
+  latest.current = { preset, period, refresh };
+
   useEffect(() => {
-    const handleDataChange = () => refresh();
+    // Moves a preset period to today's range. Returns true when it changed (the new period
+    // is then fetched by useFinancialSummary).
+    const syncPeriodWithToday = () => {
+      const { preset: current, period: shown } = latest.current;
+      const next = getPresetPeriod(current);
+      if (!next || (next.startDate === shown.startDate && next.endDate === shown.endDate)) {
+        return false;
+      }
+      setPeriod(next);
+      return true;
+    };
+    const refreshForToday = () => {
+      if (!syncPeriodWithToday()) latest.current.refresh();
+    };
+
+    const handleDataChange = () => refreshForToday();
     const handleTabChange = () => {
       // Refresh when tab becomes visible
       if (document.visibilityState === 'visible') {
-        refresh();
+        refreshForToday();
       }
     };
+    // Catches a new month while the app stays open and focused.
+    const dateCheck = setInterval(syncPeriodWithToday, 60 * 1000);
 
     window.addEventListener('financial-data-changed', handleDataChange);
     window.addEventListener('focus', handleTabChange);
     document.addEventListener('visibilitychange', handleTabChange);
 
     return () => {
+      clearInterval(dateCheck);
       window.removeEventListener('financial-data-changed', handleDataChange);
       window.removeEventListener('focus', handleTabChange);
       document.removeEventListener('visibilitychange', handleTabChange);
     };
-  }, [refresh]);
+  }, []);
 
   // Refresh when component becomes visible (tab switching)
   useEffect(() => {
@@ -65,7 +84,12 @@ function FinancialDashboard() {
         </div>
       </div>
 
-      <PeriodSelector period={period} onChange={setPeriod} />
+      <PeriodSelector
+        period={period}
+        onChange={setPeriod}
+        preset={preset}
+        onPresetChange={setPreset}
+      />
 
       {loading ? (
         <div className="text-center py-5">

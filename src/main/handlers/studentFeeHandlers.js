@@ -1116,13 +1116,75 @@ async function getStudentFeeStatus(studentId, academicYear = null) {
 }
 
 /**
+ * Sums charges into due / paid / credit / balance, rounded to cents.
+ * @param {Array<object>} charges student_fee_charges rows
+ * @returns {{totalDue: number, totalPaid: number, totalCredit: number, balance: number}}
+ */
+function summarizeCharges(charges) {
+  let totalDue = 0;
+  let totalPaid = 0;
+  let totalCredit = 0;
+  for (const charge of charges) {
+    if (charge.fee_type === 'CREDIT') {
+      totalCredit += charge.amount_paid;
+    } else {
+      totalDue += charge.amount;
+      totalPaid += charge.amount_paid;
+    }
+  }
+  const round = (n) => Math.round(n * 100) / 100;
+  return {
+    totalDue: round(totalDue),
+    totalPaid: round(totalPaid),
+    totalCredit: round(totalCredit),
+    balance: round(totalDue - totalPaid - totalCredit),
+  };
+}
+
+/**
+ * Lists a student's arrears from academic years before the given one, one entry per year
+ * that still has a balance. These are kept apart from the current year's totals.
+ * @param {number} studentId The ID of the student.
+ * @param {string} academicYear The current academic year ("YYYY-YYYY").
+ * @returns {Promise<Array<object>>} [{ academicYear, charges, totalDue, totalPaid, totalCredit, balance }]
+ */
+async function getStudentPreviousYearsArrears(studentId, academicYear) {
+  const normalizedYear = normalizeAcademicYear(academicYear);
+  if (!normalizedYear) return [];
+  const charges = await db.allQuery(
+    `SELECT * FROM student_fee_charges WHERE student_id = ? AND academic_year < ?
+     ORDER BY academic_year DESC, due_date ASC, created_at ASC`,
+    [studentId, normalizedYear],
+  );
+  const byYear = new Map();
+  for (const charge of charges) {
+    if (!byYear.has(charge.academic_year)) byYear.set(charge.academic_year, []);
+    byYear.get(charge.academic_year).push(charge);
+  }
+  return [...byYear.entries()]
+    .map(([year, yearCharges]) => ({
+      academicYear: year,
+      charges: yearCharges,
+      ...summarizeCharges(yearCharges),
+    }))
+    .filter((year) => year.balance > 0);
+}
+
+/**
  * Gets a student's balance summary with proper positive/credit handling
  * @param {number} studentId The ID of the student.
+ * @param {string} [academicYear] When provided, the totals cover that academic year only and
+ *   earlier years' unpaid balances are returned separately in `previousYears`.
  * @returns {Promise<object>} Balance summary object
  */
-async function getStudentBalanceSummary(studentId) {
+async function getStudentBalanceSummary(studentId, academicYear = null) {
   try {
-    const feeStatus = await getStudentFeeStatus(studentId);
+    const feeStatus = await getStudentFeeStatus(studentId, academicYear);
+    const previousYears = academicYear
+      ? await getStudentPreviousYearsArrears(studentId, academicYear)
+      : [];
+    const previousYearsBalance =
+      Math.round(previousYears.reduce((sum, year) => sum + year.balance, 0) * 100) / 100;
 
     // Base balance calculation remains the same for compatibility
     // But we provide better display properties
@@ -1133,6 +1195,8 @@ async function getStudentBalanceSummary(studentId) {
     if (balance >= 0) {
       return {
         ...feeStatus,
+        previousYears,
+        previousYearsBalance,
         displayType: 'owed',
         displayAmount: balance,
         displayLabel: 'المبلغ المستحق', // Amount Owed
@@ -1141,6 +1205,8 @@ async function getStudentBalanceSummary(studentId) {
     } else {
       return {
         ...feeStatus,
+        previousYears,
+        previousYearsBalance,
         displayType: 'credit',
         displayAmount: Math.abs(balance), // Make positive
         displayLabel: 'رصيد متاح', // Available Credit
@@ -1269,6 +1335,8 @@ async function recordStudentPayment(event, paymentDetails) {
 
       // 3. Apply payment to outstanding charges (FIFO), satisfying each charge
       //    from existing credit first, then from the new cash payment.
+      //    Only charges of the payment's academic year are settled: arrears from earlier
+      //    years are kept apart and paid with a payment recorded for that year.
       console.log(
         `[PAYMENT_CHARGES] Applying payment of ${remainingAmountToApply} to outstanding charges...`,
       );
@@ -1276,9 +1344,10 @@ async function recordStudentPayment(event, paymentDetails) {
         `
       SELECT * FROM student_fee_charges
       WHERE student_id = ? AND status IN ('UNPAID', 'PARTIALLY_PAID') AND fee_type != 'CREDIT'
+        AND academic_year = ?
       ORDER BY due_date ASC, created_at ASC
     `,
-        [student_id],
+        [student_id, normalizedAcademicYear],
       );
 
       // class_id-aware allocation: when a class is specified, satisfy that
@@ -1405,7 +1474,7 @@ async function recordStudentPayment(event, paymentDetails) {
             `رصيد زائد من دفعة سابقة (${remainingAmountToApply.toFixed(2)} د.ت)`,
             0, // amount (credit has no charge amount)
             remainingAmountToApply, // amount_paid (the credit amount)
-            academic_year || new Date().getFullYear().toString(),
+            normalizedAcademicYear,
             studentPaymentId,
           ],
         );
@@ -1719,14 +1788,16 @@ function registerStudentFeeHandlers() {
 
   ipcMain.handle(
     'student-fees:getBalanceSummary',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, studentId) => {
-      try {
-        return await getStudentBalanceSummary(studentId);
-      } catch (error) {
-        logError('Error getting student balance summary:', error);
-        throw new Error('Failed to get student balance summary.');
-      }
-    }),
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      async (event, studentId, academicYear) => {
+        try {
+          return await getStudentBalanceSummary(studentId, academicYear);
+        } catch (error) {
+          logError('Error getting student balance summary:', error);
+          throw new Error('Failed to get student balance summary.');
+        }
+      },
+    ),
   );
 
   ipcMain.handle(
@@ -1780,6 +1851,29 @@ function registerStudentFeeHandlers() {
             ['active'],
           );
 
+          // Unpaid balances of earlier academic years, kept apart from this year's totals.
+          const normalizedYear = normalizeAcademicYear(academicYear);
+          const previousBalances = new Map();
+          if (normalizedYear) {
+            const rows = await db.allQuery(
+              `SELECT student_id, academic_year,
+                      SUM(CASE WHEN fee_type = 'CREDIT' THEN -amount_paid ELSE amount - amount_paid END) AS balance
+               FROM student_fee_charges
+               WHERE academic_year < ?
+               GROUP BY student_id, academic_year`,
+              [normalizedYear],
+            );
+            for (const row of rows) {
+              const balance = Math.round((row.balance || 0) * 100) / 100;
+              if (balance > 0) {
+                previousBalances.set(
+                  row.student_id,
+                  Math.round(((previousBalances.get(row.student_id) || 0) + balance) * 100) / 100,
+                );
+              }
+            }
+          }
+
           // Get fee status for each student, filtering out exempt/sponsored students
           const studentsWithFees = await Promise.all(
             students.map(async (student) => {
@@ -1803,6 +1897,7 @@ function registerStudentFeeHandlers() {
                 totalDue: feeStatus.totalDue,
                 totalPaid: feeStatus.totalPaid,
                 balance: feeStatus.balance,
+                previousYearsBalance: previousBalances.get(student.id) || 0,
               };
             }),
           );
@@ -2155,6 +2250,8 @@ module.exports = {
   resetStudentFeeCharges,
   refreshStudentsNeedingChargeRefresh,
   getStudentFeeStatus,
+  getStudentBalanceSummary,
+  getStudentPreviousYearsArrears,
   recordStudentPayment,
   deleteStudentPayment,
   refundStudentPayment,

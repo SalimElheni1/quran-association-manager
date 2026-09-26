@@ -295,8 +295,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Student Fees API
   studentFeesGetStatus: (studentId, academicYear) =>
     ipcRenderer.invoke('student-fees:getStatus', studentId, academicYear),
-  studentFeesGetBalanceSummary: (studentId) =>
-    ipcRenderer.invoke('student-fees:getBalanceSummary', studentId),
+  studentFeesGetBalanceSummary: (studentId, academicYear) =>
+    ipcRenderer.invoke('student-fees:getBalanceSummary', studentId, academicYear),
   studentFeesGetAll: (academicYear) => ipcRenderer.invoke('student-fees:getAll', academicYear),
   studentFeesRecordPayment: (paymentDetails) =>
     ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),

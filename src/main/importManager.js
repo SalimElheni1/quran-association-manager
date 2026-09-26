@@ -1792,7 +1792,8 @@ async function processStudentFeesRow(row, headerRow) {
       amount: parseFloat(data.amount),
       payment_method: mappedPaymentMethod,
       payment_type: mappedPaymentType,
-      academic_year: data.academic_year || new Date().getFullYear().toString(),
+      // Without a year, the payment goes to the current (configured) academic year.
+      academic_year: data.academic_year || null,
       receipt_number: data.receipt_number,
       check_number: data.check_number,
       notes: data.notes,

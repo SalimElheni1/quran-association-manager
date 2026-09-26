@@ -36,6 +36,9 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
   payment or refreshing charges no longer bills future months. Next month is still billed from
   the configured generation day (default 25). On upgrade, untouched monthly charges two or more
   months ahead are removed; they are recreated when their month arrives.
+- **Earlier years' unpaid fees are kept apart.** A fee payment now settles charges of its own
+  academic year only; it no longer pays off last year's arrears first. Arrears are flagged on
+  the student's row, listed by year in the fee details, and paid from there.
 - **Set the association transfer key before relying on backups.** Backups made without it can
   only be restored on the same computer; the backup tab now warns while it is empty.
 
@@ -45,6 +48,9 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
 - Payment system field and column in the age groups settings.
 - Warning in the backup tab while no association transfer key is set.
 - Voucher numbers can be corrected when editing a transaction.
+- Previous years' arrears in student fees: a "متخلدات سابقة" flag and filter in the fees list,
+  a per-year section in the fee details with a button to pay each year.
+- Financial dashboard: "current academic year" period (September to August).
 - End-to-end test suite (Playwright + Electron, 87 tests) and real-world scenario tests
   (`npm run test:e2e`, `npm run test:e2e:realworld`): 123 students with finances, fees, a
   backup and a restore on a fresh install; and a branch's finances run month by month from
@@ -68,6 +74,9 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
   period's last day.
 - Financial dashboard: month totals missed the last day of the month; the refresh and export
   buttons never appeared; totals did not update after fee payments or in-kind donations.
+- The financial dashboard kept showing the month it was first opened in; it now opens on the
+  current month, follows the date while the app stays open, and shows the selected period.
+- Imported fee payments without an academic year went to the previous academic year.
 - Enrollment warned about gender for every student in male-only or female-only classes.
 - Class statuses "pending" and "completed" were shown in English.
 

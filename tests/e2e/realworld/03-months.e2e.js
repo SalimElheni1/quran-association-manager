@@ -231,6 +231,23 @@ async function expectBalance(page, name, { due, paid, credit = 0 }) {
   );
 }
 
+async function expectDashboardPeriod(page, preset, from, to) {
+  const pane = activePane(page);
+  await expect(pane.getByLabel('الفترة')).toHaveValue(preset);
+  const dates = pane.locator('input[type="date"]');
+  await expect(dates.nth(0)).toHaveValue(from);
+  await expect(dates.nth(1)).toHaveValue(to);
+}
+
+async function openDashboard(page) {
+  await navigate(page, 'الشؤون المالية');
+  await openTab(page, 'لوحة التحكم');
+  // Tab panes fade; wait until the active pane is the dashboard.
+  await expect(
+    activePane(page).getByRole('heading', { name: 'لوحة التحكم المالية' }),
+  ).toBeVisible();
+}
+
 async function addTransaction(page, kind, { date, voucher, amount, category }) {
   await openTab(page, kind === 'income' ? 'المداخيل' : 'المصاريف');
   await activePane(page)
@@ -380,8 +397,7 @@ test('months: a branch runs its finances from September to January', async ({}, 
         }
         monthly[index] = { month: month.month, feeIncome, income: feeIncome + DONATION, expenses };
 
-        // This month's financial dashboard, with the period set to the month (as a treasurer
-        // would; the default period is the month the dashboard was first opened in).
+        // This month's financial dashboard: it opens on the current month by itself.
         await openTab(page, 'لوحة التحكم');
         // Tab panes fade; wait until the active pane is the dashboard (the income and expense
         // tabs have the same date filters).
@@ -390,9 +406,12 @@ test('months: a branch runs its finances from September to January', async ({}, 
         ).toBeVisible();
         const [year, mm] = month.period.split('-').map(Number);
         const lastDay = new Date(year, mm, 0).getDate();
-        const dates = activePane(page).locator('input[type="date"]');
-        await dates.nth(0).fill(`${month.period}-01`);
-        await dates.nth(1).fill(`${month.period}-${String(lastDay).padStart(2, '0')}`);
+        await expectDashboardPeriod(
+          page,
+          'month',
+          `${month.period}-01`,
+          `${month.period}-${String(lastDay).padStart(2, '0')}`,
+        );
         const { income } = monthly[index];
         await expect(summaryValue(page, 'إجمالي المداخيل')).toContainText(
           await formatNumber(page, income),
@@ -509,7 +528,7 @@ test('months: a branch runs its finances from September to January', async ({}, 
 
 // This test manages its own launches too.
 // eslint-disable-next-line no-empty-pattern
-test('months: the academic year rolls over in September and keeps last year’s arrears', async ({}) => {
+test('months: the academic year rolls over in September and keeps last year’s arrears apart', async ({}) => {
   test.setTimeout(10 * 60_000);
   const august = '2027-08-20T08:30:00';
   const launched = await launchApp({ now: august });
@@ -540,6 +559,25 @@ test('months: the academic year rolls over in September and keeps last year’s 
       await expectBalance(page, name, { due: ANNUAL_FEE + MONTHLY_FEE, paid: ANNUAL_FEE });
     });
 
+    await test.step('the dashboard left open moves from August to September', async () => {
+      const { app, page } = state;
+      await openDashboard(page);
+      await expectDashboardPeriod(page, 'month', '2027-08-01', '2027-08-31');
+      // Midnight passes with the app open; the dashboard catches up when the window is used again.
+      await setAppDate(app, page, '2027-09-01T08:00:00');
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await expectDashboardPeriod(page, 'month', '2027-09-01', '2027-09-30');
+      // The current month can be switched to the current year.
+      const periodSelect = activePane(page).getByLabel('الفترة');
+      await periodSelect.selectOption('year');
+      await expectDashboardPeriod(page, 'year', '2027-01-01', '2027-12-31');
+      await periodSelect.selectOption('academicYear');
+      await expectDashboardPeriod(page, 'academicYear', '2027-09-01', '2028-08-31');
+      // Editing a date makes it a custom period, which no longer moves with the date.
+      await activePane(page).locator('input[type="date"]').nth(0).fill('2027-06-01');
+      await expect(periodSelect).toHaveValue('custom');
+    });
+
     await test.step('2 September 2027: opening the app starts 2027-2028', async () => {
       await openAppOn(state, '2027-09-02T08:30:00');
       const { page } = state;
@@ -547,17 +585,63 @@ test('months: the academic year rolls over in September and keeps last year’s 
       // The fees list shows the current academic year: the new annual fee and September.
       await expectBalance(page, name, { due: ANNUAL_FEE + MONTHLY_FEE, paid: 0 });
 
-      // The student's details cover every year, so last year's unpaid August is still owed.
+      // Last year's unpaid August is kept apart: flagged on the row, not counted in this year.
+      await expect(feeRow(page, name).locator('td').first()).toContainText(
+        `متخلدات سابقة: ${MONTHLY_FEE.toFixed(2)} د.ت`,
+      );
+      await activePane(page).locator('select.filter-select').selectOption('ARREARS');
+      await expect(activePane(page).locator('tbody tr')).toHaveCount(1);
+      await activePane(page).locator('select.filter-select').selectOption('ALL');
+
+      // The details show this year's charges and, separately, last year's arrears.
       await feeRow(page, name).locator('button[title="عرض التفاصيل"]').click();
       const details = modal(page);
       await expect(details.locator('.modal-title')).toHaveText('تفاصيل الرسوم');
+      await expect(details).toContainText(
+        `المبلغ المستحق (2027-2028): ${(ANNUAL_FEE + MONTHLY_FEE).toFixed(2)} د.ت`,
+      );
       await expect(details).toContainText('رسوم سنوية - 2027-2028');
       await expect(details).toContainText('رسوم شهرية سبتمبر - 2027-2028');
+      const arrears = details.locator('[data-section="previous-years-arrears"]');
+      await expect(arrears).toContainText(`متخلدات السنوات السابقة: ${MONTHLY_FEE.toFixed(2)} د.ت`);
       await expect(
-        details.locator('tr', { hasText: 'رسوم شهرية أغسطس - 2026-2027' }),
+        arrears.locator('tr', { hasText: 'رسوم شهرية أغسطس - 2026-2027' }),
       ).toContainText(`${MONTHLY_FEE.toFixed(2)}`);
-      const owed = MONTHLY_FEE + ANNUAL_FEE + MONTHLY_FEE; // August + the new year so far
-      await expect(details).toContainText(`${owed.toFixed(2)} د.ت`);
+      await expect(arrears).not.toContainText('2027-2028');
+      await details.getByRole('button', { name: 'إغلاق', exact: true }).click();
+      await expectNoModal(page);
+    });
+
+    await test.step('a payment this year settles this year, not last year', async () => {
+      const { page } = state;
+      await payFee(page, name, ANNUAL_FEE, 'R-2027-2');
+      await expectBalance(page, name, { due: ANNUAL_FEE + MONTHLY_FEE, paid: ANNUAL_FEE });
+      await expect(feeRow(page, name).locator('td').first()).toContainText(
+        `متخلدات سابقة: ${MONTHLY_FEE.toFixed(2)} د.ت`,
+      );
+    });
+
+    await test.step("last year's arrears are paid from the details", async () => {
+      const { page } = state;
+      await feeRow(page, name).locator('button[title="عرض التفاصيل"]').click();
+      await modal(page).getByRole('button', { name: 'تسديد متخلدات 2026-2027' }).click();
+      const pay = modal(page);
+      await expect(pay.locator('.modal-title')).toHaveText('تسجيل دفعة جديدة');
+      await expect(pay).toContainText('السنة الدراسية: 2026-2027');
+      await expect(pay).toContainText(`المبلغ المستحق: ${MONTHLY_FEE.toFixed(2)} د.ت`);
+      await pay.locator('input[type="number"]').first().fill(String(MONTHLY_FEE));
+      await pay.getByPlaceholder('أدخل رقم الوصل').fill('R-2027-3');
+      await pay.getByRole('button', { name: 'تسجيل الدفعة' }).click();
+      await expectToast(page, 'success', 'تم تسجيل الدفعة بنجاح');
+      await expectNoModal(page);
+
+      // This year is unchanged and the arrears flag is gone.
+      await expectBalance(page, name, { due: ANNUAL_FEE + MONTHLY_FEE, paid: ANNUAL_FEE });
+      await expect(feeRow(page, name).locator('td').first()).not.toContainText('متخلدات سابقة');
+      await feeRow(page, name).locator('button[title="عرض التفاصيل"]').click();
+      await expect(modal(page).locator('[data-section="previous-years-arrears"]')).toHaveCount(0);
+      await modal(page).getByRole('button', { name: 'إغلاق', exact: true }).click();
+      await expectNoModal(page);
     });
   } finally {
     await state.app.close().catch(() => {});

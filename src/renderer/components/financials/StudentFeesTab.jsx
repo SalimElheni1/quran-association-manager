@@ -97,6 +97,10 @@ const StudentFeesTab = () => {
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [paymentAction, setPaymentAction] = useState(null);
   const [printReceipt, setPrintReceipt] = useState(null);
+  // The academic year a payment is recorded for (the current one, or an earlier year's arrears)
+  // and the amount still owed for it.
+  const [paymentYear, setPaymentYear] = useState(getAcademicYearString());
+  const [paymentBalance, setPaymentBalance] = useState(0);
 
   const loadAccounts = async () => {
     try {
@@ -221,6 +225,9 @@ const StudentFeesTab = () => {
         case 'EXEMPT':
           matchesStatus = status === 'EXEMPT';
           break;
+        case 'ARREARS':
+          matchesStatus = student.previousYearsBalance > 0;
+          break;
         case 'ALL':
         default:
           matchesStatus = true;
@@ -261,6 +268,23 @@ const StudentFeesTab = () => {
     setCurrentPage(1);
   };
 
+  const openPaymentModal = async (student, year = academicYear, balance = student.balance) => {
+    setSelectedStudent(student);
+    setPaymentYear(year);
+    setPaymentBalance(balance);
+    const history = await window.electronAPI.studentFeesGetPaymentHistory(student.id, year);
+    setPaymentHistory(history);
+    const specialClasses = await window.electronAPI.studentFeesGetClassesWithSpecialFees(
+      student.id,
+    );
+    const classesWithMatricules = specialClasses.map((cls) => ({
+      ...cls,
+      matricule: cls.matricule || `C-${cls.id.toString().padStart(4, '0')}`,
+    }));
+    setSpecialFeeClasses(classesWithMatricules);
+    setShowPaymentModal(true);
+  };
+
   const handleRecordPayment = async () => {
     if (!selectedStudent || !paymentAmount || !receiptNumber) {
       toast.error('يرجى ملء جميع الحقول الإلزامية.');
@@ -276,7 +300,7 @@ const StudentFeesTab = () => {
         payment_method: paymentMethod,
         payment_type: 'CUSTOM', // Payment type is now automatic
         notes: notes,
-        academic_year: academicYear,
+        academic_year: paymentYear,
         receipt_number: receiptNumber,
         ...(selectedAccountId && { account_id: parseInt(selectedAccountId, 10) }),
         ...(paymentMethod === 'CHECK' && checkNumber && { check_number: checkNumber }),
@@ -529,6 +553,7 @@ const StudentFeesTab = () => {
                     <option value="PARTIAL">جزئياً مدفوع</option>
                     <option value="UNPAID">غير مدفوع</option>
                     <option value="EXEMPT">معفى</option>
+                    <option value="ARREARS">عليهم متخلدات سابقة</option>
                   </Form.Select>
                 </div>
               </div>
@@ -546,7 +571,19 @@ const StudentFeesTab = () => {
                 <tbody>
                   {currentStudents.map((student) => (
                     <tr key={student.id}>
-                      <td>{student.name}</td>
+                      <td>
+                        {student.name}
+                        {student.previousYearsBalance > 0 && (
+                          <Badge
+                            bg="light"
+                            text="danger"
+                            className="ms-2 border border-danger"
+                            title="مبالغ غير مسددة من سنوات دراسية سابقة، غير محتسبة في هذه السنة"
+                          >
+                            متخلدات سابقة: {student.previousYearsBalance.toFixed(2)} د.ت
+                          </Badge>
+                        )}
+                      </td>
                       <td>{student.totalDue?.toFixed(2) || 0} د.ت</td>
                       <td>{student.totalPaid?.toFixed(2) || 0} د.ت</td>
                       <td>
@@ -568,7 +605,10 @@ const StudentFeesTab = () => {
                           className="me-2"
                           onClick={async () => {
                             const balanceSummary =
-                              await window.electronAPI.studentFeesGetBalanceSummary(student.id);
+                              await window.electronAPI.studentFeesGetBalanceSummary(
+                                student.id,
+                                academicYear,
+                              );
                             setSelectedStudent({ ...student, balanceSummary });
                             setShowChargesModal(true);
                           }}
@@ -580,24 +620,7 @@ const StudentFeesTab = () => {
                           size="sm"
                           variant="success"
                           disabled={isPaymentDisabled(student)}
-                          onClick={async () => {
-                            setSelectedStudent(student);
-                            const history = await window.electronAPI.studentFeesGetPaymentHistory(
-                              student.id,
-                              academicYear,
-                            );
-                            setPaymentHistory(history);
-                            const specialClasses =
-                              await window.electronAPI.studentFeesGetClassesWithSpecialFees(
-                                student.id,
-                              );
-                            const classesWithMatricules = specialClasses.map((cls) => ({
-                              ...cls,
-                              matricule: cls.matricule || `C-${cls.id.toString().padStart(4, '0')}`,
-                            }));
-                            setSpecialFeeClasses(classesWithMatricules);
-                            setShowPaymentModal(true);
-                          }}
+                          onClick={() => openPaymentModal(student)}
                         >
                           تسجيل دفعة
                         </Button>
@@ -636,18 +659,24 @@ const StudentFeesTab = () => {
                 </Col>
                 <Col md={6}>
                   <p className="mb-1">
-                    <strong>
-                      {selectedStudent.balance >= 0 ? 'المبلغ المستحق:' : 'رصيد متاح:'}
-                    </strong>{' '}
+                    <strong>{paymentBalance >= 0 ? 'المبلغ المستحق:' : 'رصيد متاح:'}</strong>{' '}
                     <span
                       className={
-                        selectedStudent.balance >= 0
-                          ? 'text-danger fw-bold'
-                          : 'text-success fw-bold'
+                        paymentBalance >= 0 ? 'text-danger fw-bold' : 'text-success fw-bold'
                       }
                     >
-                      {Math.abs(selectedStudent.balance)?.toFixed(2) || 0} د.ت
+                      {Math.abs(paymentBalance || 0).toFixed(2)} د.ت
                     </span>
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <p className="mb-1">
+                    <strong>السنة الدراسية:</strong> {paymentYear}
+                    {paymentYear !== academicYear && (
+                      <Badge bg="warning" text="dark" className="ms-2">
+                        تسديد متخلدات
+                      </Badge>
+                    )}
                   </p>
                 </Col>
               </Row>
@@ -890,7 +919,9 @@ const StudentFeesTab = () => {
                   </Col>
                   <Col md={4}>
                     <p className="mb-1">
-                      <strong>{selectedStudent.balanceSummary.displayLabel}:</strong>{' '}
+                      <strong>
+                        {selectedStudent.balanceSummary.displayLabel} ({academicYear}):
+                      </strong>{' '}
                       <span className={selectedStudent.balanceSummary.displayClass}>
                         {selectedStudent.balanceSummary.displayAmount?.toFixed(2) || 0} د.ت
                       </span>
@@ -1014,6 +1045,67 @@ const StudentFeesTab = () => {
                 </div>
               ) : (
                 <Alert variant="info">لا توجد رسوم لهذا الطالب.</Alert>
+              )}
+
+              {/* Earlier years' unpaid balances: shown apart, never counted in this year */}
+              {selectedStudent.balanceSummary.previousYears?.length > 0 && (
+                <div className="mt-4" data-section="previous-years-arrears">
+                  <h6 className="text-danger mb-1">
+                    متخلدات السنوات السابقة:{' '}
+                    {selectedStudent.balanceSummary.previousYearsBalance?.toFixed(2)} د.ت
+                  </h6>
+                  <small className="text-muted d-block mb-3">
+                    مبالغ غير مسددة من سنوات دراسية سابقة، لا تُحتسب ضمن رسوم السنة الحالية.
+                  </small>
+                  {selectedStudent.balanceSummary.previousYears.map((year) => (
+                    <Card key={year.academicYear} className="mb-3 border-danger">
+                      <Card.Header className="d-flex justify-content-between align-items-center">
+                        <span>
+                          <strong>السنة الدراسية {year.academicYear}</strong> — المتبقي:{' '}
+                          <span className="text-danger fw-bold">{year.balance.toFixed(2)} د.ت</span>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline-danger"
+                          disabled={isPaymentDisabled(selectedStudent)}
+                          onClick={() => {
+                            setShowChargesModal(false);
+                            openPaymentModal(selectedStudent, year.academicYear, year.balance);
+                          }}
+                        >
+                          تسديد متخلدات {year.academicYear}
+                        </Button>
+                      </Card.Header>
+                      <Table size="sm" className="mb-0">
+                        <thead>
+                          <tr>
+                            <th>الوصف</th>
+                            <th>المبلغ</th>
+                            <th>المدفوع</th>
+                            <th>المتبقي</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {year.charges
+                            .filter(
+                              (charge) =>
+                                charge.fee_type !== 'CREDIT' && charge.amount > charge.amount_paid,
+                            )
+                            .map((charge) => (
+                              <tr key={charge.id}>
+                                <td>{charge.description}</td>
+                                <td>{charge.amount?.toFixed(2)} د.ت</td>
+                                <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
+                                <td className="text-danger fw-bold">
+                                  {(charge.amount - charge.amount_paid).toFixed(2)} د.ت
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </Table>
+                    </Card>
+                  ))}
+                </div>
               )}
             </>
           )}

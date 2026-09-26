@@ -21,6 +21,8 @@ const {
   refreshStudentCharges,
   refreshAllStudentCharges,
   getStudentFeeStatus,
+  getStudentBalanceSummary,
+  getStudentPreviousYearsArrears,
   recordStudentPayment,
   checkAndGenerateChargesForAllStudents,
   getCurrentAcademicYear,
@@ -866,6 +868,75 @@ describe('Student Fee Handlers', () => {
   // ============================================
   // IPC HANDLERS
   // ============================================
+
+  describe('previous academic years', () => {
+    const charges = [
+      // 2025-2026: 20 of 30 paid, with 5 of credit left -> 5 owed
+      { id: 1, academic_year: '2025-2026', fee_type: 'ANNUAL', amount: 30, amount_paid: 20 },
+      { id: 2, academic_year: '2025-2026', fee_type: 'CREDIT', amount: 0, amount_paid: 5 },
+      // 2024-2025: fully paid -> not arrears
+      { id: 3, academic_year: '2024-2025', fee_type: 'MONTHLY', amount: 20, amount_paid: 20 },
+    ];
+
+    it('lists only earlier years that still have a balance, with their totals', async () => {
+      db.allQuery.mockResolvedValue(charges);
+
+      const arrears = await getStudentPreviousYearsArrears(7, '2026-2027');
+
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('academic_year < ?'), [
+        7,
+        '2026-2027',
+      ]);
+      expect(arrears).toEqual([
+        expect.objectContaining({
+          academicYear: '2025-2026',
+          totalDue: 30,
+          totalPaid: 20,
+          totalCredit: 5,
+          balance: 5,
+        }),
+      ]);
+    });
+
+    it('keeps earlier years out of the balance summary of an academic year', async () => {
+      const current = [
+        { id: 9, academic_year: '2026-2027', fee_type: 'ANNUAL', amount: 30, amount_paid: 30 },
+      ];
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('academic_year < ?') ? charges : current),
+      );
+
+      const summary = await getStudentBalanceSummary(7, '2026-2027');
+
+      expect(summary).toMatchObject({
+        totalDue: 30,
+        totalPaid: 30,
+        balance: 0,
+        previousYearsBalance: 5,
+        displayType: 'owed',
+        displayAmount: 0,
+      });
+      expect(summary.previousYears).toHaveLength(1);
+    });
+
+    it('only settles charges of the payment academic year', async () => {
+      db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
+      db.getQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('FROM students') ? { id: 1, name: 'Student 1' } : null),
+      );
+      db.allQuery.mockResolvedValue([]);
+
+      await recordStudentPayment(
+        { sender: { userId: 1 } },
+        { student_id: 1, amount: 20, payment_method: 'CASH', academic_year: '2025-2026' },
+      );
+
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringMatching(/fee_type != 'CREDIT'\s+AND academic_year = \?/),
+        [1, '2025-2026'],
+      );
+    });
+  });
 
   describe('registerStudentFeeHandlers', () => {
     it('should register all IPC handlers', () => {
