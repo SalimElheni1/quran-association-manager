@@ -306,41 +306,10 @@ const SettingsPage = () => {
                         </ul>
                       </Alert>
 
-                      <h6 className="mb-3">نظام الدفع حسب نوع الفصل</h6>
-                      <Row>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>نظام الدفع للرجال</Form.Label>
-                            <Form.Select name="men_payment_frequency" value={settings.men_payment_frequency || 'MONTHLY'} onChange={handleChange}>
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">يطبق على الطلاب المسجلين في فصول الرجال</Form.Text>
-                          </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>نظام الدفع للنساء</Form.Label>
-                            <Form.Select name="women_payment_frequency" value={settings.women_payment_frequency || 'MONTHLY'} onChange={handleChange}>
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">يطبق على الطلاب المسجلين في فصول النساء</Form.Text>
-                          </Form.Group>
-                        </Col>
-                      </Row>
-                      <Row>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>نظام الدفع للأطفال</Form.Label>
-                            <Form.Select name="kids_payment_frequency" value={settings.kids_payment_frequency || 'MONTHLY'} onChange={handleChange}>
-                              <option value="MONTHLY">شهري (يدفع كل شهر)</option>
-                              <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
-                            </Form.Select>
-                            <Form.Text className="text-muted">يطبق على الطلاب المسجلين في فصول الأطفال</Form.Text>
-                          </Form.Group>
-                        </Col>
-                      </Row>
+                      <h6 className="mb-3">نظام الدفع</h6>
+                      <p className="small text-muted mb-4">
+                        يُحدَّد نظام الدفع (شهري أو سنوي) لكل فئة عمرية في تبويب «فئات عمرية»، وتتبعه فصول تلك الفئة.
+                      </p>
 
                       <h6 className="mb-3">إعدادات السنة الدراسية والتوليد التلقائي</h6>
                       <Row>

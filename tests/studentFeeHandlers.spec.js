@@ -162,12 +162,11 @@ describe('Student Fee Handlers', () => {
       const month = 10;
       db.allQuery
         .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
-        .mockResolvedValueOnce([{ fee_type: 'standard', gender: 'men', monthly_fee: 50 }]); // Enrolled classes
+        .mockResolvedValueOnce([
+          { fee_type: 'standard', monthly_fee: 50, payment_frequency: 'MONTHLY' },
+        ]); // Enrolled classes (payment system from the class's age group)
       db.getQuery
         .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
-        .mockResolvedValueOnce({ value: 'MONTHLY' }) // men_payment_frequency
-        .mockResolvedValueOnce({ value: 'MONTHLY' }) // women_payment_frequency
-        .mockResolvedValueOnce({ value: 'MONTHLY' }) // kids_payment_frequency
         .mockResolvedValueOnce({ id: 1, amount_paid: 0 }); // Existing unpaid charge
       db.runQuery.mockResolvedValue({ changes: 1 });
 
@@ -188,12 +187,12 @@ describe('Student Fee Handlers', () => {
       db.allQuery.mockReset();
       db.allQuery
         .mockResolvedValueOnce([{ id: 1, gender: 'men', discount_percentage: 0 }]) // Students
-        .mockResolvedValueOnce([{ fee_type: 'standard', gender: 'men', monthly_fee: 50 }]); // Enrolled classes
+        .mockResolvedValueOnce([
+          { fee_type: 'standard', monthly_fee: 50, payment_frequency: 'ANNUAL' },
+        ]); // Enrolled in a class whose age group pays annually
       db.getQuery
         .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee
-        .mockResolvedValueOnce({ value: 'ANNUAL' }) // men_payment_frequency
-        .mockResolvedValueOnce({ value: 'ANNUAL' }) // women_payment_frequency
-        .mockResolvedValueOnce({ value: 'ANNUAL' }); // kids_payment_frequency
+        .mockResolvedValueOnce(null); // No existing charge for the month
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       await generateMonthlyFeeCharges(academicYear, month, false, false);
@@ -228,10 +227,9 @@ describe('Student Fee Handlers', () => {
       expect(result).toHaveProperty('standard');
       expect(result).toHaveProperty('custom');
       expect(result).toHaveProperty('total');
+      // Classes are read with their age group's payment system.
       expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'SELECT c.id, c.name, c.fee_type, c.monthly_fee, c.gender FROM classes c',
-        ),
+        expect.stringContaining('LEFT JOIN age_groups ag ON ag.id = c.age_group_id'),
         [studentId],
       );
     });
@@ -379,13 +377,21 @@ describe('Student Fee Handlers', () => {
         { id: 1, name: 'Student 1', matricule: 'S-001', fee_category: 'CAN_PAY' },
         { id: 2, name: 'Student 2', matricule: 'S-002', fee_category: 'SPONSORED' },
       ]);
-      db.getQuery.mockResolvedValue({ value: '9' });
+      db.allQuery.mockResolvedValue([]); // no monthly work in this test
+      // Settings return 120; neither student has an annual charge yet.
+      db.getQuery.mockImplementation(async (sql) =>
+        sql.includes('FROM settings') ? { value: '120' } : null,
+      );
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result = await refreshAllStudentCharges(academicYear, userId);
 
       expect(result.success).toBe(true);
-      expect(result.chargesGenerated).toBeGreaterThan(0);
+      expect(result.chargesGenerated).toBe(2);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining("VALUES (?, ?, 'ANNUAL'"),
+        expect.arrayContaining([1, 120]),
+      );
     });
   });
 

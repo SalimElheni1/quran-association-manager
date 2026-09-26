@@ -52,34 +52,23 @@ const generatePendingAnnualCharges = async (academicYear) => {
 };
 
 /**
- * Attempts to generate monthly charges for a specific month.
- * Only generates if charges don't already exist for that month.
+ * Generates a month's charges for every eligible student who doesn't have one yet.
+ * Students already billed for the month are skipped per student, so a student billed
+ * on enrollment never stops the rest of the branch from being billed.
  * @param {string} academicYear - The academic year
  * @param {number} month - The month (1-12)
- * @param {boolean} force - Force generation even if charges exist
- * @returns {Promise<boolean>} - True if charges were generated, false if not needed
+ * @returns {Promise<boolean>} - True if any charges were created
  */
-const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false) => {
+const generateMonthlyChargesIfNeeded = async (academicYear, month) => {
   try {
-    if (!force) {
-      // Check if monthly charges already exist for this billing period
-      const billingMonth = `${academicYear}-${month.toString().padStart(2, '0')}`;
-      const existingCharges = await db.getQuery(
-        'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND billing_month = ?',
-        ['MONTHLY', billingMonth],
-      );
-
-      if (existingCharges.count > 0) {
-        return false; // Already have charges for this month
-      }
-    }
-
     log(`Generating monthly charges for ${academicYear}, month ${month}...`);
 
     const result = await generateMonthlyFeeCharges(academicYear, month);
     if (result && result.success) {
-      log(`Successfully generated monthly charges for ${academicYear}, month ${month}`);
-      return true;
+      log(
+        `Monthly charges for ${academicYear}, month ${month}: ${result.createdCount || 0} created`,
+      );
+      return (result.createdCount || 0) > 0;
     } else {
       logWarn(
         `Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`,

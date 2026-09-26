@@ -444,30 +444,11 @@ function registerStudentHandlers() {
           validatedData.status === 'active' &&
           (validatedData.fee_category === 'CAN_PAY' || validatedData.fee_category === 'SPONSORED')
         ) {
-          const {
-            generateAnnualFeeCharges,
-            generateMonthlyFeeCharges,
-          } = require('./studentFeeHandlers');
-          const currentDate = new Date();
-          const currentYear = currentDate.getFullYear();
-          const currentMonth = currentDate.getMonth() + 1;
-          const academicYear =
-            currentMonth >= 9
-              ? `${currentYear}-${currentYear + 1}`
-              : `${currentYear - 1}-${currentYear}`;
-
-          // Generate charges synchronously to ensure they're created
+          // This student's annual charge and current month only; later months are
+          // billed when they start (see feeChargeScheduler).
           try {
-            await generateAnnualFeeCharges(academicYear, true);
-            await generateMonthlyFeeCharges(academicYear, currentMonth, true);
-            const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-            const nextAcademicYear =
-              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
-            await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
-            const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear =
-              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
-            await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
+            const { refreshStudentCharges } = require('./studentFeeHandlers');
+            await refreshStudentCharges(studentId);
           } catch (err) {
             logError('Failed to auto-generate charges for new student:', err);
           }
@@ -605,29 +586,9 @@ function registerStudentHandlers() {
           validatedData.status === 'active'
         ) {
           try {
-            const {
-              generateAnnualFeeCharges,
-              generateMonthlyFeeCharges,
-            } = require('./studentFeeHandlers');
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
-            const currentMonth = currentDate.getMonth() + 1;
-            const academicYear =
-              currentMonth >= 9
-                ? `${currentYear}-${currentYear + 1}`
-                : `${currentYear - 1}-${currentYear}`;
-
-            // Generate charges for the student who changed from EXEMPT to CAN_PAY
-            await generateAnnualFeeCharges(academicYear, true);
-            await generateMonthlyFeeCharges(academicYear, currentMonth, true);
-            const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-            const nextAcademicYear =
-              currentMonth === 12 ? `${currentYear + 1}-${currentYear + 2}` : academicYear;
-            await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, true);
-            const monthAfter = nextMonth === 12 ? 1 : nextMonth + 1;
-            const monthAfterAcademicYear =
-              nextMonth === 12 ? `${currentYear + 2}-${currentYear + 3}` : nextAcademicYear;
-            await generateMonthlyFeeCharges(monthAfterAcademicYear, monthAfter, true);
+            // Annual charge and current month for this student only.
+            const { refreshStudentCharges } = require('./studentFeeHandlers');
+            await refreshStudentCharges(id);
           } catch (err) {
             logError(
               `Failed to auto-generate charges for student ${id} after fee_category change:`,

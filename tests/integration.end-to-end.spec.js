@@ -95,10 +95,8 @@ describe('Integration Tests - End-to-End Workflows', () => {
       expect(chargeRefreshResult.success).toBe(true);
       expect(chargeRefreshResult.chargesGenerated).toBeGreaterThan(0);
 
-      // Mock monthly charge calculation
-      db.getQuery.mockResolvedValueOnce({ value: '50' }); // Standard fee
-      db.getQuery.mockResolvedValueOnce({ discount_percentage: 0 }); // Student discount
-      db.allQuery.mockResolvedValue([]); // Classes
+      // Fee status reads the student's charges (none mocked here)
+      db.allQuery.mockResolvedValue([]);
 
       const chargeCalculation = await ipcMain.invoke('student-fees:getStatus', mockStudent.id);
       expect(chargeCalculation).toBeDefined();
@@ -367,6 +365,10 @@ describe('Integration Tests - End-to-End Workflows', () => {
 
   describe('Financial Transaction Integrity', () => {
     it('should validate payment processing workflow structure', async () => {
+      // db is auto-mocked (db.resetMocks is a no-op), so values queued by earlier tests
+      // would otherwise answer this test's receipt checks. Start from clean query mocks.
+      db.getQuery.mockReset();
+      db.allQuery.mockReset();
       db.runQuery.mockReset();
       db.runQuery.mockResolvedValue({ id: 1, changes: 1 });
       const paymentData = {

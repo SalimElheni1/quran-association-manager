@@ -420,13 +420,23 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       db.getQuery
         .mockResolvedValueOnce({ value: '50' }) // standard_monthly_fee setting
-        .mockResolvedValueOnce({ discount_percentage: 0 }) // Student discount
-        .mockResolvedValueOnce({ value: 'ANNUAL' }) // men_payment_frequency
-        .mockResolvedValueOnce({ value: 'ANNUAL' }) // women_payment_frequency
-        .mockResolvedValueOnce({ value: 'ANNUAL' }); // kids_payment_frequency
+        .mockResolvedValueOnce({ discount_percentage: 0 }); // Student discount
+      // The standard class's age group pays annually.
       db.allQuery.mockResolvedValueOnce([
-        { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50, gender: 'men' },
-        { id: 2, name: 'Special Class', fee_type: 'special', monthly_fee: 30, gender: 'men' },
+        {
+          id: 1,
+          name: 'Standard Class',
+          fee_type: 'standard',
+          monthly_fee: 50,
+          payment_frequency: 'ANNUAL',
+        },
+        {
+          id: 2,
+          name: 'Special Class',
+          fee_type: 'special',
+          monthly_fee: 30,
+          payment_frequency: 'MONTHLY',
+        },
       ]);
 
       const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);

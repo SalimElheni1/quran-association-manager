@@ -108,43 +108,36 @@ function normalizeAcademicYear(value) {
   return s;
 }
 
+// Each class takes its payment system (MONTHLY/ANNUAL) from its age group.
+const ENROLLED_CLASSES_SQL = `
+  SELECT c.id, c.name, c.fee_type, c.monthly_fee,
+         COALESCE(ag.payment_frequency, 'MONTHLY') AS payment_frequency
+  FROM classes c
+  JOIN class_students cs ON c.id = cs.class_id
+  LEFT JOIN age_groups ag ON ag.id = c.age_group_id
+  WHERE cs.student_id = ? AND c.status = 'active'
+`;
+
 /**
- * Reads the per-gender payment frequency settings.
- * @returns {Promise<{men: string, women: string, kids: string}>} Frequencies, defaulting to MONTHLY.
+ * Resolves a student's payment frequency from their active classes' age groups.
+ * The most restrictive frequency wins: if any standard class is ANNUAL, the student pays ANNUAL.
+ * @param {Array<{fee_type: string, payment_frequency: string}>} enrolledClasses Active classes of the student.
+ * @returns {'MONTHLY'|'ANNUAL'} The resolved payment frequency.
  */
-async function getPaymentFrequencySettings() {
-  const [men, women, kids] = await Promise.all([
-    getSetting('men_payment_frequency'),
-    getSetting('women_payment_frequency'),
-    getSetting('kids_payment_frequency'),
-  ]);
-  return {
-    men: (men || 'MONTHLY').toUpperCase(),
-    women: (women || 'MONTHLY').toUpperCase(),
-    kids: (kids || 'MONTHLY').toUpperCase(),
-  };
+function resolvePaymentFrequencyFromClasses(enrolledClasses) {
+  return enrolledClasses.some((c) => c.fee_type === 'standard' && c.payment_frequency === 'ANNUAL')
+    ? 'ANNUAL'
+    : 'MONTHLY';
 }
 
 /**
- * Resolves the payment frequency for a student based on their enrolled standard classes.
- * The most restrictive frequency wins: if any standard class is ANNUAL, the student pays ANNUAL.
- * @param {Array<{fee_type: string, gender: string}>} enrolledClasses Active classes of the student.
- * @param {{men: string, women: string, kids: string}} frequencySettings Payment frequency settings.
- * @returns {'MONTHLY'|'ANNUAL'} The resolved payment frequency.
+ * Resolves the payment frequency for a specific student.
+ * @param {number} studentId Student ID.
+ * @returns {Promise<'MONTHLY'|'ANNUAL'>} The resolved payment frequency.
  */
-function resolvePaymentFrequencyFromClasses(enrolledClasses, frequencySettings) {
-  const standardClasses = enrolledClasses.filter((c) => c.fee_type === 'standard');
-  if (standardClasses.length === 0) return 'MONTHLY';
-
-  let frequency = 'MONTHLY';
-  for (const stdClass of standardClasses) {
-    const classFrequency = frequencySettings[stdClass.gender] || 'MONTHLY';
-    if (classFrequency === 'ANNUAL') {
-      frequency = 'ANNUAL';
-      break;
-    }
-  }
-  return frequency;
+async function getStudentPaymentFrequency(studentId) {
+  const enrolledClasses = await db.allQuery(ENROLLED_CLASSES_SQL, [studentId]);
+  return resolvePaymentFrequencyFromClasses(enrolledClasses);
 }
 
 /**
@@ -159,20 +152,6 @@ function buildMonthlyChargeDescription(monthName, academicYear, paymentFrequency
   return paymentFrequency === 'ANNUAL'
     ? `رسوم شهرية ${monthName} (دفع سنوي) - ${academicYear}`
     : `رسوم شهرية ${monthName} - ${academicYear}`;
-}
-
-/**
- * Resolves the payment frequency for a specific student.
- * @param {number} studentId Student ID.
- * @param {{men: string, women: string, kids: string}} frequencySettings Payment frequency settings.
- * @returns {Promise<'MONTHLY'|'ANNUAL'>} The resolved payment frequency.
- */
-async function getStudentPaymentFrequency(studentId, frequencySettings) {
-  const enrolledClasses = await db.allQuery(
-    `SELECT c.fee_type, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
-    [studentId],
-  );
-  return resolvePaymentFrequencyFromClasses(enrolledClasses, frequencySettings);
 }
 
 // ============================================
@@ -266,7 +245,6 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
         "SELECT id, gender, discount_percentage FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
       );
 
-      const frequencySettings = await getPaymentFrequencySettings();
       let createdCount = 0;
 
       for (const student of students) {
@@ -286,15 +264,8 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
           await db.runQuery('DELETE FROM student_fee_charges WHERE id = ?', [existingCharge.id]);
         }
 
-        const enrolledClasses = await db.allQuery(
-          `SELECT c.id, c.fee_type, c.monthly_fee, c.gender FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ? AND c.status = 'active'`,
-          [student.id],
-        );
-
-        const paymentFrequency = resolvePaymentFrequencyFromClasses(
-          enrolledClasses,
-          frequencySettings,
-        );
+        const enrolledClasses = await db.allQuery(ENROLLED_CLASSES_SQL, [student.id]);
+        const paymentFrequency = resolvePaymentFrequencyFromClasses(enrolledClasses);
 
         // Annual-only billing: ANNUAL students are billed once per academic
         // year (one ANNUAL charge) - never generate monthly charges for them.
@@ -367,25 +338,12 @@ async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
       studentId,
     ]);
 
-    const enrolledClasses = await db.allQuery(
-      `
-      SELECT c.id, c.name, c.fee_type, c.monthly_fee, c.gender FROM classes c
-      JOIN class_students cs ON c.id = cs.class_id
-      WHERE cs.student_id = ? AND c.status = 'active'
-    `,
-      [studentId],
-    );
+    const enrolledClasses = await db.allQuery(ENROLLED_CLASSES_SQL, [studentId]);
 
     // Annual-only billing: ANNUAL students get one ANNUAL charge per academic
     // year and no monthly charges (standard or special), so their monthly fee
-    // is zero by design. Frequency only matters for students with standard
-    // classes - resolvePaymentFrequencyFromClasses returns MONTHLY otherwise,
-    // so the settings lookup is skipped to avoid extra queries.
-    let paymentFrequency = 'MONTHLY';
-    if (enrolledClasses.some((c) => c.fee_type === 'standard')) {
-      const frequencySettings = await getPaymentFrequencySettings();
-      paymentFrequency = resolvePaymentFrequencyFromClasses(enrolledClasses, frequencySettings);
-    }
+    // is zero by design.
+    const paymentFrequency = resolvePaymentFrequencyFromClasses(enrolledClasses);
     if (paymentFrequency === 'ANNUAL') {
       log(`[FeeCalc] Student ${studentId} is billed ANNUALLY - no monthly charges.`);
       return { standard: 0, custom: 0, total: 0, relatedClassId: null };
@@ -450,13 +408,13 @@ async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
  * Called when student is added/removed from classes.
  * @param {number} studentId - Student ID
  * @param {Object} options - Options
- * @param {boolean} options.regenCurrentMonth - Regen current month (default: true)
- * @param {boolean} options.regenNextMonth - Regen next month (default: false - let scheduler handle it)
+ * @param {boolean} options.regenCurrentMonth - Regen current month (default: true). A month is
+ *   only billed once it starts, so there is no next-month option.
  * @param {number} options.userId - User performing action (for audit)
  * @returns {Promise<{success: boolean, message: string}>}
  */
 async function triggerChargeRegenerationForStudent(studentId, options = {}) {
-  const { regenCurrentMonth = true, regenNextMonth = false } = options;
+  const { regenCurrentMonth = true } = options;
 
   // RACE CONDITION FIX: Check if this student is already being processed
   if (!acquireChargeRegenerationLock(studentId)) {
@@ -469,9 +427,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
   try {
     log(`[ChargeRegen] ════════════════════════════════════════════════════`);
     log(`[ChargeRegen] Starting charge regeneration for student ${studentId}`);
-    log(
-      `[ChargeRegen] Options: regenCurrentMonth=${regenCurrentMonth}, regenNextMonth=${regenNextMonth}`,
-    );
+    log(`[ChargeRegen] Options: regenCurrentMonth=${regenCurrentMonth}`);
 
     const student = await db.getQuery(
       'SELECT id, name, status, fee_category FROM students WHERE id = ?',
@@ -496,19 +452,12 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
     const startMonthSetting = await getSetting('academic_year_start_month');
     const startMonth = parseInt(startMonthSetting || '9', 10);
     const currentAcademicYear = getCurrentAcademicYear(startMonth, now);
-    const nextAcademicYear =
-      currentMonth === 12
-        ? getCurrentAcademicYear(startMonth, new Date(now.getFullYear() + 1, 0, 1))
-        : currentAcademicYear;
-    const frequencySettings = await getPaymentFrequencySettings();
-    const paymentFrequency = await getStudentPaymentFrequency(studentId, frequencySettings);
+    const paymentFrequency = await getStudentPaymentFrequency(studentId);
 
     log(`[ChargeRegen] Current Month: ${currentMonth}/${currentAcademicYear}`);
-    log(`[ChargeRegen] Next Month: ${nextMonth}/${nextAcademicYear}`);
 
     const monthNames = [
       'يناير',
@@ -610,94 +559,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
         }
       } catch (error) {
         logError(`[ChargeRegen] ❌ Failed to regen current month for student ${studentId}:`, error);
-        // Don't throw - continue to next month
-      }
-    }
-
-    // Regenerate next month charges
-    if (regenNextMonth) {
-      log(`[ChargeRegen] ▶️ Processing NEXT MONTH (${nextMonth}/${nextAcademicYear})...`);
-
-      try {
-        const nextFees = await calculateStudentMonthlyCharges(
-          studentId,
-          nextMonth,
-          nextAcademicYear,
-        );
-
-        const nextBillingMonth = `${nextAcademicYear}-${nextMonth.toString().padStart(2, '0')}`;
-
-        // Check existing charges BEFORE delete
-        const existingNext = await db.allQuery(
-          `
-          SELECT id, amount, charge_date, amount_paid FROM student_fee_charges
-          WHERE student_id = ?
-          AND fee_type = 'MONTHLY'
-          AND billing_month = ?
-        `,
-          [studentId, nextBillingMonth],
-        );
-
-        log(`[ChargeRegen] Found ${existingNext.length} existing next month charge(s):`);
-        existingNext.forEach((c, i) => {
-          log(`[ChargeRegen]   ${i + 1}. Amount: ${c.amount} DT, Date: ${c.charge_date}`);
-        });
-
-        // Never delete charges with recorded payments - regeneration would lose
-        // payment history and its student_payment_breakdown rows.
-        const hasPaidCharges = existingNext.some((c) => parseFloat(c.amount_paid || 0) > 0);
-
-        if (hasPaidCharges) {
-          log(
-            `[ChargeRegen] ⓘ Skipping regeneration for ${nextBillingMonth}: existing charge(s) have payments recorded`,
-          );
-        } else {
-          // Delete existing charges
-          await db.runQuery(
-            `
-            DELETE FROM student_fee_charges
-            WHERE student_id = ?
-            AND fee_type = 'MONTHLY'
-            AND billing_month = ?
-          `,
-            [studentId, nextBillingMonth],
-          );
-
-          log(`[ChargeRegen] ✓ Deleted ${existingNext.length} old charge(s)`);
-
-          // Create new charge if total > 0
-          if (nextFees.total > 0) {
-            const chargeDate = toLocalISODate();
-            const monthName = monthNames[nextMonth - 1];
-
-            await db.runQuery(
-              `
-                INSERT INTO student_fee_charges
-                (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
-                VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
-              `,
-              [
-                studentId,
-                chargeDate,
-                buildMonthlyChargeDescription(monthName, nextAcademicYear, paymentFrequency),
-                nextFees.total,
-                nextAcademicYear,
-                paymentFrequency,
-                nextBillingMonth,
-                nextFees.relatedClassId,
-              ],
-            );
-
-            log(
-              `[ChargeRegen] ✅ Created next month charge: ${nextFees.total} DT on ${chargeDate} (${paymentFrequency})`,
-            );
-          } else {
-            log(`[ChargeRegen] ⓘ No charge created (amount: 0 DT)`);
-          }
-        }
-      } catch (error) {
-        logError(`[ChargeRegen] ❌ Failed to regen next month for student ${studentId}:`, error);
-        // Don't throw - just log error
+        // Don't throw - regeneration failures are logged, not fatal
       }
     }
 
@@ -718,7 +580,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 // ============================================
 
 /**
- * Refreshes charges for a specific student by generating charges for current month + next month.
+ * Refreshes charges for a specific student: the annual charge and the current month's charge.
+ * A month is only billed once it starts.
  * This is useful when a student enrolls in new classes or fee structures change.
  * @param {number} studentId The ID of the student whose charges to refresh
  * @param {string} academicYear The academic year for which to generate charges (optional, uses current if not provided)
@@ -764,10 +627,8 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
     const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     log(`[refreshStudentCharges] Using academic year: ${currentAcademicYear}`);
 
-    // Get current and next month
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
 
     const result = await db.withTransaction(async () => {
       let chargesGenerated = 0;
@@ -804,9 +665,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       }
 
       // Generate monthly charges for current month
-      log(
-        `[refreshStudentCharges] Generating monthly charges for current month (${currentMonth}) and next month (${nextMonth})`,
-      );
+      log(`[refreshStudentCharges] Generating monthly charges for current month (${currentMonth})`);
 
       // Generate charges ONLY for this specific student - current month
       try {
@@ -827,8 +686,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
           );
           const hasPaidCharges = existingCharges.some((c) => parseFloat(c.amount_paid || 0) > 0);
 
-          const frequencySettings = await getPaymentFrequencySettings();
-          const paymentFrequency = await getStudentPaymentFrequency(studentId, frequencySettings);
+          const paymentFrequency = await getStudentPaymentFrequency(studentId);
 
           if (hasPaidCharges) {
             // Never delete charges with recorded payments - regeneration would
@@ -1035,12 +893,11 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
 
           let studentChargesGenerated = 0;
 
-          // Regenerate this student's current and next month charges so any newly
-          // enrolled special-class fees are included. Per-student regeneration is
-          // O(N) and actually targets the student that needs the refresh.
+          // Regenerate this student's current month charge so any newly enrolled
+          // special-class fees are included. Per-student regeneration is O(N) and
+          // actually targets the student that needs the refresh.
           const regenResult = await triggerChargeRegenerationForStudent(student.id, {
             regenCurrentMonth: true,
-            regenNextMonth: true,
           });
 
           if (regenResult.success) {
@@ -1116,7 +973,8 @@ async function refreshStudentsNeedingChargeRefresh(academicYear = null, userId =
 }
 
 /**
- * Refreshes charges for all active students by generating charges for current month + next month.
+ * Refreshes charges for all active students: the annual charge and the current month's charge.
+ * A month is only billed once it starts.
  * This is useful for system-wide fee structure changes or bulk updates.
  * @param {string} academicYear The academic year for which to generate charges (optional, uses current if not provided)
  * @param {number} userId The ID of the user performing the refresh (for audit trail)
@@ -1129,11 +987,6 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
     const currentAcademicYear = academicYear || (await getConfiguredAcademicYear());
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const nextMonthAcademicYear =
-      currentMonth === 12
-        ? `${now.getFullYear() + 1}-${now.getFullYear() + 2}`
-        : currentAcademicYear;
 
     const students = await db.allQuery(
       "SELECT id, name, matricule FROM students WHERE status = 'active' AND fee_category IN ('CAN_PAY', 'SPONSORED')",
@@ -1176,12 +1029,6 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
           studentChargesGenerated++;
         }
 
-        // Monthly check
-        await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, { force: false });
-        studentChargesGenerated++;
-        await generateMonthlyFeeCharges(nextMonthAcademicYear, nextMonth, { force: false });
-        studentChargesGenerated++;
-
         totalChargesGenerated += studentChargesGenerated;
       } catch (studentError) {
         logError(
@@ -1190,6 +1037,12 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
         );
       }
     }
+
+    // The current month's charges, for every eligible student at once.
+    const monthly = await generateMonthlyFeeCharges(currentAcademicYear, currentMonth, {
+      force: false,
+    });
+    totalChargesGenerated += monthly?.createdCount || 0;
 
     if (userId) {
       log(
@@ -1301,46 +1154,6 @@ async function getStudentBalanceSummary(studentId) {
 }
 
 /**
- * Auto-generates charges for a student if they have no unpaid charges.
- * @param {number} studentId The student ID
- * @param {string} academicYear The academic year
- */
-async function autoGenerateChargesIfNeeded(studentId, academicYear) {
-  // Check if student has any unpaid/partially paid charges
-  const unpaidCharges = await db.allQuery(
-    `
-    SELECT id FROM student_fee_charges
-    WHERE student_id = ? AND status IN ('UNPAID', 'PARTIALLY_PAID')
-  `,
-    [studentId],
-  );
-
-  if (unpaidCharges.length > 0) {
-    return; // Student has unpaid charges, no need to generate
-  }
-
-  // Student has no unpaid charges - generate next month's charges
-  const currentMonth = new Date().getMonth() + 1;
-  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-
-  // Next month's charges belong to the current academic year except when the
-  // year rolls over in December (e.g. January is the start of the next
-  // academic year for a January-start calendar).
-  let nextAcademicYear = academicYear;
-  if (currentMonth === 12) {
-    const startMonthSetting = await getSetting('academic_year_start_month');
-    const startMonth = parseInt(startMonthSetting || '9', 10);
-    nextAcademicYear = getCurrentAcademicYear(
-      startMonth,
-      new Date(new Date().getFullYear() + 1, 0, 1),
-    );
-  }
-
-  // Generate monthly charges for next month
-  await generateMonthlyFeeCharges(nextAcademicYear, nextMonth, { force: false });
-}
-
-/**
  * Records a payment for a student.
  * @param {object} event The IPC event object.
  * @param {object} paymentDetails The details of the payment.
@@ -1371,14 +1184,8 @@ async function recordStudentPayment(event, paymentDetails) {
     const studentPaymentId = await db.withTransaction(async () => {
       console.log(`[PAYMENT_DB] Transaction started successfully`);
 
-      // Auto-generate charges if student has no unpaid charges
-      console.log(
-        `[PAYMENT_AUTO_GEN] Checking if auto-generation needed for student ${student_id}`,
-      );
       const normalizedAcademicYear =
         normalizeAcademicYear(academic_year) || (await getConfiguredAcademicYear());
-      await autoGenerateChargesIfNeeded(student_id, normalizedAcademicYear);
-      console.log(`[PAYMENT_AUTO_GEN] Auto-generation check completed`);
 
       // Validate receipt number uniqueness across all income tables
       if (receipt_number) {

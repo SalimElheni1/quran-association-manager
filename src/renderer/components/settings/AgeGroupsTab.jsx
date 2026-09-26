@@ -5,6 +5,8 @@ import ConfirmationModal from '../common/ConfirmationModal';
 import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 
+const PAYMENT_FREQUENCY_LABELS = { MONTHLY: 'شهري', ANNUAL: 'سنوي' };
+
 const CATEGORY_OPTIONS = [
   { value: 'any', label: 'الكل' },
   { value: 'male_only', label: 'ذكور فقط' },
@@ -25,6 +27,7 @@ const AgeGroupsTab = () => {
     min_age: '',
     max_age: '',
     gender: 'any',
+    payment_frequency: 'MONTHLY',
   });
 
   useEffect(() => {
@@ -56,6 +59,7 @@ const AgeGroupsTab = () => {
       min_age: '',
       max_age: '',
       gender: 'any',
+      payment_frequency: 'MONTHLY',
     });
     setShowModal(true);
   };
@@ -68,6 +72,7 @@ const AgeGroupsTab = () => {
       min_age: group.min_age,
       max_age: group.max_age || '',
       gender: group.gender,
+      payment_frequency: group.payment_frequency || 'MONTHLY',
     });
     setShowModal(true);
   };
@@ -197,6 +202,7 @@ const AgeGroupsTab = () => {
                   <th>الاسم</th>
                   <th>النطاق العمري</th>
                   <th>النوع</th>
+                  <th>نظام الدفع</th>
                   <th>الوصف</th>
                   <th className="text-center">الإجراءات</th>
                 </tr>
@@ -213,6 +219,7 @@ const AgeGroupsTab = () => {
                         {getGenderLabel(group.gender)}
                       </Badge>
                     </td>
+                    <td>{PAYMENT_FREQUENCY_LABELS[group.payment_frequency] || 'شهري'}</td>
                     <td>{group.description || '-'}</td>
                     <td className="text-center">
                       <Button
@@ -321,6 +328,21 @@ const AgeGroupsTab = () => {
                 </Form.Group>
               </Col>
             </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>نظام الدفع</Form.Label>
+              <Form.Select
+                name="payment_frequency"
+                value={formData.payment_frequency}
+                onChange={handleChange}
+              >
+                <option value="MONTHLY">شهري (يدفع كل شهر)</option>
+                <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
+              </Form.Select>
+              <Form.Text className="text-muted">
+                ينطبق على فصول هذه الفئة: رسوم شهرية، أو الرسم السنوي فقط
+              </Form.Text>
+            </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label>الوصف</Form.Label>

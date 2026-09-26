@@ -335,6 +335,8 @@ function registerSettingsHandlers(refreshSettings) {
             then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        // How classes of this age group pay: monthly charges, or the annual charge only.
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
         is_active: Joi.boolean().default(true),
       });
 
@@ -353,8 +355,8 @@ function registerSettingsHandlers(refreshSettings) {
       let result;
       try {
         result = await db.runQuery(
-          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, payment_frequency, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             uuid,
             validatedData.name,
@@ -362,6 +364,7 @@ function registerSettingsHandlers(refreshSettings) {
             validatedData.min_age,
             validatedData.max_age || null,
             validatedData.gender,
+            validatedData.payment_frequency,
             validatedData.is_active ? 1 : 0,
           ],
         );
@@ -398,6 +401,8 @@ function registerSettingsHandlers(refreshSettings) {
             then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        // How classes of this age group pay: monthly charges, or the annual charge only.
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
         is_active: Joi.boolean().default(true),
       });
 
@@ -406,7 +411,7 @@ function registerSettingsHandlers(refreshSettings) {
       await db.runQuery(
         `UPDATE age_groups SET
          name = ?, description = ?, min_age = ?, max_age = ?,
-         gender = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+         gender = ?, payment_frequency = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
           validatedData.name,
@@ -414,6 +419,7 @@ function registerSettingsHandlers(refreshSettings) {
           validatedData.min_age,
           validatedData.max_age || null,
           validatedData.gender,
+          validatedData.payment_frequency,
           validatedData.is_active ? 1 : 0,
           id,
         ],
