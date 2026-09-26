@@ -28,7 +28,10 @@ async function stubOpenDirectoryDialog(electronApp, dirPath) {
   }, dirPath);
 }
 
-async function createAgeGroup(page, { name, gender = 'any', minAge, maxAge, description = '' }) {
+async function createAgeGroup(
+  page,
+  { name, gender = 'any', minAge, maxAge, description = '', paymentFrequency },
+) {
   await activePane(page).getByRole('button', { name: 'إضافة فئة جديدة' }).click();
   const form = modal(page);
   await form.locator('input[name="name"]').fill(name);
@@ -38,6 +41,9 @@ async function createAgeGroup(page, { name, gender = 'any', minAge, maxAge, desc
     await form.locator('input[name="max_age"]').fill(String(maxAge));
   }
   if (description) await form.locator('textarea[name="description"]').fill(description);
+  if (paymentFrequency) {
+    await form.locator('select[name="payment_frequency"]').selectOption(paymentFrequency);
+  }
   await form.getByRole('button', { name: 'حفظ' }).click();
   await expectToast(page, 'success', 'تم إنشاء الفئة العمرية بنجاح.');
   await expectNoModal(page);
@@ -60,7 +66,6 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
 
     await activePane(page).locator('input[name="annual_fee"]').fill(annualFee);
     await activePane(page).locator('input[name="standard_monthly_fee"]').fill(monthlyFee);
-    await activePane(page).locator('select[name="kids_payment_frequency"]').selectOption('ANNUAL');
 
     await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
     // Saving non-zero fees may also generate charges, so the toast message can
@@ -75,9 +80,8 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     await expect(activePane(page).locator('input[name="standard_monthly_fee"]')).toHaveValue(
       monthlyFee,
     );
-    await expect(activePane(page).locator('select[name="kids_payment_frequency"]')).toHaveValue(
-      'ANNUAL',
-    );
+    // The payment system now lives on each age group, not in the fee settings.
+    await expect(activePane(page).locator('select[name="kids_payment_frequency"]')).toHaveCount(0);
   });
 
   test('created age group appears in the list and in the class form', async ({ authedPage }) => {
@@ -96,6 +100,7 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     const row = activePane(page).locator('tbody tr', { hasText: groupName });
     await expect(row).toBeVisible();
     await expect(row).toContainText('7 - 9 سنة');
+    await expect(row).toContainText('شهري'); // default payment system
 
     await navigate(page, 'الفصول الدراسية');
     await page.getByRole('button', { name: 'إضافة فصل' }).click();
@@ -127,11 +132,12 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     await expect(editForm.locator('.modal-title')).toHaveText('تعديل الفئة العمرية');
     await editForm.locator('input[name="min_age"]').fill('6');
     await editForm.locator('input[name="max_age"]').fill('10');
+    await editForm.locator('select[name="payment_frequency"]').selectOption('ANNUAL');
     await editForm.getByRole('button', { name: 'حفظ' }).click();
     await expectToast(page, 'success', 'تم تحديث الفئة العمرية بنجاح.');
-    await expect(activePane(page).locator('tbody tr', { hasText: groupToEdit })).toContainText(
-      '6 - 10 سنة',
-    );
+    const editedRow = activePane(page).locator('tbody tr', { hasText: groupToEdit });
+    await expect(editedRow).toContainText('6 - 10 سنة');
+    await expect(editedRow).toContainText('سنوي');
 
     // Delete the second group.
     const rowToDelete = activePane(page).locator('tbody tr', { hasText: groupToDelete });
