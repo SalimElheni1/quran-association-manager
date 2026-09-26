@@ -1,4 +1,4 @@
-const { toLocalISODate } = require('../src/main/utils/dates');
+const { toLocalISODate, toLocalISODateTime } = require('../src/main/utils/dates');
 
 describe('main toLocalISODate', () => {
   it('formats the local calendar day with zero padding', () => {
@@ -12,5 +12,11 @@ describe('main toLocalISODate', () => {
   it('defaults to today', () => {
     const now = new Date();
     expect(toLocalISODate()).toBe(toLocalISODate(now));
+  });
+});
+
+describe('main toLocalISODateTime', () => {
+  it('formats local date and time the way SQLite date() reads it', () => {
+    expect(toLocalISODateTime(new Date(2026, 9, 31, 0, 30, 5))).toBe('2026-10-31 00:30:05');
   });
 });

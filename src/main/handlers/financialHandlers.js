@@ -473,7 +473,9 @@ async function handleGetFinancialSummary(_event, period) {
         SUM(sp.amount) as total,
         COUNT(*) as count
       FROM student_payments sp
-      WHERE sp.payment_date BETWEEN ? AND ?
+      -- Compare dates, not date-times: '2026-10-31 14:00:00' is after '2026-10-31' as text,
+      -- which dropped payments made on a period's last day.
+      WHERE date(sp.payment_date) BETWEEN ? AND ?
         AND sp.amount > 0
     `;
 

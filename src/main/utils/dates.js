@@ -11,4 +11,17 @@ function toLocalISODate(date = new Date()) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-module.exports = { toLocalISODate };
+/**
+ * Formats a Date as 'YYYY-MM-DD HH:MM:SS' in local time, the form SQLite date functions read.
+ * Use it instead of CURRENT_TIMESTAMP, which is UTC.
+ * @param {Date} [date=new Date()]
+ * @returns {string}
+ */
+function toLocalISODateTime(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${toLocalISODate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds(),
+  )}`;
+}
+
+module.exports = { toLocalISODate, toLocalISODateTime };

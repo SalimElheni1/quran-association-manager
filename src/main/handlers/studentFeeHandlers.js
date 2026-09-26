@@ -10,7 +10,7 @@ const { requireRoles } = require('../authMiddleware');
 const { log, error: logError, warn: logWarn } = require('../logger');
 const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
-const { toLocalISODate } = require('../utils/dates');
+const { toLocalISODate, toLocalISODateTime } = require('../utils/dates');
 // Circular dependency broken: require('./settingsHandlers') moved to where it is needed
 
 // ============================================
@@ -1227,8 +1227,8 @@ async function recordStudentPayment(event, paymentDetails) {
       console.log(`[PAYMENT_DB] Creating payment record...`);
       const paymentResult = await db.runQuery(
         `
-      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id, sponsor_name, sponsor_phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id, sponsor_name, sponsor_phone, payment_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
         [
           student_id,
@@ -1242,6 +1242,8 @@ async function recordStudentPayment(event, paymentDetails) {
           class_id,
           sponsor_name,
           sponsor_phone,
+          // Local time, like the linked transaction's date; CURRENT_TIMESTAMP would be UTC.
+          toLocalISODateTime(),
         ],
       );
 
