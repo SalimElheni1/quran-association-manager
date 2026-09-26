@@ -20,6 +20,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `README.md` to be a more comprehensive entry point.
 - Refined `docs/USAGE.md` and `docs/DEVELOPMENT.md`.
 
+## [1.4.0-beta.1] - 2026-09-24
+
+Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded here.
+
+### Upgrade notes
+
+- **Payment system (monthly/annual) moved to each age group.** The three men/women/children
+  settings are gone from the fees tab; each age group now has its own payment system, and its
+  classes follow it. On upgrade, groups under 18 take the old children setting and adult
+  male/female groups the men/women setting. Those settings never reached classes created in
+  the app before, so a branch that had set one of them to annual will now see annual billing
+  for those groups.
+- **A month is billed once it starts.** Adding a student, changing a class, recording a
+  payment or refreshing charges no longer bills future months. Next month is still billed from
+  the configured generation day (default 25). On upgrade, untouched monthly charges two or more
+  months ahead are removed; they are recreated when their month arrives.
+- **Set the association transfer key before relying on backups.** Backups made without it can
+  only be restored on the same computer; the backup tab now warns while it is empty.
+
+### Added
+
+- Monthly fees chart on the home dashboard for finance roles (net fees per month, after refunds).
+- Payment system field and column in the age groups settings.
+- Warning in the backup tab while no association transfer key is set.
+- Voucher numbers can be corrected when editing a transaction.
+- End-to-end test suite (Playwright + Electron, 87 tests) and a real-world scenario test:
+  123 students, finances, fees, a backup and a restore on a fresh install
+  (`npm run test:e2e`, `npm run test:e2e:realworld`).
+
+### Fixed
+
+- Editing any income or expense failed ("طريقة الدفع غير صالحة").
+- In-kind donations without a voucher number could not be saved.
+- Duplicate voucher numbers showed a raw database error instead of the Arabic message.
+- Logging out right after first-run setup showed the setup form again.
+- Adding a student billed three months at once; recording one student's full payment could
+  bill every student for next month; enrollment changes left months billed ahead at the old fee.
+- The payment system settings had no effect on classes created in the app.
+- The academic year rolled over in December instead of the configured start month when
+  billing ahead.
+- Records made between 00:00 and 01:00 (fees, payments, receipts, date defaults and month
+  ranges) were dated the previous day.
+- Financial dashboard: month totals missed the last day of the month; the refresh and export
+  buttons never appeared; totals did not update after fee payments or in-kind donations.
+- Enrollment warned about gender for every student in male-only or female-only classes.
+- Class statuses "pending" and "completed" were shown in English.
+
 ## [1.0.0] - 2025-09-01
 
 ### Added
