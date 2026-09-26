@@ -4,16 +4,7 @@ import { toast } from 'react-toastify';
 import { error as logError } from '@renderer/utils/logger';
 import { toLocalISODate } from '@renderer/utils/dates';
 
-const ExportModal = ({
-  show,
-  handleClose,
-  exportType,
-  fields,
-  kidFields = [],
-  isAttendance = false,
-  title,
-}) => {
-  const [filterMode, setFilterMode] = useState('group'); // 'group' only
+const ExportModal = ({ show, handleClose, exportType, fields, isAttendance = false, title }) => {
   const [selectedFields, setSelectedFields] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [startDate, setStartDate] = useState(toLocalISODate(new Date()));

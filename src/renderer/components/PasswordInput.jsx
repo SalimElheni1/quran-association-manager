@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, InputGroup, Button } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 // Inline SVG icons to replace react-icons (saves ~82MB)
 const FaEye = () => (
   <svg width="16" height="16" fill="currentColor" viewBox="0 0 576 512">

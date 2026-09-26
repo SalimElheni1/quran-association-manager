@@ -158,10 +158,13 @@ const SettingsPage = () => {
       });
 
       if (result.success) {
-        toast.success('تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.', {
-          autoClose: 3000,
-          onClose: () => window.electronAPI.relaunchApp()
-        });
+        toast.success(
+          'تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.',
+          {
+            autoClose: 3000,
+            onClose: () => window.electronAPI.relaunchApp(),
+          },
+        );
       } else {
         toast.error(`فشل الاستبدال: ${result.message}`);
       }
@@ -180,7 +183,7 @@ const SettingsPage = () => {
       ],
       properties: ['openFile'],
     });
-    
+
     if (response.canceled || !response.filePaths || response.filePaths.length === 0) {
       return;
     }
@@ -189,8 +192,18 @@ const SettingsPage = () => {
     setShowPasswordModal(filePath);
   };
 
-  if (loading) return <Container className="d-flex justify-content-center align-items-center vh-100"><Spinner animation="border" /></Container>;
-  if (error) return <Container><Alert variant="danger">{error}</Alert></Container>;
+  if (loading)
+    return (
+      <Container className="d-flex justify-content-center align-items-center vh-100">
+        <Spinner animation="border" />
+      </Container>
+    );
+  if (error)
+    return (
+      <Container>
+        <Alert variant="danger">{error}</Alert>
+      </Container>
+    );
 
   return (
     <Container fluid="lg" className="py-4">
@@ -202,27 +215,52 @@ const SettingsPage = () => {
             </Card.Header>
             <Card.Body className="p-4">
               <Form onSubmit={handleSubmit}>
-                <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-4 custom-tabs" fill>
+                <Tabs
+                  activeKey={activeTab}
+                  onSelect={(k) => setActiveTab(k)}
+                  className="mb-4 custom-tabs"
+                  fill
+                >
                   <Tab eventKey="association" title="بيانات الجمعية/الفرع">
                     <Row>
                       <Col md={6}>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الجمعية الوطنية</Form.Label>
-                          <Form.Control type="text" name="national_association_name" value={settings.national_association_name || ''} onChange={handleChange} />
+                          <Form.Control
+                            type="text"
+                            name="national_association_name"
+                            value={settings.national_association_name || ''}
+                            onChange={handleChange}
+                          />
                         </Form.Group>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الفرع الجهوي</Form.Label>
-                          <Form.Control type="text" name="regional_association_name" value={settings.regional_association_name || ''} onChange={handleChange} />
+                          <Form.Control
+                            type="text"
+                            name="regional_association_name"
+                            value={settings.regional_association_name || ''}
+                            onChange={handleChange}
+                          />
                         </Form.Group>
                       </Col>
                       <Col md={6}>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الفرع المحلي</Form.Label>
-                          <Form.Control type="text" name="local_branch_name" value={settings.local_branch_name || ''} onChange={handleChange} />
+                          <Form.Control
+                            type="text"
+                            name="local_branch_name"
+                            value={settings.local_branch_name || ''}
+                            onChange={handleChange}
+                          />
                         </Form.Group>
                         <Form.Group className="mb-3">
                           <Form.Label>اسم الرئيس الكامل</Form.Label>
-                          <Form.Control type="text" name="president_full_name" value={settings.president_full_name || ''} onChange={handleChange} />
+                          <Form.Control
+                            type="text"
+                            name="president_full_name"
+                            value={settings.president_full_name || ''}
+                            onChange={handleChange}
+                          />
                         </Form.Group>
                       </Col>
                     </Row>
@@ -234,14 +272,29 @@ const SettingsPage = () => {
                         <Form.Group className="mb-4">
                           <Form.Label>شعار الجمعية الوطنية</Form.Label>
                           <InputGroup>
-                            <Button variant="outline-primary" onClick={() => handleFileSelect('national_logo_path')} disabled={isUploading === 'national_logo_path'}>
-                              {isUploading === 'national_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
+                            <Button
+                              variant="outline-primary"
+                              onClick={() => handleFileSelect('national_logo_path')}
+                              disabled={isUploading === 'national_logo_path'}
+                            >
+                              {isUploading === 'national_logo_path' ? (
+                                <Spinner size="sm" />
+                              ) : (
+                                'تحميل...'
+                              )}
                             </Button>
-                            <Form.Control type="text" value={settings.national_logo_path || ''} readOnly />
+                            <Form.Control
+                              type="text"
+                              value={settings.national_logo_path || ''}
+                              readOnly
+                            />
                           </InputGroup>
                           {settings.national_logo_path && (
                             <div className="mt-3 p-2 border rounded text-center bg-light">
-                              <Image src={`safe-image://${settings.national_logo_path}`} style={{ maxHeight: '120px', maxWidth: '100%' }} />
+                              <Image
+                                src={`safe-image://${settings.national_logo_path}`}
+                                style={{ maxHeight: '120px', maxWidth: '100%' }}
+                              />
                             </div>
                           )}
                         </Form.Group>
@@ -250,14 +303,29 @@ const SettingsPage = () => {
                         <Form.Group className="mb-4">
                           <Form.Label>شعار الفرع المحلي</Form.Label>
                           <InputGroup>
-                            <Button variant="outline-primary" onClick={() => handleFileSelect('regional_local_logo_path')} disabled={isUploading === 'regional_local_logo_path'}>
-                              {isUploading === 'regional_local_logo_path' ? <Spinner size="sm" /> : 'تحميل...'}
+                            <Button
+                              variant="outline-primary"
+                              onClick={() => handleFileSelect('regional_local_logo_path')}
+                              disabled={isUploading === 'regional_local_logo_path'}
+                            >
+                              {isUploading === 'regional_local_logo_path' ? (
+                                <Spinner size="sm" />
+                              ) : (
+                                'تحميل...'
+                              )}
                             </Button>
-                            <Form.Control type="text" value={settings.regional_local_logo_path || ''} readOnly />
+                            <Form.Control
+                              type="text"
+                              value={settings.regional_local_logo_path || ''}
+                              readOnly
+                            />
                           </InputGroup>
                           {settings.regional_local_logo_path && (
                             <div className="mt-3 p-2 border rounded text-center bg-light">
-                              <Image src={`safe-image://${settings.regional_local_logo_path}`} style={{ maxHeight: '120px', maxWidth: '100%' }} />
+                              <Image
+                                src={`safe-image://${settings.regional_local_logo_path}`}
+                                style={{ maxHeight: '120px', maxWidth: '100%' }}
+                              />
                             </div>
                           )}
                         </Form.Group>
@@ -273,7 +341,14 @@ const SettingsPage = () => {
                           <Form.Group className="mb-3">
                             <Form.Label>الرسم السنوي الافتراضي</Form.Label>
                             <InputGroup>
-                              <Form.Control type="number" name="annual_fee" value={settings.annual_fee || ''} onChange={handleChange} min="0" step="0.01" />
+                              <Form.Control
+                                type="number"
+                                name="annual_fee"
+                                value={settings.annual_fee || ''}
+                                onChange={handleChange}
+                                min="0"
+                                step="0.01"
+                              />
                               <InputGroup.Text>د.ت</InputGroup.Text>
                             </InputGroup>
                             <Form.Text className="text-muted">
@@ -285,7 +360,14 @@ const SettingsPage = () => {
                           <Form.Group className="mb-3">
                             <Form.Label>الرسوم الشهرية</Form.Label>
                             <InputGroup>
-                              <Form.Control type="number" name="standard_monthly_fee" value={settings.standard_monthly_fee || ''} onChange={handleChange} min="0" step="0.01" />
+                              <Form.Control
+                                type="number"
+                                name="standard_monthly_fee"
+                                value={settings.standard_monthly_fee || ''}
+                                onChange={handleChange}
+                                min="0"
+                                step="0.01"
+                              />
                               <InputGroup.Text>د.ت</InputGroup.Text>
                             </InputGroup>
                             <Form.Text className="text-muted">
@@ -298,7 +380,8 @@ const SettingsPage = () => {
                         <strong>تحذير مهم حول تغيير الرسوم:</strong>
                         <ul className="mb-0 mt-2">
                           <li>
-                            تغيير الرسوم السنوية أو الشهرية <strong>لن يؤثر</strong> على الرسوم المولدة مسبقاً
+                            تغيير الرسوم السنوية أو الشهرية <strong>لن يؤثر</strong> على الرسوم
+                            المولدة مسبقاً
                           </li>
                           <li>الطلاب الذين دفعوا بالفعل لن يتأثروا بهذا التغيير</li>
                           <li>الرسوم الجديدة ستطبق فقط على الطلاب الجدد أو عند توليد رسوم جديدة</li>
@@ -308,10 +391,12 @@ const SettingsPage = () => {
 
                       <h6 className="mb-3">نظام الدفع</h6>
                       <p className="small text-muted mb-4">
-                        يُحدَّد نظام الدفع (شهري أو سنوي) لكل فئة عمرية في تبويب «فئات عمرية»، وتتبعه فصول تلك الفئة.
+                        يُحدَّد نظام الدفع (شهري أو سنوي) لكل فئة عمرية في تبويب «فئات عمرية»،
+                        وتتبعه فصول تلك الفئة.
                       </p>
                       <p className="small text-muted mb-4">
-                        يمكن أيضاً تحديد رسوم سنوية وشهرية خاصة بكل فئة عمرية؛ الرسوم أعلاه هي الافتراضية للفئات التي لم تُحدَّد لها رسوم.
+                        يمكن أيضاً تحديد رسوم سنوية وشهرية خاصة بكل فئة عمرية؛ الرسوم أعلاه هي
+                        الافتراضية للفئات التي لم تُحدَّد لها رسوم.
                       </p>
 
                       <h6 className="mb-3">إعدادات السنة الدراسية والتوليد التلقائي</h6>
@@ -319,7 +404,11 @@ const SettingsPage = () => {
                         <Col md={6}>
                           <Form.Group className="mb-3">
                             <Form.Label>شهر بداية السنة الدراسية</Form.Label>
-                            <Form.Select name="academic_year_start_month" value={settings.academic_year_start_month || 9} onChange={handleChange}>
+                            <Form.Select
+                              name="academic_year_start_month"
+                              value={settings.academic_year_start_month || 9}
+                              onChange={handleChange}
+                            >
                               <option value="1">يناير</option>
                               <option value="2">فبراير</option>
                               <option value="3">مارس</option>
@@ -341,9 +430,17 @@ const SettingsPage = () => {
                         <Col md={6}>
                           <Form.Group className="mb-3">
                             <Form.Label>يوم توليد رسوم الشهر القادم</Form.Label>
-                            <Form.Control type="number" name="charge_generation_day" value={settings.charge_generation_day || 25} onChange={handleChange} min="1" max="28" />
+                            <Form.Control
+                              type="number"
+                              name="charge_generation_day"
+                              value={settings.charge_generation_day || 25}
+                              onChange={handleChange}
+                              min="1"
+                              max="28"
+                            />
                             <Form.Text className="text-muted">
-                              سيتم توليد رسوم الشهر القادم تلقائياً في هذا اليوم من كل شهر (افتراضي: 25)
+                              سيتم توليد رسوم الشهر القادم تلقائياً في هذا اليوم من كل شهر (افتراضي:
+                              25)
                             </Form.Text>
                           </Form.Group>
                         </Col>
@@ -352,7 +449,9 @@ const SettingsPage = () => {
                         <InfoIcon size={16} className="me-1 ms-1" />
                         <ul className="mb-0 mt-1">
                           <li>سيتم توليد الرسوم تلقائياً كل شهر. لا حاجة للتوليد اليدوي.</li>
-                          <li>عند تحديد الرسوم لأول مرة، سيتم إنشاء رسوم الشهر الحالي لجميع الطلاب.</li>
+                          <li>
+                            عند تحديد الرسوم لأول مرة، سيتم إنشاء رسوم الشهر الحالي لجميع الطلاب.
+                          </li>
                           <li>الخصومات الدائمة للطلاب ستطبق تلقائياً على جميع الرسوم.</li>
                         </ul>
                       </Alert>
@@ -373,14 +472,27 @@ const SettingsPage = () => {
                               <h5 className="mb-0">النسخ الاحتياطي المحلي</h5>
                             </div>
                             <Form.Group className="mb-3">
-                              <Form.Label className="small text-muted">مسار حفظ النسخ الاحتياطي</Form.Label>
+                              <Form.Label className="small text-muted">
+                                مسار حفظ النسخ الاحتياطي
+                              </Form.Label>
                               <InputGroup size="sm">
-                                <Button variant="secondary" onClick={() => handleDirectorySelect('backup_path')}>اختيار...</Button>
-                                <Form.Control type="text" value={settings.backup_path || ''} readOnly />
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => handleDirectorySelect('backup_path')}
+                                >
+                                  اختيار...
+                                </Button>
+                                <Form.Control
+                                  type="text"
+                                  value={settings.backup_path || ''}
+                                  readOnly
+                                />
                               </InputGroup>
                             </Form.Group>
                             <Form.Group className="mb-3">
-                              <Form.Label className="small">رمز النقل الموحد للمؤسسة (Association Transfer Key)</Form.Label>
+                              <Form.Label className="small">
+                                رمز النقل الموحد للمؤسسة (Association Transfer Key)
+                              </Form.Label>
                               <Form.Control
                                 size="sm"
                                 type="text"
@@ -390,7 +502,8 @@ const SettingsPage = () => {
                                 onChange={handleChange}
                               />
                               <Form.Text className="text-muted small">
-                                يُستخدم هذا الرمز لفك تشفير وتأمين النسخ الاحتياطية المتبادلة بين أجهزة الجمعية.
+                                يُستخدم هذا الرمز لفك تشفير وتأمين النسخ الاحتياطية المتبادلة بين
+                                أجهزة الجمعية.
                               </Form.Text>
                               {/* Without a transfer key, backups are encrypted with this machine's own
                                   database key and cannot be restored anywhere else. */}
@@ -400,12 +513,26 @@ const SettingsPage = () => {
                                 </Alert>
                               )}
                             </Form.Group>
-                            <Form.Check type="switch" label="تفعيل النسخ التلقائي" name="backup_enabled" checked={settings.backup_enabled || false} onChange={handleChange} disabled={!settings.backup_path} className="mb-3" />
+                            <Form.Check
+                              type="switch"
+                              label="تفعيل النسخ التلقائي"
+                              name="backup_enabled"
+                              checked={settings.backup_enabled || false}
+                              onChange={handleChange}
+                              disabled={!settings.backup_path}
+                              className="mb-3"
+                            />
                             <Row>
                               <Col md={6}>
                                 <Form.Group className="mb-4">
                                   <Form.Label className="small">تكرار النسخ</Form.Label>
-                                  <Form.Select size="sm" name="backup_frequency" value={settings.backup_frequency || 'daily'} onChange={handleChange} disabled={!settings.backup_enabled}>
+                                  <Form.Select
+                                    size="sm"
+                                    name="backup_frequency"
+                                    value={settings.backup_frequency || 'daily'}
+                                    onChange={handleChange}
+                                    disabled={!settings.backup_enabled}
+                                  >
                                     <option value="daily">يوميًا</option>
                                     <option value="weekly">أسبوعيًا</option>
                                     <option value="monthly">شهريًا</option>
@@ -415,15 +542,32 @@ const SettingsPage = () => {
                               <Col md={6}>
                                 <Form.Group className="mb-4">
                                   <Form.Label className="small">توقيت النسخ</Form.Label>
-                                  <Form.Control size="sm" type="time" name="backup_time" value={settings.backup_time || '02:00'} onChange={handleChange} disabled={!settings.backup_enabled} />
+                                  <Form.Control
+                                    size="sm"
+                                    type="time"
+                                    name="backup_time"
+                                    value={settings.backup_time || '02:00'}
+                                    onChange={handleChange}
+                                    disabled={!settings.backup_enabled}
+                                  />
                                 </Form.Group>
                               </Col>
                             </Row>
                             <div className="d-flex gap-2">
-                              <Button variant="outline-success" size="sm" onClick={handleRunBackup} disabled={isBackingUp || !settings.backup_path}>
+                              <Button
+                                variant="outline-success"
+                                size="sm"
+                                onClick={handleRunBackup}
+                                disabled={isBackingUp || !settings.backup_path}
+                              >
                                 {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
                               </Button>
-                              <Button variant="outline-danger" size="sm" onClick={() => handleImportDb()} disabled={isImporting || isBackingUp}>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleImportDb()}
+                                disabled={isImporting || isBackingUp}
+                              >
                                 استيراد قاعدة بيانات محلية
                               </Button>
                             </div>
@@ -431,7 +575,9 @@ const SettingsPage = () => {
                               <div className="mt-3 small text-center text-muted border-top pt-2">
                                 آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()}
                                 <br />
-                                <span className={backupStatus.success ? 'text-success' : 'text-danger'}>
+                                <span
+                                  className={backupStatus.success ? 'text-success' : 'text-danger'}
+                                >
                                   الحالة: {backupStatus.success ? 'ناجحة' : 'فاشلة'}
                                 </span>
                               </div>
@@ -462,7 +608,6 @@ const SettingsPage = () => {
         body="يرجى إدخال كلمة المرور الخاصة بك لتأكيد استبدال قاعدة البيانات وإعادة تشغيل التطبيق."
         showBackupKeyField
       />
-
     </Container>
   );
 };

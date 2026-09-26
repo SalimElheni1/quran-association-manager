@@ -1,7 +1,6 @@
 import React from 'react';
 import { Card } from 'react-bootstrap';
 import { Spinner } from 'react-bootstrap';
-import { Row, Col } from 'react-bootstrap';
 import './Charts.css';
 
 /**
@@ -14,7 +13,7 @@ import './Charts.css';
  * @param {boolean} empty - show the empty state instead of children
  * @param {ReactNode} footer - optional footer (e.g. legend / summary line)
  */
-function ChartCard({ title, subtitle, children, loading = false, empty = false, footer, height = 240 }) {
+function ChartCard({ title, subtitle, children, loading = false, empty = false, footer }) {
   return (
     <Card className="chart-card h-100">
       <Card.Header className="chart-card-header">
@@ -28,7 +27,9 @@ function ChartCard({ title, subtitle, children, loading = false, empty = false, 
             <span>جاري تحميل البيانات...</span>
           </div>
         ) : empty ? (
-          <div className="chart-state chart-state--empty">لا توجد بيانات كافية لعرض هذا الرسم بعد.</div>
+          <div className="chart-state chart-state--empty">
+            لا توجد بيانات كافية لعرض هذا الرسم بعد.
+          </div>
         ) : (
           children
         )}

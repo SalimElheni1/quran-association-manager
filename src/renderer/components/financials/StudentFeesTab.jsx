@@ -21,21 +21,10 @@ import ImportModal from '@renderer/components/modals/ImportModal';
 import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
-import { error as logError } from '@renderer/utils/logger';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
-import ImportIcon from '@renderer/components/icons/ImportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
 import PrintIcon from '@renderer/components/icons/PrintIcon';
 import EyeIcon from '@renderer/components/icons/EyeIcon';
-import { getFeeTypeLabel, getFeeStatusLabel } from '@renderer/utils/feeTypes';
-
-const studentFeesFields = [
-  { key: 'name', label: 'الاسم' },
-  { key: 'totalDue', label: 'إجمالي المستحق' },
-  { key: 'totalPaid', label: 'إجمالي المدفوع' },
-  { key: 'balance', label: 'المبلغ المتبقي' },
-  { key: 'status', label: 'الحالة' },
-];
 
 const studentPaymentFields = [
   { key: 'student_matricule', label: 'رقم التعريفي' },
@@ -75,8 +64,6 @@ const StudentFeesTab = () => {
   const [receiptNumber, setReceiptNumber] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
   const [paymentHistory, setPaymentHistory] = useState([]);
-  const [specialFeeClasses, setSpecialFeeClasses] = useState([]);
-  const [selectedSpecialFeeClass, setSelectedSpecialFeeClass] = useState('');
   const [academicYear, setAcademicYear] = useState(getAcademicYearString());
   const [notes, setNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -311,14 +298,6 @@ const StudentFeesTab = () => {
     setPaymentBalance(balance);
     const history = await window.electronAPI.studentFeesGetPaymentHistory(student.id, year);
     setPaymentHistory(history);
-    const specialClasses = await window.electronAPI.studentFeesGetClassesWithSpecialFees(
-      student.id,
-    );
-    const classesWithMatricules = specialClasses.map((cls) => ({
-      ...cls,
-      matricule: cls.matricule || `C-${cls.id.toString().padStart(4, '0')}`,
-    }));
-    setSpecialFeeClasses(classesWithMatricules);
     setShowPaymentModal(true);
   };
 
@@ -341,7 +320,6 @@ const StudentFeesTab = () => {
         receipt_number: receiptNumber,
         ...(selectedAccountId && { account_id: parseInt(selectedAccountId, 10) }),
         ...(paymentMethod === 'CHECK' && checkNumber && { check_number: checkNumber }),
-        ...(selectedSpecialFeeClass && { class_id: selectedSpecialFeeClass }),
         ...(selectedStudent.fee_category === 'SPONSORED' && {
           sponsor_name: selectedStudent.sponsor_name,
           sponsor_phone: selectedStudent.sponsor_phone,
@@ -360,7 +338,6 @@ const StudentFeesTab = () => {
       setCheckNumber('');
       setAcademicYear(getAcademicYearString());
       setNotes('');
-      setSelectedSpecialFeeClass('');
       loadStudents(); // Refresh the list
     } catch (err) {
       const errorMessage = err.message || 'فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.';
@@ -1253,9 +1230,7 @@ const StudentFeesTab = () => {
           <Alert variant="danger">
             <strong>تحذير: هذا الإجراء سيحذف جميع الرسوم غير المدفوعة والمكررة!</strong>
           </Alert>
-          <p>
-            سيتم القيام بالآتي:
-          </p>
+          <p>سيتم القيام بالآتي:</p>
           <ul>
             <li>حذف جميع الرسوم غير المدفوعة (amount_paid = 0)</li>
             <li>حذف الرسوم المكررة</li>
@@ -1274,7 +1249,7 @@ const StudentFeesTab = () => {
                 placeholder="مثال: 2024-2025"
               />
               <Form.Text className="text-muted">
-                استخدم "ALL" لإعادة ضبط جميع السنوات الدراسية
+                استخدم &quot;ALL&quot; لإعادة ضبط جميع السنوات الدراسية
               </Form.Text>
             </Form.Group>
           </Form>

@@ -105,18 +105,10 @@ function MultiSelectDropdown({
         ref={triggerRef}
       >
         <span className="dropdown-label-text">{getSelectedLabels()}</span>
-        <ChevronDownIcon
-          className="dropdown-chevron"
-          width={16}
-          height={16}
-        />
+        <ChevronDownIcon className="dropdown-chevron" width={16} height={16} />
       </button>
 
-      <div
-        className="dropdown-list"
-        role="listbox"
-        aria-multiselectable="true"
-      >
+      <div className="dropdown-list" role="listbox" aria-multiselectable="true">
         {options.length > 1 && (
           <button
             type="button"

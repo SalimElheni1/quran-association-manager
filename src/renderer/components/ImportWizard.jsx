@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Button, Alert, Spinner, Form, InputGroup } from 'react-bootstrap';
+import { Modal, Button, Alert, Spinner } from 'react-bootstrap';
 import FileExcelIcon from '@renderer/components/icons/FileExcelIcon';
 import FolderOpenIcon from '@renderer/components/icons/FolderOpenIcon';
 import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
@@ -117,7 +117,7 @@ function ImportWizard({ show, handleClose, selectedSheets = [] }) {
               <Alert variant="info">
                 <strong>الورقات المراد استيرادها:</strong>
                 <div className="mt-2">
-                  {selectedSheets.map((sheet, index) => (
+                  {selectedSheets.map((sheet) => (
                     <span key={sheet} className="badge bg-secondary me-2">
                       {sheet}
                     </span>

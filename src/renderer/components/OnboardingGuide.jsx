@@ -5,33 +5,6 @@ import onboardingContent from '@renderer/data/onboardingContent';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
-const routeToStep = (pathname) => {
-  switch (true) {
-    case pathname === '/' || pathname === '':
-      return 1;
-    case pathname.startsWith('/students'):
-      return 2;
-    case pathname.startsWith('/teachers'):
-      return 3;
-    case pathname.startsWith('/classes'):
-      return 4;
-    case pathname.startsWith('/attendance'):
-      return 5;
-    case pathname.startsWith('/financials'):
-      return 6;
-    case pathname.startsWith('/users'):
-      return 7;
-    case pathname.startsWith('/profile'):
-      return 8;
-    case pathname.startsWith('/settings'):
-      return 9;
-    case pathname.startsWith('/about'):
-      return 10;
-    default:
-      return 0;
-  }
-};
-
 const stepToRoute = (step) => {
   switch (step) {
     case 0:
@@ -62,13 +35,13 @@ const stepToRoute = (step) => {
 };
 
 function OnboardingGuide() {
-  const location = useLocation();
+  // Re-renders the guide when the route changes.
+  useLocation();
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
-  const [manualOpen, setManualOpen] = useState(null); // 'open' | 'begin' | null
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [orderedSteps, setOrderedSteps] = useState([0, 1, 2, 3, 4, 5, 8, 10]);
 
@@ -109,11 +82,9 @@ function OnboardingGuide() {
       const action = detail.action;
       if (detail.profile) setProfile(detail.profile);
       if (action === 'open') {
-        setManualOpen('open');
         setVisible(true);
       }
       if (action === 'open-begin') {
-        setManualOpen('begin');
         setVisible(true);
         setStep(0);
       }
@@ -167,8 +138,6 @@ function OnboardingGuide() {
   const currentIndex = Math.max(0, orderedSteps.indexOf(step));
 
   const handleExit = async () => {
-    // user interacted: clear the manualOpen lock so route updates apply again
-    setManualOpen(null);
     setVisible(false);
     if (profile && profile.id) {
       try {
@@ -185,7 +154,6 @@ function OnboardingGuide() {
 
   const handlePrevious = async () => {
     // user clicked: clear manualOpen so subsequent route changes behave normally
-    setManualOpen(null);
     // find previous step in orderedSteps
     const idx = Math.max(0, orderedSteps.indexOf(step));
     const prev = idx > 0 ? orderedSteps[idx - 1] : orderedSteps[0];
@@ -204,7 +172,6 @@ function OnboardingGuide() {
 
   const handleNext = async () => {
     // user clicked: clear manualOpen so subsequent route changes behave normally
-    setManualOpen(null);
     // step to the next entry in orderedSteps
     const idx = Math.max(0, orderedSteps.indexOf(step));
     const next =

@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { useCategories } from '@renderer/hooks/useCategories';
-import { useStudents } from '@renderer/hooks/useStudents';
-import { useClasses } from '@renderer/hooks/useClasses';
-import SearchableStudentSelect from '@renderer/components/SearchableStudentSelect';
 import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
 function TransactionModal({
@@ -19,15 +16,11 @@ function TransactionModal({
   const [formData, setFormData] = useState({});
   const [amountWarning, setAmountWarning] = useState('');
   const [inKindCategories, setInKindCategories] = useState([]);
-  const [selectedStudentDetails, setSelectedStudentDetails] = useState(null);
-  const [selectedClass, setSelectedClass] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!transaction;
 
   const { categories } = useCategories(type);
   const filteredCategories = categories.filter((cat) => cat.name !== 'مداخيل أخرى');
-  const { students, searchStudents } = useStudents(); // Use searchable students hook
-  const { classes } = useClasses({}); // For monthly fees
 
   // Fetch in-kind categories
   useEffect(() => {
@@ -38,13 +31,6 @@ function TransactionModal({
         .catch(() => {});
     }
   }, [show, type]);
-
-  // Generate unique voucher number for in-kind donations
-  const generateInKindVoucher = () => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `INK-${timestamp}-${random}`;
-  };
 
   useEffect(() => {
     const initialData = {

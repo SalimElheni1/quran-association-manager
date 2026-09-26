@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Col, Spinner } from 'react-bootstrap';
+import { Card, Col } from 'react-bootstrap';
 import UserGraduateIcon from './icons/UserGraduateIcon';
 import TeacherIcon from './icons/TeacherIcon';
 import ClassesIcon from './icons/ClassesIcon';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Alert, Button, Spinner } from 'react-bootstrap';
+import { Row, Col, Alert, Button } from 'react-bootstrap';
 import { Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StatCard from '@renderer/components/StatCard';

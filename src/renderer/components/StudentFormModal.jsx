@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Row, Col, Badge } from 'react-bootstrap';
+import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import SelectionModal from './SelectionModal';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
