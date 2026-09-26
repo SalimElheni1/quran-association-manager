@@ -45,9 +45,10 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
 - Payment system field and column in the age groups settings.
 - Warning in the backup tab while no association transfer key is set.
 - Voucher numbers can be corrected when editing a transaction.
-- End-to-end test suite (Playwright + Electron, 87 tests) and a real-world scenario test:
-  123 students, finances, fees, a backup and a restore on a fresh install
-  (`npm run test:e2e`, `npm run test:e2e:realworld`).
+- End-to-end test suite (Playwright + Electron, 87 tests) and real-world scenario tests
+  (`npm run test:e2e`, `npm run test:e2e:realworld`): 123 students with finances, fees, a
+  backup and a restore on a fresh install; and a branch's finances run month by month from
+  September to January with the app clock moved forward, plus an academic-year rollover.
 
 ### Fixed
 
@@ -62,6 +63,9 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
   billing ahead.
 - Records made between 00:00 and 01:00 (fees, payments, receipts, date defaults and month
   ranges) were dated the previous day.
+- Student fee payments were stored with a UTC timestamp and compared as date-times, so the
+  financial dashboard could count them in the wrong month and left out payments made on a
+  period's last day.
 - Financial dashboard: month totals missed the last day of the month; the refresh and export
   buttons never appeared; totals did not update after fee payments or in-kind donations.
 - Enrollment warned about gender for every student in male-only or female-only classes.
