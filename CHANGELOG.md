@@ -63,6 +63,11 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
   backup and a restore on a fresh install; and a branch's finances run month by month from
   September to January with the app clock moved forward, plus an academic-year rollover.
 
+### Changed
+
+- `npm run lint` now checks the React (`.jsx`) and `.mjs` files too; they were never linted.
+- README screenshots now come from the real-world test data (`npm run docs:screenshots`).
+
 ### Fixed
 
 - Editing any income or expense failed ("طريقة الدفع غير صالحة").
@@ -84,6 +89,10 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
 - The financial dashboard kept showing the month it was first opened in; it now opens on the
   current month, follows the date while the app stays open, and shows the selected period.
 - Imported fee payments without an academic year went to the previous academic year.
+- Counts in the financial summary cards (paid, partly paid and unpaid students; number of
+  transactions) were shown with two decimals, like amounts.
+- The income and expense window loaded every student and class each time it opened, for a
+  student picker that was never shown.
 - Enrollment warned about gender for every student in male-only or female-only classes.
 - Class statuses "pending" and "completed" were shown in English.
 

@@ -13,7 +13,7 @@
     "dist": "npm run build && node -r dotenv/config ./node_modules/.bin/electron-builder --win",
     "dist:ci": "npm run build && node -r dotenv/config ./node_modules/.bin/electron-builder --win --config.forceCodeSigning=true",
     "postdist": "electron-builder install-app-deps",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .js,.jsx,.mjs",
     "format": "prettier --write .",
     "seed:manual": "node scripts/manual-seeder.js",
     "test": "jest",
@@ -22,7 +22,8 @@
     "test:e2e:report": "playwright show-report",
     "test:e2e:debug": "npm run build && playwright test --debug",
     "test:e2e:realworld": "npm run build && QBM_REALWORLD=1 playwright test",
-    "e2e:open-data": "node scripts/open-e2e-data.js"
+    "e2e:open-data": "node scripts/open-e2e-data.js",
+    "docs:screenshots": "npm run build && QBM_SCREENSHOTS=1 playwright test"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",

@@ -4,14 +4,14 @@
 
 This application was developed to replace manual, paper-based workflows, offering a digital solution tailored to the needs of organizations like the National Quran Association in Tunisia.
 
-![Application Dashboard](public/assets/screenshots/Screenshot%20from%202026-01-23%2022-52-24.png)
+![Home dashboard](public/assets/screenshots/dashboard.png)
 
 ## ✨ Features
 
 - **Student Management:** Enroll students, track memorization progress, and manage personal and contact information.
 - **Teacher & Class Management:** Manage teacher profiles, create class schedules, and assign students and teachers to classes.
 - **Attendance Tracking:** Record and monitor student attendance with ease, and generate detailed reports.
-- **Financial Management:** A complete module to track student payments, teacher salaries, donations (cash and in-kind), and general expenses.
+- **Financial Management:** A complete module to track student payments, teacher salaries, donations (cash and in-kind), and general expenses. Student fees are billed monthly or yearly per age group, each age group can have its own fees, and unpaid fees from earlier academic years are kept apart.
 - **Comprehensive Reporting:** Generate and export detailed reports for students, attendance, and financials in both PDF and Excel formats.
 - **Role-Based Access Control:** Secure login system with distinct roles (Superadmin, Branch Admin, Teacher) to ensure data privacy and security.
 - **Offline-First:** The application is designed to work seamlessly without an internet connection, storing all data locally and securely on your computer.
@@ -20,17 +20,16 @@ This application was developed to replace manual, paper-based workflows, offerin
 
 ## 📸 Gallery
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-17.png" alt="Screenshot 1" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-49.png" alt="Screenshot 2" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-44-54.png" alt="Screenshot 3" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-45-27.png" alt="Screenshot 4" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-47-56.png" alt="Screenshot 5" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-49-50.png" alt="Screenshot 6" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-50-39.png" alt="Screenshot 7" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-51-50.png" alt="Screenshot 8" />
-  <img src="public/assets/screenshots/Screenshot%20from%202026-01-23%2022-52-11.png" alt="Screenshot 9" />
-</div>
+Screenshots from the real-world test scenario (`npm run test:e2e:realworld`): a branch with
+128 students, 8 teachers and 9 classes, with attendance and finances. The names are fictional.
+Regenerate them with `npm run docs:screenshots` after running the scenario.
+
+| | |
+|---|---|
+| ![Students](public/assets/screenshots/students.png) **Students** | ![Classes](public/assets/screenshots/classes.png) **Classes** |
+| ![Attendance](public/assets/screenshots/attendance.png) **Attendance** | ![Teachers](public/assets/screenshots/teachers.png) **Teachers** |
+| ![Financial dashboard](public/assets/screenshots/financial-dashboard.png) **Financial dashboard** | ![Student fees](public/assets/screenshots/student-fees.png) **Student fees** |
+| ![Age groups and their fees](public/assets/screenshots/age-groups.png) **Age groups and their fees** | ![Login](public/assets/screenshots/login.png) **Login** |
 
 ## 🚀 Getting Started
 
