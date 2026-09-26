@@ -22,6 +22,7 @@ module.exports = defineConfig({
           testMatch: 'realworld/02-continue.e2e.js',
           dependencies: ['realworld-seed'],
         },
+        { name: 'months', testMatch: 'realworld/03-months.e2e.js' },
       ]
     : [{ name: 'e2e', testIgnore: '**/realworld/**' }],
   // Each test launches its own Electron instance; keep them serial for stability.

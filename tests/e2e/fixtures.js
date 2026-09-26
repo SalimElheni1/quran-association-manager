@@ -11,12 +11,14 @@ const SUPERADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
 
 /**
  * Launches the real Electron app against a fresh, throwaway userData directory.
- * Pass an existing `userDataDir` to relaunch on the same data (e.g. after a restore).
- * @param {{ userDataDir?: string }} [options]
+ * Pass an existing `userDataDir` to relaunch on the same data (e.g. after a restore), and
+ * `now` (ISO date-time) to start the app's main-process clock at that moment.
+ * @param {{ userDataDir?: string, now?: string }} [options]
  * @returns {Promise<{ app: import('@playwright/test').ElectronApplication, userDataDir: string }>}
  */
 async function launchApp({
   userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbm-e2e-')),
+  now,
 } = {}) {
   if (!fs.existsSync(RENDERER_INDEX)) {
     throw new Error(`Renderer build not found at ${RENDERER_INDEX}. Run "npm run build" first.`);
@@ -28,6 +30,7 @@ async function launchApp({
     QBM_E2E_USER_DATA: userDataDir,
     JWT_SECRET: crypto.randomBytes(32).toString('hex'),
   };
+  if (now) env.QBM_E2E_NOW = now;
   delete env.ELECTRON_RUN_AS_NODE;
 
   const app = await electron.launch({
@@ -83,6 +86,18 @@ async function login(page, { username, password } = SUPERADMIN) {
   await page.locator('#username').fill(username);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
+}
+
+/**
+ * Moves the app to a given moment: the main process (billing, scheduler, sessions) keeps
+ * ticking from there; the window's date is fixed at it (its timers keep running, so fades and
+ * toasts still work). Sessions are checked against this clock, so moving ahead usually means
+ * logging in again.
+ * @param {string} iso e.g. '2026-10-26T09:00:00'
+ */
+async function setAppDate(electronApp, page, iso) {
+  await electronApp.evaluate((_, when) => global.__qbmE2ESetNow(when), iso);
+  await page.clock.setFixedTime(new Date(iso));
 }
 
 /**
@@ -178,6 +193,7 @@ module.exports = {
   test,
   expect,
   launchApp,
+  setAppDate,
   setupSuperadmin,
   login,
   dismissOnboarding,

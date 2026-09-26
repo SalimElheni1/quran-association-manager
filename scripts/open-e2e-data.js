@@ -4,6 +4,7 @@
  *
  *   npm run e2e:open-data                      # data after phase 2 (restore + continued work)
  *   npm run e2e:open-data -- 01-seed           # data right after phase 1 (the seed)
+ *   npm run e2e:open-data -- months            # the months scenario, as of January
  *
  * The app runs in its e2e mode against a COPY of the preserved data (your real app data is
  * never touched) and loads the built renderer, so run `npm run build` first if needed.
@@ -15,7 +16,10 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const phase = process.argv[2] || '02-continue';
-const source = path.join(ROOT, 'e2e-artifacts', 'realworld', phase, 'app-data');
+const source =
+  phase === 'months'
+    ? path.join(ROOT, 'e2e-artifacts', 'months', 'app-data')
+    : path.join(ROOT, 'e2e-artifacts', 'realworld', phase, 'app-data');
 
 if (!fs.existsSync(source)) {
   console.error(`No preserved app data at ${source}. Run: npm run test:e2e:realworld`);
@@ -30,7 +34,7 @@ if (!fs.existsSync(path.join(ROOT, 'dist', 'renderer', 'index.html'))) {
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `qbm-${phase}-`));
 fs.cpSync(source, workDir, { recursive: true });
 console.log(`Opening a copy of ${path.relative(ROOT, source)} (${workDir})`);
-console.log('Credentials: e2e-artifacts/realworld/README.md');
+console.log(`Credentials: e2e-artifacts/${phase === 'months' ? 'months' : 'realworld'}/README.md`);
 
 const electron = require('electron');
 const child = spawn(electron, ['.', '--password-store=basic'], {
@@ -38,6 +42,12 @@ const child = spawn(electron, ['.', '--password-store=basic'], {
   stdio: 'inherit',
   // The key store was written with the "basic" password store, so the same flag is
   // needed to unlock the database.
-  env: { ...process.env, QBM_E2E: '1', QBM_E2E_USER_DATA: workDir },
+  env: {
+    ...process.env,
+    QBM_E2E: '1',
+    QBM_E2E_USER_DATA: workDir,
+    // The months scenario ends in January 2027; open it on that date so "this month" matches.
+    ...(phase === 'months' ? { QBM_E2E_NOW: '2027-01-05T09:00:00' } : {}),
+  },
 });
 child.on('exit', (code) => process.exit(code ?? 0));

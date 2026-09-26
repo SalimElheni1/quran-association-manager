@@ -33,6 +33,26 @@ if (isE2E) {
     throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');
   }
   app.setPath('userData', process.env.QBM_E2E_USER_DATA);
+
+  // Test clock: lets e2e tests simulate months of use. QBM_E2E_NOW sets "now" at launch,
+  // and global.__qbmE2ESetNow(iso) moves it while the app runs; time keeps ticking from there.
+  const RealDate = Date;
+  let offsetMs = process.env.QBM_E2E_NOW
+    ? new RealDate(process.env.QBM_E2E_NOW).getTime() - RealDate.now()
+    : 0;
+  global.Date = class E2EDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(RealDate.now() + offsetMs);
+      else super(...args);
+    }
+
+    static now() {
+      return RealDate.now() + offsetMs;
+    }
+  };
+  global.__qbmE2ESetNow = (iso) => {
+    offsetMs = new RealDate(iso).getTime() - RealDate.now();
+  };
 }
 
 // =================================================================================
