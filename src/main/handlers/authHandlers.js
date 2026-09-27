@@ -226,6 +226,15 @@ function registerAuthHandlers() {
 
       clearLoginLockout();
 
+      // An account set to inactive keeps its data but can no longer sign in. Checked after the
+      // password so the message doesn't reveal which usernames exist.
+      if (user.status && user.status !== 'active') {
+        return {
+          success: false,
+          message: 'هذا الحساب غير نشط. يرجى التواصل مع مدير النظام.',
+        };
+      }
+
       // SEC-04 safety net for existing installs: if the account still uses
       // the legacy default password '123456', force a password change.
       const mustChangePassword = await bcrypt.compare('123456', user.password);

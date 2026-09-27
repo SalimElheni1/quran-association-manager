@@ -120,6 +120,24 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toBe('اسم المستخدم أو كلمة المرور غير صحيحة');
     });
 
+    it('should refuse an inactive account even with the right password', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue({
+        id: 2,
+        username: 'former',
+        password: 'hash',
+        status: 'inactive',
+      });
+      bcrypt.compare.mockResolvedValue(true);
+      jwt.sign.mockClear();
+
+      const result = await handlers['auth:login'](null, { username: 'former', password: 'pass' });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('هذا الحساب غير نشط. يرجى التواصل مع مدير النظام.');
+      expect(jwt.sign).not.toHaveBeenCalled();
+    });
+
     it('should cache logo path on successful login', async () => {
       const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHandlers');
       internalGetSettingsHandler.mockResolvedValue({

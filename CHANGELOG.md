@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reloads that year's payments and balance, not the current year's.
 - A student billed annually who is in several age groups defaults to the annual group's fee.
 - Discounted fees are rounded to cents, so paying the displayed amount marks the charge paid.
+- **An inactive user could still log in.** Setting a user to «غير نشط» now blocks their login
+  (with a message to contact the administrator); their data is kept.
 - The monthly fees chart is labelled "last 12 months", which is what it shows.
 - The e2e test clock can no longer be switched on in a packaged build.
 - README screenshots moved to `docs/screenshots/` so they are not bundled into the app.

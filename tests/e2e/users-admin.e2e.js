@@ -74,6 +74,22 @@ test.describe('user administration', () => {
     await expect(page.locator('.topbar')).toHaveCount(0);
   });
 
+  test('an inactive user can no longer log in', async ({ authedPage: page }) => {
+    await createUser(page, ADMIN_USER, 'Administrator');
+
+    await userRow(page, ADMIN_USER.username).getByRole('button', { name: 'تعديل' }).click();
+    await expect(modal(page).locator('.modal-title')).toHaveText('تعديل بيانات المستخدم');
+    await modal(page).locator('select[name="status"]').selectOption('inactive');
+    await modal(page).getByRole('button', { name: 'حفظ' }).click();
+    await expectToast(page, 'success', 'تم تحديث بيانات المستخدم بنجاح!');
+    await expectNoModal(page);
+
+    await logout(page);
+    await login(page, ADMIN_USER);
+    await expect(page.locator('.alert-danger')).toContainText('هذا الحساب غير نشط');
+    await expect(page.locator('.topbar')).toHaveCount(0);
+  });
+
   test('Administrator manages people and classes but not finances or settings', async ({
     authedPage: page,
   }) => {
