@@ -69,6 +69,7 @@ function onOpen() {
     .createMenu('خطة الاختبار')
     .addItem('روابط المشاركة', 'showLinks')
     .addItem('تحديث قوائم النموذج', 'refreshFormLists')
+    .addItem('إصلاح روابط «ابدأ هنا»', 'repairStartSheet')
     .addSeparator()
     .addItem('إعداد النموذج (مرة واحدة)', 'setupTesterForm')
     .addToUi();
@@ -274,6 +275,14 @@ function showLinks() {
   SpreadsheetApp.getUi().showModalDialog(html, 'روابط المشاركة');
 }
 
+/** Rewrites the «ابدأ هنا» steps and form links (e.g. after a link showed an error). */
+function repairStartSheet() {
+  const formId = props_().getProperty('FORM_ID');
+  if (!formId) throw new Error('شغّل «إعداد النموذج» أولاً.');
+  adaptPlanForForm_(planSpreadsheet_(), FormApp.openById(formId));
+  SpreadsheetApp.getActiveSpreadsheet().toast('تم تحديث روابط «ابدأ هنا».', 'خطة الاختبار');
+}
+
 /** Rewrites the plan's instructions for the form, and greys out the cells testers used to fill. */
 function adaptPlanForForm_(ss, form) {
   const url = form.getPublishedUrl();
@@ -287,7 +296,11 @@ function adaptPlanForForm_(ss, form) {
   ];
   steps.forEach(([text, label], i) => {
     start.getRange(2 + i, 2).setValue(text);
-    start.getRange(2 + i, 8).setFormula(`=HYPERLINK("${url}","${label}")`);
+    // A plain link, not a HYPERLINK formula: formulas use «;» or «,» depending on the sheet's
+    // language settings, and the wrong one shows an error.
+    const cell = start.getRange(2 + i, 8);
+    cell.clearContent();
+    cell.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(label).setLinkUrl(url).build());
   });
   start.getRange(START_FIRST_ROW - 1, 2, 1, 2).setValues([['مسجّل', 'الجهاز']]);
 
