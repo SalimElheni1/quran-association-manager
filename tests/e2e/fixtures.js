@@ -12,13 +12,15 @@ const SUPERADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
 /**
  * Launches the real Electron app against a fresh, throwaway userData directory.
  * Pass an existing `userDataDir` to relaunch on the same data (e.g. after a restore), and
- * `now` (ISO date-time) to start the app's main-process clock at that moment.
- * @param {{ userDataDir?: string, now?: string }} [options]
+ * `now` (ISO date-time) to start the app's main-process clock at that moment, and
+ * `recordVideo` ({ dir, size }) to record the window (used by the video guide).
+ * @param {{ userDataDir?: string, now?: string, recordVideo?: { dir: string, size?: object } }} [options]
  * @returns {Promise<{ app: import('@playwright/test').ElectronApplication, userDataDir: string }>}
  */
 async function launchApp({
   userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbm-e2e-')),
   now,
+  recordVideo,
 } = {}) {
   if (!fs.existsSync(RENDERER_INDEX)) {
     throw new Error(`Renderer build not found at ${RENDERER_INDEX}. Run "npm run build" first.`);
@@ -38,6 +40,7 @@ async function launchApp({
     // `basic` password store: no OS keyring prompts on Linux desktops or CI.
     args: ['.', '--password-store=basic'],
     env,
+    ...(recordVideo ? { recordVideo } : {}),
   });
   return { app, userDataDir };
 }

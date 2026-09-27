@@ -12,23 +12,27 @@ const { defineConfig } = require('@playwright/test');
 const realworld = !!process.env.QBM_REALWORLD;
 // README screenshots (tests/e2e/readme) are only taken on request: npm run docs:screenshots.
 const screenshots = !!process.env.QBM_SCREENSHOTS;
+// The video guide (tests/e2e/guide) is only recorded on request: npm run docs:guide.
+const guide = !!process.env.QBM_GUIDE;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.e2e.js',
-  projects: screenshots
-    ? [{ name: 'screenshots', testMatch: 'readme/screenshots.e2e.js' }]
-    : realworld
-      ? [
-          { name: 'realworld-seed', testMatch: 'realworld/01-seed.e2e.js' },
-          {
-            name: 'realworld-continue',
-            testMatch: 'realworld/02-continue.e2e.js',
-            dependencies: ['realworld-seed'],
-          },
-          { name: 'months', testMatch: 'realworld/03-months.e2e.js' },
-        ]
-      : [{ name: 'e2e', testIgnore: ['**/realworld/**', '**/readme/**'] }],
+  projects: guide
+    ? [{ name: 'guide', testMatch: 'guide/app-guide.e2e.js' }]
+    : screenshots
+      ? [{ name: 'screenshots', testMatch: 'readme/screenshots.e2e.js' }]
+      : realworld
+        ? [
+            { name: 'realworld-seed', testMatch: 'realworld/01-seed.e2e.js' },
+            {
+              name: 'realworld-continue',
+              testMatch: 'realworld/02-continue.e2e.js',
+              dependencies: ['realworld-seed'],
+            },
+            { name: 'months', testMatch: 'realworld/03-months.e2e.js' },
+          ]
+        : [{ name: 'e2e', testIgnore: ['**/realworld/**', '**/readme/**', '**/guide/**'] }],
   // Each test launches its own Electron instance; keep them serial for stability.
   fullyParallel: false,
   workers: 1,

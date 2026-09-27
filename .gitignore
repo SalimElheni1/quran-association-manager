@@ -53,3 +53,6 @@ tests/e2e/realworld/.handoff/
 
 # Real-world e2e artifacts kept for inspection (app data, backups, exports)
 e2e-artifacts/
+
+# Video guide output (npm run docs:guide)
+guide-output/

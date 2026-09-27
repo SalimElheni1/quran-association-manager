@@ -31,6 +31,18 @@ Regenerate them with `npm run docs:screenshots` after running the scenario.
 | ![Financial dashboard](docs/screenshots/financial-dashboard.png) **Financial dashboard** | ![Student fees](docs/screenshots/student-fees.png) **Student fees** |
 | ![Age groups and their fees](docs/screenshots/age-groups.png) **Age groups and their fees** | ![Login](docs/screenshots/login.png) **Login** |
 
+## 🎬 Video guide (Arabic)
+
+A recorded tour of the app with Arabic explanations on screen, from a fresh install: first
+login, fees, teachers, students, classes, attendance, student fees, income and expenses, and
+backup. It is an e2e test, so each step is also checked against the app.
+
+- `npm run docs:guide` records it into `guide-output/`: `guide.webm`, Arabic subtitles
+  (`captions.vtt`), chapter timings and the written steps (`guide.md`).
+- `npm run docs:guide:mp4` then makes `guide.mp4` and one MP4 per chapter in
+  `guide-output/chapters/` (needs ffmpeg with libx264; set `FFMPEG_PATH` if it is not on the PATH).
+- `QBM_GUIDE_PACE=0.3` records a quick version, to check the guide still runs.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
