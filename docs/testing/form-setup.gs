@@ -69,7 +69,7 @@ function onOpen() {
     .createMenu('خطة الاختبار')
     .addItem('روابط المشاركة', 'showLinks')
     .addItem('تحديث قوائم النموذج', 'refreshFormLists')
-    .addItem('إصلاح روابط «ابدأ هنا»', 'repairStartSheet')
+    .addItem('إصلاح الروابط', 'repairStartSheet')
     .addSeparator()
     .addItem('إعداد النموذج (مرة واحدة)', 'setupTesterForm')
     .addToUi();
@@ -279,8 +279,38 @@ function showLinks() {
 function repairStartSheet() {
   const formId = props_().getProperty('FORM_ID');
   if (!formId) throw new Error('شغّل «إعداد النموذج» أولاً.');
-  adaptPlanForForm_(planSpreadsheet_(), FormApp.openById(formId));
-  SpreadsheetApp.getActiveSpreadsheet().toast('تم تحديث روابط «ابدأ هنا».', 'خطة الاختبار');
+  const ss = planSpreadsheet_();
+  adaptPlanForForm_(ss, FormApp.openById(formId));
+  SpreadsheetApp.getActiveSpreadsheet().toast('تم إصلاح كل الروابط.', 'خطة الاختبار');
+}
+
+/** A link cell: plain text with a link, replacing any formula or imported link in the cell. */
+function setLink_(range, label, url) {
+  range.clearContent();
+  range.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(label).setLinkUrl(url).build());
+}
+
+/**
+ * Rebuilds the links inside the workbook in Google's own format (#gid=…&range=…). Links imported
+ * from the Excel file may not survive the import, and HYPERLINK formulas depend on the sheet's
+ * language settings («,» or «;»), so both are replaced by plain links.
+ */
+function rebuildInternalLinks_(ss) {
+  const tests = sheet_(ss, 'tests');
+  const areas = sheet_(ss, 'areas');
+  const testRows = tests.getLastRow() - TESTS_FIRST_ROW + 1;
+  const firstRowOfArea = {};
+  tests
+    .getRange(TESTS_FIRST_ROW, 2, testRows, 1)
+    .getValues()
+    .forEach((r, i) => {
+      const code = String(r[0]).trim();
+      if (code && !(code in firstRowOfArea)) firstRowOfArea[code] = TESTS_FIRST_ROW + i;
+    });
+  areaChoices_(ss).forEach((a) => {
+    const row = firstRowOfArea[a.code];
+    if (row) setLink_(areas.getRange(a.row, 17), 'اذهب إلى الاختبارات', `#gid=${tests.getSheetId()}&range=A${row}`);
+  });
 }
 
 /** Rewrites the plan's instructions for the form, and greys out the cells testers used to fill. */
@@ -298,9 +328,7 @@ function adaptPlanForForm_(ss, form) {
     start.getRange(2 + i, 2).setValue(text);
     // A plain link, not a HYPERLINK formula: formulas use «;» or «,» depending on the sheet's
     // language settings, and the wrong one shows an error.
-    const cell = start.getRange(2 + i, 8);
-    cell.clearContent();
-    cell.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(label).setLinkUrl(url).build());
+    setLink_(start.getRange(2 + i, 8), label, url);
   });
   start.getRange(START_FIRST_ROW - 1, 2, 1, 2).setValues([['مسجّل', 'الجهاز']]);
 
@@ -328,6 +356,8 @@ function adaptPlanForForm_(ss, form) {
     ['الخلايا الصفراء يملؤها المختبِر أو المنسق', 'الخلايا الصفراء يملؤها المنسق'],
   ];
   replacements.forEach(([from, to]) => help.createTextFinder(from).matchEntireCell(true).replaceAllWith(to));
+
+  rebuildInternalLinks_(ss);
 }
 
 // ------------------------------------------------------------------------------------ lists
