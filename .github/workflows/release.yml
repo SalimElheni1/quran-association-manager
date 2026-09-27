@@ -67,11 +67,14 @@ jobs:
           cache: npm
       # postinstall rebuilds the native SQLite module for Electron on Windows.
       - run: npm ci
-      # electron-builder.yml points at release/.icon-ico/icon.ico, which local builds generate
-      # and git ignores; a clean checkout takes it from the tracked copy of the same icon.
+      # electron-builder.yml points at release/.icon-ico/icon.ico, which git ignores. Generate it
+      # from build/icon.png with electron-builder's own converter (a 256x256 ICO, the minimum
+      # electron-builder accepts), as a local build does.
       - name: Installer icon
         shell: bash
-        run: mkdir -p release/.icon-ico && cp public/assets/logos/icon.ico release/.icon-ico/icon.ico
+        run: |
+          "$(node -p "require('app-builder-bin').appBuilderPath")" icon \
+            --format ico --root build --input build/icon.png --out release/.icon-ico
       - run: npm run build
       - name: Build the installer${{ (github.ref_type == 'tag' || inputs.publish) && ' and publish the release' || '' }}
         shell: bash
