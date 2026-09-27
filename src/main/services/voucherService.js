@@ -1,6 +1,6 @@
 /**
  * @fileoverview Voucher number generation service for financial transactions
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 2.0.0
  */
 
@@ -22,8 +22,8 @@ async function generateVoucherNumber(type, year) {
 
     // Get all vouchers for this type and year
     const vouchers = await db.allQuery(
-      `SELECT voucher_number FROM transactions 
-       WHERE voucher_number LIKE ? 
+      `SELECT voucher_number FROM transactions
+       WHERE voucher_number LIKE ?
        ORDER BY voucher_number DESC`,
       [pattern],
     );

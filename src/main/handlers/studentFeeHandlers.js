@@ -1,6 +1,6 @@
 /**
  * @fileoverview IPC handlers for student fee management
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 
@@ -618,8 +618,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
         const existingCurrent = await db.allQuery(
           `
           SELECT id, amount, charge_date, amount_paid FROM student_fee_charges
-          WHERE student_id = ? 
-          AND fee_type = 'MONTHLY' 
+          WHERE student_id = ?
+          AND fee_type = 'MONTHLY'
           AND billing_month = ?
         `,
           [studentId, currentBillingMonth],
@@ -643,8 +643,8 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
           await db.runQuery(
             `
             DELETE FROM student_fee_charges
-            WHERE student_id = ? 
-            AND fee_type = 'MONTHLY' 
+            WHERE student_id = ?
+            AND fee_type = 'MONTHLY'
             AND billing_month = ?
           `,
             [studentId, currentBillingMonth],
@@ -659,7 +659,7 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
 
             await db.runQuery(
               `
-                INSERT INTO student_fee_charges 
+                INSERT INTO student_fee_charges
                 (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
                 VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
               `,
@@ -824,8 +824,8 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
             await db.runQuery(
               `
             DELETE FROM student_fee_charges
-            WHERE student_id = ? 
-            AND fee_type = 'MONTHLY' 
+            WHERE student_id = ?
+            AND fee_type = 'MONTHLY'
             AND billing_month = ?
           `,
               [studentId, currentBillingMonth],
@@ -850,7 +850,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
 
             await db.runQuery(
               `
-            INSERT INTO student_fee_charges 
+            INSERT INTO student_fee_charges
             (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
             VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)
           `,

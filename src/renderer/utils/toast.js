@@ -5,7 +5,7 @@
  * This module standardizes toast notifications across the application using
  * react-toastify with predefined styling and behavior options.
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires react-toastify - Toast notification library
  */

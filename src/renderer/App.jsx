@@ -8,7 +8,7 @@
  * - Protected route authentication
  * - Layout structure
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires react - React library
  * @requires react-router-dom - Client-side routing

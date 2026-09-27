@@ -1,6 +1,6 @@
 /**
  * @fileoverview Test script for financial CRUD operations
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 2.0.0
  */
 

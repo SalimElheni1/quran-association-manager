@@ -1,6 +1,6 @@
 /**
  * @fileoverview Unified financial transaction IPC handlers
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 2.0.0
  */
 
@@ -24,8 +24,8 @@ async function generateMatricule(type, transactionDate) {
   const prefix = type === 'INCOME' ? 'I' : 'E';
 
   const lastTransaction = await db.getQuery(
-    `SELECT matricule FROM transactions 
-     WHERE type = ? AND matricule LIKE ? 
+    `SELECT matricule FROM transactions
+     WHERE type = ? AND matricule LIKE ?
      ORDER BY id DESC LIMIT 1`,
     [type, `${prefix}-${year}-%`],
   );
@@ -446,7 +446,7 @@ async function handleGetFinancialSummary(_event, period) {
     // Exclude legacy categories and student fee related transactions
     const incomeSql = `
       SELECT
-        CASE 
+        CASE
           WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category
@@ -459,7 +459,7 @@ async function handleGetFinancialSummary(_event, period) {
         AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
         AND (receipt_type IS NULL OR (receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment'))
       GROUP BY
-        CASE 
+        CASE
           WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category

@@ -10,7 +10,7 @@
  * - IPC handler registration
  * - Security protocols and crash handling
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires electron - Desktop application framework
  * @requires electron-store - Persistent settings storage

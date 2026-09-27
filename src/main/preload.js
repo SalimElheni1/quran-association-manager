@@ -3,7 +3,7 @@
  * This script runs in a sandboxed environment and exposes a controlled API to the renderer process
  * using Electron's contextBridge for security.
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  */
 

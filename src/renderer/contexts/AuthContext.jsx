@@ -5,7 +5,7 @@
  * This context provides centralized authentication state management across the application,
  * including session state and secure logout procedures.
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires react - React library for context and state management
  * @requires ../utils/logger - Application logging utilities

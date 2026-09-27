@@ -2,7 +2,7 @@
  * @fileoverview Receipt service for generating and managing receipt numbers
  * Provides centralized receipt numbering for all financial operations
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 

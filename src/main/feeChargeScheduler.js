@@ -7,7 +7,7 @@
  * - Monthly fee charge generation on schedule
  * - Duplicate prevention and transaction safety
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 

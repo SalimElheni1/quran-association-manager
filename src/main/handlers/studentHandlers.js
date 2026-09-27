@@ -3,7 +3,7 @@
  * Provides CRUD operations for student records including validation,
  * matricule generation, and group assignments.
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires electron - For IPC communication
  * @requires ../../db/db - Database operations

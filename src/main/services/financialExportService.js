@@ -1,6 +1,6 @@
 /**
  * @fileoverview Financial Export Handlers - Generate Excel reports
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  */
 
 const { ipcMain, dialog } = require('electron');
@@ -20,9 +20,9 @@ const { toLocalISODate } = require('../utils/dates');
 async function getStartingBalance(startDate) {
   // Get last transaction before period
   const lastTransaction = await db.getQuery(
-    `SELECT amount, type FROM transactions 
-     WHERE transaction_date < ? 
-     ORDER BY transaction_date DESC, id DESC 
+    `SELECT amount, type FROM transactions
+     WHERE transaction_date < ?
+     ORDER BY transaction_date DESC, id DESC
      LIMIT 1`,
     [startDate],
   );
@@ -35,10 +35,10 @@ async function getStartingBalance(startDate) {
 
   // Calculate cumulative balance up to this point
   const cumulative = await db.getQuery(
-    `SELECT 
+    `SELECT
       SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_income,
       SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense
-     FROM transactions 
+     FROM transactions
      WHERE transaction_date < ?`,
     [startDate],
   );
@@ -95,8 +95,8 @@ async function generateInventoryRegister(event, { period }) {
 
     // Get in-kind donations from period
     const inKindDonations = await db.allQuery(
-      `SELECT * FROM transactions 
-       WHERE category = 'التبرعات العينية' 
+      `SELECT * FROM transactions
+       WHERE category = 'التبرعات العينية'
        AND transaction_date BETWEEN ? AND ?
        ORDER BY transaction_date DESC`,
       [startDate, endDate],
@@ -287,8 +287,8 @@ async function generateFinancialSummary(event, { period }) {
 
     // Get summary data
     const income = await db.allQuery(
-      `SELECT 
-        CASE 
+      `SELECT
+        CASE
           WHEN category = 'التبرعات النقدية' THEN receipt_type
           ELSE category
         END as category,
@@ -296,7 +296,7 @@ async function generateFinancialSummary(event, { period }) {
        FROM transactions
        WHERE transaction_date BETWEEN ? AND ? AND type = 'INCOME'
          AND (category != 'التبرعات النقدية' OR receipt_type IS NOT NULL)
-       GROUP BY CASE 
+       GROUP BY CASE
          WHEN category = 'التبرعات النقدية' THEN receipt_type
          ELSE category
        END`,

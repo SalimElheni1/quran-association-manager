@@ -2,7 +2,7 @@
  * @fileoverview Centralized translation utilities for backend API responses
  * Maps English database values to Arabic for frontend display consistency
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 
