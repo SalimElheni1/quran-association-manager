@@ -1,0 +1,99 @@
+# Builds the Windows installer on GitHub's Windows machines and publishes it as a GitHub release.
+#
+# - Push a version tag (v + the version in package.json, e.g. v1.4.0-beta.1): lint and unit
+#   tests run, then the installer is built and published. Versions with a suffix (-beta.1,
+#   -rc.1, ...) are published as pre-releases, plain versions (1.4.0) as releases.
+# - Run it by hand (Actions tab → Release (Windows) → Run workflow): builds the installer
+#   without publishing; download it from the run's "Artifacts" to try it in a VM first.
+#   Tick "publish" to publish the release from the chosen branch instead.
+name: Release (Windows)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a GitHub release (otherwise only build the installer to download)'
+        type: boolean
+        default: false
+
+# Read-only by default; only the job that publishes the release gets write access.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      # The unit tests mock the database, so the native modules don't need building here.
+      - run: npm ci --ignore-scripts
+      - name: Tag matches the version in package.json
+        if: github.ref_type == 'tag'
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($expected). Fix the version or the tag."
+            exit 1
+          fi
+      - run: npm run lint
+      - run: npm test -- --ci
+
+  windows:
+    name: Build the Windows installer
+    needs: check
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the release and upload the installer
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      # postinstall rebuilds the native SQLite module for Electron on Windows.
+      - run: npm ci
+      # electron-builder.yml points at release/.icon-ico/icon.ico, which local builds generate
+      # and git ignores; a clean checkout takes it from the tracked copy of the same icon.
+      - name: Installer icon
+        shell: bash
+        run: mkdir -p release/.icon-ico && cp public/assets/logos/icon.ico release/.icon-ico/icon.ico
+      - run: npm run build
+      - name: Build the installer${{ (github.ref_type == 'tag' || inputs.publish) && ' and publish the release' || '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH: ${{ github.ref_type == 'tag' || inputs.publish }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [[ "$version" == *-* ]]; then release_type=prerelease; else release_type=release; fi
+          if [ "$PUBLISH" = "true" ]; then publish=always; else publish=never; fi
+          echo "Version $version, publish: $publish ($release_type)"
+          npx electron-builder --win --publish "$publish" \
+            -c.publish.provider=github \
+            -c.publish.owner="${GITHUB_REPOSITORY%/*}" \
+            -c.publish.repo="${GITHUB_REPOSITORY#*/}" \
+            -c.publish.releaseType="$release_type"
+      - name: Keep the installer as a downloadable artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: QuranBranchManager-windows
+          path: |
+            release/*.exe
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 30

@@ -55,3 +55,24 @@ The application is configured to automatically check for updates when it starts.
 4.  **Install and Restart:** Clicking "Install" will quit the current application, install the new version, and restart the application.
 
 This ensures a seamless and secure update process for all users.
+
+## Releasing with GitHub Actions
+
+`.github/workflows/release.yml` builds the Windows installer on GitHub's Windows machines, so a
+release needs no Windows PC and no token (it uses the workflow's own `GITHUB_TOKEN`).
+
+1. Set the version in `package.json` (e.g. `1.4.0-beta.1`), commit, and push to `main`.
+2. Tag that commit with the same version and push the tag:
+
+   ```bash
+   git tag v1.4.0-beta.1
+   git push origin v1.4.0-beta.1
+   ```
+
+3. The workflow runs lint and the unit tests, checks the tag matches `package.json`, builds the
+   installer and publishes the release with it. Versions with a suffix (`-beta.1`, `-rc.1`) are
+   published as pre-releases, plain versions (`1.4.0`) as releases. Follow it in the **Actions**
+   tab.
+
+To try an installer before releasing it: **Actions → Release (Windows) → Run workflow**, leave
+"publish" unticked, then download the installer from the run's **Artifacts**.
