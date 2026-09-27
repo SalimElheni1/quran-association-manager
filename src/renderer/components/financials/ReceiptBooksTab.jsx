@@ -73,6 +73,7 @@ function ReceiptBooksTab() {
     } catch (err) {
       logError('Failed to save receipt book:', err);
       setError(err.message || 'فشل حفظ دفتر الإيصالات.');
+      throw err;
     }
   };
 

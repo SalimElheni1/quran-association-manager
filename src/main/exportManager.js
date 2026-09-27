@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const { BrowserWindow, app } = require('electron');
+const { app } = require('electron');
 const ExcelJS = require('exceljs');
 const docx = require('docx');
 const { allQuery } = require('../db/db');
@@ -31,12 +30,10 @@ try {
 
   // Try Cairo fonts first
   try {
-    const cairoRegularPath = require.resolve(
-      '@fontsource/cairo-play/files/cairo-play-arabic-400-normal.woff2',
-    );
-    const cairoBoldPath = require.resolve(
-      '@fontsource/cairo-play/files/cairo-play-arabic-700-normal.woff2',
-    );
+    const cairoRegularPath =
+      require.resolve('@fontsource/cairo-play/files/cairo-play-arabic-400-normal.woff2');
+    const cairoBoldPath =
+      require.resolve('@fontsource/cairo-play/files/cairo-play-arabic-700-normal.woff2');
     fonts.Arabic = {
       normal: cairoRegularPath,
       bold: cairoBoldPath,
@@ -48,9 +45,8 @@ try {
   } catch (cairoError) {
     // Fallback to Amiri
     try {
-      const amiriRegularPath = require.resolve(
-        '@fontsource/amiri/files/amiri-latin-400-normal.woff2',
-      );
+      const amiriRegularPath =
+        require.resolve('@fontsource/amiri/files/amiri-latin-400-normal.woff2');
       const amiriBoldPath = require.resolve('@fontsource/amiri/files/amiri-latin-700-normal.woff2');
       fonts.Arabic = {
         normal: amiriRegularPath,
@@ -63,12 +59,10 @@ try {
     } catch (amiriError) {
       // Fallback to Noto Sans Arabic
       try {
-        const notoRegularPath = require.resolve(
-          '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2',
-        );
-        const notoBoldPath = require.resolve(
-          '@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2',
-        );
+        const notoRegularPath =
+          require.resolve('@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2');
+        const notoBoldPath =
+          require.resolve('@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2');
         fonts.Arabic = {
           normal: notoRegularPath,
           bold: notoBoldPath,

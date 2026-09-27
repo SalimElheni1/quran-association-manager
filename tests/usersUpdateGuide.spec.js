@@ -13,9 +13,11 @@ describe('users:updateGuide handler', () => {
     jest.clearAllMocks();
   });
 
-  it('updates need_guide and current_step for numeric id', async () => {
+  it("updates need_guide and current_step using the caller's own session id, ignoring a client-supplied id", async () => {
     db.runQuery.mockResolvedValue({ changes: 1 });
 
+    // The mock ipcMain.invoke harness binds sender.id=1 to session userId=1.
+    // Passing a different client-supplied id (5) must NOT be used (IDOR protection).
     const result = await ipcMain.invoke('users:updateGuide', {
       id: 5,
       guideData: { need_guide: 1, current_step: 3 },
@@ -23,12 +25,12 @@ describe('users:updateGuide handler', () => {
 
     expect(db.runQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE users SET'),
-      [1, 3, 5],
+      [1, 3, 1],
     );
     expect(result).toEqual({ success: true });
   });
 
-  it('updates when id is numeric string', async () => {
+  it('ignores a numeric-string client-supplied id and still targets the session id', async () => {
     db.runQuery.mockResolvedValue({ changes: 1 });
 
     const result = await ipcMain.invoke('users:updateGuide', {
@@ -38,7 +40,7 @@ describe('users:updateGuide handler', () => {
 
     expect(db.runQuery).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE users SET'),
-      [0, 2, 7],
+      [0, 2, 1],
     );
     expect(result).toEqual({ success: true });
   });
@@ -48,16 +50,16 @@ describe('users:updateGuide handler', () => {
     expect(result).toEqual({ success: true, message: 'No guide fields to update.' });
   });
 
-  it('returns failure for invalid id', async () => {
+  it('returns failure when the caller has no valid session', async () => {
     db.runQuery.mockImplementation(() => {
       throw new Error('should not be called');
     });
 
-    const result = await ipcMain.invoke('users:updateGuide', {
-      id: null,
-      guideData: { need_guide: 1 },
-    });
+    const handler = ipcMain.handlers.get('users:updateGuide');
+    const noSessionEvent = { sender: { id: 9999 } }; // no session created for this sender id
+    const result = await handler(noSessionEvent, { id: 1, guideData: { need_guide: 1 } });
+
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/valid user ID/i);
+    expect(result.message).toMatch(/authentication required/i);
   });
 });

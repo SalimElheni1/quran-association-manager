@@ -1,18 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Alert, Button, Spinner } from 'react-bootstrap';
+import { Row, Col, Alert, Button } from 'react-bootstrap';
 import { Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import StatCard from '@renderer/components/StatCard';
 import QuickActions from '@renderer/components/QuickActions';
 import TodaysClasses from '@renderer/components/TodaysClasses';
+import MonthlyFeesTrendChart from '@renderer/components/dashboard/MonthlyFeesTrendChart';
+import { usePermissions } from '@renderer/hooks/usePermissions';
+import { PERMISSIONS } from '@renderer/utils/permissions';
 import '@renderer/styles/DashboardPage.css';
 import { error as logError } from '@renderer/utils/logger';
 import { useAuth } from '@renderer/contexts/AuthContext';
 import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
+function pluralizeDays(days) {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومين';
+  if (days >= 3 && days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
+  const canViewFinancials = hasPermission(PERMISSIONS.FINANCIALS_VIEW);
   const [stats, setStats] = useState({
     studentCount: null,
     teacherCount: null,
@@ -28,10 +40,7 @@ function DashboardPage() {
   const startGuideFrom = async (option) => {
     try {
       const profile = await window.electronAPI.getProfile({ token });
-      if (!profile || !profile.id) {
-        toast.error('تعذر تحميل ملف المستخدم لبدء الدليل.');
-        return;
-      }
+      if (!profile || !profile.id) return;
       if (option === 'continue') {
         // leave current_step as is and enable guide
         await window.electronAPI.updateUserGuide(profile.id, { need_guide: 1 });
@@ -51,8 +60,7 @@ function DashboardPage() {
         );
       }
     } catch (e) {
-      logError('Failed to start the onboarding guide:', e);
-      toast.error('تعذر بدء دليل الإعداد.');
+      // ignore
     }
   };
 
@@ -72,7 +80,7 @@ function DashboardPage() {
           const message =
             days === Infinity
               ? 'لم يتم العثور على نسخة احتياطية سابقة. يُرجى إنشاء واحدة الآن لحماية بياناتك.'
-              : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${days} أيام.`;
+              : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${pluralizeDays(days)}.`;
           setBackupReminder({ show: true, message });
         }
       } catch (error) {
@@ -101,7 +109,7 @@ function DashboardPage() {
               onClick={handleOpenGuideModal}
               className="me-2"
             >
-              تشغيل دليل التعريف
+              تشغيل دليل الإعداد
             </Button>
           </div>
         </div>
@@ -123,8 +131,18 @@ function DashboardPage() {
           </Alert>
         )}
 
-        {/* Section for Key Performance Indicators (KPIs) */}
+        {/* Section for Today's Activities and Quick Actions (today-first) */}
         <Row className="mb-4">
+          <Col lg={8} className="mb-4">
+            <TodaysClasses />
+          </Col>
+          <Col lg={4} className="mb-4">
+            <QuickActions />
+          </Col>
+        </Row>
+
+        {/* Section for Key Performance Indicators (KPIs) */}
+        <Row>
           <StatCard
             title="الطلاب النشطون"
             value={stats.studentCount}
@@ -140,15 +158,14 @@ function DashboardPage() {
           <StatCard title="الفصول النشطة" value={stats.classCount} icon="school" variant="info" />
         </Row>
 
-        {/* Section for Today's Activities and Quick Actions */}
-        <Row>
-          <Col lg={8} className="mb-4">
-            <TodaysClasses />
-          </Col>
-          <Col lg={4} className="mb-4">
-            <QuickActions />
-          </Col>
-        </Row>
+        {/* Fee collection trend, for users who can see the finances */}
+        {canViewFinancials && (
+          <Row className="mt-2">
+            <Col lg={12} className="mb-4">
+              <MonthlyFeesTrendChart />
+            </Col>
+          </Row>
+        )}
       </div>
 
       <Modal show={showGuideModal} onHide={handleCloseGuideModal} centered>

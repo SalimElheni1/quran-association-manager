@@ -1,4 +1,3 @@
-const { ipcMain } = require('electron');
 const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
 const { registerSettingsHandlers } = require('../src/main/handlers/settingsHandlers');
 const { registerUserHandlers } = require('../src/main/handlers/userHandlers');
@@ -8,11 +7,7 @@ const db = require('../src/db/db');
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/authMiddleware', () => ({
-  requireRoles: jest.fn(
-    (...allowedRoles) =>
-      (handler) =>
-        handler,
-  ),
+  requireRoles: jest.fn(() => (handler) => handler),
   checkPermission: jest.fn(() => true),
 }));
 
@@ -33,29 +28,6 @@ describe('Business Process Validation - User Experience', () => {
 
   describe('Multi-Role Permission Testing', () => {
     it('should implement role-based access control for educational institution', async () => {
-      const userRoles = {
-        superadmin: { permissions: ['*'], restrictions: [] },
-        admin: {
-          permissions: [
-            'student.read',
-            'student.write',
-            'class.read',
-            'class.write',
-            'financial.read',
-            'financial.write',
-          ],
-          restrictions: ['Cannot delete superadmin accounts'],
-        },
-        teacher: {
-          permissions: ['student.read', 'class.read', 'class.write', 'attendance.read'],
-          restrictions: ['Cannot access financial data'],
-        },
-        staff: {
-          permissions: ['student.read', 'class.read'],
-          restrictions: ['Read-only access'],
-        },
-      };
-
       // Mock permission checking
       const { checkPermission } = require('../src/main/authMiddleware');
 
@@ -254,18 +226,6 @@ describe('Business Process Validation - User Experience', () => {
 
   describe('System Configuration Validation', () => {
     it('should handle institution-specific setup and configuration', async () => {
-      const institutionConfig = {
-        name: 'جمعية القرآن الكريم - فرع تونس',
-        name_en: 'Quran Association - Tunisia Branch',
-        type: 'educational_institution',
-        currency: 'TND',
-        academic_year_start: '2025-09-01',
-        fee_structure: {
-          standard_monthly_fee: 50,
-          fee_categories: ['CAN_PAY', 'SPONSORED', 'EXEMPT'],
-        },
-      };
-
       db.allQuery.mockResolvedValue([]);
       db.getQuery.mockResolvedValue({ value: 'TND' });
       db.runQuery.mockResolvedValue({ changes: 1 });

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@renderer/contexts/AuthContext';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { toDateInputValue } from '@renderer/utils/dates';
 
 const ProfilePage = () => {
-  const { token } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -14,7 +13,7 @@ const ProfilePage = () => {
 
   const roleTranslations = {
     Superadmin: 'مدير النظام',
-    Administrator: 'إداري',
+    Administrator: 'الهيئة المديرة',
     FinanceManager: 'مسؤول مالي',
     SessionSupervisor: 'مشرف حصص',
   };
@@ -28,14 +27,8 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!token) {
-        setLoading(false);
-        setError('Not authenticated');
-        return;
-      }
-
       try {
-        const res = await window.electronAPI.getProfile({ token });
+        const res = await window.electronAPI.getProfile();
 
         // Support both shapes: { success: true, profile } and a direct profile object
         let profileObj = null;
@@ -47,13 +40,11 @@ const ProfilePage = () => {
         }
 
         if (profileObj) {
-          const formatInputDate = (date) =>
-            date ? new Date(date).toISOString().split('T')[0] : '';
           const formattedProfile = {
             ...profileObj,
-            date_of_birth: formatInputDate(profileObj.date_of_birth),
-            start_date: formatInputDate(profileObj.start_date),
-            end_date: formatInputDate(profileObj.end_date),
+            date_of_birth: toDateInputValue(profileObj.date_of_birth),
+            start_date: toDateInputValue(profileObj.start_date),
+            end_date: toDateInputValue(profileObj.end_date),
           };
           setProfile(formattedProfile);
         }
@@ -65,7 +56,7 @@ const ProfilePage = () => {
     };
 
     fetchProfile();
-  }, [token]);
+  }, []);
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -82,7 +73,7 @@ const ProfilePage = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await window.electronAPI.updateProfile({ token, profileData: profile });
+      const response = await window.electronAPI.updateProfile({ profileData: profile });
       if (response.success) {
         toast.success(response.message);
       } else {
@@ -100,7 +91,7 @@ const ProfilePage = () => {
     setIsSubmittingPassword(true);
 
     try {
-      const response = await window.electronAPI.updatePassword({ token, passwordData });
+      const response = await window.electronAPI.updatePassword({ passwordData });
       if (response.success) {
         toast.success(response.message);
         setPasswordData({

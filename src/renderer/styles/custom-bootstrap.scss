@@ -1,7 +1,96 @@
 // src/renderer/styles/custom-bootstrap.scss
 
+// ---------------------------------------------------------------------------
+// Direction contract (seed 4fefdb29) — "أوراق/النسيج" woven workspace
+//
+// THESIS: A restrained, handcrafted workspace drawn from North African
+// warp-and-weft weaving — honest geometric bands, natural wool palette,
+// disciplined rule-lines — replacing the generic Bootstrap admin for
+// Quran-association staff without sacrificing task efficiency.
+// OWN-WORLD (palette shifted under user direction to the Royal calm line):
+// warm off-white ground, deep sage "dyed-wool" sidebar, muted gold accent,
+// hairline woven bands as section rules; Cairo type throughout.
+// STORY: Staff open a warm, ordered, trustworthy workspace; sage frames
+// off-white work surfaces, gold marks the one action per screen.
+// FIRST VIEWPORT (Login): split composition — sage identity panel with a
+// woven band + ivory form panel; gold-trimmed primary action.
+// FORM: Replacement visual world (new surface); candidate 5 of grounded
+// list, raised by orizuru (stepwise fold progression), zine (rule-led
+// registration for tables), and doujin (dense ordered grids).
+// FINISH: unreviewed and undocumented is unfinished; this build ends with
+// the finish review, the verdict, DESIGN.md, and every shipping raster
+// carrying its provenance
+
 // 1. Set RTL to true
 $enable-rtl: true;
+
+// ---- Palette: sage + muted gold + warm off-white ("Royal" calm workspace) ----
+// Grounded on Palette 1: Primary sage #4A6B5D, warm off-white #F9F8F3,
+// muted gold #C5A059, charcoal text #2D3748.
+$primary:       #4A6B5D; // sage green — structure, navigation, primary actions
+$primary-dark:  #3A5647; // darker sage for hover / pressed states
+$primary-darker:#2e4639;
+$secondary:     #5A6473; // charcoal-slate secondary
+$success:       #4A8A6A; // green for success states
+$info:          #5B7C99; // steel blue for info
+$warning:       #B9892F; // deeper gold for warning (readable on light)
+$danger:        #B4574C; // warm clay red
+$light:         #F3F1E9;
+$dark:          #364A40; // deep sage-charcoal
+
+// ---- Surfaces (warm off-white) ----
+$body-bg:     #F9F8F3;
+$body-color:  #2D3748;
+
+// ---- Typography ----
+$font-family-base: 'Cairo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$font-size-base: 1rem;
+$headings-font-weight: 700;
+$font-weight-semibold: 600;
+
+// ---- Geometry ----
+$border-radius:        0.5rem;
+$border-radius-lg:     0.75rem;
+$border-radius-sm:     0.375rem;
+$border-color:         #E4E0D3;
+$border-color-subtle:  #ECE8DC;
+
+// ---- Primary buttons: sage, warm hover ----
+$btn-border-radius:      0.5rem;
+$btn-border-radius-lg:   0.625rem;
+$btn-border-radius-sm:   0.375rem;
+
+// ---- Cards: warm paper sheets ----
+$card-bg:               #FCFBF7;
+$card-border-color:     #E5E1D4;
+$card-border-width:     1px;
+$card-border-radius:    0.75rem;
+$card-cap-bg:           rgba(74, 107, 93, 0.04);
+$card-spacer-y:         1.25rem;
+$card-spacer-x:         1.25rem;
+
+// ---- Forms: warm inputs, sage focus ----
+$input-bg:                    #FCFBF7;
+$input-border-color:          #D8D3C3;
+$input-focus-border-color:    $primary;
+$input-focus-box-shadow:      0 0 0 0.2rem rgba(74, 107, 93, 0.16);
+$input-placeholder-color:     #9A9687;
+$form-label-font-weight:      600;
+
+// ---- Modal ----
+$modal-content-bg:            #FCFBF7;
+$modal-content-border-color:  transparent;
+$modal-content-box-shadow:    0 24px 60px rgba(45, 55, 72, 0.18);
+
+// ---- Tables: rule-led registration ----
+$table-bg:            transparent;
+$table-color:         $body-color;
+$table-border-color:  #EAE6D8;
+$table-striped-bg:    rgba(74, 107, 93, 0.035);
+$table-hover-bg:      rgba(197, 160, 89, 0.08);
+
+// ---- Alerts ----
+$alert-border-radius: 0.75rem;
 
 // 2. Import Bootstrap's core files
 @import 'bootstrap/scss/functions';

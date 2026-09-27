@@ -8,7 +8,7 @@ import UsersIcon from './icons/UsersIcon';
 import EditIcon from './icons/EditIcon';
 import TrashIcon from './icons/TrashIcon';
 
-function GroupsTabContent({ onEditGroup, onDeleteGroup, onAddGroup, refreshDependency }) {
+function GroupsTabContent({ onEditGroup, onDeleteGroup, refreshDependency }) {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

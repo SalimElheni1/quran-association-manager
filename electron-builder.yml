@@ -37,7 +37,3 @@ nsis:
   installerIcon: release/.icon-ico/icon.ico
   uninstallerIcon: release/.icon-ico/icon.ico
   deleteAppDataOnUninstall: false
-publish:
-  provider: github
-  owner: SalimElheni1
-  repo: quran-association-manager

@@ -1,14 +1,13 @@
 const { ipcMain, app, dialog } = require('electron');
 const path = require('path');
 const db = require('../../db/db');
-const { log, warn: logWarn, error: logError, getLogFilePath, clearLogFile } = require('../logger');
+const { log, error: logError, getLogFilePath, clearLogFile } = require('../logger');
 const fs = require('fs');
 
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
-const { notifyError, notifySuccess } = require('../notifier');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
 
@@ -109,7 +108,17 @@ function registerSystemHandlers() {
     } catch (error) {
       logError(`Error during export (${exportType}, ${format}):`, error);
       // Show error toast notification to user
-      notifyError(`فشل في تصدير ${exportType}: ${error.message}`);
+      try {
+        const mainWindow = require('../index').mainWindow;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            'ui:show-error-toast',
+            `فشل في تصدير ${exportType}: ${error.message}`,
+          );
+        }
+      } catch (toastError) {
+        logError('Error showing error toast:', toastError);
+      }
       return { success: false, message: `Export failed: ${error.message}` };
     }
   });
@@ -157,22 +166,30 @@ function registerSystemHandlers() {
   });
 
   ipcMain.handle('dialog:openDirectory', async () => {
-    try {
-      const { canceled, filePaths } = await dialog.showOpenDialog({
-        properties: ['openDirectory'],
-      });
-      if (canceled) {
-        return { success: false };
-      }
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+    });
+    if (canceled) {
+      return { success: false };
+    } else {
       return { success: true, path: filePaths[0] };
-    } catch (error) {
-      logError('Error opening the directory dialog:', error);
-      return { success: false, message: error.message };
     }
   });
 
-  ipcMain.handle('backup:run', async (_event, settings) => {
+  ipcMain.handle('backup:run', async (_event, settingsOrOptions, backupPassword) => {
     try {
+      let settings = settingsOrOptions || {};
+      let pass = backupPassword;
+
+      if (settingsOrOptions && settingsOrOptions.settings) {
+        settings = settingsOrOptions.settings;
+        pass = settingsOrOptions.backupPassword || backupPassword;
+      }
+
+      if (!settingsOrOptions) {
+        return { success: false, message: 'Backup path is required.' };
+      }
+
       let backupFilePath = null;
 
       if (settings.backup_path) {
@@ -196,46 +213,9 @@ function registerSystemHandlers() {
       }
 
       log(`Starting manual backup to: ${backupFilePath}`);
-      return await backupManager.runBackup(settings, backupFilePath);
+      return await backupManager.runBackup(settings, backupFilePath, pass);
     } catch (error) {
       logError('Error in backup:run IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:runCloud', async (_event, settings, createdBy) => {
-    try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const tempPath = path.join(app.getPath('temp'), `cloud-backup-${timestamp}.qdb`);
-
-      log(`Starting manual cloud backup to temp path: ${tempPath}`);
-
-      // Force cloud backup to be enabled for this specific call
-      const cloudSettings = { ...settings, cloud_backup_enabled: true };
-
-      // 1. Create a local backup file first (in temp)
-      const localResult = await backupManager.runBackup(cloudSettings, tempPath);
-      if (!localResult.success) {
-        return localResult;
-      }
-
-      // 2. Upload it to the cloud explicitly
-      const cloudBackupManager = require('../cloudBackupManager');
-      const result = await cloudBackupManager.uploadBackup(tempPath, cloudSettings, createdBy);
-
-      // Cleanup the temporary file after upload (runBackup handles the upload)
-      try {
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
-          log(`Temporary backup file deleted: ${tempPath}`);
-        }
-      } catch (unlinkError) {
-        logWarn(`Failed to delete temporary backup file: ${unlinkError.message}`);
-      }
-
-      return result;
-    } catch (error) {
-      logError('Error in backup:runCloud IPC wrapper:', error);
       return { success: false, message: error.message };
     }
   });
@@ -251,7 +231,7 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (_event, { password, userId, filePath }) => {
+  ipcMain.handle('db:import', async (_event, { password, userId, filePath, backupPassword }) => {
     if (!password || !userId) {
       return { success: false, message: 'بيانات المصادقة غير كاملة.' };
     }
@@ -281,11 +261,14 @@ function registerSystemHandlers() {
         importedDbPath = filePaths[0];
       }
 
-      const validationResult = await importManager.validateDatabaseFile(importedDbPath);
+      const validationResult = await importManager.validateDatabaseFile(
+        importedDbPath,
+        backupPassword,
+      );
       if (!validationResult.isValid) {
         return { success: false, message: validationResult.message };
       }
-      return await importManager.replaceDatabase(importedDbPath, password);
+      return await importManager.replaceDatabase(importedDbPath, password, backupPassword);
     } catch (error) {
       logError('Error during database import process:', error);
       return {
@@ -296,68 +279,6 @@ function registerSystemHandlers() {
   });
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
-
-  ipcMain.handle('backup:listCloud', async (_event, settings) => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      const result = await cloudBackupManager.listCloudBackups(settings);
-      return result; // Now returns { success, backups, message }
-    } catch (error) {
-      logError('Error in backup:listCloud IPC wrapper:', error);
-      return { success: false, backups: [], message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:downloadCloud', async (_event, fileId, fileName) => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.downloadBackup(fileId, fileName);
-    } catch (error) {
-      logError('Error in backup:downloadCloud IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:downloadFromLink', async (_event, link) => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.downloadFromLink(link);
-    } catch (error) {
-      logError('Error in backup:downloadFromLink IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:deleteCloud', async (_event, id) => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.deleteBackup(id);
-    } catch (error) {
-      logError('Error in backup:deleteCloud IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:googleConnect', async () => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      const result = await cloudBackupManager.connectGoogle();
-      return result; // Usually returns { success: true, email: ... }
-    } catch (error) {
-      logError('Error in backup:googleConnect IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  ipcMain.handle('backup:googleDisconnect', async () => {
-    try {
-      const cloudBackupManager = require('../cloudBackupManager');
-      return await cloudBackupManager.disconnectGoogle();
-    } catch (error) {
-      logError('Error in backup:googleDisconnect IPC wrapper:', error);
-      return { success: false, message: error.message };
-    }
-  });
 
   // Log management handlers for testing
   ipcMain.handle('logs:get-recent', async (_event, { lines = 100 } = {}) => {
@@ -426,7 +347,15 @@ function registerSystemHandlers() {
    * @param {string} message Error message to display
    */
   ipcMain.on('ui:show-error-toast', (event, message) => {
-    notifyError(message);
+    try {
+      // Forward to renderer process main window
+      const mainWindow = require('../index').mainWindow;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ui:show-error-toast', message);
+      }
+    } catch (error) {
+      logError('Error showing error toast:', error);
+    }
   });
 
   /**
@@ -435,7 +364,15 @@ function registerSystemHandlers() {
    * @param {string} message Success message to display
    */
   ipcMain.on('ui:show-success-toast', (event, message) => {
-    notifySuccess(message);
+    try {
+      // Forward to renderer process main window
+      const mainWindow = require('../index').mainWindow;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ui:show-success-toast', message);
+      }
+    } catch (error) {
+      logError('Error showing success toast:', error);
+    }
   });
 
   ipcMain.handle('app:relaunch', () => {

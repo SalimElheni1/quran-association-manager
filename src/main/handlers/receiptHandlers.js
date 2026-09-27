@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
+const { generateReceiptNumber } = require('../services/receiptService');
 const { error: logError } = require('../logger');
 
 function createHandler(handler) {
@@ -58,7 +59,7 @@ async function handleAddReceiptBook(event, book) {
     book_number,
     start_receipt_number,
     end_receipt_number,
-    start_receipt_number,
+    start_receipt_number - 1, // Unified seed (see receiptService): first issued = start
     receipt_type,
     issued_date,
     notes,
@@ -104,34 +105,15 @@ async function handleDeleteReceiptBook(event, bookId) {
 }
 
 // Get next receipt number for a type
+// Unified numbering: delegates to receiptService.generateReceiptNumber so both
+// this legacy channel and 'receipts:generate' share one engine and one format
+// (RCP-{year}-{NNNN}), avoiding double-increments on the same receipt book.
 async function handleGetNextReceiptNumber(event, receiptType) {
-  const book = await handleGetActiveReceiptBook(event, receiptType);
-
-  if (!book) {
-    return { error: 'No active receipt book found for this type' };
-  }
-
-  if (book.current_receipt_number > book.end_receipt_number) {
-    return { error: 'Receipt book is full. Please create a new book.' };
-  }
-
-  const nextNumber = book.current_receipt_number;
-
-  // Increment current receipt number
-  await runQuery(
-    'UPDATE receipt_books SET current_receipt_number = current_receipt_number + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [book.id],
-  );
-
-  // Check if book is now completed
-  if (nextNumber === book.end_receipt_number) {
-    await runQuery('UPDATE receipt_books SET status = ? WHERE id = ?', ['completed', book.id]);
-  }
-
+  const result = await generateReceiptNumber(receiptType);
   return {
-    receipt_number: `${book.book_number}-${nextNumber.toString().padStart(4, '0')}`,
-    book_id: book.id,
-    book_number: book.book_number,
+    receipt_number: result.receiptNumber,
+    book_id: result.bookId,
+    book_number: result.bookNumber,
   };
 }
 

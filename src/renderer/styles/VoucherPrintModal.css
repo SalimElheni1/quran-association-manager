@@ -1,0 +1,94 @@
+.voucher-print {
+  padding: 24px;
+  font-family: 'Cairo', sans-serif;
+  background: #fff;
+  color: var(--text-primary, #1f2933);
+}
+
+.voucher-head {
+  text-align: center;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--sage-deep, #3f5347);
+}
+
+.voucher-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.voucher-number {
+  color: var(--text-secondary, #5b6470);
+  margin: 0;
+}
+
+.voucher-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.voucher-table th,
+.voucher-table td {
+  padding: 10px 12px;
+  border: 1px solid #d8d5cc;
+  text-align: start;
+  vertical-align: top;
+}
+
+.voucher-table th {
+  background: #f4f2ea;
+  font-weight: 600;
+  white-space: nowrap;
+  width: 30%;
+}
+
+.voucher-amount {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.voucher-signatures {
+  margin-top: 48px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.voucher-signature {
+  text-align: center;
+}
+
+.voucher-signature-line {
+  border-top: 1px solid #000;
+  width: 150px;
+  margin-top: 28px;
+}
+
+.voucher-stamp {
+  border: 1px solid #000;
+  width: 100px;
+  height: 100px;
+  margin-top: 10px;
+  margin-inline: auto;
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .voucher-print,
+  .voucher-print * {
+    visibility: visible;
+  }
+
+  .voucher-print {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    width: 100%;
+  }
+}

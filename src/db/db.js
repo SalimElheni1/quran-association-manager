@@ -4,7 +4,6 @@ const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
-const bcrypt = require('bcryptjs');
 const { getDbKey, getDbSalt } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
@@ -39,63 +38,69 @@ function getDatabasePath() {
   return dbPath;
 }
 
-async function seedSuperadmin() {
+/**
+ * Checks whether a Superadmin user already exists.
+ * SEC-04: no default credentials are ever seeded; the first superadmin is
+ * created through the first-run setup flow (auth:setup-superadmin).
+ * @returns {Promise<boolean>} True when at least one Superadmin exists.
+ */
+async function hasSuperadmin() {
   try {
-    // Check if a superadmin already exists using the multi-role system
     const existingAdmin = await getQuery(`
       SELECT u.id FROM users u
       JOIN user_roles ur ON u.id = ur.user_id
       JOIN roles r ON ur.role_id = r.id
       WHERE r.name = 'Superadmin'
     `);
-
-    if (!existingAdmin) {
-      log('No superadmin found. Seeding default superadmin...');
-
-      const tempPassword = '123456';
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
-      const username = 'superadmin';
-
-      // Insert the user without the 'role' column (removed in migration 026)
-      const insertSql = `
-        INSERT INTO users (username, password, first_name, last_name, email)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-
-      const result = await runQuery(insertSql, [
-        username,
-        hashedPassword,
-        'Super',
-        'Admin',
-        'superadmin@example.com',
-      ]);
-
-      if (result.id) {
-        // Set the matricule
-        const matricule = `U-${result.id.toString().padStart(6, '0')}`;
-        await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
-
-        // Assign the Superadmin role using the multi-role system
-        const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
-        if (superadminRole) {
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, superadminRole.id]);
-        } else {
-          // If the role doesn't exist yet, insert it first
-          const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
-          await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, roleResult.id]);
-        }
-      }
-
-      log(`Superadmin created successfully: ${username}`);
-      // Return the credentials so they can be displayed to the user
-      return { username, password: tempPassword };
-    }
-    // If admin already exists, do nothing and return null
-    return null;
+    return !!existingAdmin;
   } catch (error) {
-    logError('Failed to seed superadmin:', error);
-    throw error; // Re-throw the error to be handled by the caller
+    logError('Failed to check for existing superadmin:', error);
+    throw error;
   }
+}
+
+/**
+ * Creates the first Superadmin user with the given credentials.
+ * Used exclusively by the first-run setup flow (SEC-04). The password must
+ * already be hashed by the caller.
+ * @param {string} username - The chosen username (must be unique).
+ * @param {string} hashedPassword - The bcrypt-hashed password.
+ * @returns {Promise<{id: number, username: string}>} The created user.
+ */
+async function createSuperadminUser(username, hashedPassword) {
+  const existing = await getQuery('SELECT id FROM users WHERE username = ?', [username]);
+  if (existing) {
+    throw new Error('اسم المستخدم هذا موجود مسبقاً. الرجاء اختيار اسم آخر.');
+  }
+
+  const result = await runQuery(
+    'INSERT INTO users (username, password, first_name, last_name, email) VALUES (?, ?, ?, ?, ?)',
+    [username, hashedPassword, 'Super', 'Admin', `${username}@local.local`],
+  );
+
+  if (!result.id) {
+    throw new Error('فشل إنشاء المستخدم.');
+  }
+
+  const matricule = `U-${result.id.toString().padStart(6, '0')}`;
+  await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
+
+  const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");
+  if (superadminRole) {
+    await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+      result.id,
+      superadminRole.id,
+    ]);
+  } else {
+    const roleResult = await runQuery("INSERT INTO roles (name) VALUES ('Superadmin')");
+    await runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+      result.id,
+      roleResult.id,
+    ]);
+  }
+
+  log(`Superadmin created successfully: ${username}`);
+  return { id: result.id, username };
 }
 
 /**
@@ -132,13 +137,13 @@ async function migrateToEncrypted(dbPath, key) {
   // Basic strategy: open plaintext, rekey it.
   try {
     const tempDb = new Database(dbPath);
-    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey, 
+    // In improved-sqlite3-multiple-ciphers (sqlite3mc), we can typically just attach and rekey,
     // or if the library supports it, use standard sqlcipher_export if compatible.
     // However, simplest valid approach with sqlite3mc often is:
     // 1. Open as plaintext.
     // 2. PRAGMA rekey = 'key';
 
-    // Note: older better-sqlite3 bindings didn't support rekey easily. 
+    // Note: older better-sqlite3 bindings didn't support rekey easily.
     // better-sqlite3-multiple-ciphers supports the "rekey" pragma for SQLCipher.
 
     log('Applying rekey pragma...');
@@ -180,9 +185,16 @@ async function runMigrations() {
       try {
         const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         // better-sqlite3 transactions are synchronous.
+        // PRAGMA foreign_keys cannot be changed inside a transaction, and some
+        // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
+        // child tables reference. Disable FK enforcement around the migration so
+        // the rebuild succeeds; child references are by name and survive the rename.
+        db.pragma('foreign_keys = OFF');
         applyMigration(file, migrationSql);
+        db.pragma('foreign_keys = ON');
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
+        db.pragma('foreign_keys = ON');
         // If the error is "duplicate column name", it means the migration was likely
         // already applied manually or in a previous failed run. We can safely ignore it.
         if (err.message.includes('duplicate column name')) {
@@ -190,7 +202,9 @@ async function runMigrations() {
           // Manually insert into migrations table so it doesn't run again
           try {
             db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
-          } catch (e) { logError('Failed to mark migration as ignored', e); }
+          } catch (e) {
+            logError('Failed to mark migration as ignored', e);
+          }
         } else {
           logError(`Failed to apply migration ${file}:`, err);
           throw err;
@@ -246,10 +260,15 @@ async function initializeDatabase() {
       const cipherVersion = db.pragma('cipher_version', { simple: true });
       log(`[DB_LOG] Cipher version: ${cipherVersion}`);
       if (!cipherVersion) {
-        logWarn('[DB_LOG] Database encryption support missing or native module not offering cipher_version.');
+        logWarn(
+          '[DB_LOG] Database encryption support missing or native module not offering cipher_version.',
+        );
       }
     } catch (verErr) {
-      logWarn('[DB_LOG] Failed to query cipher version (Normal if not using multiple-ciphers build):', verErr.message);
+      logWarn(
+        '[DB_LOG] Failed to query cipher version (Normal if not using multiple-ciphers build):',
+        verErr.message,
+      );
     }
     // DIAGNOSTIC END
 
@@ -298,22 +317,33 @@ async function initializeDatabase() {
     db.pragma('foreign_keys = ON');
 
     // Schema / Seeding
-    let tempCredentials = null;
     if (!dbExists) {
-      log('[DB_LOG] New database detected. Initializing schema and default data...');
+      log('[DB_LOG] New database detected. Initializing schema...');
       db.exec(schema);
       await runMigrations(); // This uses db, which is set now
       getDbSalt();
       log('[DB_LOG] Database salt created.');
-      tempCredentials = await seedSuperadmin(); // Capture credentials
-      log('[DB_LOG] Database schema and default data initialized.');
+      // SEC-04: no default superadmin is seeded. The first-run setup flow
+      // (auth:setup-superadmin) creates the first Superadmin account.
+      log('[DB_LOG] Database schema initialized. First-run superadmin setup required.');
     } else {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
 
+    // Ensure the Quran reference data (surahs/hizbs) exists so the
+    // memorization pickers are usable on fresh installs. Both seed
+    // functions are idempotent (they skip when the tables are non-empty),
+    // so this never overwrites or duplicates existing reference data.
+    try {
+      const { seedSurahs, seedHizbs } = require('./seederFunctions');
+      await seedSurahs();
+      await seedHizbs();
+    } catch (seedError) {
+      logWarn('[DB_LOG] Could not ensure surahs/hizbs reference data:', seedError.message);
+    }
+
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
-    return tempCredentials;
   } catch (error) {
     db = null;
     logError(
@@ -450,4 +480,6 @@ module.exports = {
   isDbOpen,
   dbExec,
   withTransaction,
+  hasSuperadmin,
+  createSuperadminUser,
 };

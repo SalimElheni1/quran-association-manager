@@ -14,6 +14,11 @@ yarn-error.log*
 # Environment variables
 .env
 
+# Credentials and sensitive files
+src/main/config/credentials.js
+**/credentials.js
+!credentials.template.js
+
 # OS-specific
 .DS_Store
 
@@ -36,3 +41,15 @@ lib/
 
 # Analysis tools
 .codeboarding/src/main/config/credentials.js
+
+qbm-demo/
+
+# Playwright e2e output
+test-results/
+playwright-report/
+
+# Real-world e2e handoff (backup + manifest)
+tests/e2e/realworld/.handoff/
+
+# Real-world e2e artifacts kept for inspection (app data, backups, exports)
+e2e-artifacts/

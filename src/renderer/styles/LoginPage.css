@@ -1,37 +1,104 @@
 .signin-container {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f8fafc;
-  padding: 1rem;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(197, 160, 89, 0.18), transparent 42%),
+    radial-gradient(circle at 90% 85%, rgba(74, 107, 93, 0.28), transparent 46%),
+    linear-gradient(135deg, #2a4637 0%, #172b20 100%);
+  padding: 1.5rem;
+  position: relative;
+}
+
+/* woven band along the login frame's edge to echo the sidebar */
+.signin-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 18px;
+  width: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      transparent 0 45%,
+      rgba(197, 160, 89, 0.75) 45% 55%,
+      transparent 55% 100%
+    )
+    0 0 / 2px 12px repeat-y;
+  opacity: 0.5;
 }
 
 .signin-card {
   width: 100%;
-  max-width: 400px;
-  border: 1px solid #e2e8f0;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-width: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  background: var(--surface-paper);
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.signin-card .card-body {
+  padding: 2.25rem 2.5rem;
 }
 
 .signin-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .signin-logo {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   margin-bottom: 1rem;
+  border-radius: 0.875rem;
+}
+
+.signin-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.signin-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0;
+}
+
+/* woven band under the title */
+.signin-header .weave-band {
+  width: 84px;
+  margin: 0.875rem auto 0;
 }
 
 .signin-card .btn-primary {
-  background-color: #0d9488;
-  border-color: #0d9488;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  font-weight: 600;
+  padding: 0.625rem 1rem;
+  border-radius: 0.625rem;
+}
+.signin-card .btn-primary:hover {
+  background-color: var(--primary-strong);
+  border-color: var(--primary-strong);
+}
+
+.signin-card .btn-primary:focus {
+  box-shadow: 0 0 0 0.2rem rgba(74, 107, 93, 0.3);
+}
+
+.signin-card .form-control,
+.signin-card .form-label {
+  font-size: 0.95rem;
 }
 
 /* Styles for the InitialCredentialsBanner */

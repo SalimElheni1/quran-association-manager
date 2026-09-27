@@ -1,6 +1,6 @@
 /**
  * @fileoverview Unified financial transaction IPC handlers
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 2.0.0
  */
 
@@ -10,6 +10,7 @@ const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateTransaction, translateArray } = require('../utils/translations');
+const { roundCurrency } = require('../utils');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -23,16 +24,17 @@ async function generateMatricule(type, transactionDate) {
   const prefix = type === 'INCOME' ? 'I' : 'E';
 
   const lastTransaction = await db.getQuery(
-    `SELECT matricule FROM transactions 
-     WHERE type = ? AND matricule LIKE ? 
+    `SELECT matricule FROM transactions
+     WHERE type = ? AND matricule LIKE ?
      ORDER BY id DESC LIMIT 1`,
     [type, `${prefix}-${year}-%`],
   );
 
   let sequence = 1;
   if (lastTransaction?.matricule) {
-    const lastSeq = parseInt(lastTransaction.matricule.split('-')[2]);
-    sequence = lastSeq + 1;
+    const parts = lastTransaction.matricule.split('-');
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    sequence = isNaN(lastSeq) ? 1 : lastSeq + 1;
   }
 
   return `${prefix}-${year}-${sequence.toString().padStart(3, '0')}`;
@@ -47,6 +49,47 @@ async function updateAccountBalance(accountId, transactionType, amount) {
     adjustment,
     accountId,
   ]);
+}
+
+/**
+ * Recomputes every account's current_balance from its initial_balance and its
+ * transactions (INCOME adds, EXPENSE subtracts). Idempotent: it overwrites the
+ * stored balance rather than summing on top of it, so running it repeatedly
+ * always converges to the same value. Use this to repair historical drift.
+ * @returns {Promise<{reconciled: boolean, accounts: Array<{id: number, name: string, previous_balance: number, new_balance: number}>}>}
+ */
+async function recomputeAccountBalances() {
+  return db.withTransaction(async () => {
+    const accounts = await db.allQuery(
+      'SELECT id, name, initial_balance, current_balance FROM accounts',
+    );
+    const transactions = await db.allQuery('SELECT account_id, type, amount FROM transactions');
+
+    const totals = new Map();
+    for (const txn of transactions) {
+      const sign = txn.type === 'INCOME' ? 1 : -1;
+      totals.set(txn.account_id, (totals.get(txn.account_id) || 0) + sign * txn.amount);
+    }
+
+    const results = [];
+    for (const account of accounts) {
+      const newBalance = roundCurrency(
+        (account.initial_balance || 0) + (totals.get(account.id) || 0),
+      );
+      await db.runQuery('UPDATE accounts SET current_balance = ? WHERE id = ?', [
+        newBalance,
+        account.id,
+      ]);
+      results.push({
+        id: account.id,
+        name: account.name,
+        previous_balance: account.current_balance,
+        new_balance: newBalance,
+      });
+    }
+
+    return { reconciled: true, accounts: results };
+  });
 }
 
 /**
@@ -147,34 +190,64 @@ async function handleGetTransactions(event, filters) {
   }
 }
 
+async function handleGetEarliestTransactionDate() {
+  try {
+    const tableCheck = await db.getQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'",
+    );
+    if (!tableCheck) {
+      return { date: null };
+    }
+    const result = await db.getQuery('SELECT MIN(transaction_date) as date FROM transactions');
+    return { date: result?.date || null };
+  } catch (error) {
+    logError('Error in handleGetEarliestTransactionDate:', error);
+    return { date: null };
+  }
+}
+
+const DUPLICATE_VOUCHER_MESSAGE = 'رقم الوصل موجود مسبقاً. الرجاء استخدام رقم آخر';
+
+/**
+ * better-sqlite3 reports extended result codes (SQLITE_CONSTRAINT_UNIQUE), so match the prefix.
+ * @param {Error} error
+ * @returns {boolean}
+ */
+function isDuplicateVoucherError(error) {
+  return (
+    typeof error.code === 'string' &&
+    error.code.startsWith('SQLITE_CONSTRAINT') &&
+    error.message.includes('voucher_number')
+  );
+}
+
 async function handleAddTransaction(event, transaction) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    const result = await db.withTransaction(async () => {
+      // Validate 500 TND rule
+      validate500TndRule(transaction.amount, transaction.payment_method);
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+      // Validate data
+      const validatedData = await transactionValidationSchema.validateAsync(transaction, {
+        abortEarly: false,
+        stripUnknown: false,
+      });
 
-    // Validate data
-    const validatedData = await transactionValidationSchema.validateAsync(transaction, {
-      abortEarly: false,
-      stripUnknown: false,
-    });
+      // Generate matricule
+      const matricule = await generateMatricule(validatedData.type, validatedData.transaction_date);
 
-    // Generate matricule
-    const matricule = await generateMatricule(validatedData.type, validatedData.transaction_date);
-
-    // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
-    if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
-      const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
-        validatedData.voucher_number,
-      ]);
-      if (existing) {
-        validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
+      // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
+      if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
+        const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
+          validatedData.voucher_number,
+        ]);
+        if (existing) {
+          validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
+        }
       }
-    }
 
-    // Insert transaction
-    const sql = `
+      // Insert transaction
+      const sql = `
       INSERT INTO transactions (
         matricule, type, category, amount, transaction_date, description,
         payment_method, check_number, voucher_number, account_id,
@@ -183,29 +256,34 @@ async function handleAddTransaction(event, transaction) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const result = await db.runQuery(sql, [
-      matricule,
-      validatedData.type,
-      validatedData.category,
-      validatedData.amount,
-      new Date(validatedData.transaction_date).toISOString().split('T')[0],
-      validatedData.description,
-      validatedData.payment_method,
-      validatedData.check_number || null,
-      validatedData.voucher_number,
-      validatedData.account_id,
-      validatedData.related_person_name || null,
-      validatedData.related_entity_type || null,
-      validatedData.related_entity_id || null,
-      validatedData.amount > 500 ? 1 : 0,
-      event.sender.userId || null,
-      validatedData.receipt_type || null,
-    ]);
+      const insertResult = await db.runQuery(sql, [
+        matricule,
+        validatedData.type,
+        validatedData.category,
+        validatedData.amount,
+        new Date(validatedData.transaction_date).toISOString().split('T')[0],
+        validatedData.description,
+        validatedData.payment_method,
+        validatedData.check_number || null,
+        validatedData.voucher_number || null,
+        validatedData.account_id,
+        validatedData.related_person_name || null,
+        validatedData.related_entity_type || null,
+        validatedData.related_entity_id || null,
+        validatedData.amount > 500 ? 1 : 0,
+        event.sender.userId || null,
+        validatedData.receipt_type || null,
+      ]);
 
-    // Update account balance
-    await updateAccountBalance(validatedData.account_id, validatedData.type, validatedData.amount);
+      // Update account balance
+      await updateAccountBalance(
+        validatedData.account_id,
+        validatedData.type,
+        validatedData.amount,
+      );
 
-    await db.runQuery('COMMIT;');
+      return insertResult;
+    });
 
     const newTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
       result.id,
@@ -218,12 +296,11 @@ async function handleAddTransaction(event, transaction) {
 
     return translateTransaction(newTransaction);
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
     }
-    if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('voucher_number')) {
-      throw new Error('رقم الوصل موجود مسبقاً. الرجاء استخدام رقم آخر');
+    if (isDuplicateVoucherError(error)) {
+      throw new Error(DUPLICATE_VOUCHER_MESSAGE);
     }
     logError('Error in handleAddTransaction:', error);
     throw new Error(error.message || 'فشل في إضافة العملية المالية');
@@ -232,60 +309,65 @@ async function handleAddTransaction(event, transaction) {
 
 async function handleUpdateTransaction(event, id, transaction) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    await db.withTransaction(async () => {
+      // Validate 500 TND rule
+      validate500TndRule(transaction.amount, transaction.payment_method);
 
-    // Validate 500 TND rule
-    validate500TndRule(transaction.amount, transaction.payment_method);
+      // Get old transaction to reverse balance
+      const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
+      if (!oldTransaction) {
+        throw new Error('العملية المالية غير موجودة');
+      }
 
-    // Get old transaction to reverse balance
-    const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
-    if (!oldTransaction) {
-      throw new Error('العملية المالية غير موجودة');
-    }
+      // Validate data
+      const validatedData = await transactionValidationSchema.validateAsync(transaction, {
+        abortEarly: false,
+        stripUnknown: false,
+      });
 
-    // Validate data
-    const validatedData = await transactionValidationSchema.validateAsync(transaction, {
-      abortEarly: false,
-      stripUnknown: false,
-    });
+      // Reverse old balance
+      await updateAccountBalance(
+        oldTransaction.account_id,
+        oldTransaction.type,
+        -oldTransaction.amount,
+      );
 
-    // Reverse old balance
-    await updateAccountBalance(
-      oldTransaction.account_id,
-      oldTransaction.type,
-      -oldTransaction.amount,
-    );
-
-    // Update transaction
-    const sql = `
+      // Update transaction
+      const sql = `
       UPDATE transactions SET
-        category = ?, amount = ?, transaction_date = ?, description = ?,
-        payment_method = ?, check_number = ?, account_id = ?,
+        type = ?, category = ?, amount = ?, transaction_date = ?, description = ?,
+        payment_method = ?, check_number = ?, voucher_number = ?, account_id = ?,
         related_person_name = ?, related_entity_type = ?, related_entity_id = ?,
         requires_dual_signature = ?, receipt_type = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
-    await db.runQuery(sql, [
-      validatedData.category,
-      validatedData.amount,
-      new Date(validatedData.transaction_date).toISOString().split('T')[0],
-      validatedData.description,
-      validatedData.payment_method,
-      validatedData.check_number || null,
-      validatedData.account_id,
-      validatedData.related_person_name || null,
-      validatedData.related_entity_type || null,
-      validatedData.related_entity_id || null,
-      validatedData.amount > 500 ? 1 : 0,
-      validatedData.receipt_type || null,
-      id,
-    ]);
+      await db.runQuery(sql, [
+        validatedData.type,
+        validatedData.category,
+        validatedData.amount,
+        new Date(validatedData.transaction_date).toISOString().split('T')[0],
+        validatedData.description,
+        validatedData.payment_method,
+        validatedData.check_number || null,
+        validatedData.voucher_number || null,
+        validatedData.account_id,
+        validatedData.related_person_name || null,
+        validatedData.related_entity_type || null,
+        validatedData.related_entity_id || null,
+        validatedData.amount > 500 ? 1 : 0,
+        validatedData.receipt_type || null,
+        id,
+      ]);
 
-    // Apply new balance
-    await updateAccountBalance(validatedData.account_id, oldTransaction.type, validatedData.amount);
-
-    await db.runQuery('COMMIT;');
+      // Apply new balance using the validated (new) type, so an INCOME→EXPENSE
+      // (or account change) edit reverses and re-applies with the correct sign.
+      await updateAccountBalance(
+        validatedData.account_id,
+        validatedData.type,
+        validatedData.amount,
+      );
+    });
 
     const updatedTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
 
@@ -296,9 +378,11 @@ async function handleUpdateTransaction(event, id, transaction) {
 
     return translateTransaction(updatedTransaction);
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     if (error.isJoi) {
       throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+    }
+    if (isDuplicateVoucherError(error)) {
+      throw new Error(DUPLICATE_VOUCHER_MESSAGE);
     }
     logError('Error in handleUpdateTransaction:', error);
     throw new Error(error.message || 'فشل في تحديث العملية المالية');
@@ -307,21 +391,20 @@ async function handleUpdateTransaction(event, id, transaction) {
 
 async function handleDeleteTransaction(event, transactionId) {
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
+    await db.withTransaction(async () => {
+      const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
+        transactionId,
+      ]);
+      if (!transaction) {
+        throw new Error('العملية المالية غير موجودة');
+      }
 
-    const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
-      transactionId,
-    ]);
-    if (!transaction) {
-      throw new Error('العملية المالية غير موجودة');
-    }
+      // Reverse balance
+      await updateAccountBalance(transaction.account_id, transaction.type, -transaction.amount);
 
-    // Reverse balance
-    await updateAccountBalance(transaction.account_id, transaction.type, -transaction.amount);
-
-    await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
-
-    await db.runQuery('COMMIT;');
+      await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
+      return transaction;
+    });
 
     // Notify all renderer processes about data change
     BrowserWindow.getAllWindows().forEach((win) => {
@@ -330,7 +413,6 @@ async function handleDeleteTransaction(event, transactionId) {
 
     return { id: transactionId };
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     logError('Error in handleDeleteTransaction:', error);
     throw new Error('فشل في حذف العملية المالية');
   }
@@ -364,8 +446,8 @@ async function handleGetFinancialSummary(_event, period) {
     // Exclude legacy categories and student fee related transactions
     const incomeSql = `
       SELECT
-        CASE 
-          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+        CASE
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category
         END as category,
@@ -375,10 +457,10 @@ async function handleGetFinancialSummary(_event, period) {
       WHERE transaction_date BETWEEN ? AND ?
         AND type = 'INCOME'
         AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
-        AND (receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب')
-      GROUP BY 
-        CASE 
-          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' THEN receipt_type
+        AND (receipt_type IS NULL OR (receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment'))
+      GROUP BY
+        CASE
+          WHEN receipt_type IS NOT NULL AND receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment' THEN receipt_type
           WHEN category = 'التبرعات النقدية' THEN 'تبرع'
           ELSE category
         END
@@ -391,7 +473,9 @@ async function handleGetFinancialSummary(_event, period) {
         SUM(sp.amount) as total,
         COUNT(*) as count
       FROM student_payments sp
-      WHERE sp.payment_date BETWEEN ? AND ?
+      -- Compare dates, not date-times: '2026-10-31 14:00:00' is after '2026-10-31' as text,
+      -- which dropped payments made on a period's last day.
+      WHERE date(sp.payment_date) BETWEEN ? AND ?
         AND sp.amount > 0
     `;
 
@@ -708,6 +792,12 @@ function registerFinancialHandlers() {
     'transactions:delete',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleDeleteTransaction),
   );
+  ipcMain.handle(
+    'transactions:get-earliest-date',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
+      handleGetEarliestTransactionDate,
+    ),
+  );
 
   // Reports
   ipcMain.handle(
@@ -731,6 +821,10 @@ function registerFinancialHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleGetAccounts),
   );
   ipcMain.handle('accounts:add', requireRoles(['Superadmin', 'Administrator'])(handleAddAccount));
+  ipcMain.handle(
+    'financial:reconcile',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(recomputeAccountBalances),
+  );
 
   // Categories
   ipcMain.handle('categories:get', handleGetCategories);
@@ -752,6 +846,7 @@ function registerFinancialHandlers() {
 module.exports = {
   registerFinancialHandlers,
   handleGetTransactions,
+  handleGetEarliestTransactionDate,
   handleAddTransaction,
   handleUpdateTransaction,
   handleDeleteTransaction,
@@ -765,4 +860,5 @@ module.exports = {
   handleDeleteInKindCategory,
   handleExportFinancialReportPDF,
   handleExportFinancialReportExcel,
+  recomputeAccountBalances,
 };

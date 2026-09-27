@@ -2,7 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
-const { mapStatus, mapCategory } = require('../utils/translations');
+const { mapCategory } = require('../utils/translations');
 
 /**
  * Calculates age from date of birth.
@@ -90,7 +90,7 @@ function registerClassHandlers() {
           validatedData[key] = value ? 1 : 0;
         } else if (value instanceof Date) {
           // Convert Date objects to ISO strings
-          validatedData[key] = value.toISOString();
+          validatedData[key] = value.toISOString().split('T')[0];
         }
       }
 
@@ -121,7 +121,7 @@ function registerClassHandlers() {
         if (typeof value === 'boolean') {
           validatedData[key] = value ? 1 : 0;
         } else if (value instanceof Date) {
-          validatedData[key] = value.toISOString();
+          validatedData[key] = value.toISOString().split('T')[0];
         }
       }
 
@@ -185,10 +185,9 @@ function registerClassHandlers() {
 
       let classes = await db.allQuery(sql, params);
 
-      // Apply translations to status and gender
+      // Translate gender for display; status stays a code (pending/active/completed) that the UI labels
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender), // class gender uses category mapping (men/women/kids)
       }));
 
@@ -203,10 +202,9 @@ function registerClassHandlers() {
       // Return array directly for backwards compatibility (e.g., AttendancePage)
       sql += ' ORDER BY c.name ASC';
       let classes = await db.allQuery(sql, params);
-      // Apply translations to status and gender
+      // Translate gender for display; status stays a code (pending/active/completed) that the UI labels
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
       return classes;
@@ -215,9 +213,10 @@ function registerClassHandlers() {
 
   ipcMain.handle('classes:getById', (_event, id) => {
     const sql = `
-      SELECT c.*, t.name as teacher_name
+      SELECT c.*, t.name as teacher_name, ag.name as age_group_name
       FROM classes c
       LEFT JOIN teachers t ON c.teacher_id = t.id
+      LEFT JOIN age_groups ag ON c.age_group_id = ag.id
       WHERE c.id = ?
     `;
     return db.getQuery(sql, [id]);
@@ -312,24 +311,23 @@ function registerClassHandlers() {
       log(`[Enrollment] Removed students: ${removedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
 
-      await db.runQuery('BEGIN TRANSACTION');
-      await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
-      if (studentIds && studentIds.length > 0) {
-        const placeholders = studentIds.map(() => '(?, ?)').join(', ');
-        const params = [];
-        studentIds.forEach((studentId) => {
-          params.push(classId, studentId);
-        });
-        const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
-        await db.runQuery(sql, params);
-      }
-      await db.runQuery('COMMIT');
+      await db.withTransaction(async () => {
+        await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
+        if (studentIds && studentIds.length > 0) {
+          const placeholders = studentIds.map(() => '(?, ?)').join(', ');
+          const params = [];
+          studentIds.forEach((studentId) => {
+            params.push(classId, studentId);
+          });
+          const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
+          await db.runQuery(sql, params);
+        }
+      });
 
       log(`[Enrollment] ✓ Database updated successfully`);
 
       // 🆕 NEW: Trigger charge regeneration for affected students
       const { triggerChargeRegenerationForStudent } = require('./studentFeeHandlers');
-      const warnings = [];
       for (const studentId of affectedStudents) {
         try {
           log(`[Enrollment] ▶️ Triggering charge regeneration for student ${studentId}...`);
@@ -337,16 +335,14 @@ function registerClassHandlers() {
           log(`[Enrollment] ✅ Student ${studentId} charges regenerated`);
         } catch (error) {
           logError(`[Enrollment] ❌ Failed to regenerate charges for student ${studentId}:`, error);
-          // The enrollment itself succeeded, so report the failure instead of failing the operation.
-          warnings.push(`تعذر تحديث رسوم الطالب رقم ${studentId}: ${error.message}`);
+          // Don't fail the enrollment operation - continue
         }
       }
 
       log(`[Enrollment] ✅ Enrollments updated successfully`);
       log(`[Enrollment] ════════════════════════════════════════════════════`);
-      return { success: true, affectedStudents, warnings };
+      return { success: true, affectedStudents };
     } catch (error) {
-      await db.runQuery('ROLLBACK');
       logError('Error updating enrollments:', error);
       throw error;
     }
@@ -405,7 +401,6 @@ function registerClassHandlers() {
 
       classes = classes.map((classItem) => ({
         ...classItem,
-        status: mapStatus(classItem.status),
         gender: mapCategory(classItem.gender),
       }));
 

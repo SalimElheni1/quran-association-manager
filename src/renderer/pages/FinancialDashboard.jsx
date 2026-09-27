@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Spinner, Button } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
+import { Row, Col, Spinner, Button } from 'react-bootstrap';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import CategoryChart from '@renderer/components/financial/CategoryChart';
-import PeriodSelector from '@renderer/components/financial/PeriodSelector';
-import TransactionTable from '@renderer/components/financial/TransactionTable';
+import PeriodSelector, { getPresetPeriod } from '@renderer/components/financial/PeriodSelector';
+import { useAcademicYear } from '@renderer/hooks/useAcademicYear';
 import FinancialExportModal from '@renderer/components/financial/FinancialExportModal';
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
@@ -13,46 +13,74 @@ import RefreshIcon from '@renderer/components/icons/RefreshCwIcon';
 
 function FinancialDashboard() {
   const { hasPermission } = usePermissions();
-  const today = new Date();
-  const [period, setPeriod] = useState({
-    startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0],
-  });
+  // Opens on the current month; a preset (month, year, ...) follows today's date, so a
+  // dashboard left open across the end of a month moves on to the new month.
+  const [preset, setPreset] = useState('month');
+  const [period, setPeriod] = useState(() => getPresetPeriod('month'));
   const [showExportModal, setShowExportModal] = useState(false);
 
   const { summary, loading, refresh } = useFinancialSummary(period);
+  const { startMonth: academicYearStartMonth } = useAcademicYear();
+
+  const latest = useRef({ preset, period, refresh, academicYearStartMonth });
+  latest.current = { preset, period, refresh, academicYearStartMonth };
 
   useEffect(() => {
-    const handleDataChange = () => refresh();
+    // Moves a preset period to today's range. Returns true when it changed (the new period
+    // is then fetched by useFinancialSummary).
+    const syncPeriodWithToday = () => {
+      const { preset: current, period: shown, academicYearStartMonth: startMonth } = latest.current;
+      const next = getPresetPeriod(current, new Date(), startMonth);
+      if (!next || (next.startDate === shown.startDate && next.endDate === shown.endDate)) {
+        return false;
+      }
+      setPeriod(next);
+      return true;
+    };
+    const refreshForToday = () => {
+      if (!syncPeriodWithToday()) latest.current.refresh();
+    };
+
+    const handleDataChange = () => refreshForToday();
     const handleTabChange = () => {
       // Refresh when tab becomes visible
       if (document.visibilityState === 'visible') {
-        refresh();
+        refreshForToday();
       }
     };
+    // Catches a new month while the app stays open and focused.
+    const dateCheck = setInterval(syncPeriodWithToday, 60 * 1000);
 
     window.addEventListener('financial-data-changed', handleDataChange);
     window.addEventListener('focus', handleTabChange);
     document.addEventListener('visibilitychange', handleTabChange);
 
     return () => {
+      clearInterval(dateCheck);
       window.removeEventListener('financial-data-changed', handleDataChange);
       window.removeEventListener('focus', handleTabChange);
       document.removeEventListener('visibilitychange', handleTabChange);
     };
-  }, [refresh]);
+  }, []);
 
   // Refresh when component becomes visible (tab switching)
   useEffect(() => {
     refresh();
   }, []);
 
+  // The academic-year preset follows the configured start month once it has loaded.
+  useEffect(() => {
+    if (preset === 'academicYear') {
+      setPeriod(getPresetPeriod('academicYear', new Date(), academicYearStartMonth));
+    }
+  }, [academicYearStartMonth]);
+
   return (
     <div className="page-container">
       <div className="page-header">
         <h1>لوحة التحكم المالية</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.FINANCIAL_VIEW) && (
+          {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
             <>
               <Button variant="outline-secondary" onClick={() => refresh()} disabled={loading}>
                 <RefreshIcon className="ms-2" /> {loading ? 'جاري التحديث...' : 'تحديث'}
@@ -65,7 +93,13 @@ function FinancialDashboard() {
         </div>
       </div>
 
-      <PeriodSelector period={period} onChange={setPeriod} />
+      <PeriodSelector
+        period={period}
+        onChange={setPeriod}
+        preset={preset}
+        onPresetChange={setPreset}
+        academicYearStartMonth={academicYearStartMonth}
+      />
 
       {loading ? (
         <div className="text-center py-5">

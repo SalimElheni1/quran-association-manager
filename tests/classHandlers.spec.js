@@ -177,11 +177,10 @@ describe('Class Handlers', () => {
     it('should correctly update enrollments within a transaction', async () => {
       const classId = 1;
       const studentIds = [10, 11];
-      db.runQuery.mockResolvedValue(undefined); // For transaction statements
+      db.runQuery.mockResolvedValue(undefined);
 
       await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds });
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
       expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM class_students WHERE class_id = ?', [
         classId,
       ]);
@@ -189,14 +188,12 @@ describe('Class Handlers', () => {
         'INSERT INTO class_students (class_id, student_id) VALUES (?, ?), (?, ?)',
         [1, 10, 1, 11],
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT');
       expect(log).toHaveBeenCalledWith('[Enrollment] ✅ Enrollments updated successfully');
     });
 
     it('should rollback transaction on error', async () => {
       const error = new Error('DB Error');
       db.runQuery
-        .mockResolvedValueOnce(undefined) // BEGIN
         .mockResolvedValueOnce(undefined) // DELETE
         .mockRejectedValueOnce(error); // INSERT fails
 
@@ -204,8 +201,6 @@ describe('Class Handlers', () => {
         ipcMain.invoke('classes:updateEnrollments', { classId: 1, studentIds: [10] }),
       ).rejects.toThrow('DB Error');
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK');
       expect(logError).toHaveBeenCalledWith('Error updating enrollments:', error);
     });
   });

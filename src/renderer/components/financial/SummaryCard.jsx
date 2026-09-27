@@ -7,13 +7,16 @@ import { Card, Col } from 'react-bootstrap';
  * @param {number} value - Numeric value
  * @param {string} variant - Bootstrap color variant
  * @param {string} suffix - Optional suffix (e.g., 'TND')
+ * @param {number} [decimals] - Decimal places; amounts (with a currency suffix) show 2, counts
+ *   (no suffix) show whole numbers.
  */
-function SummaryCard({ title, value, variant = 'primary', suffix = 'د.ت' }) {
+function SummaryCard({ title, value, variant = 'primary', suffix = 'د.ت', decimals }) {
+  const fractionDigits = decimals ?? (suffix ? 2 : 0);
   const formatValue = (val) => {
     if (val === null || val === undefined) return '...';
     return new Intl.NumberFormat('ar-TN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     }).format(val);
   };
 

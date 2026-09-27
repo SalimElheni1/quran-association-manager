@@ -8,11 +8,8 @@ import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import StudentDetailsModal from '@renderer/components/StudentDetailsModal';
 import SelectionModal from '@renderer/components/SelectionModal';
 import TablePagination from '@renderer/components/common/TablePagination';
-// Placeholder for the new component
-import GroupsTabContent from '@renderer/components/GroupsTabContent';
 import '@renderer/styles/StudentsPage.css';
 import { error as logError } from '@renderer/utils/logger';
-import GroupFormModal from '../components/GroupFormModal';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
 import EditIcon from '@renderer/components/icons/EditIcon';
@@ -170,13 +167,6 @@ function StudentsPage() {
     setShowHizbFilterModal(false);
   };
 
-  // State for Group Modals
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [editingGroup, setEditingGroup] = useState(null);
-  const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState(null);
-  const [refreshGroups, setRefreshGroups] = useState(false);
-
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
@@ -325,16 +315,13 @@ function StudentsPage() {
 
   const handleSaveStudent = async (formData, studentId) => {
     try {
-      let result;
       if (studentId) {
-        result = await window.electronAPI.updateStudent(studentId, formData);
+        await window.electronAPI.updateStudent(studentId, formData);
         toast.success(`تم تحديث بيانات الطالب "${formData.name}" بنجاح!`);
       } else {
-        result = await window.electronAPI.addStudent(formData);
+        await window.electronAPI.addStudent(formData);
         toast.success(`تمت إضافة الطالب "${formData.name}" بنجاح!`);
       }
-      // Follow-up work (fee charges) can fail after the student itself was saved.
-      (result?.warnings || []).forEach((warning) => toast.warn(warning));
       fetchStudents(); // Refresh the list
       handleCloseModal();
     } catch (err) {
@@ -366,74 +353,6 @@ function StudentsPage() {
       toast.error(`فشل حذف الطالب "${studentToDelete.name}".`);
     } finally {
       handleCloseDeleteModal();
-    }
-  };
-
-  // --- Group Handlers ---
-  const handleShowAddGroupModal = () => {
-    setEditingGroup(null);
-    setShowGroupModal(true);
-  };
-
-  const handleShowEditGroupModal = (group) => {
-    setEditingGroup(group);
-    setShowGroupModal(true);
-  };
-
-  const handleCloseGroupModal = () => {
-    setShowGroupModal(false);
-    setEditingGroup(null);
-  };
-
-  const handleSaveGroup = async (formData, groupId) => {
-    try {
-      let result;
-      if (groupId) {
-        result = await window.electronAPI.updateGroup(groupId, formData);
-        if (result.success) toast.success(`تم تحديث المجموعة "${formData.name}" بنجاح!`);
-      } else {
-        result = await window.electronAPI.addGroup(formData);
-        if (result.success) toast.success(`تمت إضافة المجموعة "${formData.name}" بنجاح!`);
-      }
-
-      if (result.success) {
-        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
-        handleCloseGroupModal();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error saving group:', err);
-      toast.error(err.message || 'فشل حفظ المجموعة.');
-    }
-  };
-
-  const handleDeleteGroupRequest = (group) => {
-    setGroupToDelete(group);
-    setShowGroupDeleteModal(true);
-  };
-
-  const handleCloseGroupDeleteModal = () => {
-    setGroupToDelete(null);
-    setShowGroupDeleteModal(false);
-  };
-
-  const confirmGroupDelete = async () => {
-    if (!groupToDelete) return;
-
-    try {
-      const result = await window.electronAPI.deleteGroup(groupToDelete.id);
-      if (result.success) {
-        toast.success(`تم حذف المجموعة "${groupToDelete.name}" بنجاح.`);
-        setRefreshGroups((prev) => !prev); // Toggle to trigger refetch in child
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      logError('Error deleting group:', err);
-      toast.error(`فشل حذف المجموعة "${groupToDelete.name}".`);
-    } finally {
-      handleCloseGroupDeleteModal();
     }
   };
 
@@ -598,6 +517,8 @@ function StudentsPage() {
                         variant="outline-info"
                         size="sm"
                         onClick={() => handleShowDetailsModal(student)}
+                        aria-label="عرض تفاصيل الطالب"
+                        title="عرض التفاصيل"
                       >
                         <EyeIcon />
                       </Button>
@@ -606,6 +527,8 @@ function StudentsPage() {
                           variant="outline-success"
                           size="sm"
                           onClick={() => handleShowEditModal(student)}
+                          aria-label="تعديل الطالب"
+                          title="تعديل"
                         >
                           <EditIcon />
                         </Button>
@@ -615,6 +538,8 @@ function StudentsPage() {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => handleDeleteRequest(student)}
+                          aria-label="حذف الطالب"
+                          title="حذف"
                         >
                           <TrashIcon />
                         </Button>
@@ -665,7 +590,7 @@ function StudentsPage() {
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
           )}
-          {activeTab === 'students' && hasPermission(PERMISSIONS.USERS_CREATE) && (
+          {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
             <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
               <ImportIcon className="ms-2" /> استيراد البيانات
             </Button>
@@ -673,11 +598,6 @@ function StudentsPage() {
           {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
             <Button variant="primary" onClick={handleShowAddModal}>
               <PlusIcon className="ms-2" /> إضافة طالب
-            </Button>
-          )}
-          {activeTab === 'groups' && hasPermission(PERMISSIONS.STUDENTS_CREATE) && (
-            <Button variant="primary" onClick={handleShowAddGroupModal}>
-              <PlusIcon className="ms-2" /> إضافة مجموعة
             </Button>
           )}
         </div>
@@ -691,13 +611,6 @@ function StudentsPage() {
       >
         <Tab eventKey="students" title="الطلاب">
           {renderStudentsTab()}
-        </Tab>
-        <Tab eventKey="groups" title="المجموعات">
-          <GroupsTabContent
-            onEditGroup={handleShowEditGroupModal}
-            onDeleteGroup={handleDeleteGroupRequest}
-            refreshDependency={refreshGroups}
-          />
         </Tab>
       </Tabs>
 
@@ -720,23 +633,6 @@ function StudentsPage() {
         handleConfirm={confirmDelete}
         title="تأكيد حذف الطالب"
         body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
-        confirmVariant="danger"
-        confirmText="نعم، حذف"
-      />
-
-      <GroupFormModal
-        show={showGroupModal}
-        handleClose={handleCloseGroupModal}
-        onSave={handleSaveGroup}
-        group={editingGroup}
-      />
-
-      <ConfirmationModal
-        show={showGroupDeleteModal}
-        handleClose={handleCloseGroupDeleteModal}
-        handleConfirm={confirmGroupDelete}
-        title="تأكيد حذف المجموعة"
-        body={`هل أنت متأكد من رغبتك في حذف المجموعة "${groupToDelete?.name}"؟ سيتم أيضًا إزالة جميع الطلاب من هذه المجموعة.`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

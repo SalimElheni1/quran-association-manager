@@ -84,23 +84,18 @@ describe('settingsHandlers', () => {
 
       const result = await internalUpdateSettingsHandler(settingsData);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
       expect(result.success).toBe(true);
     });
 
     it('should rollback on database error', async () => {
       const dbError = new Error('Database error');
       Joi.object().validateAsync.mockResolvedValue({ name: 'test' });
-      db.runQuery
-        .mockResolvedValueOnce() // BEGIN
-        .mockRejectedValueOnce(dbError); // First UPDATE fails
+      db.runQuery.mockRejectedValueOnce(dbError); // First UPDATE fails
 
       await expect(internalUpdateSettingsHandler({ name: 'test' })).rejects.toThrow(
         'فشل تحديث الإعدادات.',
       );
 
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
       expect(logError).toHaveBeenCalledWith('Failed to update settings:', dbError);
     });
 

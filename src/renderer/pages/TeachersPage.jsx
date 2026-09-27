@@ -215,17 +215,17 @@ function TeachersPage() {
       <div className="page-header">
         <h1>شؤون المعلمين</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.USERS_VIEW) && (
+          {hasPermission(PERMISSIONS.TEACHERS_VIEW) && (
             <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
           )}
-          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+          {hasPermission(PERMISSIONS.TEACHERS_CREATE) && (
             <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
               <ImportIcon className="ms-2" /> استيراد البيانات
             </Button>
           )}
-          {hasPermission(PERMISSIONS.USERS_CREATE) && (
+          {hasPermission(PERMISSIONS.TEACHERS_CREATE) && (
             <Button variant="primary" onClick={handleShowAddModal}>
               <PlusIcon className="ms-2" /> إضافة معلم
             </Button>
@@ -286,23 +286,29 @@ function TeachersPage() {
                         variant="outline-info"
                         size="sm"
                         onClick={() => handleShowDetailsModal(teacher)}
+                        aria-label="عرض تفاصيل المعلم"
+                        title="عرض التفاصيل"
                       >
                         <EyeIcon />
                       </Button>
-                      {hasPermission(PERMISSIONS.USERS_EDIT) && (
+                      {hasPermission(PERMISSIONS.TEACHERS_EDIT) && (
                         <Button
                           variant="outline-success"
                           size="sm"
                           onClick={() => handleShowEditModal(teacher)}
+                          aria-label="تعديل المعلم"
+                          title="تعديل"
                         >
                           <EditIcon />
                         </Button>
                       )}
-                      {hasPermission(PERMISSIONS.USERS_DELETE) && (
+                      {hasPermission(PERMISSIONS.TEACHERS_DELETE) && (
                         <Button
                           variant="outline-danger"
                           size="sm"
                           onClick={() => handleDeleteRequest(teacher)}
+                          aria-label="حذف المعلم"
+                          title="حذف"
                         >
                           <TrashIcon />
                         </Button>

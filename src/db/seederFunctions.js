@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs');
 const { getQuery, runQuery, allQuery } = require('./db');
 const { log, error: logError } = require('../main/logger');
+const { toLocalISODate } = require('../main/utils/dates');
 
 const getDobFromAge = (age) => {
   const today = new Date();
   const year = today.getFullYear() - age;
-  return new Date(year, today.getMonth(), today.getDate()).toISOString().split('T')[0];
+  return toLocalISODate(new Date(year, today.getMonth(), today.getDate()));
 };
 
 // Comprehensive Dummy Data
@@ -564,7 +565,7 @@ async function seedAttendance() {
     }
 
     let insertedCount = 0;
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalISODate();
 
     for (let i = 0; i < Math.min(enrollments.length, 50); i++) {
       const sql = `INSERT INTO attendance (class_id, student_id, date, status) VALUES (?, ?, ?, ?)`;

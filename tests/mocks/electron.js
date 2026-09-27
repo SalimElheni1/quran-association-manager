@@ -7,12 +7,18 @@ const mockIpcMain = {
   invoke: jest.fn(async (channel, ...args) => {
     const handler = mockIpcMain.handlers.get(channel);
     if (handler) {
-      // Mock the event object with the structure our auth middleware expects
-      const mockEvent = {
-        sender: {
-          executeJavaScript: jest.fn().mockResolvedValue('mock-jwt-token'),
+      // Provide a session-backed event so session-based authorization passes
+      const sessionManager = require('../../src/main/sessionManager');
+      sessionManager.createSession(
+        { id: 1 },
+        {
+          id: 1,
+          username: 'mock-user',
+          roles: ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'],
         },
-      };
+        null,
+      );
+      const mockEvent = { sender: { id: 1 } };
       return await handler(mockEvent, ...args);
     }
     throw new Error(`No handler registered for channel '${channel}'`);
@@ -58,6 +64,13 @@ const mockProtocol = {
   registerFileProtocol: jest.fn(),
 };
 
+// Round-trip safeStorage mock (encryptString/decryptString must be reversible)
+const mockSafeStorage = {
+  isEncryptionAvailable: jest.fn().mockReturnValue(true),
+  encryptString: jest.fn((value) => Buffer.from(`enc:${value}`).toString('base64')),
+  decryptString: jest.fn((buffer) => Buffer.from(buffer, 'base64').toString('utf8').slice(4)),
+};
+
 module.exports = {
   app: mockApp,
   BrowserWindow: mockBrowserWindow,
@@ -69,4 +82,5 @@ module.exports = {
   },
   protocol: mockProtocol,
   autoUpdater: mockAutoUpdater,
+  safeStorage: mockSafeStorage,
 };

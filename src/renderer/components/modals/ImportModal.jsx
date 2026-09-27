@@ -3,7 +3,6 @@ import { Modal, Button, Alert } from 'react-bootstrap';
 import ImportWizard from '@renderer/components/ImportWizard';
 import FileExcelIcon from '@renderer/components/icons/FileExcelIcon';
 import MagicIcon from '@renderer/components/icons/MagicIcon';
-import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
 const ImportModal = ({ show, handleClose, importType, title }) => {
   const [message, setMessage] = useState({ type: '', text: '' });

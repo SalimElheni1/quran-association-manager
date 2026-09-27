@@ -1,6 +1,6 @@
 /**
  * @fileoverview Migration script to convert legacy financial data to unified transactions
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 2.0.0
  */
 
@@ -10,12 +10,12 @@ const { error: logError, info: logInfo } = require('../logger');
 /**
  * Migrates existing financial data to unified transactions table
  * Converts: payments, expenses, salaries, donations → transactions
- * 
+ *
  * @returns {Promise<Object>} Migration results with counts
  */
 async function migrateToUnifiedTransactions() {
   logInfo('Starting migration to unified transactions...');
-  
+
   const results = {
     payments: 0,
     expenses: 0,
@@ -106,7 +106,7 @@ async function migrateToUnifiedTransactions() {
 
       for (const s of salaries) {
         const category = s.user_type === 'teacher' ? 'رواتب المعلمين' : 'رواتب الإداريين';
-        
+
         await db.runQuery(`
           INSERT INTO transactions (
             type, category, amount, transaction_date, description,
@@ -173,9 +173,9 @@ async function migrateToUnifiedTransactions() {
     const totalExpenses = await db.getQuery(
       "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'EXPENSE'"
     );
-    
+
     const balance = (totalIncome.total || 0) - (totalExpenses.total || 0);
-    
+
     await db.runQuery(
       'UPDATE accounts SET current_balance = ? WHERE id = ?',
       [balance, accountId]
@@ -204,7 +204,7 @@ async function migrateToUnifiedTransactions() {
 /**
  * Verifies migration data integrity
  * Compares old totals with new totals
- * 
+ *
  * @returns {Promise<Object>} Verification results
  */
 async function verifyMigration() {

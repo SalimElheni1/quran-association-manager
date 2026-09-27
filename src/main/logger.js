@@ -4,6 +4,37 @@ const path = require('path');
 
 let logFilePath = null;
 
+// SEC-015: Field names whose values must never reach the log file.
+const SENSITIVE_FIELD_PATTERN = /pass(word)?|token|secret|transfer_key|national_id|credit|card/i;
+
+/**
+ * SEC-015: Deep-redact sensitive values from objects before logging.
+ * Field names matching SENSITIVE_FIELD_PATTERN are replaced with '[REDACTED]'.
+ * Plain strings and primitives pass through unchanged.
+ * @param {*} value
+ * @param {WeakSet} [seen] - Circular-reference guard
+ * @returns {*}
+ */
+const sanitizeForLog = (value, seen = new WeakSet()) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForLog(item, seen));
+  }
+  if (value && typeof value === 'object') {
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
+    const sanitized = {};
+    for (const [key, item] of Object.entries(value)) {
+      sanitized[key] = SENSITIVE_FIELD_PATTERN.test(key)
+        ? '[REDACTED]'
+        : sanitizeForLog(item, seen);
+    }
+    return sanitized;
+  }
+  return value;
+};
+
 /**
  * Initialize log file path (called after app is ready)
  */
@@ -26,7 +57,12 @@ const writeToFile = (level, args) => {
     try {
       const timestamp = new Date().toISOString();
       const message = args
-        .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
+        .map((arg) => {
+          if (typeof arg === 'object' && arg !== null) {
+            return JSON.stringify(sanitizeForLog(arg));
+          }
+          return String(arg);
+        })
         .join(' ');
       const logLine = `[${timestamp}] [${level}] ${message}\n`;
 
@@ -95,4 +131,5 @@ module.exports = {
   initializeLogFile,
   getLogFilePath,
   clearLogFile,
+  sanitizeForLog,
 };

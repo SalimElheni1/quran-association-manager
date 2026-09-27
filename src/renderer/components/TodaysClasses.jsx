@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, ListGroup, Spinner, Alert } from 'react-bootstrap';
+import { ListGroup, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { error as logError } from '@renderer/utils/logger';
@@ -13,7 +13,7 @@ function TodaysClasses() {
 
   const handleClassClick = (classId) => {
     // Navigate to the attendance page, passing the class ID as a URL parameter.
-    navigate(`/attendance?seanceId=${classId}`);
+    navigate(`/attendance?classId=${classId}`);
   };
 
   useEffect(() => {
@@ -73,10 +73,20 @@ function TodaysClasses() {
   };
 
   return (
-    <Card className="h-100">
-      <Card.Header as="h5">فصول اليوم</Card.Header>
+    <div className="dashboard-panel">
+      <div className="panel-header">
+        <span className="panel-icon">
+          <AttendanceIcon />
+        </span>
+        <div>
+          <h5 className="panel-title">فصول اليوم</h5>
+          <p className="panel-caption">
+            الحصص المقررة ليوم {new Date().toLocaleDateString('ar-TN')}
+          </p>
+        </div>
+      </div>
       {renderContent()}
-    </Card>
+    </div>
   );
 }
 

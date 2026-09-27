@@ -2,7 +2,7 @@
  * @fileoverview Centralized translation utilities for backend API responses
  * Maps English database values to Arabic for frontend display consistency
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 
@@ -147,7 +147,9 @@ function translateTransaction(transaction) {
   return {
     ...transaction,
     type: mapTransactionType(transaction.type),
-    payment_method: mapPaymentMethod(transaction.payment_method),
+    // payment_method stays a code (CASH/CHECK/TRANSFER): the renderer labels it and
+    // sends it back unchanged when a transaction is edited.
+    payment_method_display: mapPaymentMethod(transaction.payment_method),
     receipt_type_display: mapReceiptType(transaction.receipt_type),
   };
 }

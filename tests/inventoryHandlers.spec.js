@@ -36,11 +36,17 @@ jest.mock('electron', () => ({
     invoke: jest.fn(async function (channel, ...args) {
       const handler = this.handlers.get(channel);
       if (handler) {
-        const mockEvent = {
-          sender: {
-            executeJavaScript: jest.fn().mockResolvedValue('mock-jwt-token'),
+        const sessionManager = require('../src/main/sessionManager');
+        sessionManager.createSession(
+          { id: 1 },
+          {
+            id: 1,
+            username: 'mock-user',
+            roles: ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'],
           },
-        };
+          null,
+        );
+        const mockEvent = { sender: { id: 1 } };
         return await handler(mockEvent, ...args);
       }
       throw new Error(`No handler registered for channel '${channel}'`);

@@ -8,7 +8,7 @@
  * - Link payments to charges via student_payment_breakdown table
  * - Maintains full payment history while integrating with new system
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.1
  */
 

@@ -16,8 +16,8 @@ jest.mock('@renderer/hooks/usePermissions', () => ({
 // Mock react-bootstrap
 jest.mock('react-bootstrap', () => ({
   Table: ({ children }) => <table>{children}</table>,
-  Button: ({ children, onClick, variant, size }) => (
-    <button onClick={onClick} className={`btn-${variant} btn-${size}`}>
+  Button: ({ children, onClick, variant, size, ...rest }) => (
+    <button onClick={onClick} className={`btn-${variant} btn-${size}`} {...rest}>
       {children}
     </button>
   ),
@@ -33,15 +33,12 @@ jest.mock('react-bootstrap', () => ({
     Label: ({ children }) => <label>{children}</label>,
     Group: ({ children }) => <div>{children}</div>,
   },
-  Modal: Object.assign(
-    ({ children, show }) => (show ? <div>{children}</div> : null),
-    {
-      Header: ({ children }) => <div>{children}</div>,
-      Title: ({ children }) => <h2>{children}</h2>,
-      Body: ({ children }) => <div>{children}</div>,
-      Footer: ({ children }) => <div>{children}</div>,
-    },
-  ),
+  Modal: Object.assign(({ children, show }) => (show ? <div>{children}</div> : null), {
+    Header: ({ children }) => <div>{children}</div>,
+    Title: ({ children }) => <h2>{children}</h2>,
+    Body: ({ children }) => <div>{children}</div>,
+    Footer: ({ children }) => <div>{children}</div>,
+  }),
 }));
 
 // Mock child components

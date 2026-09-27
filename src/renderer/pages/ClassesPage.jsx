@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ClassFormModal from '@renderer/components/ClassFormModal';
@@ -240,18 +240,17 @@ function ClassesPage() {
   };
 
   const renderStatusBadge = (status) => {
-    const variants = {
-      'قيد الانتظار': 'warning',
-      نشط: 'success',
-      مكتمل: 'secondary',
+    // Labels match the class form's status options.
+    const statuses = {
+      pending: { label: 'قيد الانتظار', bg: 'warning' },
+      active: { label: 'نشط', bg: 'success' },
+      completed: { label: 'منتهي', bg: 'secondary' },
     };
-
-    const bgColor = variants[status] || 'light';
-    const textColor = bgColor === 'white';
+    const { label, bg } = statuses[status] || { label: status, bg: 'light' };
 
     return (
-      <Badge bg={bgColor} text={textColor} className="p-2">
-        {status}
+      <Badge bg={bg} className="p-2">
+        {label}
       </Badge>
     );
   };
@@ -333,6 +332,8 @@ function ClassesPage() {
                         variant="outline-info"
                         size="sm"
                         onClick={() => handleShowDetailsModal(cls)}
+                        aria-label="عرض تفاصيل الفصل"
+                        title="عرض التفاصيل"
                       >
                         <EyeIcon />
                       </Button>
@@ -341,6 +342,8 @@ function ClassesPage() {
                           variant="outline-success"
                           size="sm"
                           onClick={() => handleShowEditModal(cls)}
+                          aria-label="تعديل الفصل"
+                          title="تعديل"
                         >
                           <EditIcon />
                         </Button>
@@ -350,6 +353,8 @@ function ClassesPage() {
                           variant="outline-danger"
                           size="sm"
                           onClick={() => handleDeleteRequest(cls)}
+                          aria-label="حذف الفصل"
+                          title="حذف"
                         >
                           <TrashIcon />
                         </Button>

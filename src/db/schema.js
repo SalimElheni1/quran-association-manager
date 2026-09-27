@@ -250,9 +250,7 @@ const schema = `
     ('president_full_name', ''),
     ('backup_reminder_enabled', 'true'),
     ('backup_reminder_frequency_days', '7'),
-    ('cloud_backup_enabled', 'false'),
-    ('google_account_email', ''),
-    ('google_connected', 'false');
+    ('association_transfer_key', '');
 
   -- Insert default age groups with gender policies
   INSERT OR IGNORE INTO age_groups (uuid, name, description, min_age, max_age, gender, gender_policy, is_active) VALUES

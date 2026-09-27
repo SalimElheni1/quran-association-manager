@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { getUserFromToken, requireRoles } = require('../src/main/authMiddleware');
+const sessionManager = require('../src/main/sessionManager');
 const db = require('../src/db/db');
 
 jest.mock('jsonwebtoken');
@@ -84,26 +85,24 @@ describe('Auth Middleware', () => {
   });
 
   describe('requireRoles', () => {
-    const mockEvent = {
-      sender: {
-        executeJavaScript: jest.fn(),
-      },
-    };
-
+    const SENDER_ID = 42;
+    const mockEvent = { sender: { id: SENDER_ID } };
     const mockHandler = jest.fn().mockResolvedValue({ success: true });
 
     beforeEach(() => {
-      mockEvent.sender.executeJavaScript.mockResolvedValue(mockToken);
+      sessionManager.revokeAllSessions();
+    });
+
+    afterEach(() => {
+      sessionManager.revokeAllSessions();
     });
 
     it('should allow access when user has required role', async () => {
-      const mockDecoded = { id: 1 };
-      const mockUser = { id: 1, username: 'admin' };
-      const mockRoles = [{ name: 'Superadmin' }];
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue(mockRoles);
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'admin', roles: ['Superadmin'] },
+        null,
+      );
 
       const wrappedHandler = requireRoles(['Superadmin', 'Administrator'])(mockHandler);
       const result = await wrappedHandler(mockEvent, 'arg1', 'arg2');
@@ -113,13 +112,11 @@ describe('Auth Middleware', () => {
     });
 
     it('should allow access when user has one of multiple required roles', async () => {
-      const mockDecoded = { id: 2 };
-      const mockUser = { id: 2, username: 'finance' };
-      const mockRoles = [{ name: 'FinanceManager' }];
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue(mockRoles);
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 2, username: 'finance', roles: ['FinanceManager'] },
+        null,
+      );
 
       const wrappedHandler = requireRoles(['Superadmin', 'FinanceManager'])(mockHandler);
       await wrappedHandler(mockEvent);
@@ -128,50 +125,57 @@ describe('Auth Middleware', () => {
     });
 
     it('should deny access when user does not have required role', async () => {
-      const mockDecoded = { id: 3 };
-      const mockUser = { id: 3, username: 'teacher' };
-      const mockRoles = [{ name: 'SessionSupervisor' }];
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue(mockRoles);
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 3, username: 'supervisor', roles: ['SessionSupervisor'] },
+        null,
+      );
 
       const wrappedHandler = requireRoles(['Superadmin', 'Administrator'])(mockHandler);
 
-      await expect(wrappedHandler(mockEvent)).rejects.toThrow('Insufficient permissions.');
+      await expect(wrappedHandler(mockEvent)).rejects.toThrow('غير مسموح به.');
       expect(mockHandler).not.toHaveBeenCalled();
     });
 
-    it('should handle missing token from localStorage', async () => {
-      mockEvent.sender.executeJavaScript.mockResolvedValue(null);
-
+    it('should deny access when no session exists for the sender', async () => {
       const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
 
-      await expect(wrappedHandler(mockEvent)).rejects.toThrow('Authentication token not provided.');
+      await expect(wrappedHandler(mockEvent)).rejects.toThrow('مطلوب تسجيل الدخول.');
       expect(mockHandler).not.toHaveBeenCalled();
     });
 
-    it('should handle invalid token', async () => {
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Token expired');
-      });
-
-      const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
-
-      await expect(wrappedHandler(mockEvent)).rejects.toThrow(
-        'Invalid or expired authentication token.',
+    it('should deny access when the sender has no webContents id', async () => {
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'admin', roles: ['Superadmin'] },
+        null,
       );
+
+      const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
+
+      await expect(wrappedHandler({ sender: {} })).rejects.toThrow('مطلوب تسجيل الدخول.');
+      expect(mockHandler).not.toHaveBeenCalled();
+    });
+
+    it('should deny access when the session is expired', async () => {
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'admin', roles: ['Superadmin'] },
+        Date.now() - 1000,
+      );
+
+      const wrappedHandler = requireRoles(['Superadmin'])(mockHandler);
+
+      await expect(wrappedHandler(mockEvent)).rejects.toThrow('مطلوب تسجيل الدخول.');
       expect(mockHandler).not.toHaveBeenCalled();
     });
 
     it('should pass through handler errors', async () => {
-      const mockDecoded = { id: 1 };
-      const mockUser = { id: 1, username: 'admin' };
-      const mockRoles = [{ name: 'Superadmin' }];
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue(mockRoles);
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'admin', roles: ['Superadmin'] },
+        null,
+      );
 
       const errorHandler = jest.fn().mockRejectedValue(new Error('Handler error'));
       const wrappedHandler = requireRoles(['Superadmin'])(errorHandler);

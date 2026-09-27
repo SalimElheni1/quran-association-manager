@@ -1,65 +1,93 @@
 /**
  * @fileoverview Main Electron process entry point for Quran Branch Manager.
- * Handles application lifecycle, window management, auto-updates, database initialization,
+ * Handles application lifecycle, window management, database initialization,
  * and IPC handler registration.
  *
  * This file serves as the central coordinator for the desktop application, managing:
  * - Application startup and shutdown
  * - Main window creation and management
  * - Database initialization and encryption
- * - Auto-update functionality
  * - IPC handler registration
  * - Security protocols and crash handling
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires electron - Desktop application framework
- * @requires electron-updater - Auto-update functionality
  * @requires electron-store - Persistent settings storage
  */
 
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 // =================================================================================
+// E2E TEST MODE (QBM_E2E=1)
+// =================================================================================
+// Isolates all app data (DB, key store, settings, logs) in a throwaway directory.
+// Must run before any module that resolves userData at require time
+// (logger, keyManager, electron-store).
+// Never in a packaged build: the test clock and data directory are for the unpacked app only.
+const isE2E = process.env.QBM_E2E === '1' && !app.isPackaged;
+if (isE2E) {
+  if (!process.env.QBM_E2E_USER_DATA) {
+    throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');
+  }
+  app.setPath('userData', process.env.QBM_E2E_USER_DATA);
+
+  // Test clock: lets e2e tests simulate months of use. QBM_E2E_NOW sets "now" at launch,
+  // and global.__qbmE2ESetNow(iso) moves it while the app runs; time keeps ticking from there.
+  const RealDate = Date;
+  let offsetMs = process.env.QBM_E2E_NOW
+    ? new RealDate(process.env.QBM_E2E_NOW).getTime() - RealDate.now()
+    : 0;
+  global.Date = class E2EDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(RealDate.now() + offsetMs);
+      else super(...args);
+    }
+
+    static now() {
+      return RealDate.now() + offsetMs;
+    }
+  };
+  global.__qbmE2ESetNow = (iso) => {
+    offsetMs = new RealDate(iso).getTime() - RealDate.now();
+  };
+}
+
+// =================================================================================
 // PRODUCTION CRASH LOGGER
 // =================================================================================
-const writeCrashLog = (label, reason) => {
-  const details = reason instanceof Error ? reason.stack || reason.message : String(reason);
-  const logMessage = `[${new Date().toISOString()}] ${label}:\n${details}\n`;
-  console.error(logMessage);
-  if (!app.isPackaged) return;
-  // Place the log in the directory next to the executable
-  const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
-  try {
-    fs.appendFileSync(logPath, logMessage, { encoding: 'utf-8' });
-  } catch (e) {
-    console.error('Failed to write crash log:', e);
-  }
-};
-
-process.on('uncaughtException', (error) => {
-  writeCrashLog('Uncaught Exception', error);
-  // Ensure the app exits
-  process.exit(1);
-});
-
-// Without a handler, a rejection outside of any try/catch leaves no trace at all.
-process.on('unhandledRejection', (reason) => {
-  writeCrashLog('Unhandled Promise Rejection', reason);
-});
+if (app.isPackaged) {
+  process.on('uncaughtException', (error) => {
+    const logMessage = `[${new Date().toISOString()}] Uncaught Exception:\n${error.stack || error}\n`;
+    // Place the log in the directory next to the executable
+    const logPath = path.join(path.dirname(app.getPath('exe')), 'error-log.txt');
+    try {
+      fs.writeFileSync(logPath, logMessage, { encoding: 'utf-8' });
+    } catch (e) {
+      console.error('Failed to write crash log:', e);
+    }
+    // Ensure the app exits
+    process.exit(1);
+  });
+}
 // =================================================================================
 const Store = require('electron-store');
 const { log, error: logError, initializeLogFile } = require('./logger');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
-const { registerFinancialHandlers } = require('./handlers/financialHandlers');
+const sessionManager = require('./sessionManager');
+const { installIpcGuard } = require('./ipcSecurity');
+const {
+  registerFinancialHandlers,
+  recomputeAccountBalances,
+} = require('./handlers/financialHandlers');
 const { registerStudentFeeHandlers } = require('./handlers/studentFeeHandlers');
 const { registerFinancialWordExportHandlers } = require('./services/financialWordExportService');
+const { registerFinancialExportHandlers } = require('./services/financialExportService');
 const { generateCashLedgerReport } = require('./services/cashLedgerExport');
 const { generateInventoryLedger } = require('./services/inventoryLedgerExport');
 const { registerStudentHandlers } = require('./handlers/studentHandlers');
@@ -75,7 +103,6 @@ const { registerSystemHandlers } = require('./handlers/systemHandlers');
 const { registerImportHandlers } = require('./handlers/importHandlers');
 const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
 const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
-const { registerLegacyFinancialHandlers } = require('./handlers/legacyFinancialHandlers');
 const { generateDevExcelTemplate } = require('./exportManager');
 const backupManager = require('./backupManager');
 const {
@@ -85,13 +112,19 @@ const {
 } = require('./feeChargeScheduler');
 
 const store = new Store();
-let initialCredentials = null;
 
 // In development, load environment variables and enable auto-reloading
 if (!app.isPackaged) {
   require('dotenv').config();
-  require('electron-reloader')(module);
+  if (!isE2E) require('electron-reloader')(module);
 }
+
+// =================================================================================
+// SECURITY: Install the centralized IPC authorization guard BEFORE any handler
+// registration (including module-level ipcMain.on registrations below). Every
+// channel is then authenticated from the main-process session registry only.
+// =================================================================================
+installIpcGuard(ipcMain);
 
 // =================================================================================
 
@@ -121,11 +154,18 @@ const createWindow = () => {
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
 
+  // A closed window must never leave a live session behind.
+  const windowWebContentsId = mainWindow.webContents.id;
+  mainWindow.on('closed', () => {
+    sessionManager.revokeSession(windowWebContentsId);
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
     mainWindow.show(); // Show the window after maximizing
   });
-  if (!app.isPackaged) {
+  // E2E runs load the built renderer (no Vite server, no DevTools window).
+  if (!app.isPackaged && !isE2E) {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
@@ -177,11 +217,26 @@ const initializeApp = async () => {
     // This is the new standard: initialize the DB as soon as the app is ready.
     // The key is managed internally, so no password is needed here.
     log('App is ready, initializing database...');
-    const tempCredentials = await db.initializeDatabase();
-    if (tempCredentials) {
-      initialCredentials = tempCredentials;
-    }
+    await db.initializeDatabase();
     log('Database initialized successfully.');
+    // =============================================================================
+
+    // =============================================================================
+    // RECONCILE ACCOUNT BALANCES ON STARTUP
+    // =============================================================================
+    // Recompute every account's current_balance from its transactions once after
+    // migrations. Idempotent and non-fatal: drift self-heals, startup never fails.
+    try {
+      const reconciliation = await recomputeAccountBalances();
+      const corrected = reconciliation.accounts.filter(
+        (a) => a.previous_balance !== a.new_balance,
+      ).length;
+      if (corrected > 0) {
+        log(`Account balance reconciliation corrected ${corrected} account(s).`);
+      }
+    } catch (error) {
+      logError('Error reconciling account balances on startup:', error);
+    }
     // =============================================================================
 
     // =============================================================================
@@ -217,9 +272,6 @@ const initializeApp = async () => {
       if (settings) {
         // Start backup scheduler
         backupManager.startScheduler(settings);
-        // Start cloud backup scheduler
-        const cloudBackupManager = require('./cloudBackupManager');
-        cloudBackupManager.startCloudScheduler(settings);
 
         // Start fee charge scheduler
         startFeeChargeScheduler(settings);
@@ -237,94 +289,50 @@ const initializeApp = async () => {
 
     Menu.setApplicationMenu(null);
 
-    // =============================================================================
-    // AUTO-UPDATE SETUP
-    // =============================================================================
-    if (app.isPackaged) {
-      log('Setting up auto-updater...');
-      autoUpdater.checkForUpdatesAndNotify();
-
-      autoUpdater.on('update-available', () => {
-        log('Update available.');
-      });
-
-      autoUpdater.on('update-not-available', () => {
-        log('Update not available.');
-      });
-
-      autoUpdater.on('error', (err) => {
-        logError('Error in auto-updater. ' + err);
-      });
-
-      autoUpdater.on('download-progress', (progressObj) => {
-        let log_message = 'Download speed: ' + progressObj.bytesPerSecond;
-        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-        log_message = log_message + ' (' + progressObj.transferred + '/' + progressObj.total + ')';
-        log(log_message);
-      });
-
-      autoUpdater.on('update-downloaded', (info) => {
-        log('Update downloaded. Prompting user to restart.');
-        const dialogOpts = {
-          type: 'info',
-          buttons: ['Restart', 'Later'],
-          title: 'Application Update',
-          message: process.platform === 'win32' ? info.releaseName : info.releaseNotes,
-          detail:
-            'A new version has been downloaded. Restart the application to apply the updates.',
-        };
-
-        dialog.showMessageBox(dialogOpts).then((returnValue) => {
-          if (returnValue.response === 0) autoUpdater.quitAndInstall();
-        });
-      });
-    }
-    // =============================================================================
-
     const mainWindow = createWindow();
 
     // Register a custom protocol to safely serve images from the app's data directory.
     // This prevents exposing the entire filesystem to the renderer process.
     protocol.registerFileProtocol('safe-image', (request, callback) => {
       try {
-        const url = request.url.replace('safe-image://', '');
-        const decodedUrl = decodeURI(url);
+        const rawUrl = request.url.replace('safe-image://', '');
+        const decodedUrl = decodeURIComponent(rawUrl).replace(/\\/g, '/');
 
-        // If it's an absolute path, try it directly
-        if (path.isAbsolute(decodedUrl)) {
-          if (fs.existsSync(decodedUrl)) return callback({ path: decodedUrl });
+        // Reject traversal sequences, null bytes, and absolute paths (the
+        // protocol may only serve relative files under userData/public).
+        if (decodedUrl.includes('..') || decodedUrl.includes('\0') || path.isAbsolute(decodedUrl)) {
+          logError(`[safe-image] Traversal attempt blocked: ${decodedUrl}`);
           return callback({ error: -6 });
         }
 
-        // First check userData assets folder (where uploaded logos are copied)
+        const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
+
         const userDataPath = app.getPath('userData');
-        const userAssetPath = path.join(userDataPath, decodedUrl);
-        if (fs.existsSync(userAssetPath)) {
-          return callback({ path: userAssetPath });
+        const targetPath = path.resolve(userDataPath, decodedUrl);
+
+        const ext = path.extname(targetPath).toLowerCase();
+        if (!allowedExts.includes(ext)) {
+          logError(`[safe-image] Non-image file type rejected: ${ext}`);
+          return callback({ error: -6 });
         }
 
-        // Next check the app's public assets. When packaged, resourcesPath points
-        // to the folder containing the app.asar; public assets may either be
-        // in the unpacked resources or inside app.asar — attempt resourcesPath/public first.
+        if (fs.existsSync(targetPath)) {
+          return callback({ path: targetPath });
+        }
+
+        // Check public assets folder
         let publicPath;
         if (app.isPackaged) {
-          publicPath = path.join(process.resourcesPath, 'public', decodedUrl);
+          publicPath = path.resolve(process.resourcesPath, 'public', decodedUrl);
         } else {
-          publicPath = path.join(__dirname, '..', '..', 'public', decodedUrl);
+          publicPath = path.resolve(__dirname, '..', '..', 'public', decodedUrl);
         }
+
         if (fs.existsSync(publicPath)) {
           return callback({ path: publicPath });
         }
 
-        // As a last resort, check for the resource inside an unpacked assets folder
-        const alternative = path.join(process.resourcesPath || app.getAppPath(), decodedUrl);
-        if (fs.existsSync(alternative)) {
-          return callback({ path: alternative });
-        }
-
-        logError(
-          `[safe-image] File not found (checked userData, public, resources): ${decodedUrl}`,
-        );
+        logError(`[safe-image] File not found (checked userData, public): ${decodedUrl}`);
         return callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
       } catch (error) {
         logError('[safe-image] protocol handler error:', error);
@@ -346,9 +354,16 @@ const initializeApp = async () => {
 
     // Register all IPC handlers
     ipcMain.handle('get-is-packaged', () => app.isPackaged);
-    ipcMain.handle('get-initial-credentials', () => initialCredentials);
-    ipcMain.handle('clear-initial-credentials', () => {
-      initialCredentials = null;
+    // SEC-04: computed at call time so the state is correct even after a DB
+    // import (imported databases bring their own superadmin).
+    ipcMain.handle('get-initial-credentials', async () => {
+      try {
+        const needsSetup = !(await db.hasSuperadmin());
+        return needsSetup ? { needsSetup: true } : null;
+      } catch (error) {
+        logError('Failed to check superadmin setup state:', error);
+        return null;
+      }
     });
     ipcMain.handle('export:generate-dev-template', async () => {
       const { filePath } = await dialog.showSaveDialog({
@@ -370,17 +385,13 @@ const initializeApp = async () => {
     });
 
     ipcMain.handle('dialog:openFile', async (_event, options) => {
-      try {
-        return await dialog.showOpenDialog(options);
-      } catch (error) {
-        logError('Failed to open the file dialog:', error);
-        throw new Error('تعذر فتح نافذة اختيار الملف.');
-      }
+      return await dialog.showOpenDialog(options);
     });
 
     registerFinancialHandlers();
     registerStudentFeeHandlers();
     registerFinancialWordExportHandlers();
+    registerFinancialExportHandlers();
 
     // Cash ledger export
     ipcMain.handle(
@@ -406,7 +417,6 @@ const initializeApp = async () => {
     registerImportHandlers();
     registerReceiptHandlers();
     registerInventoryHandlers();
-    registerLegacyFinancialHandlers();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -415,24 +425,12 @@ const initializeApp = async () => {
     });
   } catch (error) {
     logError('Fatal error during application startup:', error);
-    // The window may never have been shown, so a dialog is the only way the user learns
-    // why the application closed itself.
-    dialog.showErrorBox(
-      'تعذر تشغيل التطبيق',
-      `حدث خطأ فادح أثناء بدء التشغيل:\n\n${error.message}`,
-    );
     app.quit();
   }
 };
 
 // This is the main entry point for the application
-app
-  .whenReady()
-  .then(initializeApp)
-  .catch((error) => {
-    writeCrashLog('Fatal error while preparing the application', error);
-    app.quit();
-  });
+app.whenReady().then(initializeApp);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -440,14 +438,13 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Handle user logout to close the database connection
-ipcMain.on('logout', async () => {
-  log('User logging out, closing database connection.');
-  try {
-    await db.closeDatabase();
-  } catch (error) {
-    logError('Failed to close the database connection on logout:', error);
+// Handle user logout: revoke the sender's session and close the database connection
+ipcMain.on('logout', async (event) => {
+  if (event && event.sender && typeof event.sender.id === 'number') {
+    sessionManager.revokeSession(event.sender.id);
   }
+  log('User logging out, closing database connection.');
+  await db.closeDatabase();
 });
 
 // Gracefully close the database and stop schedulers when the app is about to quit
@@ -456,23 +453,14 @@ app.on('will-quit', async () => {
   try {
     // Stop automated schedulers
     backupManager.stopScheduler();
-    try {
-      const cloudBackupManager = require('./cloudBackupManager');
-      if (cloudBackupManager.stopCloudScheduler) cloudBackupManager.stopCloudScheduler();
-    } catch (e) {
-      logError('Failed to stop the cloud backup scheduler:', e);
-    }
     stopFeeChargeScheduler();
     log('Schedulers stopped successfully.');
   } catch (error) {
     logError('Error stopping schedulers:', error);
   }
 
-  try {
-    await db.closeDatabase();
-  } catch (error) {
-    logError('Failed to close the database while quitting:', error);
-  }
+  sessionManager.revokeAllSessions();
+  await db.closeDatabase();
 });
 
 // --- Attendance IPC Handlers ---

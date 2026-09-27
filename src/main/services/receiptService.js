@@ -2,12 +2,13 @@
  * @fileoverview Receipt service for generating and managing receipt numbers
  * Provides centralized receipt numbering for all financial operations
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
+const { toLocalISODate } = require('../utils/dates');
 
 /**
  * Receipt number format: RCP-{year}-{sequential_number}
@@ -25,76 +26,77 @@ async function generateReceiptNumber(receiptType = 'fee_payment', issuedBy = nul
   const currentYear = new Date().getFullYear();
 
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
-
-    // Find the active receipt book for the current year and type
-    let receiptBook = await db.getQuery(
-      `SELECT * FROM receipt_books
+    const result = await db.withTransaction(async () => {
+      // Find the active receipt book for the current year and type
+      let receiptBook = await db.getQuery(
+        `SELECT * FROM receipt_books
        WHERE receipt_type = ? AND strftime('%Y', issued_date) = ? AND status = 'active'
        ORDER BY id DESC LIMIT 1`,
-      [receiptType, currentYear.toString()],
-    );
-
-    // If no active book exists for this year, create one
-    if (!receiptBook) {
-      console.log(`Creating new receipt book for ${receiptType} - ${currentYear}`);
-
-      // Determine the range for this book's receipt numbers
-      const existingBooks = await db.allQuery(
-        `SELECT MAX(end_receipt_number) as max_number
-         FROM receipt_books
-         WHERE receipt_type = ? AND strftime('%Y', issued_date) = ?`,
         [receiptType, currentYear.toString()],
       );
 
-      const startNumber = (existingBooks[0]?.max_number || 0) + 1;
-      const endNumber = startNumber + 999; // Allow 1000 receipts per book
+      // If no active book exists for this year, create one
+      if (!receiptBook) {
+        console.log(`Creating new receipt book for ${receiptType} - ${currentYear}`);
 
-      const bookResult = await db.runQuery(
-        `INSERT INTO receipt_books
+        // Determine the range for this book's receipt numbers
+        const existingBooks = await db.allQuery(
+          `SELECT MAX(end_receipt_number) as max_number
+         FROM receipt_books
+         WHERE receipt_type = ? AND strftime('%Y', issued_date) = ?`,
+          [receiptType, currentYear.toString()],
+        );
+
+        const startNumber = (existingBooks[0]?.max_number || 0) + 1;
+        const endNumber = startNumber + 999; // Allow 1000 receipts per book
+
+        const bookResult = await db.runQuery(
+          `INSERT INTO receipt_books
          (book_number, start_receipt_number, end_receipt_number, current_receipt_number, receipt_type, status, issued_date)
          VALUES (?, ?, ?, ?, ?, 'active', ?)`,
-        [
-          `BK-${receiptType.toUpperCase()}-${currentYear}`,
-          startNumber,
-          endNumber,
-          startNumber - 1, // Will be incremented when first used
-          receiptType,
-          new Date().toISOString().split('T')[0],
-        ],
-      );
+          [
+            `BK-${receiptType.toUpperCase()}-${currentYear}`,
+            startNumber,
+            endNumber,
+            startNumber - 1, // Will be incremented when first used
+            receiptType,
+            toLocalISODate(),
+          ],
+        );
 
-      receiptBook = await db.getQuery('SELECT * FROM receipt_books WHERE id = ?', [bookResult.id]);
-    }
+        receiptBook = await db.getQuery('SELECT * FROM receipt_books WHERE id = ?', [
+          bookResult.id,
+        ]);
+      }
 
-    // Check if the book is exhausted
-    if (receiptBook.current_receipt_number >= receiptBook.end_receipt_number) {
-      throw new Error(
-        `Receipt book ${receiptBook.book_number} is exhausted. Please create a new receipt book.`,
-      );
-    }
+      // Check if the book is exhausted
+      if (receiptBook.current_receipt_number >= receiptBook.end_receipt_number) {
+        throw new Error(
+          `Receipt book ${receiptBook.book_number} is exhausted. Please create a new receipt book.`,
+        );
+      }
 
-    // Generate the next receipt number
-    const nextNumber = receiptBook.current_receipt_number + 1;
-    const receiptNumber = `RCP-${currentYear}-${nextNumber.toString().padStart(4, '0')}`;
+      // Generate the next receipt number
+      const nextNumber = receiptBook.current_receipt_number + 1;
+      const receiptNumber = `RCP-${currentYear}-${nextNumber.toString().padStart(4, '0')}`;
 
-    // Update the current receipt number in the book
-    await db.runQuery('UPDATE receipt_books SET current_receipt_number = ? WHERE id = ?', [
-      nextNumber,
-      receiptBook.id,
-    ]);
+      // Update the current receipt number in the book
+      await db.runQuery('UPDATE receipt_books SET current_receipt_number = ? WHERE id = ?', [
+        nextNumber,
+        receiptBook.id,
+      ]);
 
-    await db.runQuery('COMMIT;');
+      return { receiptBook, receiptNumber };
+    });
 
     return {
-      receiptNumber,
-      bookId: receiptBook.id,
+      receiptNumber: result.receiptNumber,
+      bookId: result.receiptBook.id,
       year: currentYear,
-      bookNumber: receiptBook.book_number,
+      bookNumber: result.receiptBook.book_number,
       issuedBy,
     };
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     logError('Error generating receipt number:', error);
     throw new Error(`Failed to generate receipt number: ${error.message}`);
   }
@@ -119,9 +121,10 @@ function validateReceiptNumber(receiptNumber) {
  */
 async function getReceiptBookStats(year = null) {
   try {
-    const yearFilter = year ? `AND strftime('%Y', issued_date) = '${year}'` : '';
+    const yearFilter = year ? `AND strftime('%Y', issued_date) = ?` : '';
 
-    const books = await db.allQuery(`
+    const books = await db.allQuery(
+      `
       SELECT
         book_number,
         receipt_type,
@@ -135,7 +138,9 @@ async function getReceiptBookStats(year = null) {
       FROM receipt_books
       WHERE 1=1 ${yearFilter}
       ORDER BY issued_date DESC
-    `);
+    `,
+      year ? [year] : [],
+    );
 
     return books.map((book) => ({
       ...book,
@@ -185,11 +190,10 @@ async function createReceiptBook(bookData) {
   const currentYear = new Date().getFullYear();
 
   try {
-    await db.runQuery('BEGIN TRANSACTION;');
-
-    // Check for overlapping ranges
-    const overlapCheck = await db.getQuery(
-      `SELECT id FROM receipt_books
+    const result = await db.withTransaction(async () => {
+      // Check for overlapping ranges
+      const overlapCheck = await db.getQuery(
+        `SELECT id FROM receipt_books
        WHERE receipt_type = ?
        AND strftime('%Y', issued_date) = ?
        AND (
@@ -197,28 +201,29 @@ async function createReceiptBook(bookData) {
          (? BETWEEN start_receipt_number AND end_receipt_number) OR
          (start_receipt_number BETWEEN ? AND ?)
        )`,
-      [receiptType, currentYear.toString(), startNumber, endNumber, startNumber, endNumber],
-    );
+        [receiptType, currentYear.toString(), startNumber, endNumber, startNumber, endNumber],
+      );
 
-    if (overlapCheck) {
-      throw new Error('Receipt number range overlaps with an existing book.');
-    }
+      if (overlapCheck) {
+        throw new Error('Receipt number range overlaps with an existing book.');
+      }
 
-    const result = await db.runQuery(
-      `INSERT INTO receipt_books
+      const insertResult = await db.runQuery(
+        `INSERT INTO receipt_books
        (book_number, start_receipt_number, end_receipt_number, current_receipt_number, receipt_type, status, issued_date)
        VALUES (?, ?, ?, ?, ?, 'active', ?)`,
-      [
-        `BK-${receiptType.toUpperCase()}-${currentYear}-${Date.now()}`,
-        startNumber,
-        endNumber,
-        startNumber - 1, // Will be incremented when first used
-        receiptType,
-        new Date().toISOString().split('T')[0],
-      ],
-    );
+        [
+          `BK-${receiptType.toUpperCase()}-${currentYear}-${Date.now()}`,
+          startNumber,
+          endNumber,
+          startNumber - 1, // Will be incremented when first used
+          receiptType,
+          toLocalISODate(),
+        ],
+      );
 
-    await db.runQuery('COMMIT;');
+      return insertResult;
+    });
 
     return {
       id: result.id,
@@ -228,7 +233,6 @@ async function createReceiptBook(bookData) {
       endNumber,
     };
   } catch (error) {
-    await db.runQuery('ROLLBACK;');
     logError('Error creating receipt book:', error);
     throw new Error(`Failed to create receipt book: ${error.message}`);
   }

@@ -50,11 +50,9 @@ describe('Student Handlers', () => {
       const maxAge = 10;
       const filters = { maxAgeFilter: maxAge.toString() };
 
-      // Spy on Date to control the current year
-      const currentYear = 2024;
-      jest.spyOn(global, 'Date').mockImplementation(() => ({
-        getFullYear: () => currentYear,
-      }));
+      // Control the current year via fake timers (keeps Date.now functional)
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-06-01T00:00:00Z'));
 
       await ipcMain.invoke('students:get', filters);
 
@@ -64,8 +62,8 @@ describe('Student Handlers', () => {
         expect.arrayContaining([]),
       );
 
-      // Restore original Date object
-      jest.restoreAllMocks();
+      // Restore real timers
+      jest.useRealTimers();
     });
   });
 
@@ -92,7 +90,6 @@ describe('Student Handlers', () => {
 
       await ipcMain.invoke('students:add', studentData);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(generateMatricule).toHaveBeenCalledWith('student');
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO students'),
@@ -106,8 +103,6 @@ describe('Student Handlers', () => {
         'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)',
         [studentId, 2],
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
-      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
     });
 
     it('should rollback transaction on validation error', async () => {
@@ -119,10 +114,6 @@ describe('Student Handlers', () => {
       await expect(ipcMain.invoke('students:add', {})).rejects.toThrow(
         'بيانات غير صالحة: Invalid name',
       );
-
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('ROLLBACK;');
-      expect(db.runQuery).not.toHaveBeenCalledWith('COMMIT;');
     });
   });
 
@@ -136,7 +127,6 @@ describe('Student Handlers', () => {
 
       await ipcMain.invoke('students:update', studentId, studentData);
 
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
       expect(db.runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE students SET'), [
         'Updated Student',
         studentId,
@@ -148,8 +138,6 @@ describe('Student Handlers', () => {
         'INSERT INTO student_groups (student_id, group_id) VALUES (?, ?)',
         [studentId, 3],
       );
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
-      expect(db.runQuery).not.toHaveBeenCalledWith('ROLLBACK;');
     });
   });
 
@@ -213,9 +201,6 @@ describe('Student Handlers', () => {
       db.runQuery.mockResolvedValue({ id: 4 });
 
       await ipcMain.invoke('students:add', studentData);
-
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
     });
 
     it('should add student with fee_category EXEMPT', async () => {
@@ -233,9 +218,6 @@ describe('Student Handlers', () => {
       db.runQuery.mockResolvedValue({ id: 5 });
 
       await ipcMain.invoke('students:add', studentData);
-
-      expect(db.runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
-      expect(db.runQuery).toHaveBeenCalledWith('COMMIT;');
     });
   });
 

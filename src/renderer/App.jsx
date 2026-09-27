@@ -8,7 +8,7 @@
  * - Protected route authentication
  * - Layout structure
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  * @requires react - React library
  * @requires react-router-dom - Client-side routing
@@ -20,9 +20,7 @@ import MainLayout from '@renderer/layouts/MainLayout';
 import DashboardPage from '@renderer/pages/DashboardPage';
 import LoginPage from '@renderer/pages/LoginPage';
 import ProtectedRoute from '@renderer/components/ProtectedRoute';
-import { PERMISSIONS } from '@renderer/utils/permissions';
 import { showErrorToast, showSuccessToast } from '@renderer/utils/toast';
-import { error as logError } from '@renderer/utils/logger';
 
 // Lazy load heavy pages
 const StudentsPage = React.lazy(() => import('@renderer/pages/StudentsPage'));
@@ -50,59 +48,74 @@ const AboutPage = React.lazy(() => import('@renderer/pages/AboutPage'));
  */
 function App() {
   /**
-   * State to store initial superadmin credentials when a new database is created.
-   * These credentials are displayed to the user on first login.
-   * @type {Object|null}
+   * State to track whether the first superadmin still needs to be created
+   * (SEC-04: no default credentials are ever seeded).
+   * @type {boolean}
    */
-  const [initialCredentials, setInitialCredentials] = useState(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   /**
    * Effect hook to set up IPC event listeners for toast notifications.
    * Listens for error and success toast events from the main process.
    */
   useEffect(() => {
-    const handleErrorToast = (message) => showErrorToast(message);
-    const handleSuccessToast = (message) => showSuccessToast(message);
+    // Listen for error toast events
+    const handleErrorToast = (event, message) => {
+      showErrorToast(message);
+    };
 
-    // The renderer is context-isolated, so the listeners must come from the preload bridge.
-    const api = window.electronAPI;
-    if (!api || typeof api.onShowErrorToast !== 'function') {
-      logError('Toast notifications from the main process are unavailable: preload API missing.');
-      return undefined;
+    // Listen for success toast events
+    const handleSuccessToast = (event, message) => {
+      showSuccessToast(message);
+    };
+
+    // Set up listeners
+    // Note: In Electron, we need to use the global api directly since we're in a sandboxed context
+    try {
+      // Using the electron renderer process API directly since preload API is for invoking main process
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.on('ui:show-error-toast', handleErrorToast);
+      ipcRenderer.on('ui:show-success-toast', handleSuccessToast);
+    } catch (e) {
+      // Fallback: try using the window methods if electron API import fails
+      console.warn('Could not set up toast IPC listeners directly:', e.message);
     }
 
-    const unsubscribeError = api.onShowErrorToast(handleErrorToast);
-    const unsubscribeSuccess = api.onShowSuccessToast(handleSuccessToast);
-
+    // Cleanup listeners on unmount
     return () => {
-      unsubscribeError();
-      unsubscribeSuccess();
+      try {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.removeListener('ui:show-error-toast', handleErrorToast);
+        ipcRenderer.removeListener('ui:show-success-toast', handleSuccessToast);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     };
   }, []);
 
   /**
-   * Effect hook to fetch initial credentials from the main process.
-   * This is triggered on first launch to display superadmin credentials.
+   * Effect hook to check whether the first superadmin still needs to be created.
+   * Re-checked after a DB import (imported databases bring their own superadmin).
    */
   useEffect(() => {
-    const fetchCredentials = async () => {
-      const credentials = await window.electronAPI.getInitialCredentials();
-      if (credentials) {
-        setInitialCredentials(credentials);
+    const fetchSetupState = async () => {
+      try {
+        const result = await window.electronAPI.getInitialCredentials();
+        setNeedsSetup(!!(result && result.needsSetup));
+      } catch (err) {
+        setNeedsSetup(false);
       }
     };
 
-    fetchCredentials();
-  }, []);
+    fetchSetupState();
 
-  /**
-   * Handles closing the initial credentials banner.
-   * Called when the user acknowledges the credentials display.
-   */
-  const handleCloseInitialCredentialsBanner = () => {
-    setInitialCredentials(null);
-    window.electronAPI.clearInitialCredentials();
-  };
+    const removeImportListener = window.electronAPI.onImportCompleted
+      ? window.electronAPI.onImportCompleted(() => fetchSetupState())
+      : null;
+    return () => {
+      if (removeImportListener) removeImportListener();
+    };
+  }, []);
 
   return (
     <>
@@ -110,10 +123,7 @@ function App() {
         <Route
           path="/login"
           element={
-            <LoginPage
-              initialCredentials={initialCredentials}
-              onCloseBanner={handleCloseInitialCredentialsBanner}
-            />
+            <LoginPage needsSetup={needsSetup} onSetupComplete={() => setNeedsSetup(false)} />
           }
         />
         <Route

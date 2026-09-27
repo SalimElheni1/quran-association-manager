@@ -3,6 +3,7 @@ const fs = {
   writeFile: jest.fn(),
   readFileSync: jest.fn(),
   writeFileSync: jest.fn(),
+  appendFileSync: jest.fn(),
   existsSync: jest.fn(),
   unlinkSync: jest.fn(),
   mkdirSync: jest.fn(),
@@ -12,6 +13,8 @@ const fs = {
   access: jest.fn(),
   mkdtempSync: jest.fn(),
   rmSync: jest.fn(),
+  renameSync: jest.fn(),
+  chmodSync: jest.fn(),
   constants: {
     F_OK: 0,
     R_OK: 4,

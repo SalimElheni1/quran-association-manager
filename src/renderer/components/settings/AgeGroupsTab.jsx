@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, Form, Row, Col, Spinner, Table, Badge, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
+import EditIcon from '@renderer/components/icons/EditIcon';
+import TrashIcon from '@renderer/components/icons/TrashIcon';
+
+const PAYMENT_FREQUENCY_LABELS = { MONTHLY: 'شهري', ANNUAL: 'سنوي' };
 
 const CATEGORY_OPTIONS = [
   { value: 'any', label: 'الكل' },
@@ -23,11 +27,37 @@ const AgeGroupsTab = () => {
     min_age: '',
     max_age: '',
     gender: 'any',
+    payment_frequency: 'MONTHLY',
+    annual_fee: '',
+    monthly_fee: '',
   });
+  // Branch fee amounts, used by age groups that leave their own fee empty.
+  const [branchFees, setBranchFees] = useState({ annual: 0, monthly: 0 });
 
   useEffect(() => {
     fetchAgeGroups();
+    fetchBranchFees();
+    // The branch fees shown as defaults change when the fee settings are saved.
+    window.addEventListener('settings-updated', fetchBranchFees);
+    return () => window.removeEventListener('settings-updated', fetchBranchFees);
   }, []);
+
+  const fetchBranchFees = async () => {
+    try {
+      const res = await window.electronAPI.getSettings();
+      setBranchFees({
+        annual: parseFloat(res?.settings?.annual_fee || 0),
+        monthly: parseFloat(res?.settings?.standard_monthly_fee || 0),
+      });
+    } catch (error) {
+      console.error('Error fetching fee settings:', error);
+    }
+  };
+
+  const formatFee = (groupFee, branchFee) =>
+    groupFee === null || groupFee === undefined
+      ? `${Number(branchFee).toFixed(2)} (افتراضي)`
+      : Number(groupFee).toFixed(2);
 
   const fetchAgeGroups = async () => {
     try {
@@ -54,6 +84,9 @@ const AgeGroupsTab = () => {
       min_age: '',
       max_age: '',
       gender: 'any',
+      payment_frequency: 'MONTHLY',
+      annual_fee: '',
+      monthly_fee: '',
     });
     setShowModal(true);
   };
@@ -66,6 +99,9 @@ const AgeGroupsTab = () => {
       min_age: group.min_age,
       max_age: group.max_age || '',
       gender: group.gender,
+      payment_frequency: group.payment_frequency || 'MONTHLY',
+      annual_fee: group.annual_fee ?? '',
+      monthly_fee: group.monthly_fee ?? '',
     });
     setShowModal(true);
   };
@@ -103,6 +139,9 @@ const AgeGroupsTab = () => {
         ...formData,
         min_age: parseInt(formData.min_age),
         max_age: formData.max_age ? parseInt(formData.max_age) : null,
+        // Empty means the group uses the branch fee amounts.
+        annual_fee: formData.annual_fee === '' ? null : parseFloat(formData.annual_fee),
+        monthly_fee: formData.monthly_fee === '' ? null : parseFloat(formData.monthly_fee),
       };
 
       let response;
@@ -118,6 +157,8 @@ const AgeGroupsTab = () => {
         setSaving(false);
         await fetchAgeGroups();
       } else {
+        console.error('Error in handleSubmit:', response);
+
         toast.error(response?.message || 'حدث خطأ في حفظ الفئة العمرية');
         setSaving(false);
       }
@@ -193,6 +234,9 @@ const AgeGroupsTab = () => {
                   <th>الاسم</th>
                   <th>النطاق العمري</th>
                   <th>النوع</th>
+                  <th>نظام الدفع</th>
+                  <th>الرسوم السنوية</th>
+                  <th>الرسوم الشهرية</th>
                   <th>الوصف</th>
                   <th className="text-center">الإجراءات</th>
                 </tr>
@@ -209,6 +253,9 @@ const AgeGroupsTab = () => {
                         {getGenderLabel(group.gender)}
                       </Badge>
                     </td>
+                    <td>{PAYMENT_FREQUENCY_LABELS[group.payment_frequency] || 'شهري'}</td>
+                    <td>{formatFee(group.annual_fee, branchFees.annual)}</td>
+                    <td>{formatFee(group.monthly_fee, branchFees.monthly)}</td>
                     <td>{group.description || '-'}</td>
                     <td className="text-center">
                       <Button
@@ -217,14 +264,14 @@ const AgeGroupsTab = () => {
                         onClick={() => handleEdit(group)}
                         className="me-1"
                       >
-                        ✏️ تعديل
+                        <EditIcon width={16} height={16} className="me-1" /> تعديل
                       </Button>
                       <Button
                         variant="outline-danger"
                         size="sm"
                         onClick={() => handleDeleteClick(group)}
                       >
-                        🗑️ حذف
+                        <TrashIcon width={16} height={16} className="me-1" /> حذف
                       </Button>
                     </td>
                   </tr>
@@ -317,6 +364,56 @@ const AgeGroupsTab = () => {
                 </Form.Group>
               </Col>
             </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>نظام الدفع</Form.Label>
+              <Form.Select
+                name="payment_frequency"
+                value={formData.payment_frequency}
+                onChange={handleChange}
+              >
+                <option value="MONTHLY">شهري (يدفع كل شهر)</option>
+                <option value="ANNUAL">سنوي (يدفع مرة واحدة للسنة)</option>
+              </Form.Select>
+              <Form.Text className="text-muted">
+                ينطبق على فصول هذه الفئة: رسوم شهرية، أو الرسم السنوي فقط
+              </Form.Text>
+            </Form.Group>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>الرسوم السنوية (د.ت)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="annual_fee"
+                    value={formData.annual_fee}
+                    onChange={handleChange}
+                    placeholder={`الافتراضي: ${branchFees.annual.toFixed(2)}`}
+                    min="0"
+                    step="0.01"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>الرسوم الشهرية (د.ت)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="monthly_fee"
+                    value={formData.monthly_fee}
+                    onChange={handleChange}
+                    placeholder={`الافتراضي: ${branchFees.monthly.toFixed(2)}`}
+                    min="0"
+                    step="0.01"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Text className="text-muted d-block mb-3">
+              اتركها فارغة لاستعمال رسوم الفرع في إعدادات الرسوم. التغيير يطبق ابتداءً من الفاتورة
+              القادمة (الشهر القادم للرسوم الشهرية، والسنة الدراسية القادمة للرسوم السنوية).
+            </Form.Text>
 
             <Form.Group className="mb-3">
               <Form.Label>الوصف</Form.Label>

@@ -9,7 +9,7 @@ module.exports = {
         'electron-store': '<rootDir>/tests/mocks/electron-store.js',
         sqlite3: '<rootDir>/tests/mocks/sqlite3.js',
         '^@journeyapps/sqlcipher$': '<rootDir>/tests/mocks/sqlcipher.js',
-        electron: '<rootDir>/tests/mocks/electron.js',
+        '^electron$': '<rootDir>/tests/mocks/electron.js',
         pizzip: '<rootDir>/tests/mocks/pizzip.js',
         bcryptjs: '<rootDir>/tests/mocks/bcryptjs.js',
         '../db/db': '<rootDir>/tests/mocks/db.js',
@@ -23,12 +23,13 @@ module.exports = {
       displayName: 'renderer-process',
       testEnvironment: 'jsdom',
       testMatch: ['<rootDir>/tests/renderer/**/*.spec.js'],
+      testPathIgnorePatterns: ['<rootDir>/tests/renderer/verify_icons.spec.js'],
       setupFilesAfterEnv: ['<rootDir>/tests/renderer/setup.js'],
       moduleNameMapper: {
         '^@renderer/(.*)$': '<rootDir>/src/renderer/$1',
         '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
       },
-      transformIgnorePatterns: ['node_modules/(?!(react-bootstrap)/)'],
+      transformIgnorePatterns: ['node_modules/(?!(react-bootstrap|d3-[a-z-]+|internmap)/)'],
       transform: {
         '^.+\\.(js|jsx)$': 'babel-jest',
         '\\.(css|less|scss|sass)$': 'jest-transform-stub',

@@ -893,8 +893,8 @@ describe('importManager - Extended Tests', () => {
       const { processInventoryRow } = require('../src/main/importManager');
       const result = await processInventoryRow(mockRow, mockHeaderRow);
 
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('موجود بالفعل');
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('تم تحديث كمية');
     });
   });
 });

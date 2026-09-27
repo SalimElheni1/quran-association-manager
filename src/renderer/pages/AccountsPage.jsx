@@ -38,16 +38,16 @@ function AccountsPage() {
     try {
       if (categoryForm.id) {
         await window.electronAPI.updateInKindCategory(categoryForm.id, categoryForm.name);
-        toast.success('✅ تم تحديث الفئة بنجاح');
+        toast.success('تم تحديث الفئة بنجاح');
       } else {
         await window.electronAPI.addInKindCategory(categoryForm.name);
-        toast.success('✅ تم إضافة الفئة بنجاح');
+        toast.success('تم إضافة الفئة بنجاح');
       }
       setShowCategoryModal(false);
       loadInKindCategories();
     } catch (err) {
       logError('Error saving category:', err);
-      toast.error('❌ ' + err.message);
+      toast.error(err.message);
     }
   };
 
@@ -60,11 +60,11 @@ function AccountsPage() {
     if (!categoryToDelete) return;
     try {
       await window.electronAPI.deleteInKindCategory(categoryToDelete.id);
-      toast.success('✅ تم حذف الفئة بنجاح');
+      toast.success('تم حذف الفئة بنجاح');
       loadInKindCategories();
     } catch (err) {
       logError('Error deleting category:', err);
-      toast.error('❌ ' + err.message);
+      toast.error(err.message);
     } finally {
       setShowDeleteModal(false);
       setCategoryToDelete(null);

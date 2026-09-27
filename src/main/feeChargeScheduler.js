@@ -7,7 +7,7 @@
  * - Monthly fee charge generation on schedule
  * - Duplicate prevention and transaction safety
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.0
  */
 
@@ -52,41 +52,49 @@ const generatePendingAnnualCharges = async (academicYear) => {
 };
 
 /**
- * Attempts to generate monthly charges for a specific month.
- * Only generates if charges don't already exist for that month.
+ * Generates a month's charges for every eligible student who doesn't have one yet.
+ * Students already billed for the month are skipped per student, so a student billed
+ * on enrollment never stops the rest of the branch from being billed.
  * @param {string} academicYear - The academic year
  * @param {number} month - The month (1-12)
- * @param {boolean} force - Force generation even if charges exist
- * @returns {Promise<boolean>} - True if charges were generated, false if not needed
+ * @returns {Promise<boolean>} - True if any charges were created
  */
-const generateMonthlyChargesIfNeeded = async (academicYear, month, force = false) => {
+const generateMonthlyChargesIfNeeded = async (academicYear, month) => {
   try {
-    if (!force) {
-      // Check if monthly charges already exist for this month/year
-      const existingCharges = await db.getQuery(
-        'SELECT COUNT(*) as count FROM student_fee_charges WHERE fee_type = ? AND academic_year = ? AND created_at >= ?',
-        ['MONTHLY', academicYear, `${academicYear}-${month.toString().padStart(2, '0')}-01`],
-      );
-
-      if (existingCharges.count > 0) {
-        return false; // Already have charges for this month
-      }
-    }
-
     log(`Generating monthly charges for ${academicYear}, month ${month}...`);
 
     const result = await generateMonthlyFeeCharges(academicYear, month);
     if (result && result.success) {
-      log(`Successfully generated monthly charges for ${academicYear}, month ${month}`);
-      return true;
+      log(
+        `Monthly charges for ${academicYear}, month ${month}: ${result.createdCount || 0} created`,
+      );
+      return (result.createdCount || 0) > 0;
     } else {
-      logWarn(`Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`);
+      logWarn(
+        `Monthly charge generation skipped or failed: ${result?.message || result?.error || 'Unknown'}`,
+      );
       return false;
     }
   } catch (error) {
     logError(`Failed to generate monthly charges for ${academicYear}, month ${month}:`, error);
     return false;
   }
+};
+
+/**
+ * The month after `date` and the academic year it belongs to. The academic year is worked out
+ * from the next month's own date, so the month that starts a new academic year (e.g. September,
+ * billed from the generation day in August) is billed under the new year, not the ending one.
+ * @param {number} startMonth - Month the academic year starts (1-12)
+ * @param {Date} [date=new Date()]
+ * @returns {{month: number, academicYear: string}}
+ */
+const getNextBillingMonth = (startMonth, date = new Date()) => {
+  const firstOfNextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return {
+    month: firstOfNextMonth.getMonth() + 1,
+    academicYear: getCurrentAcademicYear(startMonth, firstOfNextMonth),
+  };
 };
 
 /**
@@ -116,11 +124,10 @@ const onAppStartup = async (settings) => {
 
     // If past generation day, ensure next month exists
     if (currentDay >= genDay) {
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear =
-        currentMonth === 12
-          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
-          : academicYear;
+      const { month: nextMonth, academicYear: nextYear } = getNextBillingMonth(
+        startMonth,
+        currentDate,
+      );
 
       await generateMonthlyChargesIfNeeded(nextYear, nextMonth);
       log(`[Startup] Next month (${nextMonth}) charges checked (past day ${genDay})`);
@@ -145,17 +152,15 @@ const checkAndGenerateCharges = async (settings) => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentDay = currentDate.getDate();
-    const academicYear = getCurrentAcademicYear(startMonth);
 
     log(`[Scheduler] Daily check - Day ${currentDay} of month ${currentMonth}`);
 
     // Only generate next month on/after generation day
     if (currentDay >= genDay) {
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear =
-        currentMonth === 12
-          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
-          : academicYear;
+      const { month: nextMonth, academicYear: nextYear } = getNextBillingMonth(
+        startMonth,
+        currentDate,
+      );
 
       if (await generateMonthlyChargesIfNeeded(nextYear, nextMonth)) {
         log(`[Scheduler] Generated charges for next month (${nextMonth})`);
@@ -217,7 +222,7 @@ const runManualCheck = async (settings, force = false) => {
       return { success: false, message: 'التوليد التلقائي معطل في الإعدادات.' };
     }
 
-    await checkAndGenerateCharges(force);
+    await checkAndGenerateCharges(settings);
     if (force) {
       return { success: true, message: 'تم تحديث جميع رسوم الطلاب بنجاح.' };
     } else {
@@ -237,4 +242,5 @@ module.exports = {
   runManualCheck,
   generatePendingAnnualCharges,
   generateMonthlyChargesIfNeeded,
+  getNextBillingMonth,
 };

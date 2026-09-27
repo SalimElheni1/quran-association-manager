@@ -6,6 +6,7 @@ const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
+const sessionManager = require('../sessionManager');
 
 const userFields = [
   'matricule',
@@ -95,7 +96,10 @@ function registerUserHandlers() {
   );
 
   ipcMain.handle('users:getById', async (_event, id) => {
-    const user = await db.getQuery('SELECT * FROM users WHERE id = ?', [id]);
+    const user = await db.getQuery(
+      'SELECT id, branch_id, matricule, username, first_name, last_name, date_of_birth, national_id, email, phone_number, occupation, civil_status, employment_type, start_date, end_date, status, notes, need_guide, current_step FROM users WHERE id = ?',
+      [id],
+    );
     if (user) {
       const roles = await db.allQuery(
         'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
@@ -111,65 +115,64 @@ function registerUserHandlers() {
     requireRoles(['Superadmin'])(async (_event, userData) => {
       const { roles, ...restOfUserData } = userData;
       try {
-        await db.runQuery('BEGIN TRANSACTION;');
+        const transactionResult = await db.withTransaction(async () => {
+          const matricule = await generateMatricule('user');
+          const dataWithMatricule = { ...restOfUserData, matricule, roles };
 
-        const matricule = await generateMatricule('user');
-        const dataWithMatricule = { ...restOfUserData, matricule, roles };
+          const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
+            abortEarly: false,
+            stripUnknown: true,
+          });
 
-        const validatedData = await userValidationSchema.validateAsync(dataWithMatricule, {
-          abortEarly: false,
-          stripUnknown: true,
+          if (validatedData.password) {
+            validatedData.password = bcrypt.hashSync(validatedData.password, 10);
+          }
+
+          // Convert empty email to null for UNIQUE constraint
+          if (validatedData.email === '') validatedData.email = null;
+
+          // Convert non-SQLite-bindable types for compatibility
+          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+          for (const key of Object.keys(validatedData)) {
+            const value = validatedData[key];
+            if (typeof value === 'boolean') {
+              // Convert booleans to integers (0/1)
+              validatedData[key] = value ? 1 : 0;
+            } else if (value instanceof Date) {
+              // Convert Date objects to ISO strings
+              validatedData[key] = value.toISOString();
+            }
+          }
+
+          const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
+
+          if (fieldsToInsert.length === 0) throw new Error('No valid user fields to insert.');
+
+          const placeholders = fieldsToInsert.map(() => '?').join(', ');
+          const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
+          const sql = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
+
+          const result = await db.runQuery(sql, params);
+          const userId = result.id;
+
+          if (roles && roles.length > 0) {
+            const roleIds = await db.allQuery(
+              `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
+              roles,
+            );
+            if (roleIds.length !== roles.length) {
+              throw new Error('One or more roles are invalid.');
+            }
+            const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+            for (const role of roleIds) {
+              await db.runQuery(userRolesSql, [userId, role.id]);
+            }
+          }
+
+          return { success: true, id: userId };
         });
-
-        if (validatedData.password) {
-          validatedData.password = bcrypt.hashSync(validatedData.password, 10);
-        }
-
-        // Convert empty email to null for UNIQUE constraint
-        if (validatedData.email === '') validatedData.email = null;
-
-        // Convert non-SQLite-bindable types for compatibility
-        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-        for (const key of Object.keys(validatedData)) {
-          const value = validatedData[key];
-          if (typeof value === 'boolean') {
-            // Convert booleans to integers (0/1)
-            validatedData[key] = value ? 1 : 0;
-          } else if (value instanceof Date) {
-            // Convert Date objects to ISO strings
-            validatedData[key] = value.toISOString();
-          }
-        }
-
-        const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
-
-        if (fieldsToInsert.length === 0) throw new Error('No valid user fields to insert.');
-
-        const placeholders = fieldsToInsert.map(() => '?').join(', ');
-        const params = fieldsToInsert.map((field) => validatedData[field] ?? null);
-        const sql = `INSERT INTO users (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
-
-        const result = await db.runQuery(sql, params);
-        const userId = result.id;
-
-        if (roles && roles.length > 0) {
-          const roleIds = await db.allQuery(
-            `SELECT id FROM roles WHERE name IN (${roles.map(() => '?').join(',')})`,
-            roles,
-          );
-          if (roleIds.length !== roles.length) {
-            throw new Error('One or more roles are invalid.');
-          }
-          const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
-          for (const role of roleIds) {
-            await db.runQuery(userRolesSql, [userId, role.id]);
-          }
-        }
-
-        await db.runQuery('COMMIT;');
-        return { success: true, id: userId };
+        return transactionResult;
       } catch (error) {
-        await db.runQuery('ROLLBACK;');
         if (error.isJoi) {
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
         }
@@ -184,82 +187,81 @@ function registerUserHandlers() {
     requireRoles(['Superadmin'])(async (_event, { id, userData }) => {
       const { roles, ...restOfUserData } = userData;
       try {
-        await db.runQuery('BEGIN TRANSACTION;');
+        const transactionResult = await db.withTransaction(async () => {
+          const validatedData = await userUpdateValidationSchema.validateAsync(restOfUserData, {
+            abortEarly: false,
+            stripUnknown: true,
+          });
 
-        const validatedData = await userUpdateValidationSchema.validateAsync(restOfUserData, {
-          abortEarly: false,
-          stripUnknown: true,
-        });
-
-        if (validatedData.password) {
-          validatedData.password = bcrypt.hashSync(validatedData.password, 10);
-        } else {
-          // If password is empty (e.g. from frontend edit form), don't update it
-          delete validatedData.password;
-        }
-
-        // Convert empty email to null for UNIQUE constraint
-        if (validatedData.email === '') validatedData.email = null;
-
-        // Convert non-SQLite-bindable types for compatibility
-        // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-        for (const key of Object.keys(validatedData)) {
-          const value = validatedData[key];
-          if (typeof value === 'boolean') {
-            // Convert booleans to integers (0/1)
-            validatedData[key] = value ? 1 : 0;
-          } else if (value instanceof Date) {
-            // Convert Date objects to ISO strings
-            validatedData[key] = value.toISOString();
+          if (validatedData.password) {
+            validatedData.password = bcrypt.hashSync(validatedData.password, 10);
+          } else {
+            // If password is empty (e.g. from frontend edit form), don't update it
+            delete validatedData.password;
           }
-        }
 
-        const fieldsToUpdate = userFields.filter(
-          (field) => field !== 'matricule' && validatedData[field] !== undefined,
-        );
+          // Convert empty email to null for UNIQUE constraint
+          if (validatedData.email === '') validatedData.email = null;
 
-        if (fieldsToUpdate.length > 0) {
-          const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
-          const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
-          const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
-          await db.runQuery(sql, params);
-        }
-
-        if (roles) {
-          const currentRolesResult = await db.allQuery(
-            'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-            [id],
-          );
-          const currentRoles = currentRolesResult.map((r) => r.name);
-
-          const rolesToAdd = roles.filter((r) => !currentRoles.includes(r));
-          const rolesToRemove = currentRoles.filter((r) => !roles.includes(r));
-
-          if (rolesToAdd.length > 0) {
-            const roleIds = await db.allQuery(
-              `SELECT id FROM roles WHERE name IN (${rolesToAdd.map(() => '?').join(',')})`,
-              rolesToAdd,
-            );
-            const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
-            for (const role of roleIds) {
-              await db.runQuery(userRolesSql, [id, role.id]);
+          // Convert non-SQLite-bindable types for compatibility
+          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
+          for (const key of Object.keys(validatedData)) {
+            const value = validatedData[key];
+            if (typeof value === 'boolean') {
+              // Convert booleans to integers (0/1)
+              validatedData[key] = value ? 1 : 0;
+            } else if (value instanceof Date) {
+              // Convert Date objects to ISO strings
+              validatedData[key] = value.toISOString();
             }
           }
 
-          if (rolesToRemove.length > 0) {
-            const roleIds = await db.allQuery(
-              `SELECT id FROM roles WHERE name IN (${rolesToRemove.map(() => '?').join(',')})`,
-              rolesToRemove,
-            );
-            const deleteSql = `DELETE FROM user_roles WHERE user_id = ? AND role_id IN (${roleIds.map(() => '?').join(',')})`;
-            await db.runQuery(deleteSql, [id, ...roleIds.map((r) => r.id)]);
-          }
-        }
+          const fieldsToUpdate = userFields.filter(
+            (field) => field !== 'matricule' && validatedData[field] !== undefined,
+          );
 
-        await db.runQuery('COMMIT;');
-        return { success: true };
+          if (fieldsToUpdate.length > 0) {
+            const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
+            const params = [...fieldsToUpdate.map((field) => validatedData[field] ?? null), id];
+            const sql = `UPDATE users SET ${setClauses} WHERE id = ?`;
+            await db.runQuery(sql, params);
+          }
+
+          if (roles) {
+            const currentRolesResult = await db.allQuery(
+              'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
+              [id],
+            );
+            const currentRoles = currentRolesResult.map((r) => r.name);
+
+            const rolesToAdd = roles.filter((r) => !currentRoles.includes(r));
+            const rolesToRemove = currentRoles.filter((r) => !roles.includes(r));
+
+            if (rolesToAdd.length > 0) {
+              const roleIds = await db.allQuery(
+                `SELECT id FROM roles WHERE name IN (${rolesToAdd.map(() => '?').join(',')})`,
+                rolesToAdd,
+              );
+              const userRolesSql = 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)';
+              for (const role of roleIds) {
+                await db.runQuery(userRolesSql, [id, role.id]);
+              }
+            }
+
+            if (rolesToRemove.length > 0) {
+              const roleIds = await db.allQuery(
+                `SELECT id FROM roles WHERE name IN (${rolesToRemove.map(() => '?').join(',')})`,
+                rolesToRemove,
+              );
+              const deleteSql = `DELETE FROM user_roles WHERE user_id = ? AND role_id IN (${roleIds.map(() => '?').join(',')})`;
+              await db.runQuery(deleteSql, [id, ...roleIds.map((r) => r.id)]);
+            }
+          }
+
+          return { success: true };
+        });
+        return transactionResult;
       } catch (error) {
-        await db.runQuery('ROLLBACK;');
         if (error.isJoi) {
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
         }
@@ -280,10 +282,20 @@ function registerUserHandlers() {
   );
 
   // Lightweight handler to update only onboarding-related fields without triggering full user validation
-  ipcMain.handle('users:updateGuide', async (_event, { id, guideData }) => {
+  const getUserIdFromSession = (event) => {
+    const senderId = event && event.sender ? event.sender.id : null;
+    const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+    if (!session) {
+      throw new Error('Authentication required.');
+    }
+    return session.userId;
+  };
+
+  ipcMain.handle('users:updateGuide', async (event, { id, guideData }) => {
     try {
+      void id;
       // Accept numeric strings too (renderer may pass id as string). Coerce to number.
-      const numericId = Number(id);
+      const numericId = Number(getUserIdFromSession(event));
       if (!numericId || Number.isNaN(numericId)) throw new Error('A valid user ID is required.');
       const allowed = {};
       if (guideData.need_guide !== undefined) allowed.need_guide = guideData.need_guide ? 1 : 0;

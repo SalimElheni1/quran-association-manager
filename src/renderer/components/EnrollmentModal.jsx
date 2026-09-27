@@ -179,13 +179,25 @@ function EnrollmentModal({ show, handleClose, classData }) {
   };
 
   const confirmOverrideEnrollment = () => {
-    if (pendingEnrollment) {
+    if (!pendingEnrollment) return;
+
+    if (pendingEnrollment.mode === 'batch') {
+      setEnrolled((prev) =>
+        [...prev, ...pendingEnrollment.students].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setNotEnrolled((prev) =>
+        prev.filter((s) => !pendingEnrollment.students.some((ps) => ps.id === s.id)),
+      );
+      setSelectedNotEnrolledIds(new Set());
+      toast.warning(`تم تسجيل ${pendingEnrollment.students.length} طالب مع تجاوز التحقق من الصحة.`);
+    } else {
       handleEnroll(pendingEnrollment);
       toast.warning(`تم تسجيل ${pendingEnrollment.name} مع تجاوز التحقق من الصحة.`);
-      setShowValidationWarning(false);
-      setPendingEnrollment(null);
-      setValidationWarnings({});
     }
+
+    setShowValidationWarning(false);
+    setPendingEnrollment(null);
+    setValidationWarnings({});
   };
 
   const handleUnenroll = (studentToUnenroll) => {
@@ -288,7 +300,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
         if (result.success) {
           studentsToEnroll.push(...result.data);
         } else {
-          toast.error(`Failed to get students for group ID ${groupId}.`);
+          toast.error('تعذر جلب طلاب المجموعة المحددة.');
         }
       }
 
@@ -305,7 +317,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       setSelectedGroupIds(new Set());
     } catch (err) {
       logError('Error enrolling groups:', err);
-      toast.error('An error occurred while enrolling groups.');
+      toast.error('حدث خطأ أثناء تسجيل المجموعات.');
     } finally {
       setLoading(false);
     }
@@ -314,10 +326,8 @@ function EnrollmentModal({ show, handleClose, classData }) {
   const handleSave = async () => {
     try {
       const enrolledIds = enrolled.map((s) => s.id);
-      const result = await window.electronAPI.updateEnrollments(classData.id, enrolledIds);
+      await window.electronAPI.updateEnrollments(classData.id, enrolledIds);
       toast.success('تم تحديث قائمة الطلاب بنجاح!');
-      // Fee regeneration runs after the enrollment is committed and can fail on its own.
-      (result?.warnings || []).forEach((warning) => toast.warn(warning));
       handleClose();
     } catch (err) {
       logError('Error updating enrollments:', err);
@@ -462,7 +472,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       {/* Age/Gender Validation Warning Modal */}
       <Modal show={showValidationWarning} onHide={() => setShowValidationWarning(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ تحذير التحقق من الصحة</Modal.Title>
+          <Modal.Title>تحذير التحقق من الصحة</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="alert alert-warning">
@@ -515,7 +525,7 @@ function EnrollmentModal({ show, handleClose, classData }) {
       {/* No Age Group Warning Modal */}
       <Modal show={showNoAgeGroupWarning} onHide={() => setShowNoAgeGroupWarning(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ تحذير</Modal.Title>
+          <Modal.Title>تحذير</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="alert alert-info">

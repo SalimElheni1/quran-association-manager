@@ -8,6 +8,14 @@ jest.mock('../src/main/logger', () => ({
 const mockKeyStore = {
   get: jest.fn(),
   set: jest.fn(),
+  path: '/mock/path/to/key/config',
+};
+
+const mockLegacyKeyStore = {
+  get: jest.fn(),
+  set: jest.fn(),
+  path: '/mock/path/to/key/config',
+  store: { 'db-encryption-key': 'legacy-hex-key', 'unrelated-key': 'kept-value' },
 };
 
 const mockSaltStore = {
@@ -16,9 +24,20 @@ const mockSaltStore = {
   path: '/mock/path/to/salt/config',
 };
 
+// When true, constructing the plain (unencrypted) db-secure-config store
+// throws exactly like electron-store does on a legacy-encrypted file.
+let mockLegacyFilePresent = false;
+
 jest.mock('electron-store', () => {
   return jest.fn().mockImplementation((config) => {
     if (config.name === 'db-secure-config') {
+      if (!config.encryptionKey && mockLegacyFilePresent) {
+        throw new SyntaxError('Unexpected token \ufffd ... is not valid JSON');
+      }
+      if (config.encryptionKey) {
+        mockLegacyFilePresent = false; // File was rewritten during migration.
+        return mockLegacyKeyStore;
+      }
       return mockKeyStore;
     }
     if (config.name === 'db-salt-config') {
@@ -29,29 +48,46 @@ jest.mock('electron-store', () => {
 });
 
 const crypto = require('crypto');
+const electron = require('electron');
 const { getDbKey, getDbSalt, setDbSalt, getSaltConfigPath } = require('../src/main/keyManager');
 const { log, error: logError } = require('../src/main/logger');
+
+const makeBlob = (value) => 'enc:v1:' + Buffer.from(`enc:${value}`).toString('base64');
 
 describe('keyManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLegacyFilePresent = false;
+    electron.safeStorage.isEncryptionAvailable.mockReturnValue(true);
   });
 
-  describe('getDbKey', () => {
-    it('should return existing key if found in store', () => {
-      const existingKey = 'existing-key-hex';
-      mockKeyStore.get.mockReturnValue(existingKey);
+  describe('getDbKey (SEC-03 safeStorage)', () => {
+    it('should return an existing safeStorage-encrypted blob by decrypting it', () => {
+      mockKeyStore.get.mockReturnValue(makeBlob('existing-key-hex'));
 
       const result = getDbKey();
 
       expect(mockKeyStore.get).toHaveBeenCalledWith('db-encryption-key');
-      expect(result).toBe(existingKey);
+      expect(electron.safeStorage.decryptString).toHaveBeenCalled();
+      expect(result).toBe('existing-key-hex');
       expect(crypto.randomBytes).not.toHaveBeenCalled();
-      expect(mockKeyStore.set).not.toHaveBeenCalled();
-      expect(log).not.toHaveBeenCalled();
     });
 
-    it('should generate and store new key if none exists', () => {
+    it('should migrate a legacy plaintext key into safeStorage without re-keying', () => {
+      const legacyKey = 'legacy-hex-key';
+      mockKeyStore.get.mockReturnValue(legacyKey);
+
+      const result = getDbKey();
+
+      expect(result).toBe(legacyKey);
+      const storedBlob = mockKeyStore.set.mock.calls.find(([name]) => name === 'db-encryption-key');
+      expect(storedBlob).toBeDefined();
+      expect(storedBlob[1]).toMatch(/^enc:v1:/);
+      expect(log).toHaveBeenCalledWith('Migrating the database encryption key to safeStorage.');
+      expect(crypto.randomBytes).not.toHaveBeenCalled();
+    });
+
+    it('should generate, encrypt and store a new key when none exists', () => {
       const newKeyBuffer = Buffer.from('new-key-bytes');
       const newKeyHex = 'new-key-hex';
 
@@ -61,16 +97,17 @@ describe('keyManager', () => {
 
       const result = getDbKey();
 
-      expect(mockKeyStore.get).toHaveBeenCalledWith('db-encryption-key');
       expect(crypto.randomBytes).toHaveBeenCalledWith(32);
-      expect(newKeyBuffer.toString).toHaveBeenCalledWith('hex');
-      expect(mockKeyStore.set).toHaveBeenCalledWith('db-encryption-key', newKeyHex);
-      expect(log).toHaveBeenCalledWith('No database encryption key found. Generating a new one.');
-      expect(log).toHaveBeenCalledWith('New database encryption key generated and stored.');
       expect(result).toBe(newKeyHex);
+      const storedBlob = mockKeyStore.set.mock.calls.find(([name]) => name === 'db-encryption-key');
+      expect(storedBlob).toBeDefined();
+      expect(storedBlob[1]).toMatch(/^enc:v1:/);
+      expect(log).toHaveBeenCalledWith(
+        'New database encryption key generated and stored securely.',
+      );
     });
 
-    it('should generate and store new key if empty string exists', () => {
+    it('should generate, encrypt and store a new key when empty string exists', () => {
       const newKeyBuffer = Buffer.from('new-key-bytes');
       const newKeyHex = 'new-key-hex';
 
@@ -81,8 +118,104 @@ describe('keyManager', () => {
       const result = getDbKey();
 
       expect(crypto.randomBytes).toHaveBeenCalledWith(32);
-      expect(mockKeyStore.set).toHaveBeenCalledWith('db-encryption-key', newKeyHex);
       expect(result).toBe(newKeyHex);
+      const storedBlob = mockKeyStore.set.mock.calls.find(([name]) => name === 'db-encryption-key');
+      expect(storedBlob[1]).toMatch(/^enc:v1:/);
+    });
+
+    it('should throw when an existing blob cannot be decrypted', () => {
+      mockKeyStore.get.mockReturnValue(makeBlob('key'));
+      electron.safeStorage.decryptString.mockImplementation(() => {
+        throw new Error('keychain locked');
+      });
+
+      expect(() => getDbKey()).toThrow('Failed to unlock the database key');
+      expect(logError).toHaveBeenCalled();
+    });
+
+    it('should fall back to plaintext storage when safeStorage is unavailable', () => {
+      electron.safeStorage.isEncryptionAvailable.mockReturnValue(false);
+      mockKeyStore.get.mockReturnValue(null);
+      const newKeyBuffer = Buffer.from('new-key-bytes');
+      const newKeyHex = 'new-key-hex';
+      crypto.randomBytes.mockReturnValue(newKeyBuffer);
+      newKeyBuffer.toString = jest.fn().mockReturnValue(newKeyHex);
+
+      const result = getDbKey();
+
+      expect(result).toBe(newKeyHex);
+      expect(mockKeyStore.set).toHaveBeenCalledWith('db-encryption-key', newKeyHex);
+      expect(log).toHaveBeenCalledWith(
+        'safeStorage is unavailable on this system. The database key is stored with restrictive file permissions instead of OS-level encryption.',
+      );
+    });
+
+    it('should return the stored plaintext key when safeStorage is unavailable', () => {
+      electron.safeStorage.isEncryptionAvailable.mockReturnValue(false);
+      mockKeyStore.get.mockReturnValue('plaintext-existing-key');
+
+      const result = getDbKey();
+
+      expect(result).toBe('plaintext-existing-key');
+      expect(crypto.randomBytes).not.toHaveBeenCalled();
+    });
+
+    describe('legacy encrypted store migration (launch-crash fix)', () => {
+      const loadFreshModule = () => {
+        jest.resetModules();
+        mockLegacyFilePresent = true;
+        // resetModules re-evaluates the mocked modules, so re-require them to
+        // assert against the same instances the fresh keyManager uses.
+        const freshFs = require('fs');
+        const freshElectron = require('electron');
+        const freshLogger = require('../src/main/logger');
+        const freshCrypto = require('crypto');
+        const freshKeyManager = require('../src/main/keyManager');
+        return { freshKeyManager, freshFs, freshElectron, freshLogger, freshCrypto };
+      };
+
+      it('should migrate a legacy-encrypted store file into safeStorage format', () => {
+        const { freshKeyManager, freshFs, freshLogger, freshCrypto } = loadFreshModule();
+        // After migration the (mocked) plain store returns the written blob.
+        mockKeyStore.get.mockReturnValue(makeBlob('legacy-hex-key'));
+
+        const result = freshKeyManager.getDbKey();
+
+        expect(result).toBe('legacy-hex-key');
+        expect(freshFs.renameSync).toHaveBeenCalledWith(
+          '/mock/path/to/key/config',
+          '/mock/path/to/key/config.legacy',
+        );
+        const writtenCall = freshFs.writeFileSync.mock.calls.find(
+          ([path]) => path === '/mock/path/to/key/config',
+        );
+        expect(writtenCall).toBeDefined();
+        const writtenData = JSON.parse(writtenCall[1]);
+        expect(writtenData['db-encryption-key']).toMatch(/^enc:v1:/);
+        expect(writtenData['unrelated-key']).toBe('kept-value');
+        expect(freshFs.unlinkSync).toHaveBeenCalledWith('/mock/path/to/key/config.legacy');
+        expect(freshLogger.log).toHaveBeenCalledWith(
+          'Migrating the legacy encrypted key store to the safeStorage format.',
+        );
+        expect(freshCrypto.randomBytes).not.toHaveBeenCalled();
+      });
+
+      it('should keep the legacy key when safeStorage is unavailable during migration', () => {
+        const { freshKeyManager, freshFs, freshElectron } = loadFreshModule();
+        freshElectron.safeStorage.isEncryptionAvailable.mockReturnValue(false);
+        mockKeyStore.get.mockReturnValue('legacy-hex-key');
+
+        const result = freshKeyManager.getDbKey();
+
+        expect(result).toBe('legacy-hex-key');
+        const writtenCall = freshFs.writeFileSync.mock.calls.find(
+          ([path]) => path === '/mock/path/to/key/config',
+        );
+        expect(writtenCall).toBeDefined();
+        const writtenData = JSON.parse(writtenCall[1]);
+        expect(writtenData['db-encryption-key']).toBe('legacy-hex-key');
+        expect(freshFs.chmodSync).toHaveBeenCalledWith('/mock/path/to/key/config', 0o600);
+      });
     });
   });
 

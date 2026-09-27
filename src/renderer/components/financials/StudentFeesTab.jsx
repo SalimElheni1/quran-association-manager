@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Table,
   Button,
@@ -15,23 +15,18 @@ import {
 import { toast } from 'react-toastify';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import TablePagination from '@renderer/components/common/TablePagination';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
+import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
+import { useAcademicYear } from '@renderer/hooks/useAcademicYear';
+import { getAcademicYearString } from '@renderer/utils/academicYear';
 import { PERMISSIONS } from '@renderer/utils/permissions';
-import { error as logError } from '@renderer/utils/logger';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
-import ImportIcon from '@renderer/components/icons/ImportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
-import { getFeeTypeLabel, getFeeStatusLabel } from '@renderer/utils/feeTypes';
-
-const studentFeesFields = [
-  { key: 'name', label: 'الاسم' },
-  { key: 'totalDue', label: 'إجمالي المستحق' },
-  { key: 'totalPaid', label: 'إجمالي المدفوع' },
-  { key: 'balance', label: 'المبلغ المتبقي' },
-  { key: 'status', label: 'الحالة' },
-];
+import PrintIcon from '@renderer/components/icons/PrintIcon';
+import EyeIcon from '@renderer/components/icons/EyeIcon';
 
 const studentPaymentFields = [
   { key: 'student_matricule', label: 'رقم التعريفي' },
@@ -64,9 +59,7 @@ const StudentFeesTab = () => {
   const [receiptNumber, setReceiptNumber] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
   const [paymentHistory, setPaymentHistory] = useState([]);
-  const [specialFeeClasses, setSpecialFeeClasses] = useState([]);
-  const [selectedSpecialFeeClass, setSelectedSpecialFeeClass] = useState('');
-  const [academicYear, setAcademicYear] = useState(new Date().getFullYear().toString());
+  const [academicYear, setAcademicYear] = useState(getAcademicYearString());
   const [notes, setNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -75,15 +68,55 @@ const StudentFeesTab = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGenerateFeesModal, setShowGenerateFeesModal] = useState(false);
-  const [generateAcademicYear, setGenerateAcademicYear] = useState(
-    new Date().getFullYear().toString(),
-  );
+  const [generateAcademicYear, setGenerateAcademicYear] = useState(getAcademicYearString());
   const [forceGeneration, setForceGeneration] = useState(false);
   const [isGeneratingFees, setIsGeneratingFees] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [isResettingFees, setIsResettingFees] = useState(false);
+  const [resetAcademicYear, setResetAcademicYear] = useState(getAcademicYearString());
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentAction, setPaymentAction] = useState(null);
+  const [printReceipt, setPrintReceipt] = useState(null);
+  // The academic year a payment is recorded for (the current one, or an earlier year's arrears)
+  // and the amount still owed for it.
+  const [paymentYear, setPaymentYear] = useState(getAcademicYearString());
+  const [paymentBalance, setPaymentBalance] = useState(0);
+  // Fee group of the student in the details dialog, for students in several age groups.
+  const [feeGroup, setFeeGroup] = useState(null);
+  const [feeGroupChoice, setFeeGroupChoice] = useState('');
+  const [isSavingFeeGroup, setIsSavingFeeGroup] = useState(false);
+  // The current academic year as the main process computes it from the configured start month,
+  // so the list, balances and payments use the same year as the charges.
+  const { academicYear: configuredYear, loaded: academicYearLoaded } = useAcademicYear();
+  const academicYearRef = useRef(academicYear);
+  academicYearRef.current = academicYear;
+
+  const loadAccounts = async () => {
+    try {
+      const accs = await window.electronAPI.getAccounts();
+      if (Array.isArray(accs) && accs.length > 0) {
+        setAccounts(accs);
+        setSelectedAccountId(accs[0].id.toString());
+      }
+    } catch (err) {
+      console.error('[StudentFeesTab] Error loading accounts:', err);
+    }
+  };
 
   useEffect(() => {
-    loadStudents();
+    if (!academicYearLoaded) return;
+    setAcademicYear(configuredYear);
+    setGenerateAcademicYear(configuredYear);
+    setResetAcademicYear(configuredYear);
+    setPaymentYear(configuredYear);
+    loadStudents(configuredYear);
+  }, [configuredYear, academicYearLoaded]);
+
+  useEffect(() => {
     checkFeesConfiguration();
+    loadAccounts();
 
     // Listen for settings updates to refresh charges
     const handleSettingsUpdated = () => {
@@ -150,7 +183,7 @@ const StudentFeesTab = () => {
 
     switch (status) {
       case 'PAID':
-        return <Badge bg="success">مدفوع {hasCredit && '💰'}</Badge>;
+        return <Badge bg="success">مدفوع {hasCredit && '+ رصيد'}</Badge>;
       case 'PARTIAL':
         return <Badge bg="warning">جزئياً مدفوع</Badge>;
       case 'UNPAID':
@@ -191,6 +224,12 @@ const StudentFeesTab = () => {
         case 'EXEMPT':
           matchesStatus = status === 'EXEMPT';
           break;
+        case 'ARREARS':
+          matchesStatus = student.previousYearsBalance > 0;
+          break;
+        case 'FEE_GROUP':
+          matchesStatus = !!student.needsFeeGroupChoice;
+          break;
         case 'ALL':
         default:
           matchesStatus = true;
@@ -201,10 +240,10 @@ const StudentFeesTab = () => {
     });
   };
 
-  const loadStudents = async () => {
+  const loadStudents = async (year = academicYearRef.current) => {
     try {
       setLoading(true);
-      const studentsWithFees = await window.electronAPI.studentFeesGetAll();
+      const studentsWithFees = await window.electronAPI.studentFeesGetAll(year);
       setStudents(studentsWithFees);
       setCurrentPage(1);
     } catch (err) {
@@ -227,8 +266,47 @@ const StudentFeesTab = () => {
   };
 
   const handlePageSizeChange = (newPageSize) => {
-    setItemsPerPage(10); // Reset to 10 for now, keep fixed
+    setItemsPerPage(newPageSize);
     setCurrentPage(1);
+  };
+
+  const openChargesModal = async (student) => {
+    const [balanceSummary, group] = await Promise.all([
+      window.electronAPI.studentFeesGetBalanceSummary(student.id, academicYear),
+      window.electronAPI.studentFeesGetFeeGroup(student.id),
+    ]);
+    setSelectedStudent({ ...student, balanceSummary });
+    setFeeGroup(group);
+    setFeeGroupChoice(group?.group?.id ? String(group.group.id) : '');
+    setShowChargesModal(true);
+  };
+
+  const handleSaveFeeGroup = async () => {
+    if (!selectedStudent || !feeGroupChoice || isSavingFeeGroup) return;
+    try {
+      setIsSavingFeeGroup(true);
+      await window.electronAPI.studentFeesSetFeeGroup(
+        selectedStudent.id,
+        parseInt(feeGroupChoice, 10),
+      );
+      toast.success('تم حفظ فئة الرسوم وتحديث رسوم السنة غير المدفوعة');
+      window.dispatchEvent(new Event('financial-data-changed'));
+      await openChargesModal(selectedStudent);
+      loadStudents();
+    } catch (err) {
+      toast.error(err.message || 'فشل في حفظ فئة الرسوم');
+    } finally {
+      setIsSavingFeeGroup(false);
+    }
+  };
+
+  const openPaymentModal = async (student, year = academicYear, balance = student.balance) => {
+    setSelectedStudent(student);
+    setPaymentYear(year);
+    setPaymentBalance(balance);
+    const history = await window.electronAPI.studentFeesGetPaymentHistory(student.id, year);
+    setPaymentHistory(history);
+    setShowPaymentModal(true);
   };
 
   const handleRecordPayment = async () => {
@@ -236,18 +314,20 @@ const StudentFeesTab = () => {
       toast.error('يرجى ملء جميع الحقول الإلزامية.');
       return;
     }
+    if (isSavingPayment) return;
 
     try {
+      setIsSavingPayment(true);
       const paymentDetails = {
         student_id: selectedStudent.id,
         amount: parseFloat(paymentAmount),
         payment_method: paymentMethod,
         payment_type: 'CUSTOM', // Payment type is now automatic
         notes: notes,
-        academic_year: academicYear,
+        academic_year: paymentYear,
         receipt_number: receiptNumber,
+        ...(selectedAccountId && { account_id: parseInt(selectedAccountId, 10) }),
         ...(paymentMethod === 'CHECK' && checkNumber && { check_number: checkNumber }),
-        ...(selectedSpecialFeeClass && { class_id: selectedSpecialFeeClass }),
         ...(selectedStudent.fee_category === 'SPONSORED' && {
           sponsor_name: selectedStudent.sponsor_name,
           sponsor_phone: selectedStudent.sponsor_phone,
@@ -257,19 +337,67 @@ const StudentFeesTab = () => {
       await window.electronAPI.studentFeesRecordPayment(paymentDetails);
 
       toast.success('تم تسجيل الدفعة بنجاح');
+      window.dispatchEvent(new Event('financial-data-changed'));
       setShowPaymentModal(false);
       // Reset all form fields
       setPaymentAmount('');
       setPaymentMethod('CASH');
       setReceiptNumber('');
       setCheckNumber('');
-      setAcademicYear(new Date().getFullYear().toString());
       setNotes('');
-      setSelectedSpecialFeeClass('');
       loadStudents(); // Refresh the list
     } catch (err) {
       const errorMessage = err.message || 'فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.';
       toast.error(errorMessage);
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  // Reloads the payment dialog's history and balance for the year the dialog shows (the current
+  // year, or an earlier year whose arrears are being paid).
+  const refreshPaymentHistory = async (student) => {
+    try {
+      const [history, summary] = await Promise.all([
+        window.electronAPI.studentFeesGetPaymentHistory(student.id, paymentYear),
+        window.electronAPI.studentFeesGetBalanceSummary(student.id, paymentYear),
+      ]);
+      setPaymentHistory(history || []);
+      if (summary && typeof summary.balance === 'number') setPaymentBalance(summary.balance);
+    } catch (err) {
+      toast.error('فشل في تحميل سجل الدفعات');
+    }
+  };
+
+  const handleDeletePayment = (payment) => {
+    setPaymentAction({ kind: 'delete', payment });
+  };
+
+  const handleRefundPayment = (payment) => {
+    setPaymentAction({ kind: 'refund', payment });
+  };
+
+  const confirmPaymentAction = async () => {
+    if (!paymentAction) return;
+    const { kind, payment } = paymentAction;
+
+    try {
+      if (kind === 'delete') {
+        await window.electronAPI.studentFeesDeletePayment(payment.id);
+        toast.success('تم حذف الدفعة بنجاح');
+      } else {
+        await window.electronAPI.studentFeesRefundPayment(payment.id);
+        toast.success('تم استرجاع الدفعة بنجاح');
+      }
+      window.dispatchEvent(new Event('financial-data-changed'));
+      if (selectedStudent) {
+        await refreshPaymentHistory(selectedStudent);
+        loadStudents(); // Refresh the list
+      }
+    } catch (err) {
+      toast.error(err.message || 'فشلت العملية. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setPaymentAction(null);
     }
   };
 
@@ -301,6 +429,27 @@ const StudentFeesTab = () => {
     }
   };
 
+  const handleResetFees = async () => {
+    try {
+      setIsResettingFees(true);
+      setShowResetConfirmModal(false);
+
+      const result = await window.electronAPI.studentFeesResetCharges(resetAcademicYear);
+
+      if (result.success) {
+        toast.success(result.message);
+        loadStudents(); // Refresh the data
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'فشل في إعادة ضبط الرسوم.';
+      toast.error(errorMessage);
+    } finally {
+      setIsResettingFees(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center">
@@ -313,7 +462,7 @@ const StudentFeesTab = () => {
     <>
       {!feesConfigured && (
         <Alert variant="warning" className="mb-3">
-          <strong>⚠️ لم يتم تحديد الرسوم بعد.</strong> يرجى تحديد الرسوم في{' '}
+          <strong>لم يتم تحديد الرسوم بعد.</strong> يرجى تحديد الرسوم في{' '}
           <Alert.Link href="#/settings">إعدادات الرسوم</Alert.Link>
         </Alert>
       )}
@@ -330,18 +479,29 @@ const StudentFeesTab = () => {
             </Col>
             <Col xs="auto">
               <div className="d-flex align-items-center gap-2">
+                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+                  <>
+                    <Button
+                      variant="outline-success"
+                      onClick={handleGenerateFees}
+                      disabled={isGeneratingFees}
+                    >
+                      {isGeneratingFees ? 'جاري التوليد...' : '⚡ توليد الرسوم'}
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      onClick={() => setShowResetConfirmModal(true)}
+                      disabled={isResettingFees}
+                    >
+                      {isResettingFees ? 'جاري إعادة الضبط...' : '🔄 إعادة ضبط الرسوم'}
+                    </Button>
+                  </>
+                )}
                 {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
                   <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
                     <ExportIcon className="ms-2" /> تصدير البيانات
                   </Button>
                 )}
-                {/* TODO: Re-enable import after fixing import processing
-                {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
-                  <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
-                    <ImportIcon className="ms-2" /> استيراد البيانات
-                  </Button>
-                )}
-                */}
                 <Button variant="primary" onClick={loadStudents}>
                   تحديث
                 </Button>
@@ -417,6 +577,8 @@ const StudentFeesTab = () => {
                     <option value="PARTIAL">جزئياً مدفوع</option>
                     <option value="UNPAID">غير مدفوع</option>
                     <option value="EXEMPT">معفى</option>
+                    <option value="ARREARS">عليهم متخلدات سابقة</option>
+                    <option value="FEE_GROUP">بحاجة لاختيار فئة الرسوم</option>
                   </Form.Select>
                 </div>
               </div>
@@ -434,7 +596,29 @@ const StudentFeesTab = () => {
                 <tbody>
                   {currentStudents.map((student) => (
                     <tr key={student.id}>
-                      <td>{student.name}</td>
+                      <td>
+                        {student.name}
+                        {student.previousYearsBalance > 0 && (
+                          <Badge
+                            bg="light"
+                            text="danger"
+                            className="ms-2 border border-danger"
+                            title="مبالغ غير مسددة من سنوات دراسية سابقة، غير محتسبة في هذه السنة"
+                          >
+                            متخلدات سابقة: {student.previousYearsBalance.toFixed(2)} د.ت
+                          </Badge>
+                        )}
+                        {student.needsFeeGroupChoice && (
+                          <Badge
+                            bg="warning"
+                            text="dark"
+                            className="ms-2"
+                            title="الطالب في فصول من فئات عمرية برسوم مختلفة؛ تطبق الرسوم الأعلى حتى يتم الاختيار من التفاصيل"
+                          >
+                            اختر فئة الرسوم
+                          </Badge>
+                        )}
+                      </td>
                       <td>{student.totalDue?.toFixed(2) || 0} د.ت</td>
                       <td>{student.totalPaid?.toFixed(2) || 0} د.ت</td>
                       <td>
@@ -454,38 +638,16 @@ const StudentFeesTab = () => {
                           size="sm"
                           variant="info"
                           className="me-2"
-                          onClick={async () => {
-                            const balanceSummary =
-                              await window.electronAPI.studentFeesGetBalanceSummary(student.id);
-                            setSelectedStudent({ ...student, balanceSummary });
-                            setShowChargesModal(true);
-                          }}
+                          onClick={() => openChargesModal(student)}
                           title="عرض التفاصيل"
                         >
-                          👁️
+                          <EyeIcon width={16} height={16} />
                         </Button>
                         <Button
                           size="sm"
                           variant="success"
                           disabled={isPaymentDisabled(student)}
-                          onClick={async () => {
-                            setSelectedStudent(student);
-                            const history = await window.electronAPI.studentFeesGetPaymentHistory(
-                              student.id,
-                              academicYear,
-                            );
-                            setPaymentHistory(history);
-                            const specialClasses =
-                              await window.electronAPI.studentFeesGetClassesWithSpecialFees(
-                                student.id,
-                              );
-                            const classesWithMatricules = specialClasses.map((cls) => ({
-                              ...cls,
-                              matricule: cls.matricule || `C-${cls.id.toString().padStart(4, '0')}`,
-                            }));
-                            setSpecialFeeClasses(classesWithMatricules);
-                            setShowPaymentModal(true);
-                          }}
+                          onClick={() => openPaymentModal(student)}
                         >
                           تسجيل دفعة
                         </Button>
@@ -524,18 +686,24 @@ const StudentFeesTab = () => {
                 </Col>
                 <Col md={6}>
                   <p className="mb-1">
-                    <strong>
-                      {selectedStudent.balance >= 0 ? 'المبلغ المستحق:' : 'رصيد متاح:'}
-                    </strong>{' '}
+                    <strong>{paymentBalance >= 0 ? 'المبلغ المستحق:' : 'رصيد متاح:'}</strong>{' '}
                     <span
                       className={
-                        selectedStudent.balance >= 0
-                          ? 'text-danger fw-bold'
-                          : 'text-success fw-bold'
+                        paymentBalance >= 0 ? 'text-danger fw-bold' : 'text-success fw-bold'
                       }
                     >
-                      {Math.abs(selectedStudent.balance)?.toFixed(2) || 0} د.ت
+                      {Math.abs(paymentBalance || 0).toFixed(2)} د.ت
                     </span>
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <p className="mb-1">
+                    <strong>السنة الدراسية:</strong> {paymentYear}
+                    {paymentYear !== academicYear && (
+                      <Badge bg="warning" text="dark" className="ms-2">
+                        تسديد متخلدات
+                      </Badge>
+                    )}
                   </p>
                 </Col>
               </Row>
@@ -544,7 +712,7 @@ const StudentFeesTab = () => {
 
           {selectedStudent && selectedStudent.fee_category === 'SPONSORED' && (
             <Alert variant="info" className="mb-4">
-              <h6 className="alert-heading">🎓 طالب مكفول</h6>
+              <h6 className="alert-heading">طالب مكفول</h6>
               <hr />
               <Row>
                 <Col md={6}>
@@ -623,6 +791,21 @@ const StudentFeesTab = () => {
                   </Form.Text>
                 </Form.Group>
               </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>الحساب المالي (الخزينة)</Form.Label>
+                  <Form.Select
+                    value={selectedAccountId}
+                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                  >
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
             </Row>
 
             <Form.Group className="mb-3">
@@ -636,6 +819,84 @@ const StudentFeesTab = () => {
               />
             </Form.Group>
           </Form>
+
+          <hr />
+          <h6 className="mb-3">سجل الدفعات السابقة</h6>
+          {paymentHistory.length === 0 ? (
+            <p className="text-muted">لا توجد دفعات مسجلة لهذا الطالب.</p>
+          ) : (
+            <Table striped bordered hover responsive size="sm">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>المبلغ</th>
+                  <th>الطريقة</th>
+                  <th>رقم الوصل</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentHistory.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{payment.payment_date}</td>
+                    <td>{Number(payment.amount).toFixed(2)} د.ت</td>
+                    <td>{payment.payment_method}</td>
+                    <td>{payment.receipt_number || '-'}</td>
+                    <td>
+                      {payment.refunded ? (
+                        <Badge bg="warning">مسترجع</Badge>
+                      ) : (
+                        <Badge bg="success">مؤكدة</Badge>
+                      )}
+                    </td>
+                    <td>
+                      <Button
+                        size="sm"
+                        variant="warning"
+                        className="me-1"
+                        disabled={!!payment.refunded}
+                        onClick={() => handleRefundPayment(payment)}
+                        aria-label="استرجاع الدفعة"
+                      >
+                        استرجاع
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        className="me-1"
+                        onClick={() =>
+                          setPrintReceipt({
+                            type: 'INCOME',
+                            voucher_number: payment.receipt_number,
+                            transaction_date: payment.payment_date,
+                            category: 'رسوم الطلاب',
+                            amount: payment.amount,
+                            payment_method: payment.payment_method,
+                            related_person_name: selectedStudent?.name,
+                            description: payment.notes || 'رسوم دراسية',
+                          })
+                        }
+                        aria-label="طباعة وصل الدفعة"
+                        title="طباعة الوصل"
+                      >
+                        <PrintIcon width={16} height={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={!!payment.refunded}
+                        onClick={() => handleDeletePayment(payment)}
+                        aria-label="حذف الدفعة"
+                      >
+                        حذف
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>
@@ -644,9 +905,11 @@ const StudentFeesTab = () => {
           <Button
             variant="primary"
             onClick={handleRecordPayment}
-            disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber}
+            disabled={
+              isSavingPayment || !paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber
+            }
           >
-            تسجيل الدفعة
+            {isSavingPayment ? 'جارٍ التسجيل…' : 'تسجيل الدفعة'}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -683,7 +946,9 @@ const StudentFeesTab = () => {
                   </Col>
                   <Col md={4}>
                     <p className="mb-1">
-                      <strong>{selectedStudent.balanceSummary.displayLabel}:</strong>{' '}
+                      <strong>
+                        {selectedStudent.balanceSummary.displayLabel} ({academicYear}):
+                      </strong>{' '}
                       <span className={selectedStudent.balanceSummary.displayClass}>
                         {selectedStudent.balanceSummary.displayAmount?.toFixed(2) || 0} د.ت
                       </span>
@@ -706,7 +971,7 @@ const StudentFeesTab = () => {
 
               {selectedStudent.fee_category === 'SPONSORED' && (
                 <Alert variant="info" className="mb-3">
-                  <h6 className="alert-heading">🎓 طالب مكفول</h6>
+                  <h6 className="alert-heading">طالب مكفول</h6>
                   <hr />
                   <Row>
                     <Col md={6}>
@@ -719,11 +984,55 @@ const StudentFeesTab = () => {
                 </Alert>
               )}
 
+              {/* Students in classes of several age groups: which group's fees they pay */}
+              {feeGroup?.groups?.length > 1 && (
+                <Alert
+                  variant={feeGroup.needsChoice ? 'warning' : 'light'}
+                  className="mb-3 border"
+                  data-section="fee-group"
+                >
+                  <strong>فئة الرسوم:</strong>{' '}
+                  {feeGroup.needsChoice
+                    ? 'الطالب في فصول من فئات عمرية برسوم مختلفة. تطبق الرسوم الأعلى حتى تختار الفئة.'
+                    : `يدفع الطالب رسوم فئة "${feeGroup.group?.name}".`}
+                  <div className="d-flex gap-2 mt-2 align-items-center">
+                    <Form.Select
+                      aria-label="فئة الرسوم"
+                      value={feeGroupChoice}
+                      onChange={(e) => setFeeGroupChoice(e.target.value)}
+                      style={{ maxWidth: '420px' }}
+                    >
+                      {feeGroup.groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} — سنوي {Number(g.annualFee).toFixed(2)} / شهري{' '}
+                          {Number(g.monthlyFee).toFixed(2)} د.ت
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveFeeGroup}
+                      disabled={
+                        isSavingFeeGroup ||
+                        (!feeGroup.needsChoice &&
+                          String(feeGroup.chosenGroupId ?? '') === feeGroupChoice)
+                      }
+                    >
+                      {isSavingFeeGroup ? 'جارٍ الحفظ…' : 'حفظ فئة الرسوم'}
+                    </Button>
+                  </div>
+                  <small className="text-muted d-block mt-1">
+                    يطبق على رسوم هذه السنة غير المدفوعة وعلى الفواتير القادمة.
+                  </small>
+                </Alert>
+              )}
+
               {/* Show credit alert for students with credit */}
               {selectedStudent.balanceSummary.totalCredit > 0 &&
                 selectedStudent.balanceSummary.displayType === 'owed' && (
                   <Alert variant="info" className="mb-3">
-                    <strong>💰 رصيد مدفوع مسبقاً:</strong>{' '}
+                    <strong>رصيد مدفوع مسبقاً:</strong>{' '}
                     {selectedStudent.balanceSummary.totalCredit.toFixed(2)} د.ت
                     <br />
                     <small>سيتم تطبيق هذا الرصيد تلقائياً على الرسوم القادمة</small>
@@ -808,6 +1117,67 @@ const StudentFeesTab = () => {
               ) : (
                 <Alert variant="info">لا توجد رسوم لهذا الطالب.</Alert>
               )}
+
+              {/* Earlier years' unpaid balances: shown apart, never counted in this year */}
+              {selectedStudent.balanceSummary.previousYears?.length > 0 && (
+                <div className="mt-4" data-section="previous-years-arrears">
+                  <h6 className="text-danger mb-1">
+                    متخلدات السنوات السابقة:{' '}
+                    {selectedStudent.balanceSummary.previousYearsBalance?.toFixed(2)} د.ت
+                  </h6>
+                  <small className="text-muted d-block mb-3">
+                    مبالغ غير مسددة من سنوات دراسية سابقة، لا تُحتسب ضمن رسوم السنة الحالية.
+                  </small>
+                  {selectedStudent.balanceSummary.previousYears.map((year) => (
+                    <Card key={year.academicYear} className="mb-3 border-danger">
+                      <Card.Header className="d-flex justify-content-between align-items-center">
+                        <span>
+                          <strong>السنة الدراسية {year.academicYear}</strong> — المتبقي:{' '}
+                          <span className="text-danger fw-bold">{year.balance.toFixed(2)} د.ت</span>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline-danger"
+                          disabled={isPaymentDisabled(selectedStudent)}
+                          onClick={() => {
+                            setShowChargesModal(false);
+                            openPaymentModal(selectedStudent, year.academicYear, year.balance);
+                          }}
+                        >
+                          تسديد متخلدات {year.academicYear}
+                        </Button>
+                      </Card.Header>
+                      <Table size="sm" className="mb-0">
+                        <thead>
+                          <tr>
+                            <th>الوصف</th>
+                            <th>المبلغ</th>
+                            <th>المدفوع</th>
+                            <th>المتبقي</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {year.charges
+                            .filter(
+                              (charge) =>
+                                charge.fee_type !== 'CREDIT' && charge.amount > charge.amount_paid,
+                            )
+                            .map((charge) => (
+                              <tr key={charge.id}>
+                                <td>{charge.description}</td>
+                                <td>{charge.amount?.toFixed(2)} د.ت</td>
+                                <td>{charge.amount_paid?.toFixed(2)} د.ت</td>
+                                <td className="text-danger fw-bold">
+                                  {(charge.amount - charge.amount_paid).toFixed(2)} د.ت
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </Table>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </Modal.Body>
@@ -860,6 +1230,80 @@ const StudentFeesTab = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Reset Fees Confirmation Modal */}
+      <Modal show={showResetConfirmModal} onHide={() => setShowResetConfirmModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>تأكيد إعادة ضبط الرسوم</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="danger">
+            <strong>تحذير: هذا الإجراء سيحذف جميع الرسوم غير المدفوعة والمكررة!</strong>
+          </Alert>
+          <p>سيتم القيام بالآتي:</p>
+          <ul>
+            <li>حذف جميع الرسوم غير المدفوعة (amount_paid = 0)</li>
+            <li>حذف الرسوم المكررة</li>
+            <li>إعادة توليد رسوم نظيفة للطلاب النشطين</li>
+          </ul>
+          <p className="text-muted">
+            لن يتم حذف الرسوم التي تم دفعها بالفعل. هذا الإجراء آمن للبيانات المالية المدفوعة.
+          </p>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>السنة الدراسية</Form.Label>
+              <Form.Control
+                type="text"
+                value={resetAcademicYear}
+                onChange={(e) => setResetAcademicYear(e.target.value)}
+                placeholder="مثال: 2024-2025"
+              />
+              <Form.Text className="text-muted">
+                استخدم &quot;ALL&quot; لإعادة ضبط جميع السنوات الدراسية
+              </Form.Text>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowResetConfirmModal(false)}>
+            إلغاء
+          </Button>
+          <Button variant="danger" onClick={handleResetFees} disabled={isResettingFees}>
+            {isResettingFees ? 'جاري إعادة الضبط...' : 'تأكيد إعادة الضبط'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <ConfirmationModal
+        show={!!paymentAction}
+        handleClose={() => setPaymentAction(null)}
+        handleConfirm={confirmPaymentAction}
+        title={paymentAction?.kind === 'refund' ? 'تأكيد استرجاع الدفعة' : 'تأكيد حذف الدفعة'}
+        body={
+          paymentAction ? (
+            <>
+              <p className="mb-2">
+                {paymentAction.kind === 'refund'
+                  ? 'هل أنت متأكد من استرجاع هذه الدفعة؟ سيتم عكس الأرصدة والرسوم وتسجيل حركة استرجاع.'
+                  : 'هل أنت متأكد من حذف هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم.'}
+              </p>
+              <p className="mb-0">
+                <strong>رقم الوصل:</strong> {paymentAction.payment.receipt_number || '-'}{' '}
+                <span className="mx-2">|</span>
+                <strong>المبلغ:</strong> {Number(paymentAction.payment.amount).toFixed(2)} د.ت
+              </p>
+            </>
+          ) : null
+        }
+        confirmVariant={paymentAction?.kind === 'refund' ? 'warning' : 'danger'}
+        confirmText={paymentAction?.kind === 'refund' ? 'نعم، استرجاع' : 'نعم، حذف'}
+      />
+
+      <VoucherPrintModal
+        show={!!printReceipt}
+        transaction={printReceipt}
+        onHide={() => setPrintReceipt(null)}
+      />
     </>
   );
 };

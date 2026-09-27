@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import { error as logError } from '@renderer/utils/logger';
+import { toLocalISODate } from '@renderer/utils/dates';
 
 const ARABIC_MONTHS = [
   'جانفي',
@@ -45,12 +46,12 @@ function FinancialExportModal({ show, handleClose }) {
     let period;
 
     if (filterType === 'month') {
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+      const startDate = toLocalISODate(new Date(selectedYear, selectedMonth, 1));
+      const endDate = toLocalISODate(new Date(selectedYear, selectedMonth + 1, 0));
       period = { startDate, endDate };
     } else if (filterType === 'year') {
-      const startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+      const startDate = toLocalISODate(new Date(selectedYear, 0, 1));
+      const endDate = toLocalISODate(new Date(selectedYear, 11, 31));
       period = { startDate, endDate };
     } else if (filterType === 'custom') {
       if (!customStartDate || !customEndDate) {
@@ -62,16 +63,10 @@ function FinancialExportModal({ show, handleClose }) {
       }
       period = { startDate: customStartDate, endDate: customEndDate };
     } else {
-      try {
-        const firstTransaction = await window.electronAPI.getTransactions({ limit: 1 });
-        const startDate =
-          firstTransaction[0]?.transaction_date || new Date().toISOString().split('T')[0];
-        const endDate = new Date().toISOString().split('T')[0];
-        period = { startDate, endDate };
-      } catch (error) {
-        setMessage({ type: 'danger', text: `✖️ تعذر تحديد الفترة الزمنية: ${error.message}` });
-        return;
-      }
+      const { date: earliestDate } = await window.electronAPI.getEarliestTransactionDate();
+      const startDate = earliestDate || toLocalISODate(new Date());
+      const endDate = toLocalISODate(new Date());
+      period = { startDate, endDate };
     }
 
     try {
@@ -87,12 +82,12 @@ function FinancialExportModal({ show, handleClose }) {
       if (result.cancelled) {
         setMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
       } else if (result.success) {
-        setMessage({ type: 'success', text: '✅ تم تصدير التقرير بنجاح!' });
+        setMessage({ type: 'success', text: 'تم تصدير التقرير بنجاح!' });
       } else {
-        setMessage({ type: 'danger', text: `✖️ فشل التصدير: ${result.message}` });
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
       }
     } catch (error) {
-      setMessage({ type: 'danger', text: `✖️ حدث خطأ: ${error.message}` });
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
       logError('Export failed:', error);
     }
   };
@@ -124,7 +119,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-inventory"
                     name="reportType"
-                    label="📦 سجل الجرد"
+                    label="سجل الجرد"
                     value="inventory-register"
                     checked={reportType === 'inventory-register'}
                     onChange={(e) => setReportType(e.target.value)}
@@ -133,7 +128,7 @@ function FinancialExportModal({ show, handleClose }) {
                     type="radio"
                     id="report-summary"
                     name="reportType"
-                    label="📊 التقرير المالي"
+                    label="التقرير المالي"
                     value="financial-summary"
                     checked={reportType === 'financial-summary'}
                     onChange={(e) => setReportType(e.target.value)}
@@ -235,7 +230,7 @@ function FinancialExportModal({ show, handleClose }) {
           إغلاق
         </Button>
         <Button variant="success" onClick={handleFinancialExport}>
-          📄 تصدير التقرير
+          تصدير التقرير
         </Button>
       </Modal.Footer>
     </Modal>

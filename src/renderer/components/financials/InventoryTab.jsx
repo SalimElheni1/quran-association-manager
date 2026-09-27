@@ -155,12 +155,13 @@ function InventoryTab() {
       };
       await window.electronAPI.addInventoryItem(inventoryData);
 
-      toast.success('✅ تم إضافة التبرع العيني بنجاح');
+      toast.success('تم إضافة التبرع العيني بنجاح');
+      window.dispatchEvent(new Event('financial-data-changed'));
       setShowInKindModal(false);
       fetchItems();
     } catch (err) {
       logError('Error saving in-kind donation:', err);
-      toast.error('❌ فشل في حفظ التبرع العيني');
+      toast.error('فشل في حفظ التبرع العيني');
     }
   };
 

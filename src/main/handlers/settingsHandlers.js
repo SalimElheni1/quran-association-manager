@@ -4,7 +4,10 @@ const Store = require('electron-store');
 const db = require('../../db/db');
 const fs = require('fs');
 const path = require('path');
-const { startScheduler: startFeeChargeScheduler } = require('../feeChargeScheduler');
+const {
+  startScheduler: startFeeChargeScheduler,
+  runManualCheck: runManualFeeChargeCheck,
+} = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
 
 /**
@@ -27,35 +30,7 @@ async function safeRollback() {
 }
 
 // Joi schema for settings validation
-const settingsValidationSchema = Joi.object({
-  national_association_name: Joi.string().allow(''),
-  regional_association_name: Joi.string().allow(''),
-  local_branch_name: Joi.string().allow(''),
-  president_full_name: Joi.string().allow(''),
-  national_logo_path: Joi.string().allow(''),
-  regional_local_logo_path: Joi.string().allow(''),
-  backup_path: Joi.string().allow(''),
-  backup_enabled: Joi.boolean(),
-  backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
-
-  backup_reminder_enabled: Joi.boolean(),
-  backup_reminder_frequency_days: Joi.number().integer().min(1).max(365),
-  annual_fee: Joi.number().min(0).allow(null),
-  standard_monthly_fee: Joi.number().min(0).allow(null),
-  auto_charge_generation_enabled: Joi.boolean(),
-  charge_generation_frequency: Joi.string().valid('daily', 'weekly'),
-  pre_generate_months_ahead: Joi.number().integer().min(1).max(12),
-  last_charge_generation_check: Joi.string().allow(null, ''),
-  men_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  women_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  kids_payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL'),
-  academic_year_start_month: Joi.number().integer().min(1).max(12),
-  charge_generation_day: Joi.number().integer().min(1).max(28),
-  cloud_backup_enabled: Joi.boolean(),
-  cloud_backup_frequency: Joi.string().valid('daily', 'weekly', 'monthly'),
-  google_account_email: Joi.string().email().allow(''),
-  google_connected: Joi.boolean(),
-});
+const settingsValidationSchema = require('../settingsValidation')(Joi);
 
 const defaultSettings = {
   national_association_name: 'الرابطة الوطنية للقرآن الكريم',
@@ -67,18 +42,22 @@ const defaultSettings = {
   backup_enabled: false,
   backup_frequency: 'daily',
   president_full_name: '',
-  cloud_backup_enabled: false,
-  cloud_backup_frequency: 'daily',
-  google_account_email: '',
-  google_connected: false,
 
   backup_reminder_enabled: true,
   backup_reminder_frequency_days: 7,
+  backup_time: '02:00',
   annual_fee: 0,
   standard_monthly_fee: 0,
   auto_charge_generation_enabled: true,
   charge_generation_frequency: 'daily',
   pre_generate_months_ahead: 2,
+  men_payment_frequency: 'MONTHLY',
+  women_payment_frequency: 'MONTHLY',
+  kids_payment_frequency: 'MONTHLY',
+  academic_year_start_month: 9,
+  charge_generation_day: 25,
+  last_charge_generation_check: '',
+  association_transfer_key: '',
 };
 
 const internalGetSettingsHandler = async () => {
@@ -129,9 +108,13 @@ const validateLogoPath = (logoPath) => {
 };
 
 const internalUpdateSettingsHandler = async (settingsData) => {
-  const filteredData = { ...settingsData };
-  delete filteredData.adultAgeThreshold;
-  delete filteredData.adult_age_threshold;
+  const { SETTINGS_KEYS } = require('../settingsValidation');
+  const filteredData = {};
+  for (const [key, value] of Object.entries(settingsData || {})) {
+    if (SETTINGS_KEYS.includes(key)) {
+      filteredData[key] = value;
+    }
+  }
 
   if (filteredData.national_logo_path && !validateLogoPath(filteredData.national_logo_path)) {
     filteredData.national_logo_path = defaultSettings.national_logo_path;
@@ -146,27 +129,18 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   const validatedData = await settingsValidationSchema.validateAsync(filteredData);
 
   try {
-    // Start transaction
-    await db.runQuery('BEGIN TRANSACTION;');
+    return await db.withTransaction(async () => {
+      for (const [key, value] of Object.entries(validatedData)) {
+        const dbValue = value === null || value === undefined ? '' : String(value);
+        await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
+          key,
+          dbValue,
+        ]);
+      }
 
-    for (const [key, value] of Object.entries(validatedData)) {
-      const dbValue = value === null || value === undefined ? '' : String(value);
-      await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
-        key,
-        dbValue,
-      ]);
-    }
-
-    // Commit transaction
-    await db.runQuery('COMMIT;');
-    return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
+      return { success: true, message: 'تم تحديث الإعدادات بنجاح.' };
+    });
   } catch (error) {
-    // Rollback on error
-    try {
-      await db.runQuery('ROLLBACK;');
-    } catch (rollbackError) {
-      logError('Failed to rollback transaction:', rollbackError);
-    }
     logError('Failed to update settings:', error);
     throw new Error('فشل تحديث الإعدادات.');
   }
@@ -211,10 +185,8 @@ function registerSettingsHandlers(refreshSettings) {
 
         if (newSettings) {
           const backupManager = require('../backupManager');
-          const cloudBackupManager = require('../cloudBackupManager');
 
           backupManager.startScheduler(newSettings);
-          cloudBackupManager.startCloudScheduler(newSettings);
           startFeeChargeScheduler(newSettings);
 
           const newAnnualFee = parseFloat(newSettings.annual_fee || '0');
@@ -262,6 +234,16 @@ function registerSettingsHandlers(refreshSettings) {
       await safeRollback();
       logError('Error in settings:update IPC wrapper:', error);
       return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('fee-charges:runManualCheck', async (_event, force = false) => {
+    try {
+      const { settings } = await internalGetSettingsHandler();
+      return await runManualFeeChargeCheck(settings, force);
+    } catch (error) {
+      logError('Error in fee-charges:runManualCheck:', error);
+      return { success: false, message: 'فشل في تشغيل الفحص اليدوي.' };
     }
   });
 
@@ -339,7 +321,7 @@ function registerSettingsHandlers(refreshSettings) {
   ipcMain.handle('ageGroups:create', async (_event, ageGroupData) => {
     try {
       log('[DEBUG] ageGroups:create - Input data:', JSON.stringify(ageGroupData));
-      const { v4: uuidv4 } = require('uuid');
+      const { randomUUID } = require('crypto');
 
       const schema = Joi.object({
         name: Joi.string().required().min(1).max(100),
@@ -353,6 +335,11 @@ function registerSettingsHandlers(refreshSettings) {
             then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        // How classes of this age group pay: monthly charges, or the annual charge only.
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
+        // Fee amounts of this age group; null uses the branch amounts from the fee settings.
+        annual_fee: Joi.number().min(0).allow(null).default(null),
+        monthly_fee: Joi.number().min(0).allow(null).default(null),
         is_active: Joi.boolean().default(true),
       });
 
@@ -365,14 +352,14 @@ function registerSettingsHandlers(refreshSettings) {
         throw validationError;
       }
 
-      const uuid = uuidv4();
+      const uuid = randomUUID();
       log('[DEBUG] ageGroups:create - Generated UUID:', uuid);
 
       let result;
       try {
         result = await db.runQuery(
-          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO age_groups (uuid, name, description, min_age, max_age, gender, payment_frequency, annual_fee, monthly_fee, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             uuid,
             validatedData.name,
@@ -380,6 +367,9 @@ function registerSettingsHandlers(refreshSettings) {
             validatedData.min_age,
             validatedData.max_age || null,
             validatedData.gender,
+            validatedData.payment_frequency,
+            validatedData.annual_fee,
+            validatedData.monthly_fee,
             validatedData.is_active ? 1 : 0,
           ],
         );
@@ -416,6 +406,11 @@ function registerSettingsHandlers(refreshSettings) {
             then: Joi.number().integer().min(Joi.ref('min_age')).max(100),
           }),
         gender: Joi.string().valid('male_only', 'female_only', 'any').required(),
+        // How classes of this age group pay: monthly charges, or the annual charge only.
+        payment_frequency: Joi.string().valid('MONTHLY', 'ANNUAL').default('MONTHLY'),
+        // Fee amounts of this age group; null uses the branch amounts from the fee settings.
+        annual_fee: Joi.number().min(0).allow(null).default(null),
+        monthly_fee: Joi.number().min(0).allow(null).default(null),
         is_active: Joi.boolean().default(true),
       });
 
@@ -424,7 +419,8 @@ function registerSettingsHandlers(refreshSettings) {
       await db.runQuery(
         `UPDATE age_groups SET
          name = ?, description = ?, min_age = ?, max_age = ?,
-         gender = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+         gender = ?, payment_frequency = ?, annual_fee = ?, monthly_fee = ?, is_active = ?,
+         updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
           validatedData.name,
@@ -432,6 +428,9 @@ function registerSettingsHandlers(refreshSettings) {
           validatedData.min_age,
           validatedData.max_age || null,
           validatedData.gender,
+          validatedData.payment_frequency,
+          validatedData.annual_fee,
+          validatedData.monthly_fee,
           validatedData.is_active ? 1 : 0,
           id,
         ],
@@ -524,6 +523,9 @@ function registerSettingsHandlers(refreshSettings) {
         }
 
         const genderMap = {
+          // Stored values (students.gender) — what the enrollment modal sends
+          Male: 'male_only',
+          Female: 'female_only',
           M: 'male_only',
           F: 'female_only',
           male: 'male_only',

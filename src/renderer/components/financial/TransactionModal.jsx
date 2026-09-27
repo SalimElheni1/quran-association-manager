@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import { error as logError } from '@renderer/utils/logger';
 import { useCategories } from '@renderer/hooks/useCategories';
-import { useStudents } from '@renderer/hooks/useStudents';
-import { useClasses } from '@renderer/hooks/useClasses';
-import SearchableStudentSelect from '@renderer/components/SearchableStudentSelect';
+import { toDateInputValue, toLocalISODate } from '@renderer/utils/dates';
 
 function TransactionModal({
   show,
@@ -19,14 +16,11 @@ function TransactionModal({
   const [formData, setFormData] = useState({});
   const [amountWarning, setAmountWarning] = useState('');
   const [inKindCategories, setInKindCategories] = useState([]);
-  const [selectedStudentDetails, setSelectedStudentDetails] = useState(null);
-  const [selectedClass, setSelectedClass] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const isEditMode = !!transaction;
 
   const { categories } = useCategories(type);
   const filteredCategories = categories.filter((cat) => cat.name !== 'مداخيل أخرى');
-  const { students, searchStudents } = useStudents(); // Use searchable students hook
-  const { classes } = useClasses({}); // For monthly fees
 
   // Fetch in-kind categories
   useEffect(() => {
@@ -34,23 +28,13 @@ function TransactionModal({
       window.electronAPI
         .getInKindCategories()
         .then(setInKindCategories)
-        .catch((err) => {
-          logError('Failed to fetch in-kind categories:', err);
-          toast.error('فشل في تحميل تصنيفات المواد العينية.');
-        });
+        .catch(() => {});
     }
   }, [show, type]);
 
-  // Generate unique voucher number for in-kind donations
-  const generateInKindVoucher = () => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `INK-${timestamp}-${random}`;
-  };
-
   useEffect(() => {
     const initialData = {
-      transaction_date: new Date().toISOString().split('T')[0],
+      transaction_date: toLocalISODate(new Date()),
       category: defaultCategory || '',
       amount: '',
       description: '',
@@ -70,15 +54,28 @@ function TransactionModal({
     };
 
     if (isEditMode && transaction) {
-      setFormData({
+      const merged = {
         ...initialData,
         ...transaction,
         transaction_date: transaction.transaction_date
-          ? new Date(transaction.transaction_date).toISOString().split('T')[0]
+          ? toDateInputValue(transaction.transaction_date)
           : initialData.transaction_date,
-      });
+      };
+      setFormData(merged);
+
+      // Set warning if an existing CASH transaction already exceeds 500 TND
+      if (
+        merged.category !== 'التبرعات العينية' &&
+        parseFloat(merged.amount) > 500 &&
+        merged.payment_method === 'CASH'
+      ) {
+        setAmountWarning('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+      } else {
+        setAmountWarning('');
+      }
     } else {
       setFormData(initialData);
+      setAmountWarning('');
     }
   }, [transaction, show, isEditMode, defaultCategory]);
 
@@ -108,7 +105,7 @@ function TransactionModal({
       const method = name === 'payment_method' ? value : formData.payment_method;
 
       if (amount > 500 && method === 'CASH') {
-        setAmountWarning('⚠️ المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
+        setAmountWarning('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
       } else {
         setAmountWarning('');
       }
@@ -117,9 +114,11 @@ function TransactionModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSaving) return;
 
     // Validate receipt_type for cash donations
     if (isCashDonation && !formData.receipt_type) {
+      toast.error('الرجاء تحديد نوع الإيصال');
       return;
     }
 
@@ -131,6 +130,7 @@ function TransactionModal({
       parseFloat(formData.amount) > 500 &&
       formData.payment_method === 'CASH'
     ) {
+      toast.error('المبالغ التي تتجاوز 500 دينار يجب أن تكون عبر شيك أو تحويل بنكي');
       return;
     }
 
@@ -151,7 +151,10 @@ function TransactionModal({
       dataToSave.account_id = 1; // الخزينة
     }
 
-    onSave({ ...dataToSave, type }, transaction ? transaction.id : null);
+    setIsSaving(true);
+    Promise.resolve(onSave({ ...dataToSave, type }, transaction ? transaction.id : null)).finally(
+      () => setIsSaving(false),
+    );
   };
 
   return (
@@ -403,8 +406,8 @@ function TransactionModal({
           <Button variant="secondary" onClick={onHide}>
             إلغاء
           </Button>
-          <Button variant="primary" type="submit" disabled={!!amountWarning}>
-            {isEditMode ? 'حفظ التعديلات' : 'حفظ'}
+          <Button variant="primary" type="submit" disabled={!!amountWarning || isSaving}>
+            {isSaving ? 'جارٍ الحفظ…' : isEditMode ? 'حفظ التعديلات' : 'حفظ'}
           </Button>
         </Modal.Footer>
       </Form>

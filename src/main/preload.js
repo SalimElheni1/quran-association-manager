@@ -3,27 +3,11 @@
  * This script runs in a sandboxed environment and exposes a controlled API to the renderer process
  * using Electron's contextBridge for security.
  *
- * @author Quran Branch Manager Team
+ * @author Salim Elhani
  * @version 1.0.2-beta
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
-
-/**
- * Registers a listener for a main-process push channel.
- *
- * @param {string} channel IPC channel to listen on.
- * @param {(payload: any) => void} callback Called with the channel payload.
- * @returns {() => void} Unsubscribe function.
- */
-const subscribe = (channel, callback) => {
-  if (!callback || typeof callback !== 'function') {
-    return () => {};
-  }
-  const handler = (_event, payload) => callback(payload);
-  ipcRenderer.on(channel, handler);
-  return () => ipcRenderer.removeListener(channel, handler);
-};
 
 /**
  * Exposes a secure API to the renderer process through contextBridge.
@@ -78,23 +62,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /**
    * Retrieves the current user's profile information.
-   * @param {Object} [data] - Optional data object containing token
-   * @param {string} [data.token] - JWT token (defaults to localStorage token)
    * @returns {Promise<Object>} User profile object or error response
    */
-  getProfile: (data) => {
-    // Allow caller to pass { token } or call without args; when called without args, forward token from localStorage
-    const payload = data ?? { token: localStorage.getItem('token') };
-    return ipcRenderer.invoke('auth:getProfile', payload).then((res) => {
+  getProfile: () =>
+    ipcRenderer.invoke('auth:getProfile').then((res) => {
       // Return profile object or pass through error shape
       if (res && res.success) return res.profile;
       return res;
-    });
-  },
+    }),
 
   /**
    * Updates the current user's profile information.
-   * @param {Object} data - Profile update data including token and profile fields
+   * @param {Object} data - Profile update data
    * @returns {Promise<Object>} Update result
    */
   updateProfile: (data) => ipcRenderer.invoke('auth:updateProfile', data),
@@ -104,7 +83,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Object} data - Password update data
    * @param {string} data.currentPassword - Current password for verification
    * @param {string} data.newPassword - New password
-   * @param {string} data.token - JWT token
    * @returns {Promise<Object>} Update result
    */
   updatePassword: (data) => ipcRenderer.invoke('auth:updatePassword', data),
@@ -217,6 +195,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSettings: (settingsData) => ipcRenderer.invoke('settings:update', settingsData),
   uploadLogo: () => ipcRenderer.invoke('settings:uploadLogo'),
   getLogo: () => ipcRenderer.invoke('settings:getLogo'),
+  runManualFeeChargeCheck: (force) => ipcRenderer.invoke('fee-charges:runManualCheck', force),
 
   // Age Groups API
   getAgeGroups: () => ipcRenderer.invoke('ageGroups:get'),
@@ -242,14 +221,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
-  listCloudBackups: (settings) => ipcRenderer.invoke('backup:listCloud', settings),
-  downloadCloudBackup: (fileId, fileName) =>
-    ipcRenderer.invoke('backup:downloadCloud', fileId, fileName),
-  downloadCloudBackupFromLink: (link) => ipcRenderer.invoke('backup:downloadFromLink', link),
-  deleteCloudBackup: (id) => ipcRenderer.invoke('backup:deleteCloud', id),
-  runCloudBackup: (settings, createdBy) => ipcRenderer.invoke('backup:runCloud', settings, createdBy),
-  connectGoogle: () => ipcRenderer.invoke('backup:googleConnect'),
-  disconnectGoogle: () => ipcRenderer.invoke('backup:googleDisconnect'),
 
   // User Management API (for Superadmin)
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),
@@ -309,6 +280,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateTransaction: (id, transaction) =>
     ipcRenderer.invoke('transactions:update', id, transaction),
   deleteTransaction: (id) => ipcRenderer.invoke('transactions:delete', id),
+  getEarliestTransactionDate: () => ipcRenderer.invoke('transactions:get-earliest-date'),
   getFinancialSummary: (period) => ipcRenderer.invoke('financial:get-summary', period),
   exportFinancialReportPDF: (data) => ipcRenderer.invoke('financial:export-pdf', data),
   exportFinancialReportExcel: (data) => ipcRenderer.invoke('financial:export-excel', data),
@@ -321,12 +293,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:delete', id),
 
   // Student Fees API
-  studentFeesGetStatus: (studentId) => ipcRenderer.invoke('student-fees:getStatus', studentId),
-  studentFeesGetBalanceSummary: (studentId) =>
-    ipcRenderer.invoke('student-fees:getBalanceSummary', studentId),
-  studentFeesGetAll: () => ipcRenderer.invoke('student-fees:getAll'),
+  studentFeesGetStatus: (studentId, academicYear) =>
+    ipcRenderer.invoke('student-fees:getStatus', studentId, academicYear),
+  studentFeesGetAcademicYear: () => ipcRenderer.invoke('student-fees:getAcademicYear'),
+  studentFeesGetBalanceSummary: (studentId, academicYear) =>
+    ipcRenderer.invoke('student-fees:getBalanceSummary', studentId, academicYear),
+  studentFeesGetFeeGroup: (studentId) => ipcRenderer.invoke('student-fees:getFeeGroup', studentId),
+  studentFeesSetFeeGroup: (studentId, ageGroupId) =>
+    ipcRenderer.invoke('student-fees:setFeeGroup', { studentId, ageGroupId }),
+  studentFeesGetAll: (academicYear) => ipcRenderer.invoke('student-fees:getAll', academicYear),
   studentFeesRecordPayment: (paymentDetails) =>
     ipcRenderer.invoke('student-fees:recordPayment', paymentDetails),
+  studentFeesDeletePayment: (paymentId) =>
+    ipcRenderer.invoke('student-fees:deletePayment', { paymentId }),
+  studentFeesRefundPayment: (paymentId) =>
+    ipcRenderer.invoke('student-fees:refundPayment', { paymentId }),
   studentFeesGetPaymentHistory: (studentId, academicYear) =>
     ipcRenderer.invoke('student-fees:getPaymentHistory', { studentId, academicYear }),
   studentFeesGetClassesWithSpecialFees: (studentId) =>
@@ -343,6 +324,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('student-fees:refreshStudentCharges', data),
   studentFeesRefreshAllStudentCharges: (data) =>
     ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
+  studentFeesResetCharges: (academicYear) =>
+    ipcRenderer.invoke('student-fees:resetCharges', academicYear),
 
   // Legacy Financial API (kept for backward compatibility)
   getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
@@ -400,14 +383,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   onImportCompleted: (callback) => {
     if (!callback || typeof callback !== 'function') {
-      return () => { };
+      return () => {};
     }
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on('import:completed', handler);
     return () => ipcRenderer.removeListener('import:completed', handler);
   },
   getInitialCredentials: () => ipcRenderer.invoke('get-initial-credentials'),
-  clearInitialCredentials: () => ipcRenderer.invoke('clear-initial-credentials'),
+  setupSuperadmin: (credentials) => ipcRenderer.invoke('auth:setup-superadmin', credentials),
 
   // ========================================================================
   // UI NOTIFICATION APIs
@@ -424,20 +407,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {string} message Success message to display
    */
   showSuccessToast: (message) => ipcRenderer.send('ui:show-success-toast', message),
-
-  /**
-   * Subscribes to error toasts pushed by the main process.
-   * @param {(message: string) => void} callback Receives the message.
-   * @returns {() => void} Unsubscribe function.
-   */
-  onShowErrorToast: (callback) => subscribe('ui:show-error-toast', callback),
-
-  /**
-   * Subscribes to success toasts pushed by the main process.
-   * @param {(message: string) => void} callback Receives the message.
-   * @returns {() => void} Unsubscribe function.
-   */
-  onShowSuccessToast: (callback) => subscribe('ui:show-success-toast', callback),
 
   // ========================================================================
   // TESTING & DEBUGGING APIs
