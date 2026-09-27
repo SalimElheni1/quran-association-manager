@@ -3,20 +3,34 @@
  * screen, so the recorded video reads as a tutorial.
  *
  * - chapter(title, subtitle): a full-screen title card that opens a chapter.
- * - say(text): a caption bar at the bottom of the window, shown before the action it explains.
+ * - say(text): explains the action that follows.
  * - click / type / select: highlight the target, then act on it slowly.
  *
- * Everything is drawn in the page (not added afterwards), so the captions are part of the video
- * with no extra tool. The timeline is also saved, to write subtitles (WebVTT), chapter timings
- * (to cut the video per chapter) and a written guide in Markdown.
+ * How say() explains, set by the `mode` option (QBM_GUIDE_MODE):
+ * - 'captions' (default): a caption bar at the bottom of the window, drawn in the page, so it is
+ *   part of the video with no extra tool.
+ * - 'audio': a spoken Arabic narration (see narrator.js); no caption on screen. The narration
+ *   track is added to the MP4 by `npm run docs:guide:mp4`, with the captions as subtitles that
+ *   viewers can turn on.
+ * - 'both': caption and narration.
+ * The timeline is also saved, to write subtitles (WebVTT), chapter timings (to cut the video per
+ * chapter), the narration track and a written guide in Markdown.
  */
 const fs = require('fs');
 const path = require('path');
+const { writeNarrationTrack } = require('./narrator');
+
+const MODES = ['captions', 'audio', 'both'];
 
 const OVERLAY_ID = 'qbm-guide-overlay';
 const CAPTION_ID = 'qbm-guide-caption';
 const RING_ID = 'qbm-guide-ring';
 const CARD_ID = 'qbm-guide-card';
+
+/** What a chapter's narration says. */
+function chapterNarration(number, title, subtitle) {
+  return [`الفصل ${number}`, title, subtitle].filter(Boolean).join('. ');
+}
 
 /** Time to read a caption: about 60 ms per character, between 2.5 and 6.5 seconds. */
 function readingTime(text) {
@@ -40,11 +54,22 @@ function formatClock(ms) {
 class Guide {
   /**
    * @param {import('@playwright/test').Page} page
-   * @param {{ pace?: number }} [options] pace multiplies every pause (1 = normal).
+   * @param {{ pace?: number, mode?: 'captions'|'audio'|'both',
+   *   narrator?: import('./narrator').Narrator }} [options]
+   *   pace multiplies every pause (1 = normal; narration is never cut short).
+   *   mode: how steps are explained; 'audio' and 'both' need a narrator.
    */
-  constructor(page, { pace = 1 } = {}) {
+  constructor(page, { pace = 1, mode = 'captions', narrator = null } = {}) {
+    if (!MODES.includes(mode)) {
+      throw new Error(`Unknown guide mode "${mode}" (${MODES.join(', ')}).`);
+    }
+    if (mode !== 'captions' && !narrator) throw new Error(`Guide mode "${mode}" needs a narrator.`);
     this.page = page;
     this.pace = pace;
+    this.mode = mode;
+    this.narrator = narrator;
+    this.showCaptions = mode !== 'audio';
+    this.narration = [];
     this.start = Date.now();
     this.chapters = [];
     this.captions = [];
@@ -57,6 +82,24 @@ class Guide {
 
   async pause(ms) {
     await this.page.waitForTimeout(Math.round(ms * this.pace));
+  }
+
+  /**
+   * Speaks a sentence (audio and both modes): places its clip on the timeline now and returns
+   * how long it lasts, or 0 in captions mode.
+   */
+  speak(text) {
+    if (!this.narrator) return 0;
+    const { file, durationMs } = this.narrator.clip(text);
+    this.narration.push({ file, start: this.now(), durationMs });
+    return durationMs;
+  }
+
+  /** How long to hold a step: narration plays in full; captions get their reading time. */
+  holdTime(text, spokenMs, hold) {
+    const reading = this.showCaptions ? readingTime(text) * this.pace : 0;
+    const speaking = spokenMs ? spokenMs + 450 : 0;
+    return Math.max(reading, speaking) + hold * this.pace;
   }
 
   /** Adds the overlay styles and containers once (the app is a single page, they persist). */
@@ -133,7 +176,12 @@ class Guide {
       },
       { CARD_ID, number, title, subtitle },
     );
-    await this.pause(Math.max(3500, readingTime(`${title} ${subtitle}`)));
+    const spokenMs = this.speak(chapterNarration(number, title, subtitle));
+    await this.page.waitForTimeout(
+      Math.round(
+        Math.max(3500 * this.pace, readingTime(`${title} ${subtitle}`) * this.pace, spokenMs + 600),
+      ),
+    );
     await this.page.evaluate(
       (id) => document.getElementById(id).classList.remove('visible'),
       CARD_ID,
@@ -163,6 +211,11 @@ class Guide {
     this.captions.push(entry);
     if (chapter) chapter.steps.push(text);
 
+    const spokenMs = this.speak(text);
+    if (!this.showCaptions) {
+      await this.page.waitForTimeout(Math.round(this.holdTime(text, spokenMs, hold)));
+      return;
+    }
     await this.page.evaluate(
       async ({ CAPTION_ID, text, step }) => {
         const caption = document.getElementById(CAPTION_ID);
@@ -179,7 +232,7 @@ class Guide {
       },
       { CAPTION_ID, text, step: stepInChapter },
     );
-    await this.pause(readingTime(text) + hold);
+    await this.page.waitForTimeout(Math.round(this.holdTime(text, spokenMs, hold)));
   }
 
   async hideCaption() {
@@ -310,8 +363,24 @@ class Guide {
       md.push('');
     });
     fs.writeFileSync(path.join(dir, 'guide.md'), md.join('\n'), 'utf8');
+
+    // The narration track, for docs:guide:mp4 to add to the video.
+    const track = path.join(dir, 'narration.wav');
+    fs.rmSync(track, { force: true });
+    if (this.narration.length > 0) {
+      writeNarrationTrack(
+        this.narration.map((n) => ({ file: n.file, startMs: shift(n.start) })),
+        shift(this.end),
+        track,
+      );
+    }
+    fs.writeFileSync(
+      path.join(dir, 'guide.json'),
+      JSON.stringify({ mode: this.mode, narration: this.narration.length > 0 }, null, 2),
+      'utf8',
+    );
     return chapters;
   }
 }
 
-module.exports = { Guide, readingTime, formatVttTime };
+module.exports = { Guide, MODES, chapterNarration, readingTime, formatVttTime };

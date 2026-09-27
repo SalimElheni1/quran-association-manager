@@ -3,12 +3,18 @@
  *
  * It sets up a branch from a fresh install, the way a new administrator would: first login,
  * fees, teachers, students, classes, attendance, student fees, income and expenses, backup.
- * Each step is explained by a caption before it happens, and every step is still checked like
- * any other e2e test, so the guide can't silently drift from the app.
+ * Each step is explained before it happens, and every step is still checked like any other
+ * e2e test, so the guide can't silently drift from the app.
  *
- * Run it with `npm run docs:guide`; the video, Arabic subtitles (captions.vtt), chapter timings
- * and the written guide (guide.md) go to guide-output/. `npm run docs:guide:mp4` then makes
- * MP4 files (the full guide and one per chapter) when ffmpeg is available.
+ * How steps are explained (QBM_GUIDE_MODE):
+ * - captions (default): Arabic captions on screen.
+ * - audio: a spoken Arabic narration instead (text-to-speech, see narrator.js for the engines).
+ * - both: captions and narration.
+ *
+ * Run it with `npm run docs:guide` (or docs:guide:audio); the video, Arabic subtitles
+ * (captions.vtt), chapter timings, the narration track and the written guide (guide.md) go to
+ * guide-output/. `npm run docs:guide:mp4` then makes MP4 files (the full guide and one per
+ * chapter, with the narration) when ffmpeg is available.
  */
 const fs = require('fs');
 const os = require('os');
@@ -22,13 +28,27 @@ const {
   expectToast,
   SUPERADMIN,
 } = require('../fixtures');
-const { Guide } = require('./guideKit');
+const { Guide, chapterNarration } = require('./guideKit');
+const { Narrator, extractNarration } = require('./narrator');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const OUT_DIR = process.env.QBM_GUIDE_OUT || path.join(ROOT, 'guide-output');
 const SIZE = { width: 1280, height: 800 };
 // QBM_GUIDE_PACE=0.5 makes a quicker (half-length) run, e.g. to check the guide still passes.
 const PACE = Number(process.env.QBM_GUIDE_PACE) || 1;
+// captions | audio | both
+const MODE = process.env.QBM_GUIDE_MODE || 'captions';
+// Moves the narration against the picture if a machine records with a different delay
+// (positive: later).
+const AV_SHIFT_MS = Number(process.env.QBM_GUIDE_AV_SHIFT_MS) || 0;
+
+/** The narrator for audio modes, with every sentence of this script synthesized up front. */
+function prepareNarrator() {
+  if (MODE === 'captions') return null;
+  const narrator = new Narrator({ cacheDir: path.join(OUT_DIR, 'tts-cache') });
+  narrator.prefetch(extractNarration(fs.readFileSync(__filename, 'utf8'), chapterNarration));
+  return narrator;
+}
 
 const TEACHER = { name: 'الشيخ عبد الرحمن', phone: '22334455' };
 const STUDENTS = [
@@ -71,12 +91,14 @@ async function openTab(guide, title) {
 test.setTimeout(20 * 60 * 1000);
 
 test('video guide: set up and run a branch from a fresh install', async () => {
+  const narrator = prepareNarrator();
   const videoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbm-guide-video-'));
-  const launchedAt = Date.now();
   const { app, userDataDir } = await launchApp({ recordVideo: { dir: videoDir, size: SIZE } });
   let guide;
   try {
     const page = await app.firstWindow();
+    // The video starts with the window.
+    const windowAt = Date.now();
     await page.waitForLoadState('domcontentloaded');
     await app.evaluate(({ BrowserWindow }, size) => {
       const win = BrowserWindow.getAllWindows()[0];
@@ -85,7 +107,8 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     }, SIZE);
     await page.setViewportSize(SIZE).catch(() => {});
 
-    guide = new Guide(page, { pace: PACE });
+    guide = new Guide(page, { pace: PACE, mode: MODE, narrator });
+    guide.windowAt = windowAt;
 
     // ------------------------------------------------------------------ 1. First run
     await guide.chapter(
@@ -411,10 +434,9 @@ test('video guide: set up and run a branch from a fresh install', async () => {
       fs.mkdirSync(OUT_DIR, { recursive: true });
       const target = path.join(OUT_DIR, 'guide.webm');
       await video.saveAs(target);
-      // The video starts with the window, a moment after the launch; the guide clock starts
-      // once the window is ready.
+      // The video starts with the window; the guide clock starts once the window is ready.
       guide.writeTimeline(OUT_DIR, {
-        offsetMs: Math.max(0, guide.start - launchedAt - 500),
+        offsetMs: Math.max(0, guide.start - guide.windowAt + AV_SHIFT_MS),
         videoFile: 'guide.webm',
       });
     }

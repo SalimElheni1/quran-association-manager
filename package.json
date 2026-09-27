@@ -25,6 +25,7 @@
     "e2e:open-data": "node scripts/open-e2e-data.js",
     "docs:screenshots": "npm run build && QBM_SCREENSHOTS=1 playwright test",
     "docs:guide": "npm run build && QBM_GUIDE=1 playwright test",
+    "docs:guide:audio": "npm run build && QBM_GUIDE=1 QBM_GUIDE_MODE=audio playwright test",
     "docs:guide:mp4": "node scripts/guide-video.js"
   },
   "dependencies": {

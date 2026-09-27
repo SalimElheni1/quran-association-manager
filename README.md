@@ -33,15 +33,31 @@ Regenerate them with `npm run docs:screenshots` after running the scenario.
 
 ## 🎬 Video guide (Arabic)
 
-A recorded tour of the app with Arabic explanations on screen, from a fresh install: first
-login, fees, teachers, students, classes, attendance, student fees, income and expenses, and
-backup. It is an e2e test, so each step is also checked against the app.
+A recorded tour of the app from a fresh install: first login, fees, teachers, students,
+classes, attendance, student fees, income and expenses, and backup. Every step is explained in
+Arabic before it happens. It is an e2e test, so each step is also checked against the app.
 
-- `npm run docs:guide` records it into `guide-output/`: `guide.webm`, Arabic subtitles
-  (`captions.vtt`), chapter timings and the written steps (`guide.md`).
+- `npm run docs:guide` records it with **Arabic captions on screen**.
+- `npm run docs:guide:audio` records it with a **spoken Arabic narration** instead
+  (`QBM_GUIDE_MODE=both` gives captions and narration).
 - `npm run docs:guide:mp4` then makes `guide.mp4` and one MP4 per chapter in
-  `guide-output/chapters/` (needs ffmpeg with libx264; set `FFMPEG_PATH` if it is not on the PATH).
-- `QBM_GUIDE_PACE=0.3` records a quick version, to check the guide still runs.
+  `guide-output/chapters/`, with the narration as sound (and, in audio mode, the captions as
+  subtitles that can be turned on). Needs ffmpeg with libx264; set `FFMPEG_PATH` if it is not on
+  the PATH.
+
+Output goes to `guide-output/`: `guide.webm`, Arabic subtitles (`captions.vtt`), chapter timings,
+`narration.wav` and the written steps (`guide.md`). `QBM_GUIDE_PACE=0.3` records a quick version.
+
+The narration uses a text-to-speech engine, chosen with `QBM_GUIDE_TTS`:
+
+| Engine | Setup | Voice (`QBM_GUIDE_VOICE`) |
+|---|---|---|
+| `edge` (default) | `pip install edge-tts`; needs internet | `ar-TN-ReemNeural` (default), `ar-TN-HediNeural`, `ar-SA-HamedNeural`… |
+| `espeak` | `espeak-ng` (+ `mbrola-ar1` for a better voice); offline, robotic | `mb-ar1` (default) or `ar` |
+| `command` | any engine: `QBM_GUIDE_TTS_CMD='piper -m ar.onnx -f {out} < {text}'` | — |
+
+Speech speed: `QBM_GUIDE_TTS_RATE` (e.g. `-5%` for edge, words per minute for espeak). Spoken
+sentences are cached in `guide-output/tts-cache/`, so re-recording doesn't synthesize again.
 
 ## 🚀 Getting Started
 
