@@ -4,7 +4,7 @@
 
 This application was developed to replace manual, paper-based workflows, offering a digital solution tailored to the needs of organizations like the National Quran Association in Tunisia.
 
-![Home dashboard](public/assets/screenshots/dashboard.png)
+![Home dashboard](docs/screenshots/dashboard.png)
 
 ## ✨ Features
 
@@ -26,10 +26,10 @@ Regenerate them with `npm run docs:screenshots` after running the scenario.
 
 | | |
 |---|---|
-| ![Students](public/assets/screenshots/students.png) **Students** | ![Classes](public/assets/screenshots/classes.png) **Classes** |
-| ![Attendance](public/assets/screenshots/attendance.png) **Attendance** | ![Teachers](public/assets/screenshots/teachers.png) **Teachers** |
-| ![Financial dashboard](public/assets/screenshots/financial-dashboard.png) **Financial dashboard** | ![Student fees](public/assets/screenshots/student-fees.png) **Student fees** |
-| ![Age groups and their fees](public/assets/screenshots/age-groups.png) **Age groups and their fees** | ![Login](public/assets/screenshots/login.png) **Login** |
+| ![Students](docs/screenshots/students.png) **Students** | ![Classes](docs/screenshots/classes.png) **Classes** |
+| ![Attendance](docs/screenshots/attendance.png) **Attendance** | ![Teachers](docs/screenshots/teachers.png) **Teachers** |
+| ![Financial dashboard](docs/screenshots/financial-dashboard.png) **Financial dashboard** | ![Student fees](docs/screenshots/student-fees.png) **Student fees** |
+| ![Age groups and their fees](docs/screenshots/age-groups.png) **Age groups and their fees** | ![Login](docs/screenshots/login.png) **Login** |
 
 ## 🚀 Getting Started
 

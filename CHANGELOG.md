@@ -20,6 +20,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `README.md` to be a more comprehensive entry point.
 - Refined `docs/USAGE.md` and `docs/DEVELOPMENT.md`.
 
+### Fixed
+
+- **The first month of an academic year was billed twice.** Next month's charges billed from
+  the generation day (e.g. 25 August) took the ending academic year, so September was billed
+  under 2025-2026 and again under 2026-2027 when it started (and showed as last year's arrears).
+  Migration 058 removes the unpaid duplicates already created, or moves the charge to the new
+  year when September has not started yet; paid charges are left as they are.
+- **The academic year follows the configured start month everywhere.** The student fees tab and
+  the financial dashboard's "current academic year" assumed September; with another start month
+  they used a different year from the charges, so payments were not applied to them.
+- **A student's credit stays visible after the academic year changes.** Credit is used by the
+  next payment whatever year it came from; it is now counted in the current year's balance
+  instead of disappearing with last year.
+- After deleting or refunding a payment from an earlier year's arrears dialog, the dialog
+  reloads that year's payments and balance, not the current year's.
+- A student billed annually who is in several age groups defaults to the annual group's fee.
+- Discounted fees are rounded to cents, so paying the displayed amount marks the charge paid.
+- The monthly fees chart is labelled "last 12 months", which is what it shows.
+- The e2e test clock can no longer be switched on in a packaged build.
+- README screenshots moved to `docs/screenshots/` so they are not bundled into the app.
+
 ## [1.4.0-beta.1] - 2026-09-24
 
 Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded here.

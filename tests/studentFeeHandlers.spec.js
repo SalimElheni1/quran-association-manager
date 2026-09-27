@@ -453,6 +453,30 @@ describe('Student Fee Handlers', () => {
       expect(result.balance).toBe(40);
     });
 
+    it('counts credit from any year with the requested year and keeps it out of arrears', async () => {
+      const studentId = 5;
+      db.allQuery.mockResolvedValueOnce([
+        { id: 1, amount: 30, amount_paid: 0, fee_type: 'MONTHLY', academic_year: '2026-2027' },
+        { id: 2, amount: 0, amount_paid: 20, fee_type: 'CREDIT', academic_year: '2025-2026' },
+      ]);
+
+      const result = await getStudentFeeStatus(studentId, '2026-2027');
+
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining("(academic_year = ? OR fee_type = 'CREDIT')"),
+        [studentId, '2026-2027'],
+      );
+      expect(result.totalCredit).toBe(20);
+      expect(result.balance).toBe(10);
+
+      db.allQuery.mockResolvedValueOnce([]);
+      await getStudentPreviousYearsArrears(studentId, '2026-2027');
+      expect(db.allQuery).toHaveBeenLastCalledWith(
+        expect.stringContaining("fee_type != 'CREDIT'"),
+        [studentId, '2026-2027'],
+      );
+    });
+
     it('should round balances to cents (no floating-point residue)', async () => {
       const studentId = 3;
 
@@ -934,6 +958,46 @@ describe('Student Fee Handlers', () => {
         monthlyFee: 35,
         group: expect.objectContaining({ id: 2 }),
         needsChoice: true,
+      });
+    });
+
+    it('defaults an annually billed student to the ANNUAL group with the higher annual fee', async () => {
+      const monthlyGroup = {
+        ...men,
+        monthly_fee: 40,
+        payment_frequency: 'MONTHLY',
+        has_standard: 1,
+      };
+      const annualGroup = {
+        id: 4,
+        name: 'الكبار',
+        annual_fee: 120,
+        monthly_fee: 10,
+        payment_frequency: 'ANNUAL',
+        has_standard: 1,
+      };
+      mockGroups([monthlyGroup, annualGroup]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        annualFee: 120,
+        group: expect.objectContaining({ id: 4 }),
+        needsChoice: true,
+      });
+    });
+
+    it('ignores an ANNUAL group reached only through a special class', async () => {
+      const monthlyGroup = { ...men, payment_frequency: 'MONTHLY', has_standard: 1 };
+      const annualSpecialOnly = {
+        id: 4,
+        name: 'الكبار',
+        annual_fee: 120,
+        monthly_fee: 10,
+        payment_frequency: 'ANNUAL',
+        has_standard: 0,
+      };
+      mockGroups([monthlyGroup, annualSpecialOnly]);
+      await expect(resolveStudentFeeGroup(1, branch)).resolves.toMatchObject({
+        monthlyFee: 35,
+        group: expect.objectContaining({ id: 2 }),
       });
     });
 

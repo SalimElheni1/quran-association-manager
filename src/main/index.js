@@ -27,7 +27,8 @@ const crypto = require('crypto');
 // Isolates all app data (DB, key store, settings, logs) in a throwaway directory.
 // Must run before any module that resolves userData at require time
 // (logger, keyManager, electron-store).
-const isE2E = process.env.QBM_E2E === '1';
+// Never in a packaged build: the test clock and data directory are for the unpacked app only.
+const isE2E = process.env.QBM_E2E === '1' && !app.isPackaged;
 if (isE2E) {
   if (!process.env.QBM_E2E_USER_DATA) {
     throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');

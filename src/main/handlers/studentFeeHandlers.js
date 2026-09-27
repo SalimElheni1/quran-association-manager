@@ -53,6 +53,16 @@ function releaseChargeRegenerationLock(studentId) {
 // ============================================
 
 /**
+ * Rounds an amount to cents (millimes are not billed), so a discounted fee such as
+ * 30 × 0.93 is stored as 27.9 and a payment of exactly that amount settles it.
+ * @param {number} amount
+ * @returns {number}
+ */
+function roundCents(amount) {
+  return Math.round((Number(amount) || 0) * 100) / 100;
+}
+
+/**
  * Gets a setting value from the database.
  * @param {string} key The key of the setting to retrieve.
  * @returns {Promise<string|null>} The value of the setting, or null if not found.
@@ -91,6 +101,16 @@ async function getConfiguredAcademicYear(referenceDate = new Date()) {
 }
 
 /**
+ * The configured academic-year start month and the current academic year, for the renderer,
+ * which must use the same year as the charges it shows and the payments it records.
+ * @returns {Promise<{startMonth: number, academicYear: string}>}
+ */
+async function getAcademicYearInfo() {
+  const startMonth = parseInt((await getSetting('academic_year_start_month')) || '9', 10) || 9;
+  return { startMonth, academicYear: getCurrentAcademicYear(startMonth) };
+}
+
+/**
  * Normalizes an academic-year value to the canonical "YYYY-YYYY" format.
  * A bare year like "2026" is treated as the academic year ending in that
  * calendar year (i.e. "2025-2026"), keeping every table consistent.
@@ -118,13 +138,17 @@ const ENROLLED_CLASSES_SQL = `
   WHERE cs.student_id = ? AND c.status = 'active'
 `;
 
-// The age groups of a student's active classes, with their fee amounts (NULL = branch amount).
+// The age groups of a student's active classes, with their fee amounts (NULL = branch amount),
+// payment system, and whether the student has a standard class in the group (only those set
+// the student's payment system, see resolvePaymentFrequencyFromClasses).
 const ENROLLED_FEE_GROUPS_SQL = `
-  SELECT DISTINCT ag.id, ag.name, ag.min_age, ag.annual_fee, ag.monthly_fee
+  SELECT ag.id, ag.name, ag.min_age, ag.annual_fee, ag.monthly_fee, ag.payment_frequency,
+         MAX(CASE WHEN c.fee_type = 'standard' THEN 1 ELSE 0 END) AS has_standard
   FROM classes c
   JOIN class_students cs ON c.id = cs.class_id
   JOIN age_groups ag ON ag.id = c.age_group_id
   WHERE cs.student_id = ? AND c.status = 'active'
+  GROUP BY ag.id
   ORDER BY ag.min_age, ag.id
 `;
 
@@ -163,7 +187,9 @@ async function getConfiguredFeeKinds(branchFees = null) {
  * - One age group, or several with the same amounts: that amount.
  * - Several age groups with different amounts: the group an administrator chose for the student
  *   (students.fee_age_group_id); until one is chosen, the group with the higher fee, and
- *   `needsChoice` is true so the fees list can flag the student.
+ *   `needsChoice` is true so the fees list can flag the student. A student billed annually
+ *   (a standard class in an ANNUAL group) defaults to the ANNUAL group with the higher annual
+ *   fee, so the amount comes from a group whose payment system the student follows.
  * @param {number} studentId
  * @param {{annual: number, monthly: number}} [branchFees] Branch amounts, when already loaded.
  * @returns {Promise<{annualFee: number, monthlyFee: number, group: object|null, groups: Array, needsChoice: boolean}>}
@@ -178,6 +204,7 @@ async function resolveStudentFeeGroup(studentId, branchFees = null) {
       name: row.name,
       annualFee: row.annual_fee ?? fees.annual,
       monthlyFee: row.monthly_fee ?? fees.monthly,
+      paysAnnually: row.payment_frequency === 'ANNUAL' && Number(row.has_standard) === 1,
     }));
 
   if (groups.length === 0) {
@@ -197,9 +224,14 @@ async function resolveStudentFeeGroup(studentId, branchFees = null) {
   const amountsDiffer = groups.some(
     (g) => g.annualFee !== groups[0].annualFee || g.monthlyFee !== groups[0].monthlyFee,
   );
+  const annualGroups = groups.filter((g) => g.paysAnnually);
   const group =
     chosen ||
-    [...groups].sort((a, b) => b.monthlyFee - a.monthlyFee || b.annualFee - a.annualFee)[0];
+    (annualGroups.length > 0
+      ? [...annualGroups].sort(
+          (a, b) => b.annualFee - a.annualFee || b.monthlyFee - a.monthlyFee,
+        )[0]
+      : [...groups].sort((a, b) => b.monthlyFee - a.monthlyFee || b.annualFee - a.annualFee)[0]);
 
   return {
     annualFee: group.annualFee,
@@ -405,7 +437,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
 
         if (totalMonthlyFee > 0) {
           const discount = student.discount_percentage || 0;
-          if (discount > 0) totalMonthlyFee *= 1 - discount / 100;
+          if (discount > 0) totalMonthlyFee = roundCents(totalMonthlyFee * (1 - discount / 100));
 
           const relatedClassId = enrolledClasses.length === 1 ? enrolledClasses[0].id : null;
 
@@ -501,7 +533,7 @@ async function calculateStudentMonthlyCharges(studentId, month, academicYear) {
     // Apply student discount if exists
     if (student?.discount_percentage > 0) {
       const discountAmount = fees.total * (student.discount_percentage / 100);
-      fees.total = fees.total * (1 - student.discount_percentage / 100);
+      fees.total = roundCents(fees.total * (1 - student.discount_percentage / 100));
       log(`[FeeCalc] - Applied discount (${student.discount_percentage}%): -${discountAmount} DT`);
     }
 
@@ -1194,7 +1226,9 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
 /**
  * Gets the fee status for a single student.
  * @param {number} studentId The ID of the student.
- * @param {string} [academicYear] When provided, only charges of that academic year are considered.
+ * @param {string} [academicYear] When provided, only charges of that academic year are considered,
+ *   plus the student's credit from any year: a payment uses available credit whatever year it
+ *   was recorded in, so it is shown with the year the student is paying now.
  * @returns {Promise<object>} An object containing the student's fee status.
  */
 async function getStudentFeeStatus(studentId, academicYear = null) {
@@ -1202,7 +1236,7 @@ async function getStudentFeeStatus(studentId, academicYear = null) {
     const normalizedYear = normalizeAcademicYear(academicYear);
     const charges = await db.allQuery(
       `SELECT * FROM student_fee_charges WHERE student_id = ?${
-        normalizedYear ? ' AND academic_year = ?' : ''
+        normalizedYear ? " AND (academic_year = ? OR fee_type = 'CREDIT')" : ''
       }`,
       normalizedYear ? [studentId, normalizedYear] : [studentId],
     );
@@ -1271,7 +1305,8 @@ function summarizeCharges(charges) {
 
 /**
  * Lists a student's arrears from academic years before the given one, one entry per year
- * that still has a balance. These are kept apart from the current year's totals.
+ * that still has a balance. These are kept apart from the current year's totals. Credit is
+ * left out: it counts toward the current year (see getStudentFeeStatus).
  * @param {number} studentId The ID of the student.
  * @param {string} academicYear The current academic year ("YYYY-YYYY").
  * @returns {Promise<Array<object>>} [{ academicYear, charges, totalDue, totalPaid, totalCredit, balance }]
@@ -1280,7 +1315,8 @@ async function getStudentPreviousYearsArrears(studentId, academicYear) {
   const normalizedYear = normalizeAcademicYear(academicYear);
   if (!normalizedYear) return [];
   const charges = await db.allQuery(
-    `SELECT * FROM student_fee_charges WHERE student_id = ? AND academic_year < ?
+    `SELECT * FROM student_fee_charges
+     WHERE student_id = ? AND academic_year < ? AND fee_type != 'CREDIT'
      ORDER BY academic_year DESC, due_date ASC, created_at ASC`,
     [studentId, normalizedYear],
   );
@@ -1519,7 +1555,7 @@ async function recordStudentPayment(event, paymentDetails) {
       for (const charge of outstandingChargesSorted) {
         if (remainingAmountToApply <= 0 && creditPool.every((c) => c.available <= 0)) break;
 
-        const chargeBalance = charge.amount - charge.amount_paid;
+        const chargeBalance = roundCents(charge.amount - charge.amount_paid);
         if (chargeBalance <= 0) continue;
 
         let amountFromCredit = 0;
@@ -1569,8 +1605,9 @@ async function recordStudentPayment(event, paymentDetails) {
         );
 
         // Update the charge record
-        const newAmountPaid = charge.amount_paid + amountToApplyToCharge;
-        const newStatus = newAmountPaid >= charge.amount ? 'PAID' : 'PARTIALLY_PAID';
+        const newAmountPaid = roundCents(charge.amount_paid + amountToApplyToCharge);
+        // Compared in cents: charges stored before amounts were rounded can carry a float residue.
+        const newStatus = newAmountPaid >= roundCents(charge.amount) ? 'PAID' : 'PARTIALLY_PAID';
 
         await db.runQuery(
           `
@@ -1884,6 +1921,18 @@ function notifyFinancialDataChanged() {
 
 function registerStudentFeeHandlers() {
   ipcMain.handle(
+    'student-fees:getAcademicYear',
+    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async () => {
+      try {
+        return await getAcademicYearInfo();
+      } catch (error) {
+        logError('Error getting the academic year:', error);
+        throw new Error('Failed to get the academic year.');
+      }
+    }),
+  );
+
+  ipcMain.handle(
     'student-fees:getPaymentHistory',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { studentId, academicYear }) => {
@@ -2039,10 +2088,10 @@ function registerStudentFeeHandlers() {
           const previousBalances = new Map();
           if (normalizedYear) {
             const rows = await db.allQuery(
-              `SELECT student_id, academic_year,
-                      SUM(CASE WHEN fee_type = 'CREDIT' THEN -amount_paid ELSE amount - amount_paid END) AS balance
+              // Credit is left out: it counts toward the current year (see getStudentFeeStatus).
+              `SELECT student_id, academic_year, SUM(amount - amount_paid) AS balance
                FROM student_fee_charges
-               WHERE academic_year < ?
+               WHERE academic_year < ? AND fee_type != 'CREDIT'
                GROUP BY student_id, academic_year`,
               [normalizedYear],
             );
@@ -2431,6 +2480,7 @@ async function resetStudentFeeCharges(academicYear = 'ALL') {
 }
 
 module.exports = {
+  getAcademicYearInfo,
   registerStudentFeeHandlers,
   generateAnnualFeeCharges,
   generateMonthlyFeeCharges,

@@ -1,7 +1,7 @@
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 
-const { runManualCheck } = require('../src/main/feeChargeScheduler');
+const { runManualCheck, getNextBillingMonth } = require('../src/main/feeChargeScheduler');
 
 describe('feeChargeScheduler - runManualCheck (BUG-15)', () => {
   beforeEach(() => {
@@ -34,5 +34,44 @@ describe('feeChargeScheduler - runManualCheck (BUG-15)', () => {
 
     expect(result.success).toBe(true);
     expect(result.message).toBe('تم إكمال فحص توليد الرسوم اليدوي.');
+  });
+});
+
+describe('feeChargeScheduler - getNextBillingMonth', () => {
+  it('bills the first month of a new academic year under the new year', () => {
+    // 26 August 2026, academic year starting in September: September belongs to 2026-2027.
+    expect(getNextBillingMonth(9, new Date(2026, 7, 26))).toEqual({
+      month: 9,
+      academicYear: '2026-2027',
+    });
+  });
+
+  it('keeps the current academic year inside the year', () => {
+    expect(getNextBillingMonth(9, new Date(2026, 9, 25))).toEqual({
+      month: 11,
+      academicYear: '2026-2027',
+    });
+  });
+
+  it('rolls over December into January', () => {
+    expect(getNextBillingMonth(9, new Date(2026, 11, 28))).toEqual({
+      month: 1,
+      academicYear: '2026-2027',
+    });
+    expect(getNextBillingMonth(1, new Date(2026, 11, 28))).toEqual({
+      month: 1,
+      academicYear: '2027-2028',
+    });
+  });
+
+  it('follows a configured start month', () => {
+    expect(getNextBillingMonth(10, new Date(2026, 8, 25))).toEqual({
+      month: 10,
+      academicYear: '2026-2027',
+    });
+    expect(getNextBillingMonth(10, new Date(2026, 7, 25))).toEqual({
+      month: 9,
+      academicYear: '2025-2026',
+    });
   });
 });

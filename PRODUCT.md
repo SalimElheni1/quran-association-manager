@@ -36,7 +36,7 @@ The product is meaningful because it is offline-first and locally secure: all da
 ## Evidence on Hand
 - Full user documentation in Arabic (docs/user/manual.md, docs/user/financial.md, docs/user/troubleshooting.md).
 - Development/build documentation under docs/dev/.
-- Application screenshots under public/assets/screenshots/.
+- Application screenshots under docs/screenshots/.
 - SECURITY_REMEDIATION_PLAN.md for known security remediation work.
 - No fabricated testimonials, customer names, or deployment claims.
 

@@ -6,9 +6,11 @@ import { toLocalISODate } from '@renderer/utils/dates';
  * Returns the date range of a preset period around `today`.
  * @param {string} preset month | quarter | semester | year | academicYear
  * @param {Date} [today]
+ * @param {number} [academicYearStartMonth=9] Month the academic year starts (1-12), from the
+ *   academic_year_start_month setting.
  * @returns {{startDate: string, endDate: string} | null} null for an unknown preset
  */
-export function getPresetPeriod(preset, today = new Date()) {
+export function getPresetPeriod(preset, today = new Date(), academicYearStartMonth = 9) {
   let startDate, endDate;
 
   switch (preset) {
@@ -33,10 +35,12 @@ export function getPresetPeriod(preset, today = new Date()) {
       endDate = new Date(today.getFullYear(), 11, 31);
       break;
     case 'academicYear': {
-      // The academic year runs from September to August.
-      const startYear = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
-      startDate = new Date(startYear, 8, 1);
-      endDate = new Date(startYear + 1, 7, 31);
+      // Twelve months from the configured start month (September to August by default).
+      const startIndex = academicYearStartMonth - 1;
+      const startYear =
+        today.getMonth() >= startIndex ? today.getFullYear() : today.getFullYear() - 1;
+      startDate = new Date(startYear, startIndex, 1);
+      endDate = new Date(startYear + 1, startIndex, 0);
       break;
     }
     default:
@@ -56,13 +60,14 @@ export function getPresetPeriod(preset, today = new Date()) {
  * @param {string} [preset] - Selected preset; when given, the selector is controlled and editing
  *   a date switches it to 'custom'
  * @param {Function} [onPresetChange] - Callback when the preset changes
+ * @param {number} [academicYearStartMonth=9] - Month the academic year starts (1-12)
  */
-function PeriodSelector({ period, onChange, preset, onPresetChange }) {
+function PeriodSelector({ period, onChange, preset, onPresetChange, academicYearStartMonth = 9 }) {
   const isControlled = preset !== undefined;
 
   const handlePresetChange = (e) => {
     const value = e.target.value;
-    const next = getPresetPeriod(value);
+    const next = getPresetPeriod(value, new Date(), academicYearStartMonth);
     if (!next) return;
     if (onPresetChange) onPresetChange(value);
     onChange(next);

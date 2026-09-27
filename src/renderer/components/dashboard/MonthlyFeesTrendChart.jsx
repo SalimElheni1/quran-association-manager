@@ -4,7 +4,6 @@ import { max } from 'd3-array';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ChartCard from '@renderer/components/dashboard/ChartCard';
-import { getAcademicYearString } from '@renderer/utils/academicYear';
 import { toLocalISODate } from '@renderer/utils/dates';
 import { error as logError } from '@renderer/utils/logger';
 
@@ -174,7 +173,7 @@ function MonthlyFeesTrendChart() {
   return (
     <ChartCard
       title="الإيرادات الشهرية (آخر ١٢ شهراً)"
-      subtitle={`السنة الدراسية ${getAcademicYearString()}`}
+      subtitle="آخر 12 شهراً"
       loading={!data && !error}
       empty={!!error}
       footer={

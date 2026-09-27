@@ -1,7 +1,7 @@
 /**
  * README screenshots: opens a copy of the data left by the real-world scenario (123 students,
  * teachers, classes, attendance and a term of finances) and captures the main pages into
- * public/assets/screenshots/. Run it with `npm run docs:screenshots` after
+ * docs/screenshots/. Run it with `npm run docs:screenshots` after
  * `npm run test:e2e:realworld` (under xvfb, so no window pops up).
  */
 const fs = require('fs');
@@ -11,7 +11,7 @@ const { test, expect, launchApp, login, dismissOnboarding, navigate } = require(
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const DATA = path.join(ROOT, 'e2e-artifacts', 'realworld', '02-continue', 'app-data');
-const OUT = path.join(ROOT, 'public', 'assets', 'screenshots');
+const OUT = path.join(ROOT, 'docs', 'screenshots');
 const ADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
 const SIZE = { width: 1440, height: 900 };
 

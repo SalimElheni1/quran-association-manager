@@ -3,6 +3,7 @@ import { Row, Col, Spinner, Button } from 'react-bootstrap';
 import SummaryCard from '@renderer/components/financial/SummaryCard';
 import CategoryChart from '@renderer/components/financial/CategoryChart';
 import PeriodSelector, { getPresetPeriod } from '@renderer/components/financial/PeriodSelector';
+import { useAcademicYear } from '@renderer/hooks/useAcademicYear';
 import FinancialExportModal from '@renderer/components/financial/FinancialExportModal';
 import { useFinancialSummary } from '@renderer/hooks/useFinancialSummary';
 import { usePermissions } from '@renderer/hooks/usePermissions';
@@ -19,16 +20,17 @@ function FinancialDashboard() {
   const [showExportModal, setShowExportModal] = useState(false);
 
   const { summary, loading, refresh } = useFinancialSummary(period);
+  const { startMonth: academicYearStartMonth } = useAcademicYear();
 
-  const latest = useRef({ preset, period, refresh });
-  latest.current = { preset, period, refresh };
+  const latest = useRef({ preset, period, refresh, academicYearStartMonth });
+  latest.current = { preset, period, refresh, academicYearStartMonth };
 
   useEffect(() => {
     // Moves a preset period to today's range. Returns true when it changed (the new period
     // is then fetched by useFinancialSummary).
     const syncPeriodWithToday = () => {
-      const { preset: current, period: shown } = latest.current;
-      const next = getPresetPeriod(current);
+      const { preset: current, period: shown, academicYearStartMonth: startMonth } = latest.current;
+      const next = getPresetPeriod(current, new Date(), startMonth);
       if (!next || (next.startDate === shown.startDate && next.endDate === shown.endDate)) {
         return false;
       }
@@ -66,6 +68,13 @@ function FinancialDashboard() {
     refresh();
   }, []);
 
+  // The academic-year preset follows the configured start month once it has loaded.
+  useEffect(() => {
+    if (preset === 'academicYear') {
+      setPeriod(getPresetPeriod('academicYear', new Date(), academicYearStartMonth));
+    }
+  }, [academicYearStartMonth]);
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -89,6 +98,7 @@ function FinancialDashboard() {
         onChange={setPeriod}
         preset={preset}
         onPresetChange={setPreset}
+        academicYearStartMonth={academicYearStartMonth}
       />
 
       {loading ? (

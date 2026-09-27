@@ -82,6 +82,22 @@ const generateMonthlyChargesIfNeeded = async (academicYear, month) => {
 };
 
 /**
+ * The month after `date` and the academic year it belongs to. The academic year is worked out
+ * from the next month's own date, so the month that starts a new academic year (e.g. September,
+ * billed from the generation day in August) is billed under the new year, not the ending one.
+ * @param {number} startMonth - Month the academic year starts (1-12)
+ * @param {Date} [date=new Date()]
+ * @returns {{month: number, academicYear: string}}
+ */
+const getNextBillingMonth = (startMonth, date = new Date()) => {
+  const firstOfNextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  return {
+    month: firstOfNextMonth.getMonth() + 1,
+    academicYear: getCurrentAcademicYear(startMonth, firstOfNextMonth),
+  };
+};
+
+/**
  * Checks and generates charges on app startup (handles offline app scenario).
  * @param {Object} settings - Application settings
  */
@@ -108,11 +124,10 @@ const onAppStartup = async (settings) => {
 
     // If past generation day, ensure next month exists
     if (currentDay >= genDay) {
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear =
-        currentMonth === 12
-          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
-          : academicYear;
+      const { month: nextMonth, academicYear: nextYear } = getNextBillingMonth(
+        startMonth,
+        currentDate,
+      );
 
       await generateMonthlyChargesIfNeeded(nextYear, nextMonth);
       log(`[Startup] Next month (${nextMonth}) charges checked (past day ${genDay})`);
@@ -137,17 +152,15 @@ const checkAndGenerateCharges = async (settings) => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentDay = currentDate.getDate();
-    const academicYear = getCurrentAcademicYear(startMonth);
 
     log(`[Scheduler] Daily check - Day ${currentDay} of month ${currentMonth}`);
 
     // Only generate next month on/after generation day
     if (currentDay >= genDay) {
-      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextYear =
-        currentMonth === 12
-          ? getCurrentAcademicYear(startMonth, new Date(currentDate.getFullYear() + 1, 0, 1))
-          : academicYear;
+      const { month: nextMonth, academicYear: nextYear } = getNextBillingMonth(
+        startMonth,
+        currentDate,
+      );
 
       if (await generateMonthlyChargesIfNeeded(nextYear, nextMonth)) {
         log(`[Scheduler] Generated charges for next month (${nextMonth})`);
@@ -229,4 +242,5 @@ module.exports = {
   runManualCheck,
   generatePendingAnnualCharges,
   generateMonthlyChargesIfNeeded,
+  getNextBillingMonth,
 };

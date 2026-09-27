@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Table,
   Button,
@@ -20,6 +20,8 @@ import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
 import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
 import { usePermissions } from '@renderer/hooks/usePermissions';
+import { useAcademicYear } from '@renderer/hooks/useAcademicYear';
+import { getAcademicYearString } from '@renderer/utils/academicYear';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import SearchIcon from '@renderer/components/icons/SearchIcon';
@@ -41,13 +43,6 @@ const studentPaymentFields = [
   { key: 'sponsor_name', label: 'اسم الكافل' },
   { key: 'sponsor_phone', label: 'هاتف الكافل' },
 ];
-
-const getAcademicYearString = () => {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  return month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-};
 
 const StudentFeesTab = () => {
   const { hasPermission } = usePermissions();
@@ -92,6 +87,11 @@ const StudentFeesTab = () => {
   const [feeGroup, setFeeGroup] = useState(null);
   const [feeGroupChoice, setFeeGroupChoice] = useState('');
   const [isSavingFeeGroup, setIsSavingFeeGroup] = useState(false);
+  // The current academic year as the main process computes it from the configured start month,
+  // so the list, balances and payments use the same year as the charges.
+  const { academicYear: configuredYear, loaded: academicYearLoaded } = useAcademicYear();
+  const academicYearRef = useRef(academicYear);
+  academicYearRef.current = academicYear;
 
   const loadAccounts = async () => {
     try {
@@ -106,7 +106,15 @@ const StudentFeesTab = () => {
   };
 
   useEffect(() => {
-    loadStudents();
+    if (!academicYearLoaded) return;
+    setAcademicYear(configuredYear);
+    setGenerateAcademicYear(configuredYear);
+    setResetAcademicYear(configuredYear);
+    setPaymentYear(configuredYear);
+    loadStudents(configuredYear);
+  }, [configuredYear, academicYearLoaded]);
+
+  useEffect(() => {
     checkFeesConfiguration();
     loadAccounts();
 
@@ -232,10 +240,10 @@ const StudentFeesTab = () => {
     });
   };
 
-  const loadStudents = async () => {
+  const loadStudents = async (year = academicYearRef.current) => {
     try {
       setLoading(true);
-      const studentsWithFees = await window.electronAPI.studentFeesGetAll(academicYear);
+      const studentsWithFees = await window.electronAPI.studentFeesGetAll(year);
       setStudents(studentsWithFees);
       setCurrentPage(1);
     } catch (err) {
@@ -336,7 +344,6 @@ const StudentFeesTab = () => {
       setPaymentMethod('CASH');
       setReceiptNumber('');
       setCheckNumber('');
-      setAcademicYear(getAcademicYearString());
       setNotes('');
       loadStudents(); // Refresh the list
     } catch (err) {
@@ -347,13 +354,16 @@ const StudentFeesTab = () => {
     }
   };
 
+  // Reloads the payment dialog's history and balance for the year the dialog shows (the current
+  // year, or an earlier year whose arrears are being paid).
   const refreshPaymentHistory = async (student) => {
     try {
-      const history = await window.electronAPI.studentFeesGetPaymentHistory(
-        student.id,
-        academicYear,
-      );
+      const [history, summary] = await Promise.all([
+        window.electronAPI.studentFeesGetPaymentHistory(student.id, paymentYear),
+        window.electronAPI.studentFeesGetBalanceSummary(student.id, paymentYear),
+      ]);
       setPaymentHistory(history || []);
+      if (summary && typeof summary.balance === 'number') setPaymentBalance(summary.balance);
     } catch (err) {
       toast.error('فشل في تحميل سجل الدفعات');
     }

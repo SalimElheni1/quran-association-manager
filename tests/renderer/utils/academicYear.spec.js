@@ -21,6 +21,14 @@ describe('academicYear util', () => {
     });
   });
 
+  describe('with a configured start month', () => {
+    it('starts the academic year in the given month', () => {
+      expect(getAcademicYearStringFor(new Date(2026, 8, 15), 10)).toBe('2025-2026'); // Sep
+      expect(getAcademicYearStringFor(new Date(2026, 9, 1), 10)).toBe('2026-2027'); // Oct
+      expect(getAcademicYearStringFor(new Date(2026, 0, 1), 1)).toBe('2026-2027'); // Jan
+    });
+  });
+
   describe('getAcademicYearString()', () => {
     it('uses the current date with the same month rule', () => {
       const now = new Date();
