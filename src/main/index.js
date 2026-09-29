@@ -425,6 +425,12 @@ const initializeApp = async () => {
     });
   } catch (error) {
     logError('Fatal error during application startup:', error);
+    // Without a window the app would otherwise just vanish; tell the user why.
+    try {
+      dialog.showErrorBox('تعذّر تشغيل التطبيق', `حدث خطأ أثناء بدء التشغيل:\n\n${error.message}`);
+    } catch (dialogError) {
+      logError('Could not show the startup error dialog:', dialogError);
+    }
     app.quit();
   }
 };

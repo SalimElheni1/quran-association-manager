@@ -257,8 +257,10 @@ async function initializeDatabase() {
 
     // DIAGNOSTIC START: Check if encryption is actually working
     try {
-      const cipherVersion = db.pragma('cipher_version', { simple: true });
-      log(`[DB_LOG] Cipher version: ${cipherVersion}`);
+      // SQLite3MultipleCiphers reports its active scheme through PRAGMA cipher
+      // (it has no SQLCipher-style cipher_version).
+      const cipherVersion = db.pragma('cipher', { simple: true });
+      log(`[DB_LOG] Cipher: ${cipherVersion}`);
       if (!cipherVersion) {
         logWarn(
           '[DB_LOG] Database encryption support missing or native module not offering cipher_version.',
@@ -346,6 +348,17 @@ async function initializeDatabase() {
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null;
+    // A native module built for another platform or Electron version fails to load
+    // before the database is even touched; don't report that as a bad password.
+    if (error && error.code === 'ERR_DLOPEN_FAILED') {
+      logError('[DB_LOG] Failed to load the SQLite native module.', error);
+      const nativeError = new Error(
+        'The SQLite native module could not be loaded (built for another platform or ' +
+          'Electron version). Run `npx electron-builder install-app-deps` to rebuild it.',
+      );
+      nativeError.code = 'ERR_DLOPEN_FAILED';
+      throw nativeError;
+    }
     logError(
       '[DB_LOG] Failed to open database. The password may be incorrect or the DB is corrupt.',
       error,
