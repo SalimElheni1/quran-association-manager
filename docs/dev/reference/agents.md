@@ -8,7 +8,7 @@ This is an Electron desktop application for managing Quranic associations. It's 
 
 - **Frontend:** React, Vite, Bootstrap
 - **Backend:** Electron, Node.js
-- **Database:** SQLite
+- **Database:** SQLite, encrypted (better-sqlite3-multiple-ciphers)
 - **Packaging:** electron-builder
 
 ## Project Structure
@@ -19,7 +19,7 @@ The source code is located in the `src/` directory, with a clear separation betw
   - `src/main/index.js`: Main entry point for Electron. Manages windows and application lifecycle.
   - `src/main/preload.js`: Securely exposes backend functionality to the frontend via `contextBridge`.
   - `src/main/handlers/`: Contains all the business logic for the application, organized by feature (e.g., `studentHandlers.js`, `classHandlers.js`). **This is where most backend logic lives.**
-  - `src/main/financialHandlers.js`: Contains all business logic for the financial module.
+  - `src/main/handlers/financialHandlers.js` and `src/main/handlers/studentFeeHandlers.js`: business logic for the financial module.
 - `src/renderer/`: React frontend code.
   - `src/renderer/pages/`: Top-level page components for each major feature.
   - `src/renderer/components/`: Reusable React components.
@@ -48,7 +48,7 @@ The source code is located in the `src/` directory, with a clear separation betw
 The frontend communicates with the backend via IPC channels. The API is namespaced by feature.
 
 - **Example:** To get all students, the frontend calls `window.electronAPI.invoke('students:get')`.
-- **Location of Handlers:** The logic for these channels is defined in the `src/main/handlers/` and `src/main/financialHandlers.js` files. To understand what a channel does, find its `ipcMain.handle` definition in these files.
+- **Location of Handlers:** The logic for these channels is defined in the `src/main/handlers/` files. To understand what a channel does, find its `ipcMain.handle` definition in these files.
 - **Preload Script:** The channels are exposed to the renderer in `src/main/preload.js`.
 
 ## Building the Application

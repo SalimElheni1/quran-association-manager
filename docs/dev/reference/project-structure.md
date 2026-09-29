@@ -2,171 +2,191 @@
 
 ## Overview
 
-Clean, organized structure for the Quran Association Manager application.
+Where things live in the Quran Association Manager (Electron main process + React renderer +
+encrypted SQLite).
 
 ## Root Directory
 
 ```
 quran-association-manager/
-├── docs/                    # All documentation
-├── public/                  # Static assets
-├── scripts/                 # Utility scripts
+├── .github/workflows/       # Release workflow (Windows installer from a version tag)
+├── build/                   # electron-builder resources (installer icon)
+├── docs/                    # All documentation (user: Arabic, dev: English)
+├── public/                  # Static assets served with the renderer
+├── scripts/                 # Developer and maintenance scripts
 ├── src/                     # Source code
-├── tests/                   # Test suites (currently broken)
-├── .amazonq/               # Amazon Q rules
-├── package.json            # Dependencies
-├── vite.config.js          # Vite configuration
-├── electron-builder.yml    # Build configuration
-└── README.md               # Main documentation
+├── tests/                   # Jest (unit/integration) and Playwright (e2e) tests
+├── package.json             # Dependencies and npm scripts
+├── vite.config.mjs          # Vite configuration
+├── electron-builder.yml     # Build configuration
+└── README.md                # Main documentation
 ```
 
 ## Documentation (`docs/`)
- 
- ```
- docs/
- ├── user/                   # 🟢 Arabic User Documentation
- │   ├── manual.md           # User Guide (translated USAGE.md)
- │   ├── financial.md        # Financial Guide
- │   └── troubleshooting.md  # User Troubleshooting
- └── dev/                    # 🔵 English Developer Documentation
-     ├── setup/              # Setup, Building, Testing, Deployment
-     ├── specs/              # Architecture, API, Security, Specs
-     ├── reference/          # Project Structure, Agents, Maps
-     └── troubleshooting.md  # Developer Troubleshooting
- ```
- 
- ## Source Code (`src/`)
- 
- ### Database Layer (`src/db/`)
- 
- ```
- db/
- ├── migrations/             # Database migrations (001-025)
- │   ├── 001-update-users-table.sql
- │   ├── 002-fix-user-role-constraint.sql
- │   ├── ...
- │   └── 025-add-transaction-matricule.sql
- ├── db.js                   # Database connection
- ├── schema.js               # Schema definitions
- └── seederFunctions.js      # Seed data functions
- ```
- 
- ### Main Process (`src/main/`)
- 
- ```
- main/
- ├── handlers/               # IPC handlers by feature
- │   ├── attendanceHandlers.js
- │   ├── authHandlers.js
- │   ├── classHandlers.js
- │   ├── dashboardHandlers.js
- │   ├── financialHandlers.js      # New unified system
- │   ├── legacyFinancialHandlers.js # Legacy system (to be removed)
- │   ├── groupHandlers.js
- │   ├── importHandlers.js
- │   ├── inventoryHandlers.js
- │   ├── receiptHandlers.js
- │   ├── settingsHandlers.js
- │   ├── studentHandlers.js
- │   ├── systemHandlers.js
- │   ├── teacherHandlers.js
- │   └── userHandlers.js
- ├── services/               # Business logic services
- │   ├── financialExportService.js
- │   ├── matriculeService.js
- │   └── voucherService.js
- ├── export_templates/       # Export templates
- ├── __mocks__/             # Test mocks
- ├── authMiddleware.js       # Authentication
- ├── backupManager.js        # Database backup
- ├── exportManager.js        # Export functionality
- ├── importManager.js        # Import functionality
- ├── keyManager.js           # Encryption keys
- ├── logger.js               # Logging utility
- ├── preload.js              # Electron preload script
- ├── settingsManager.js      # Settings management
- ├── utils.js                # Utility functions
- ├── validationSchemas.js    # Joi validation schemas
- └── index.js                # Main entry point
- ```
- 
- ### Renderer Process (`src/renderer/`)
- 
- ```
- renderer/
- ├── assets/                 # Fonts, images
- ├── components/             # React components
- │   ├── about/             # About page components
- │   ├── common/            # Shared components
- │   ├── financial/         # New financial system UI
- │   ├── financials/        # Legacy financial system UI (to be removed)
- │   └── icons/             # Icon components
- ├── contexts/              # React contexts
- │   └── AuthContext.jsx
- ├── data/                  # Static data
- │   └── onboardingContent.js
- ├── hooks/                 # Custom React hooks
- │   ├── useAccounts.js
- │   ├── useCategories.js
- │   ├── useFinancialSummary.js
- │   ├── usePermissions.js
- │   └── useTransactions.js
- ├── layouts/               # Layout components
- │   └── MainLayout.jsx
- ├── pages/                 # Page components
- │   ├── financial/         # Financial module pages
- │   ├── AboutPage.jsx
- │   ├── AccountsPage.jsx
- │   ├── AttendancePage.jsx
- │   ├── ClassesPage.jsx
- │   ├── DashboardPage.jsx
- │   ├── ExpensesPage.jsx
- │   ├── ExportsPage.jsx
- │   ├── FinancialDashboard.jsx
- │   ├── FinancialsPage.jsx
- │   ├── IncomePage.jsx
- │   ├── LoginPage.jsx
- │   ├── ProfilePage.jsx
- │   ├── SettingsPage.jsx
- │   ├── StudentsPage.jsx
- │   ├── TeachersPage.jsx
- │   └── UsersPage.jsx
- ├── styles/                # CSS/SCSS files
- ├── utils/                 # Utility functions
- ├── App.jsx                # Main App component
- └── index.jsx              # Entry point
- ```
- 
- ## Scripts (`scripts/`)
- 
- Utility scripts for testing and database operations:
- 
- - `init-financial-tables.js`
- - `manual-seeder.js`
- - `run-comprehensive-tests.js`
- - `setup-pre-migration-db.js`
- - `test-*.js` (various test scripts)
- 
- ## Tests (`tests/`)
- 
- ✅ **STATUS**: Test suite is enhanced and stable (560+ tests).
- 
- ```
- tests/
- ├── mocks/                 # Test mocks
- ├── renderer/              # Renderer process tests
- ├── *.spec.js             # Test files
- └── COMPREHENSIVE_TESTS_README.md
- ```
+
+```
+docs/
+├── user/                   # 🟢 Arabic User Documentation
+│   ├── manual.md           # User Guide
+│   ├── financial.md        # Financial Guide
+│   └── troubleshooting.md  # User Troubleshooting
+├── dev/                    # 🔵 English Developer Documentation
+│   ├── setup/              # Setup, Building, Testing, Deployment
+│   ├── specs/              # Architecture, API, Security, Specs
+│   ├── reference/          # Project Structure, Agents, Maps
+│   ├── reports/            # Audits
+│   ├── sprints/            # Sprint notes
+│   └── troubleshooting.md  # Developer Troubleshooting
+├── archive/                # Superseded migrations kept for reference
+└── screenshots/            # README screenshots (npm run docs:screenshots)
+```
+
+## Source Code (`src/`)
+
+### Database Layer (`src/db/`)
+
+```
+db/
+├── migrations/             # SQL migrations (001-058), applied in filename order
+├── db.js                   # Encrypted connection, migration runner, query helpers
+├── schema.js               # Schema for fresh installs
+└── seederFunctions.js      # Seed data functions
+```
+
+### Main Process (`src/main/`)
+
+```
+main/
+├── handlers/               # IPC handlers by feature
+│   ├── attendanceHandlers.js
+│   ├── authHandlers.js
+│   ├── classHandlers.js
+│   ├── dashboardHandlers.js
+│   ├── financialHandlers.js       # Unified transactions/accounts system
+│   ├── legacyFinancialHandlers.js # Old per-table queries, still used by exportManager
+│   ├── groupHandlers.js
+│   ├── importHandlers.js
+│   ├── inventoryHandlers.js
+│   ├── receiptHandlers.js
+│   ├── settingsHandlers.js
+│   ├── studentFeeHandlers.js      # Student fee charges and payments
+│   ├── studentHandlers.js
+│   ├── systemHandlers.js
+│   ├── teacherHandlers.js
+│   └── userHandlers.js
+├── services/               # Business logic services
+│   ├── cashLedgerExport.js
+│   ├── financialExportService.js
+│   ├── financialWordExportService.js
+│   ├── inventoryLedgerExport.js
+│   ├── matriculeService.js
+│   ├── receiptService.js
+│   └── voucherService.js
+├── utils/                  # Shared helpers (age, dates, translations)
+├── export_templates/       # Export templates
+├── __mocks__/              # Jest manual mocks
+├── authMiddleware.js       # Role checks for IPC handlers
+├── backupManager.js        # Database backup
+├── exportManager.js        # Export functionality
+├── feeChargeScheduler.js   # Monthly fee charge generation
+├── importManager.js        # Import functionality
+├── importConstants.js      # Import column definitions
+├── ipcSecurity.js          # IPC sender/channel guard
+├── keyManager.js           # Encryption keys
+├── logger.js               # Logging utility
+├── preload.js              # Electron preload script
+├── sessionManager.js       # Login sessions
+├── settingsManager.js      # Settings cache
+├── settingsValidation.js   # Settings Joi schema
+├── utils.js                # Arabic text shaping, currency rounding
+├── validationSchemas.js    # Joi validation schemas
+└── index.js                # Main entry point
+```
+
+### Renderer Process (`src/renderer/`)
+
+```
+renderer/
+├── assets/                 # Fonts
+├── components/             # React components
+│   ├── about/              # About page tabs
+│   ├── common/             # Shared components
+│   ├── dashboard/          # Dashboard charts
+│   ├── financial/          # Financial module UI (transactions, fees, inventory, reports)
+│   ├── icons/              # Icon components
+│   ├── modals/             # Import/export modals
+│   └── settings/           # Settings tabs
+├── contexts/               # React contexts
+│   └── AuthContext.jsx
+├── data/                   # Static data
+│   └── onboardingContent.js
+├── hooks/                  # Custom React hooks
+│   ├── useAcademicYear.js
+│   ├── useCategories.js
+│   ├── useFinancialSummary.js
+│   ├── usePermissions.js
+│   ├── useStudents.js
+│   └── useTransactions.js
+├── layouts/                # Layout components
+│   └── MainLayout.jsx
+├── pages/                  # Page components
+│   ├── AboutPage.jsx
+│   ├── AccountsPage.jsx
+│   ├── AttendancePage.jsx
+│   ├── ClassesPage.jsx
+│   ├── DashboardPage.jsx
+│   ├── ExpensesPage.jsx
+│   ├── FinancialDashboard.jsx
+│   ├── FinancialsPage.jsx
+│   ├── IncomePage.jsx
+│   ├── LoginPage.jsx
+│   ├── ProfilePage.jsx
+│   ├── SettingsPage.jsx
+│   ├── StudentsPage.jsx
+│   ├── TeachersPage.jsx
+│   └── UsersPage.jsx
+├── styles/                 # CSS/SCSS files
+├── utils/                  # Helpers (age, dates, academic year, permissions, toasts)
+├── App.jsx                 # Routes
+└── index.jsx               # Entry point
+```
+
+The main process and the renderer do not share modules, so a few small helpers exist in both
+(`utils/age.js`, `utils/dates.js`). Keep each pair in step.
+
+## Scripts (`scripts/`)
+
+- `manual-seeder.js` - demo data (`npm run seed:manual`)
+- `guide-video.js` - MP4s from the recorded video guide (`npm run docs:guide:mp4`)
+- `open-e2e-data.js` - open data kept by the real-world e2e run (`npm run e2e:open-data`)
+- `capture-demo.js` - portfolio screenshots without Playwright
+- `diagnose-db.js`, `check-payment-methods.js` - database inspection
+- `fix-logo-path.js`, `fix-matricule-format.js`, `migrate-student-fees.js` - one-off data fixes
+- `test-age-groups-integration.js` - manual age-groups check against a real database
+
+## Tests (`tests/`)
+
+```
+tests/
+├── *.spec.js               # Main-process Jest tests (node environment)
+├── renderer/               # Renderer Jest tests (jsdom)
+├── mocks/                  # Module mocks mapped in jest.config.js
+├── business/               # Business-process specs (not run by Jest yet; see below)
+└── e2e/                    # Playwright tests against the built Electron app (*.e2e.js)
+```
+
+`npm test` runs `tests/*.spec.js` and `tests/renderer/**/*.spec.js`. The specs in
+`tests/business/` are not matched by `jest.config.js` and need fixing before they can be.
 
 ## Key Files
 
 ### Configuration
 
 - `package.json` - Dependencies and scripts
-- `vite.config.js` - Vite bundler configuration
+- `vite.config.mjs` - Vite bundler configuration
 - `electron-builder.yml` - Electron builder configuration
 - `jest.config.js` - Jest test configuration
+- `playwright.config.js` - Playwright e2e configuration
 - `babel.config.js` - Babel transpiler configuration
 - `.eslintrc.js` - ESLint linting rules
 - `.prettierrc.js` - Prettier formatting rules
@@ -178,37 +198,29 @@ quran-association-manager/
 - `CONTRIBUTING.md` - Contribution guidelines
 - `CODE_OF_CONDUCT.md` - Community standards
 - `LICENSE` - License information
-- `AGENTS.md` - AI agent guidelines
-- `CLEANUP_REPORT.txt` - This cleanup report
+- `AGENTS.md` - Working rules for AI agents
+- `PRODUCT.md` - Product overview
+- `SECURITY_REMEDIATION_PLAN.md` - Security work plan
 
 ### Ignored Files (`.gitignore`)
 
 - `node_modules/` - Dependencies
 - `dist/`, `release/` - Build output
 - `coverage/` - Test coverage
-- `.db/`, `*.sqlite` - Database files
-- `lib/` - Platform libraries
-- `.codeboarding/` - Analysis tools
+- `.db/`, `*.sqlite`, `*.db` - Database files
+- `test-results/`, `playwright-report/`, `e2e-artifacts/`, `guide-output/` - e2e output
 - `*.log` - Log files
 
 ## Component Organization
 
 ### Financial System
 
-Two parallel systems currently exist:
-
-**New Unified System** (Active):
-
-- Location: `src/renderer/components/financial/`
-- Handlers: `src/main/handlers/financialHandlers.js`
-- Uses: Unified `transactions` table
-
-**Legacy System** (Deprecated):
-
-- Location: `src/renderer/components/financials/`
-- Handlers: `src/main/handlers/legacyFinancialHandlers.js`
-- Uses: Separate tables (donations, expenses, payments, salaries)
-- Status: To be removed after full migration
+- UI: `src/renderer/components/financial/` and the pages it serves
+  (`FinancialsPage`, `FinancialDashboard`, `IncomePage`, `ExpensesPage`, `AccountsPage`)
+- Handlers: `src/main/handlers/financialHandlers.js` (unified `transactions` table) and
+  `src/main/handlers/studentFeeHandlers.js` (student fees)
+- `legacyFinancialHandlers.js` still backs parts of `exportManager.js`; remove it only after
+  those exports move to the unified tables.
 
 ## Migration Files
 
@@ -216,25 +228,20 @@ Two parallel systems currently exist:
 
 Format: `NNN-description.sql`
 
-- NNN: Sequential number (001-025)
+- NNN: Sequential number
 - description: Brief description in kebab-case
 
-### Current Migrations
-
-- 001-010: Core tables and initial setup
-- 011: Groups tables
-- 012: Inventory tables
-- 013-015: Settings and onboarding
-- 016-018: Financial system unification
-- 019-021: Category updates
-- 022-025: Bug fixes and enhancements
+The runner records each migration by its **filename**, so never rename or renumber an existing
+file: installed databases would run it again. A few numbers (027, 037, 043) are used twice for
+that reason; they still apply in a fixed (alphabetical) order.
 
 ### Adding New Migrations
 
-1. Create file: `026-your-description.sql`
+1. Create file: `059-your-description.sql` (next free number)
 2. Write SQL statements
-3. Test thoroughly
-4. Update this documentation
+3. Test against a fresh and an existing database
+
+Fresh installs run `schema.js` and then every migration, so a migration alone covers both.
 
 ## Best Practices
 
@@ -320,7 +327,7 @@ Format: `NNN-description.sql`
 ### Getting Help
 
 1. Check documentation in `docs/`
-2. Review `TROUBLESHOOTING.md`
+2. Review `docs/dev/troubleshooting.md`
 3. Search GitHub issues
 4. Create new issue with details
 
