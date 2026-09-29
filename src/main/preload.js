@@ -246,33 +246,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAttendanceSummaryForClass: (classId) =>
     ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
 
-  // Financials API
-  getExpenses: () => ipcRenderer.invoke('get-expenses'),
-  addExpense: (expense) => ipcRenderer.invoke('add-expense', expense),
-  updateExpense: (expense) => ipcRenderer.invoke('update-expense', expense),
-  deleteExpense: (id) => ipcRenderer.invoke('delete-expense', id),
-
-  getDonations: () => ipcRenderer.invoke('get-donations'),
-  addDonation: (donation) => ipcRenderer.invoke('add-donation', donation),
-  updateDonation: (donation) => ipcRenderer.invoke('update-donation', donation),
-  deleteDonation: (id) => ipcRenderer.invoke('delete-donation', id),
-
   // Inventory API
   getInventoryItems: () => ipcRenderer.invoke('inventory:get'),
   checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
   deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete', id),
-
-  getSalaries: () => ipcRenderer.invoke('get-salaries'),
-  addSalary: (salary) => ipcRenderer.invoke('add-salary', salary),
-  updateSalary: (salary) => ipcRenderer.invoke('update-salary', salary),
-  deleteSalary: (id) => ipcRenderer.invoke('delete-salary', id),
-
-  getPayments: () => ipcRenderer.invoke('get-payments'),
-  addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
-  updatePayment: (payment) => ipcRenderer.invoke('update-payment', payment),
-  deletePayment: (id) => ipcRenderer.invoke('delete-payment', id),
 
   // New Unified Financial API
   getTransactions: (filters) => ipcRenderer.invoke('transactions:get', filters),
@@ -312,8 +291,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('student-fees:getPaymentHistory', { studentId, academicYear }),
   studentFeesGetClassesWithSpecialFees: (studentId) =>
     ipcRenderer.invoke('student-fees:getClassesWithSpecialFees', studentId),
-  studentFeesTriggerManualGeneration: () =>
-    ipcRenderer.invoke('student-fees:triggerManualGeneration'),
   studentFeesGenerateAllCharges: (academicYear) =>
     ipcRenderer.invoke('student-fees:generateAllCharges', academicYear),
   studentFeesGenerateAnnualCharges: (academicYear) =>
@@ -326,10 +303,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('student-fees:refreshAllStudentCharges', data),
   studentFeesResetCharges: (academicYear) =>
     ipcRenderer.invoke('student-fees:resetCharges', academicYear),
-
-  // Legacy Financial API (kept for backward compatibility)
-  getMonthlySnapshot: (period) => ipcRenderer.invoke('get-monthly-snapshot', period),
-  getStatementOfActivities: (period) => ipcRenderer.invoke('get-statement-of-activities', period),
 
   // Exports API
   generateExport: (options) => ipcRenderer.invoke('export:generate', options),

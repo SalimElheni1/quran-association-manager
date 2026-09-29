@@ -1,15 +1,21 @@
-const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const {
-  registerLegacyFinancialHandlers,
   handleGetExpenses,
   handleAddExpense,
+  handleUpdateExpense,
+  handleDeleteExpense,
   handleGetDonations,
   handleAddDonation,
+  handleUpdateDonation,
+  handleDeleteDonation,
   handleGetSalaries,
   handleAddSalary,
+  handleUpdateSalary,
+  handleDeleteSalary,
   handleGetPayments,
   handleAddPayment,
+  handleUpdatePayment,
+  handleDeletePayment,
   handleGetStatementOfActivities,
   handleGetMonthlySnapshot,
   handleGetFinancialSummary,
@@ -17,20 +23,34 @@ const {
 
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
-jest.mock('../src/main/authMiddleware', () => ({
-  requireRoles: jest.fn(() => (handler) => handler),
-}));
 
 describe('Legacy Financial Handlers - Comprehensive', () => {
-  let handlers = {};
+  // These used to be IPC channels; they are now plain functions (exportManager reads through
+  // the getters). The map keeps the tests keyed by the old channel names.
+  const handlers = {
+    'get-expenses': handleGetExpenses,
+    'add-expense': handleAddExpense,
+    'update-expense': handleUpdateExpense,
+    'delete-expense': handleDeleteExpense,
+    'get-donations': handleGetDonations,
+    'add-donation': handleAddDonation,
+    'update-donation': handleUpdateDonation,
+    'delete-donation': handleDeleteDonation,
+    'get-salaries': handleGetSalaries,
+    'add-salary': handleAddSalary,
+    'update-salary': handleUpdateSalary,
+    'delete-salary': handleDeleteSalary,
+    'get-payments': handleGetPayments,
+    'add-payment': handleAddPayment,
+    'update-payment': handleUpdatePayment,
+    'delete-payment': handleDeletePayment,
+    'get-financial-summary': handleGetFinancialSummary,
+    'get-monthly-snapshot': handleGetMonthlySnapshot,
+    'get-statement-of-activities': handleGetStatementOfActivities,
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    handlers = {};
-    ipcMain.handle.mockImplementation((channel, handler) => {
-      handlers[channel] = handler;
-    });
-    registerLegacyFinancialHandlers();
   });
 
   describe('Expense Handlers', () => {

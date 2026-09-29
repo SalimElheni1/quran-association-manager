@@ -23,8 +23,8 @@ donation categories («إدارة الفئات», `AccountsPage`, despite its na
 and reports (`FinancialReportsTab`). Accounts have no page of their own.
 
 The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist and are read
-by some exports through `legacyFinancialHandlers.js`; nothing writes to them any more and their
-IPC channels are not registered.
+by the financial Excel export through the getters in `legacyFinancialHandlers.js`. Nothing writes to
+them any more, and they have no IPC channels.
 
 ## Income and Expenses (`transactions`)
 

@@ -9,22 +9,11 @@ jest.mock('electron');
 describe('financialHandlers - Comprehensive Tests', () => {
   let financialHandlers;
   let db;
-  let ipcMain;
 
   beforeEach(() => {
     jest.clearAllMocks();
     financialHandlers = require('../src/main/handlers/legacyFinancialHandlers');
     db = require('../src/db/db');
-    ipcMain = require('electron').ipcMain;
-  });
-
-  describe.skip('registerFinancialHandlers', () => {
-    it('should register all IPC handlers', () => {
-      financialHandlers.registerFinancialHandlers();
-      expect(ipcMain.handle).toHaveBeenCalled();
-      const registeredChannels = ipcMain.handle.mock.calls.map((call) => call[0]);
-      expect(registeredChannels).toContain('get-expenses');
-    });
   });
 
   describe('Financial Reporting - Advanced Cases', () => {

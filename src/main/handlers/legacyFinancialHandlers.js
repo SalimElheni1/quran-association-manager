@@ -1,23 +1,8 @@
-const { ipcMain, BrowserWindow } = require('electron');
+// Queries on the old per-type financial tables (payments, salaries, donations, expenses). They are no
+// longer IPC channels; exportManager.fetchFinancialData still reads through the getters.
+const { BrowserWindow } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
-const { error: logError } = require('../logger');
-const { requireRoles } = require('../authMiddleware');
 const { toLocalISODate } = require('../utils/dates');
-
-const FINANCIAL_ROLES = ['Superadmin', 'Administrator', 'FinanceManager'];
-
-// --- Generic Error Handler ---
-function createHandler(handler) {
-  return async (event, ...args) => {
-    try {
-      return await handler(event, ...args);
-    } catch (err) {
-      logError(`Error in handler ${handler.name}:`, err.message);
-      // Re-throw the error to be caught by the renderer process
-      throw new Error(err.message || 'An unexpected error occurred in the main process.');
-    }
-  };
-}
 
 // --- Expense Handlers ---
 async function handleGetExpenses(event, period) {
@@ -432,61 +417,7 @@ async function handleGetFinancialSummary(event, year) {
   };
 }
 
-function registerLegacyFinancialHandlers() {
-  ipcMain.handle('get-expenses', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetExpenses)));
-  ipcMain.handle('add-expense', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddExpense)));
-  ipcMain.handle(
-    'update-expense',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateExpense)),
-  );
-  ipcMain.handle(
-    'delete-expense',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteExpense)),
-  );
-
-  ipcMain.handle('get-donations', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetDonations)));
-  ipcMain.handle('add-donation', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddDonation)));
-  ipcMain.handle(
-    'update-donation',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateDonation)),
-  );
-  ipcMain.handle(
-    'delete-donation',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteDonation)),
-  );
-
-  ipcMain.handle('get-salaries', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetSalaries)));
-  ipcMain.handle('add-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddSalary)));
-  ipcMain.handle('update-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdateSalary)));
-  ipcMain.handle('delete-salary', requireRoles(FINANCIAL_ROLES)(createHandler(handleDeleteSalary)));
-
-  ipcMain.handle('get-payments', requireRoles(FINANCIAL_ROLES)(createHandler(handleGetPayments)));
-  ipcMain.handle('add-payment', requireRoles(FINANCIAL_ROLES)(createHandler(handleAddPayment)));
-  ipcMain.handle(
-    'update-payment',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleUpdatePayment)),
-  );
-  ipcMain.handle(
-    'delete-payment',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleDeletePayment)),
-  );
-
-  ipcMain.handle(
-    'get-financial-summary',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetFinancialSummary)),
-  );
-  ipcMain.handle(
-    'get-monthly-snapshot',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetMonthlySnapshot)),
-  );
-  ipcMain.handle(
-    'get-statement-of-activities',
-    requireRoles(FINANCIAL_ROLES)(createHandler(handleGetStatementOfActivities)),
-  );
-}
-
 module.exports = {
-  registerLegacyFinancialHandlers,
   handleGetExpenses,
   handleAddExpense,
   handleUpdateExpense,

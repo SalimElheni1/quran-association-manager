@@ -334,46 +334,4 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `users:update` | `updateUser` | Superadmin | `handlers/userHandlers.js` |
 | `users:updateGuide` | `updateUserGuide` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/userHandlers.js` |
 
-### Loose ends
-
-- `addDonation` in preload.js calls `add-donation`, which has no handler.
-- `addExpense` in preload.js calls `add-expense`, which has no handler.
-- `addPayment` in preload.js calls `add-payment`, which has no handler.
-- `addSalary` in preload.js calls `add-salary`, which has no handler.
-- `deleteDonation` in preload.js calls `delete-donation`, which has no handler.
-- `deleteExpense` in preload.js calls `delete-expense`, which has no handler.
-- `deletePayment` in preload.js calls `delete-payment`, which has no handler.
-- `deleteSalary` in preload.js calls `delete-salary`, which has no handler.
-- `onForceLogout` in preload.js calls `force-logout`, which has no handler.
-- `getDonations` in preload.js calls `get-donations`, which has no handler.
-- `getExpenses` in preload.js calls `get-expenses`, which has no handler.
-- `getMonthlySnapshot` in preload.js calls `get-monthly-snapshot`, which has no handler.
-- `getPayments` in preload.js calls `get-payments`, which has no handler.
-- `getSalaries` in preload.js calls `get-salaries`, which has no handler.
-- `getStatementOfActivities` in preload.js calls `get-statement-of-activities`, which has no handler.
-- `studentFeesTriggerManualGeneration` in preload.js calls `student-fees:triggerManualGeneration`, which has no handler.
-- `updateDonation` in preload.js calls `update-donation`, which has no handler.
-- `updateExpense` in preload.js calls `update-expense`, which has no handler.
-- `updatePayment` in preload.js calls `update-payment`, which has no handler.
-- `updateSalary` in preload.js calls `update-salary`, which has no handler.
-- Not registered: `add-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `add-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `add-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `add-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `delete-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `delete-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `delete-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `delete-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-donations` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-expenses` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-financial-summary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-monthly-snapshot` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-payments` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-salaries` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `get-statement-of-activities` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `update-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `update-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `update-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-- Not registered: `update-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
-
 <!-- api-doc:end -->

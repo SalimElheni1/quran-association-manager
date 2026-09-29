@@ -53,7 +53,7 @@ for (const { file, source } of files) {
 const preload = fs.readFileSync(path.join(MAIN, 'preload.js'), 'utf8');
 const methods = new Map();
 const exposed =
-  /(\w+):\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*(?:\/\/[^\n]*\n\s*)*(?:\{[^}]*?)?ipcRenderer\.(?:invoke|send|on)\(\s*['"]([^'"]+)['"]/g;
+  /(\w+):\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*(?:\/\/[^\n]*\n\s*)*(?:\{[^}]*?)?ipcRenderer\.(?:invoke|send)\(\s*['"]([^'"]+)['"]/g;
 let m;
 while ((m = exposed.exec(preload))) {
   if (!methods.has(m[2])) methods.set(m[2], m[1]);
