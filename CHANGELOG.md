@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Nothing is deleted any more (migration 061).** Deleting a student, teacher, class, user,
+  inventory item or in-kind category keeps it: it leaves the lists, pickers, counts and exports,
+  and its payments, transactions and attendance stay in the reports and history. «عرض المحذوفات»
+  lists the deleted records with a «استعادة» (restore) button. A deleted student's unpaid charges
+  are cancelled and come back on restore; a deleted student is not billed or paid for; a deleted
+  user can't log in. Usernames and IDs of deleted records stay taken.
+- **Money is voided, not deleted.** Deleting a transaction or a student payment now voids it
+  («إلغاء»): it stays in history marked «ملغاة» («عرض الملغاة» on the income and expense lists),
+  is taken back out of the account balance and no longer counts in totals, balances or reports.
+  Its receipt number can be used again for the corrected entry.
+
 - The license is stated consistently as CC BY-NC-SA 4.0 (it said MIT in `package.json`): open
   source, no commercial use, credit the project. A `NOTICE` file explains how to credit it and
   ships with the app, and the About page shows the license.

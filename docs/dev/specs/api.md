@@ -32,7 +32,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 
 <!-- api-doc:start -->
 
-140 channels.
+148 channels.
 
 ### accounts
 
@@ -101,6 +101,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `classes:getById` | `getClassById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
 | `classes:getEnrollmentData` | `getEnrollmentData` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
 | `classes:getForStudent` | `getClassesForStudent` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
+| `classes:restore` | `restoreClass` | Superadmin, Administrator | `handlers/classHandlers.js` |
 | `classes:update` | `updateClass` | Superadmin, Administrator | `handlers/classHandlers.js` |
 | `classes:updateEnrollments` | `updateEnrollments` | Superadmin, Administrator | `handlers/classHandlers.js` |
 
@@ -175,6 +176,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `groups:getGroupStudents` | `getGroupStudents` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
 | `groups:getStudentGroups` | `getStudentGroups` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
 | `groups:removeStudentFromGroup` | `removeStudentFromGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:restore` | `restoreGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
 | `groups:update` | `updateGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
 | `groups:updateGroupStudents` | `updateGroupStudents` | Superadmin, Administrator | `handlers/groupHandlers.js` |
 
@@ -201,6 +203,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `in-kind-categories:add` | `addInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
 | `in-kind-categories:delete` | `deleteInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
 | `in-kind-categories:get` | `getInKindCategories` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `in-kind-categories:restore` | `restoreInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
 | `in-kind-categories:update` | `updateInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
 
 ### inventory
@@ -211,6 +214,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `inventory:check-uniqueness` | `checkInventoryItemUniqueness` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
 | `inventory:delete` | `deleteInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:get` | `getInventoryItems` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
+| `inventory:restore` | `restoreInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:update` | `updateInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 
 ### logout
@@ -238,6 +242,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `receipt-books:get` | `getReceiptBooks` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get-active` | `getActiveReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get-next-number` | `getNextReceiptNumber` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:restore` | `restoreReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:update` | `updateReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 
 ### receipts
@@ -288,6 +293,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `students:get` | `getStudents` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
 | `students:getByAgeGroup` | `getStudentsByAgeGroup` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
 | `students:getById` | `getStudentById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+| `students:restore` | `restoreStudent` | Superadmin, Administrator | `handlers/studentHandlers.js` |
 | `students:update` | `updateStudent` | Superadmin, Administrator | `handlers/studentHandlers.js` |
 
 ### surahs
@@ -304,6 +310,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `teachers:delete` | `deleteTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
 | `teachers:get` | `getTeachers` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/teacherHandlers.js` |
 | `teachers:getById` | `getTeacherById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/teacherHandlers.js` |
+| `teachers:restore` | `restoreTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
 | `teachers:update` | `updateTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
 
 ### transactions
@@ -331,6 +338,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `users:delete` | `deleteUser` | Superadmin | `handlers/userHandlers.js` |
 | `users:get` | `getUsers` | Superadmin, Administrator, FinanceManager | `handlers/userHandlers.js` |
 | `users:getById` | `getUserById` | Superadmin | `handlers/userHandlers.js` |
+| `users:restore` | `restoreUser` | Superadmin | `handlers/userHandlers.js` |
 | `users:update` | `updateUser` | Superadmin | `handlers/userHandlers.js` |
 | `users:updateGuide` | `updateUserGuide` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/userHandlers.js` |
 

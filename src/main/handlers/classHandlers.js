@@ -95,7 +95,7 @@ function registerClassHandlers() {
   });
 
   ipcMain.handle('classes:restore', async (_event, id) => {
-    if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للاسترجاع.');
+    if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للاستعادة.');
     return restoreRow('classes', id);
   });
 

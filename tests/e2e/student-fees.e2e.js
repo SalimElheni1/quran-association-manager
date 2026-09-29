@@ -117,20 +117,39 @@ test.describe('student fees', () => {
     });
   });
 
-  test('deleting a payment restores the balance', async ({ authedPage: page }) => {
+  test('voiding a payment restores the balance and keeps it in the history', async ({
+    authedPage: page,
+  }) => {
     await recordPayment(page, STUDENT, { amount: 50, receipt: 'FEE-DEL' });
 
     await openPaymentModal(page, STUDENT);
     const payment = modal(page).locator('tbody tr', { hasText: 'FEE-DEL' });
-    await payment.getByRole('button', { name: 'حذف الدفعة' }).click();
-    await confirmPaymentAction(page, 'تأكيد حذف الدفعة', 'نعم، حذف');
-    await expectToast(page, 'success', 'تم حذف الدفعة بنجاح');
+    await payment.getByRole('button', { name: 'إلغاء الدفعة' }).click();
+    await confirmPaymentAction(page, 'تأكيد إلغاء الدفعة', 'نعم، إلغاء');
+    await expectToast(page, 'success', 'تم إلغاء الدفعة بنجاح');
 
     await expectFeeRow(page, STUDENT, {
       due: ANNUAL_FEE,
       paid: 0,
       remaining: ANNUAL_FEE,
       status: 'غير مدفوع',
+    });
+
+    await openPaymentModal(page, STUDENT);
+    const voided = modal(page).locator('tbody tr', { hasText: 'FEE-DEL' });
+    await expect(voided).toContainText('ملغاة');
+    await expect(voided.getByRole('button', { name: 'إلغاء الدفعة' })).toBeDisabled();
+    await expect(voided.getByRole('button', { name: 'استرجاع الدفعة' })).toBeDisabled();
+    await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+
+    // The voided receipt number is free again for the corrected payment
+    await recordPayment(page, STUDENT, { amount: 50, receipt: 'FEE-DEL' });
+    await expectFeeRow(page, STUDENT, {
+      due: ANNUAL_FEE,
+      paid: 50,
+      remaining: ANNUAL_FEE - 50,
+      status: 'جزئياً مدفوع',
     });
   });
 
@@ -155,7 +174,7 @@ test.describe('student fees', () => {
     await openPaymentModal(page, STUDENT);
     const refunded = modal(page).locator('tbody tr', { hasText: 'FEE-REF' });
     await expect(refunded.getByRole('button', { name: 'استرجاع الدفعة' })).toBeDisabled();
-    await expect(refunded.getByRole('button', { name: 'حذف الدفعة' })).toBeDisabled();
+    await expect(refunded.getByRole('button', { name: 'إلغاء الدفعة' })).toBeDisabled();
   });
 
   test('a student fee payment counts as income on the financial dashboard', async ({

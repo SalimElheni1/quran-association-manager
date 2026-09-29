@@ -126,7 +126,7 @@ function registerGroupHandlers() {
       return { success: true };
     } catch (error) {
       console.error(`Error restoring group ${id}:`, error);
-      return { success: false, message: 'فشل في استرجاع المجموعة.' };
+      return { success: false, message: 'فشل في استعادة المجموعة.' };
     }
   });
 

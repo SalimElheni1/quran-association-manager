@@ -220,7 +220,7 @@ test.describe('financials', () => {
     await expect(summaryValue(page, 'عدد العمليات')).toHaveText(await formatCount(page, 0));
   });
 
-  test('deleting an expense removes it from the table and dashboard', async ({
+  test('voiding an expense takes it out of the table and dashboard but keeps it in history', async ({
     authedPage: page,
   }) => {
     await addIncome(page, { voucher: 'E2E-IN-1', amount: 300 });
@@ -228,13 +228,21 @@ test.describe('financials', () => {
     await addExpense(page, { voucher: 'E2E-EX-DEL', amount: 90 });
 
     const row = activePane(page).locator('tbody tr', { hasText: 'E2E-EX-DEL' });
-    await row.getByRole('button', { name: 'حذف العملية' }).click();
-    await expect(modal(page).locator('.modal-title')).toHaveText('تأكيد حذف المصروف');
-    await confirmDialog(page);
+    await row.getByRole('button', { name: 'إلغاء العملية' }).click();
+    await expect(modal(page).locator('.modal-title')).toHaveText('تأكيد إلغاء المصروف');
+    await confirmDialog(page, 'نعم، إلغاء');
 
-    await expectToast(page, 'success', 'تم حذف المصروف بنجاح');
+    await expectToast(page, 'success', 'تم إلغاء المصروف بنجاح');
     await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EX-DEL' })).toHaveCount(0);
     await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EX-KEEP' })).toBeVisible();
+
+    // Still in history, marked voided, with no actions left on it
+    await activePane(page).getByLabel('عرض الملغاة').check();
+    const voided = activePane(page).locator('tbody tr', { hasText: 'E2E-EX-DEL' });
+    await expect(voided).toContainText('ملغاة');
+    await expect(voided.getByRole('button')).toHaveCount(0);
+    await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EX-KEEP' })).toHaveCount(0);
+    await activePane(page).getByLabel('عرض الملغاة').uncheck();
 
     await openTab(page, 'لوحة التحكم');
     await expect(summaryValue(page, 'إجمالي المصاريف')).toContainText(await formatAmount(page, 40));

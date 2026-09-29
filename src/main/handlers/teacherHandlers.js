@@ -110,11 +110,11 @@ function registerTeacherHandlers() {
 
   ipcMain.handle('teachers:restore', async (_event, id) => {
     try {
-      if (!id || typeof id !== 'number') throw new Error('معرف المعلم صالح مطلوب للاسترجاع.');
+      if (!id || typeof id !== 'number') throw new Error('معرف المعلم صالح مطلوب للاستعادة.');
       return await restoreRow('teachers', id);
     } catch (error) {
       logError(`Error restoring teacher ${id}:`, error);
-      throw new Error('فشل استرجاع المعلم.');
+      throw new Error('فشل استعادة المعلم.');
     }
   });
 

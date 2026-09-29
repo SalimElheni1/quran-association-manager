@@ -384,7 +384,7 @@ const StudentFeesTab = () => {
     try {
       if (kind === 'delete') {
         await window.electronAPI.studentFeesDeletePayment(payment.id);
-        toast.success('تم حذف الدفعة بنجاح');
+        toast.success('تم إلغاء الدفعة بنجاح');
       } else {
         await window.electronAPI.studentFeesRefundPayment(payment.id);
         toast.success('تم استرجاع الدفعة بنجاح');
@@ -844,7 +844,9 @@ const StudentFeesTab = () => {
                     <td>{payment.payment_method}</td>
                     <td>{payment.receipt_number || '-'}</td>
                     <td>
-                      {payment.refunded ? (
+                      {payment.voided_at ? (
+                        <Badge bg="secondary">ملغاة</Badge>
+                      ) : payment.refunded ? (
                         <Badge bg="warning">مسترجع</Badge>
                       ) : (
                         <Badge bg="success">مؤكدة</Badge>
@@ -855,7 +857,7 @@ const StudentFeesTab = () => {
                         size="sm"
                         variant="warning"
                         className="me-1"
-                        disabled={!!payment.refunded}
+                        disabled={!!payment.refunded || !!payment.voided_at}
                         onClick={() => handleRefundPayment(payment)}
                         aria-label="استرجاع الدفعة"
                       >
@@ -865,6 +867,7 @@ const StudentFeesTab = () => {
                         size="sm"
                         variant="outline-primary"
                         className="me-1"
+                        disabled={!!payment.voided_at}
                         onClick={() =>
                           setPrintReceipt({
                             type: 'INCOME',
@@ -885,11 +888,12 @@ const StudentFeesTab = () => {
                       <Button
                         size="sm"
                         variant="danger"
-                        disabled={!!payment.refunded}
+                        disabled={!!payment.refunded || !!payment.voided_at}
                         onClick={() => handleDeletePayment(payment)}
-                        aria-label="حذف الدفعة"
+                        aria-label="إلغاء الدفعة"
+                        title="إلغاء (تبقى في السجل)"
                       >
-                        حذف
+                        إلغاء
                       </Button>
                     </td>
                   </tr>
@@ -1278,14 +1282,14 @@ const StudentFeesTab = () => {
         show={!!paymentAction}
         handleClose={() => setPaymentAction(null)}
         handleConfirm={confirmPaymentAction}
-        title={paymentAction?.kind === 'refund' ? 'تأكيد استرجاع الدفعة' : 'تأكيد حذف الدفعة'}
+        title={paymentAction?.kind === 'refund' ? 'تأكيد استرجاع الدفعة' : 'تأكيد إلغاء الدفعة'}
         body={
           paymentAction ? (
             <>
               <p className="mb-2">
                 {paymentAction.kind === 'refund'
                   ? 'هل أنت متأكد من استرجاع هذه الدفعة؟ سيتم عكس الأرصدة والرسوم وتسجيل حركة استرجاع.'
-                  : 'هل أنت متأكد من حذف هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم.'}
+                  : 'هل أنت متأكد من إلغاء هذه الدفعة؟ سيتم عكس كل الأرصدة والرسوم، وتبقى الدفعة في السجل مع علامة «ملغاة».'}
               </p>
               <p className="mb-0">
                 <strong>رقم الوصل:</strong> {paymentAction.payment.receipt_number || '-'}{' '}
@@ -1296,7 +1300,7 @@ const StudentFeesTab = () => {
           ) : null
         }
         confirmVariant={paymentAction?.kind === 'refund' ? 'warning' : 'danger'}
-        confirmText={paymentAction?.kind === 'refund' ? 'نعم، استرجاع' : 'نعم، حذف'}
+        confirmText={paymentAction?.kind === 'refund' ? 'نعم، استرجاع' : 'نعم، إلغاء'}
       />
 
       <VoucherPrintModal

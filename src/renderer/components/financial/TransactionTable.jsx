@@ -98,7 +98,14 @@ function TransactionTable({
             <td>{index + 1}</td>
             <td>{formatDate(transaction.transaction_date)}</td>
             {!compact && <td>{transaction.voucher_number || '-'}</td>}
-            <td>{isIncomeTable ? transaction.category || '-' : transaction.category}</td>
+            <td>
+              {isIncomeTable ? transaction.category || '-' : transaction.category}
+              {transaction.voided_at && (
+                <Badge bg="secondary" className="ms-2">
+                  ملغاة
+                </Badge>
+              )}
+            </td>
             {!compact && <td>{getTranslatedIncomeType(transaction)}</td>}
             <td className={transaction.type === 'INCOME' ? 'text-success' : 'text-danger'}>
               {formatCurrency(transaction.amount)}
@@ -106,7 +113,7 @@ function TransactionTable({
             {!compact && <td>{getPaymentMethodBadge(transaction.payment_method)}</td>}
             {!compact && (
               <td className="table-actions">
-                {onEdit && (
+                {onEdit && !transaction.voided_at && (
                   <Button
                     variant="outline-success"
                     size="sm"
@@ -118,19 +125,19 @@ function TransactionTable({
                     <EditIcon />
                   </Button>
                 )}
-                {onDelete && (
+                {onDelete && !transaction.voided_at && (
                   <Button
                     variant="outline-danger"
                     size="sm"
                     onClick={() => onDelete(transaction)}
                     className="me-2"
-                    aria-label="حذف العملية"
-                    title="حذف"
+                    aria-label="إلغاء العملية"
+                    title="إلغاء (يبقى في السجل)"
                   >
                     <TrashIcon />
                   </Button>
                 )}
-                {onPrint && (
+                {onPrint && !transaction.voided_at && (
                   <Button
                     variant="outline-info"
                     size="sm"

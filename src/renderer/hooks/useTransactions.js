@@ -48,6 +48,7 @@ export function useTransactions(filters = {}) {
     filters.searchTerm,
     filters.page,
     filters.limit,
+    filters.showVoided,
   ]);
 
   useEffect(() => {

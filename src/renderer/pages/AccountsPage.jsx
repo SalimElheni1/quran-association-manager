@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Table, Badge, Modal, Form } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 import { error as logError } from '@renderer/utils/logger';
 
 function AccountsPage() {
@@ -10,14 +11,15 @@ function AccountsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ id: null, name: '' });
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     loadInKindCategories();
-  }, []);
+  }, [showDeleted]);
 
   const loadInKindCategories = async () => {
     try {
-      const cats = await window.electronAPI.getInKindCategories();
+      const cats = await window.electronAPI.getInKindCategories({ showDeleted });
       setInKindCategories(cats);
     } catch (err) {
       logError('Error loading in-kind categories:', err);
@@ -56,6 +58,17 @@ function AccountsPage() {
     setShowDeleteModal(true);
   };
 
+  const handleRestore = async (cat) => {
+    try {
+      await window.electronAPI.restoreInKindCategory(cat.id);
+      toast.success('تمت استعادة الفئة بنجاح');
+      loadInKindCategories();
+    } catch (err) {
+      logError('Error restoring category:', err);
+      toast.error(err.message);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
     try {
@@ -75,9 +88,16 @@ function AccountsPage() {
     <div className="page-container">
       <div className="page-header">
         <h1>إدارة الفئات</h1>
-        <Button variant="primary" onClick={handleAddCategory}>
-          + إضافة فئة
-        </Button>
+        <div className="d-flex gap-3">
+          <ShowDeletedSwitch
+            id="categories-show-deleted"
+            checked={showDeleted}
+            onChange={setShowDeleted}
+          />
+          <Button variant="primary" onClick={handleAddCategory}>
+            + إضافة فئة
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -98,9 +118,23 @@ function AccountsPage() {
                     <Badge bg={cat.is_system ? 'secondary' : 'primary'}>
                       {cat.is_system ? 'افتراضي' : 'مخصص'}
                     </Badge>
+                    {cat.deleted_at && (
+                      <Badge bg="secondary" className="ms-1">
+                        محذوف
+                      </Badge>
+                    )}
                   </td>
                   <td>
-                    {!cat.is_system && (
+                    {cat.deleted_at && (
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        onClick={() => handleRestore(cat)}
+                      >
+                        استعادة
+                      </Button>
+                    )}
+                    {!cat.is_system && !cat.deleted_at && (
                       <>
                         <Button
                           size="sm"
@@ -157,7 +191,7 @@ function AccountsPage() {
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
         title="تأكيد حذف الفئة"
-        body={`هل أنت متأكد من رغبتك في حذف الفئة "${categoryToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف الفئة "${categoryToDelete?.name}"؟ تبقى التبرعات المسجّلة بها محفوظة، ويمكن استعادتها لاحقاً من «عرض المحذوفات».`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

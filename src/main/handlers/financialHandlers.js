@@ -714,7 +714,7 @@ async function handleAddInKindCategory(event, name) {
       ])
       .catch(() => null);
     if (deleted) {
-      throw new Error('توجد فئة محذوفة بهذا الاسم. يمكنك استرجاعها من قائمة المحذوفات.');
+      throw new Error('توجد فئة محذوفة بهذا الاسم. يمكنك استعادتها من قائمة المحذوفات.');
     }
     throw new Error('فشل في إضافة الفئة');
   }
@@ -755,7 +755,7 @@ async function handleRestoreInKindCategory(event, id) {
     return { id };
   } catch (error) {
     logError('Error in handleRestoreInKindCategory:', error);
-    throw new Error('فشل في استرجاع الفئة');
+    throw new Error('فشل في استعادة الفئة');
   }
 }
 

@@ -649,7 +649,7 @@ function registerStudentHandlers() {
         });
       } catch (error) {
         logError(`Error restoring student ${id}:`, error);
-        throw new Error('فشل استرجاع الطالب.');
+        throw new Error('فشل استعادة الطالب.');
       }
     }),
   );

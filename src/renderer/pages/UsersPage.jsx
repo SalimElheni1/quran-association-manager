@@ -16,6 +16,8 @@ import SearchIcon from '@renderer/components/icons/SearchIcon';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
+import RestoreIcon from '@renderer/components/icons/RestoreIcon';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 
 const adminsFields = [
   { key: 'matricule', label: 'الرقم التعريفي' },
@@ -42,6 +44,7 @@ function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -49,7 +52,7 @@ function UsersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, roleFilter]);
+  }, [searchTerm, statusFilter, roleFilter, showDeleted]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -58,6 +61,7 @@ function UsersPage() {
         searchTerm,
         statusFilter,
         roleFilter,
+        showDeleted,
         page: currentPage,
         limit: pageSize,
       };
@@ -77,7 +81,7 @@ function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter, roleFilter, currentPage, pageSize]);
+  }, [searchTerm, statusFilter, roleFilter, showDeleted, currentPage, pageSize]);
 
   useEffect(() => {
     fetchUsers();
@@ -152,6 +156,17 @@ function UsersPage() {
   const handleDeleteRequest = (user) => {
     setUserToDelete(user);
     setShowDeleteModal(true);
+  };
+
+  const handleRestore = async (user) => {
+    try {
+      await window.electronAPI.restoreUser(user.id);
+      toast.success(`تمت استعادة المستخدم "${user.username}" بنجاح.`);
+      fetchUsers();
+    } catch (err) {
+      logError('Error restoring user:', err);
+      toast.error('فشل في استعادة المستخدم.');
+    }
   };
 
   const confirmDelete = async () => {
@@ -242,6 +257,13 @@ function UsersPage() {
             <option value="FinanceManager">مسؤول مالي</option>
             <option value="SessionSupervisor">مشرف حصص</option>
           </Form.Select>
+          {hasPermission(PERMISSIONS.USERS_DELETE) && (
+            <ShowDeletedSwitch
+              id="users-show-deleted"
+              checked={showDeleted}
+              onChange={setShowDeleted}
+            />
+          )}
         </div>
       </div>
 
@@ -286,9 +308,25 @@ function UsersPage() {
                       <Badge bg={statusVariants[user.status]}>
                         {statusTranslations[user.status]}
                       </Badge>
+                      {user.deleted_at && (
+                        <Badge bg="secondary" className="ms-1">
+                          محذوف
+                        </Badge>
+                      )}
                     </td>
                     <td className="table-actions d-flex gap-2">
-                      {hasPermission(PERMISSIONS.USERS_EDIT) && (
+                      {user.deleted_at && hasPermission(PERMISSIONS.USERS_DELETE) && (
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          aria-label="استعادة"
+                          title="استعادة"
+                          onClick={() => handleRestore(user)}
+                        >
+                          <RestoreIcon />
+                        </Button>
+                      )}
+                      {!user.deleted_at && hasPermission(PERMISSIONS.USERS_EDIT) && (
                         <Button
                           variant="outline-success"
                           size="sm"
@@ -298,7 +336,7 @@ function UsersPage() {
                           <EditIcon />
                         </Button>
                       )}
-                      {hasPermission(PERMISSIONS.USERS_DELETE) && (
+                      {!user.deleted_at && hasPermission(PERMISSIONS.USERS_DELETE) && (
                         <Button
                           variant="outline-danger"
                           size="sm"
@@ -314,7 +352,7 @@ function UsersPage() {
               ) : (
                 <tr>
                   <td colSpan="7" className="text-center">
-                    لم يتم العثور على مستخدمين.
+                    {showDeleted ? 'لا يوجد مستخدمون محذوفون.' : 'لم يتم العثور على مستخدمين.'}
                   </td>
                 </tr>
               )}
@@ -345,7 +383,7 @@ function UsersPage() {
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
         title="تأكيد الحذف"
-        body={`هل أنت متأكد من رغبتك في حذف المستخدم "${userToDelete?.username}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف المستخدم "${userToDelete?.username}"؟ لن يتمكن من الدخول، وتبقى العمليات التي سجّلها محفوظة، ويمكن استعادته لاحقاً من «عرض المحذوفات».`}
         confirmVariant="danger"
         confirmText="نعم، قم بالحذف"
       />

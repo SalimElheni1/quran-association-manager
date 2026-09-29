@@ -19,6 +19,8 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import RestoreIcon from '@renderer/components/icons/RestoreIcon';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 import { calculateAge } from '@renderer/utils/age';
 
 const studentsAdultFields = [
@@ -93,6 +95,7 @@ function StudentsPage() {
   const [maxAgeFilter, setMaxAgeFilter] = useState('');
   const [surahFilter, setSurahFilter] = useState([]);
   const [hizbFilter, setHizbFilter] = useState([]);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [allSurahs, setAllSurahs] = useState([]);
   const [allHizbs, setAllHizbs] = useState([]);
   const [pendingSurahFilter, setPendingSurahFilter] = useState([]);
@@ -124,6 +127,7 @@ function StudentsPage() {
     maxAgeFilter,
     surahFilter,
     hizbFilter,
+    showDeleted,
   ]);
 
   // Initialize pending filters with current active filters when modal opens
@@ -180,6 +184,7 @@ function StudentsPage() {
         maxAgeFilter,
         surahIds: Array.isArray(surahFilter) ? surahFilter : surahFilter ? [surahFilter] : [],
         hizbIds: Array.isArray(hizbFilter) ? hizbFilter : hizbFilter ? [hizbFilter] : [],
+        showDeleted,
         page: currentPage,
         limit: pageSize,
       };
@@ -209,6 +214,7 @@ function StudentsPage() {
     maxAgeFilter,
     surahFilter,
     hizbFilter,
+    showDeleted,
     currentPage,
     pageSize,
   ]);
@@ -357,6 +363,17 @@ function StudentsPage() {
     }
   };
 
+  const handleRestore = async (student) => {
+    try {
+      await window.electronAPI.restoreStudent(student.id);
+      toast.success(`تمت استعادة الطالب "${student.name}" بنجاح.`);
+      fetchStudents();
+    } catch (err) {
+      logError('Error restoring student:', err);
+      toast.error(`فشل استعادة الطالب "${student.name}".`);
+    }
+  };
+
   const renderStatusBadge = (status) => {
     // Status values are already translated to Arabic by translateStudent function
     // So we need Arabic keys: نشط, غير نشط
@@ -421,6 +438,13 @@ function StudentsPage() {
             <option value="EXEMPT">معفى من الدفع</option>
             <option value="SPONSORED">مكفول</option>
           </Form.Select>
+          {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
+            <ShowDeletedSwitch
+              id="students-show-deleted"
+              checked={showDeleted}
+              onChange={setShowDeleted}
+            />
+          )}
           <Form.Control
             type="number"
             placeholder="العمر (من)"
@@ -500,7 +524,14 @@ function StudentsPage() {
                     <td>{student.matricule}</td>
                     <td>{student.name}</td>
                     <td>{calculateAge(student.date_of_birth) ?? 'غير متوفر'}</td>
-                    <td>{renderStatusBadge(student.status)}</td>
+                    <td>
+                      {renderStatusBadge(student.status)}
+                      {student.deleted_at && (
+                        <Badge bg="secondary" className="p-2 ms-1">
+                          محذوف
+                        </Badge>
+                      )}
+                    </td>
                     <td className="table-actions d-flex gap-2">
                       <Button
                         variant="outline-info"
@@ -511,7 +542,18 @@ function StudentsPage() {
                       >
                         <EyeIcon />
                       </Button>
-                      {hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
+                      {student.deleted_at && hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => handleRestore(student)}
+                          aria-label="استعادة الطالب"
+                          title="استعادة"
+                        >
+                          <RestoreIcon />
+                        </Button>
+                      )}
+                      {!student.deleted_at && hasPermission(PERMISSIONS.STUDENTS_EDIT) && (
                         <Button
                           variant="outline-success"
                           size="sm"
@@ -522,7 +564,7 @@ function StudentsPage() {
                           <EditIcon />
                         </Button>
                       )}
-                      {hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
+                      {!student.deleted_at && hasPermission(PERMISSIONS.STUDENTS_DELETE) && (
                         <Button
                           variant="outline-danger"
                           size="sm"
@@ -539,14 +581,16 @@ function StudentsPage() {
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center">
-                    {searchTerm ||
-                    genderFilter !== 'all' ||
-                    statusFilter !== 'all' ||
-                    feeCategoryFilter !== 'all' ||
-                    minAgeFilter ||
-                    maxAgeFilter
-                      ? 'لا توجد نتائج تطابق معايير البحث.'
-                      : 'لا يوجد طلاب مسجلون حالياً.'}
+                    {showDeleted
+                      ? 'لا يوجد طلاب محذوفون.'
+                      : searchTerm ||
+                          genderFilter !== 'all' ||
+                          statusFilter !== 'all' ||
+                          feeCategoryFilter !== 'all' ||
+                          minAgeFilter ||
+                          maxAgeFilter
+                        ? 'لا توجد نتائج تطابق معايير البحث.'
+                        : 'لا يوجد طلاب مسجلون حالياً.'}
                   </td>
                 </tr>
               )}
@@ -621,7 +665,7 @@ function StudentsPage() {
         handleClose={handleCloseDeleteModal}
         handleConfirm={confirmDelete}
         title="تأكيد حذف الطالب"
-        body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف الطالب "${studentToDelete?.name}"؟ تبقى دفعاته وسجلّاته محفوظة، وتُلغى رسومه غير المدفوعة، ويمكن استعادته لاحقاً من «عرض المحذوفات».`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

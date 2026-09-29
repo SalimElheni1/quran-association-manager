@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
+import { Card, Button, Table, Spinner, Alert, Badge } from 'react-bootstrap';
 import TablePagination from '../common/TablePagination';
 import InventoryFormModal from './InventoryFormModal';
 import TransactionModal from './TransactionModal';
@@ -12,6 +12,7 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 
 const inventoryFields = [
   { key: 'matricule', label: 'الرقم التعريفي' },
@@ -105,6 +106,17 @@ function InventoryTab() {
     setShowDeleteModal(true);
   };
 
+  const handleRestore = async (item) => {
+    try {
+      await window.electronAPI.restoreInventoryItem(item.id);
+      toast.success(`تمت استعادة الصنف "${item.item_name}" بنجاح.`);
+      fetchItems();
+    } catch (err) {
+      toast.error('فشل في استعادة الصنف.');
+      console.error(err);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (!selectedItem) return;
     try {
@@ -170,7 +182,7 @@ function InventoryTab() {
       return (
         <tr>
           <td colSpan="8" className="text-center">
-            لا توجد أصناف في المخزون حالياً.
+            {filters.showDeleted ? 'لا توجد أصناف محذوفة.' : 'لا توجد أصناف في المخزون حالياً.'}
           </td>
         </tr>
       );
@@ -179,24 +191,39 @@ function InventoryTab() {
     return items.map((item) => (
       <tr key={item.id}>
         <td>{item.matricule}</td>
-        <td>{item.item_name}</td>
+        <td>
+          {item.item_name}
+          {item.deleted_at && (
+            <Badge bg="secondary" className="ms-2">
+              محذوف
+            </Badge>
+          )}
+        </td>
         <td>{item.category}</td>
         <td>{item.quantity}</td>
         <td>{item.unit_value ? `${item.unit_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.acquisition_source || 'غير محدد'}</td>
         <td>
-          <Button
-            variant="outline-primary"
-            size="sm"
-            onClick={() => handleEditItem(item)}
-            className="me-2"
-          >
-            تعديل
-          </Button>
-          <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(item)}>
-            حذف
-          </Button>
+          {item.deleted_at ? (
+            <Button variant="outline-primary" size="sm" onClick={() => handleRestore(item)}>
+              استعادة
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={() => handleEditItem(item)}
+                className="me-2"
+              >
+                تعديل
+              </Button>
+              <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRequest(item)}>
+                حذف
+              </Button>
+            </>
+          )}
         </td>
       </tr>
     ));
@@ -208,6 +235,11 @@ function InventoryTab() {
         <Card.Header className="d-flex justify-content-between align-items-center">
           <h3 className="mb-0">الجرد</h3>
           <div className="d-flex gap-2">
+            <ShowDeletedSwitch
+              id="inventory-show-deleted"
+              checked={!!filters.showDeleted}
+              onChange={(checked) => setFilters((f) => ({ ...f, showDeleted: checked, page: 1 }))}
+            />
             {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
               <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
                 <ExportIcon className="ms-2" /> تصدير البيانات
@@ -278,7 +310,7 @@ function InventoryTab() {
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={handleDeleteConfirm}
         title="تأكيد الحذف"
-        body={`هل أنت متأكد من رغبتك في حذف الصنف "${selectedItem?.item_name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف الصنف "${selectedItem?.item_name}"؟ يخرج من قائمة المخزون ويبقى محفوظاً، ويمكن استعادته لاحقاً من «عرض المحذوفات».`}
       />
 
       <TransactionModal

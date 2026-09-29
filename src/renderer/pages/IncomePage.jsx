@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import TransactionTable from '@renderer/components/financial/TransactionTable';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 import TransactionFilters from '@renderer/components/financial/TransactionFilters';
 import TransactionModal from '@renderer/components/financial/TransactionModal';
 import VoucherPrintModal from '@renderer/components/financial/VoucherPrintModal';
@@ -103,12 +104,14 @@ function IncomePage() {
 
     try {
       await window.electronAPI.deleteTransaction(transactionToDelete.id || transactionToDelete);
-      toast.success('تم حذف المدخول بنجاح');
+      toast.success('تم إلغاء المدخول بنجاح');
       refresh();
       window.dispatchEvent(new Event('financial-data-changed'));
     } catch (err) {
       logError('Error deleting income:', err);
-      toast.error('فشل في حذف المدخول');
+      // Show why (e.g. a student fee payment is voided from the student fees tab).
+      const reason = err && err.message ? err.message.split('Error:').pop().trim() : '';
+      toast.error(reason || 'فشل في إلغاء المدخول');
     } finally {
       setShowDeleteModal(false);
       setTransactionToDelete(null);
@@ -141,12 +144,22 @@ function IncomePage() {
       <Card>
         <Card.Body>
           <TransactionFilters type="INCOME" filters={filters} onChange={setFilters} />
+          <div className="d-flex justify-content-end mb-2">
+            <ShowDeletedSwitch
+              id="income-show-voided"
+              label="عرض الملغاة"
+              checked={!!filters.showVoided}
+              onChange={(checked) =>
+                setFilters((prev) => ({ ...prev, showVoided: checked, page: 1 }))
+              }
+            />
+          </div>
 
           <TransactionTable
             transactions={transactions}
             loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
+            onEdit={filters.showVoided ? undefined : handleEdit}
+            onDelete={filters.showVoided ? undefined : handleDeleteRequest}
             onPrint={handlePrint}
             pagination={pagination}
             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
@@ -180,10 +193,10 @@ function IncomePage() {
         show={showDeleteModal}
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
-        title="تأكيد حذف المدخول"
-        body="هل أنت متأكد من رغبتك في حذف هذا المدخول؟ لا يمكن التراجع عن هذا الإجراء."
+        title="تأكيد إلغاء المدخول"
+        body="هل أنت متأكد من رغبتك في إلغاء هذا المدخول؟ يبقى في السجل مع علامة «ملغاة» ولا يُحتسب بعد الآن في المجاميع والتقارير."
         confirmVariant="danger"
-        confirmText="نعم، حذف"
+        confirmText="نعم، إلغاء"
       />
 
       <ExportModal

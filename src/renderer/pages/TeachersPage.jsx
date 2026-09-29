@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
+import { Table, Button, Spinner, Form, InputGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import TeacherFormModal from '@renderer/components/TeacherFormModal';
 import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
@@ -16,6 +16,8 @@ import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import RestoreIcon from '@renderer/components/icons/RestoreIcon';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 
@@ -39,6 +41,7 @@ function TeachersPage() {
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('all');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -53,7 +56,7 @@ function TeachersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, genderFilter]);
+  }, [searchTerm, genderFilter, showDeleted]);
 
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
@@ -61,6 +64,7 @@ function TeachersPage() {
       const filters = {
         searchTerm,
         genderFilter,
+        showDeleted,
         page: currentPage,
         limit: pageSize,
       };
@@ -80,7 +84,7 @@ function TeachersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, genderFilter, currentPage, pageSize]);
+  }, [searchTerm, genderFilter, showDeleted, currentPage, pageSize]);
 
   useEffect(() => {
     fetchTeachers();
@@ -195,6 +199,17 @@ function TeachersPage() {
     setShowDeleteModal(true);
   };
 
+  const handleRestore = async (teacher) => {
+    try {
+      await window.electronAPI.restoreTeacher(teacher.id);
+      toast.success(`تمت استعادة المعلم "${teacher.name}" بنجاح.`);
+      fetchTeachers();
+    } catch (err) {
+      logError('Error restoring teacher:', err);
+      toast.error(`فشل استعادة المعلم "${teacher.name}".`);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!teacherToDelete) return;
     try {
@@ -255,6 +270,13 @@ function TeachersPage() {
             <option value="Male">ذكر</option>
             <option value="Female">أنثى</option>
           </Form.Select>
+          {hasPermission(PERMISSIONS.TEACHERS_DELETE) && (
+            <ShowDeletedSwitch
+              id="teachers-show-deleted"
+              checked={showDeleted}
+              onChange={setShowDeleted}
+            />
+          )}
         </div>
       </div>
       {loading ? (
@@ -279,7 +301,14 @@ function TeachersPage() {
                   <tr key={teacher.id}>
                     <td>{(currentPage - 1) * pageSize + index + 1}</td>
                     <td>{teacher.matricule}</td>
-                    <td>{teacher.name}</td>
+                    <td>
+                      {teacher.name}
+                      {teacher.deleted_at && (
+                        <Badge bg="secondary" className="ms-2">
+                          محذوف
+                        </Badge>
+                      )}
+                    </td>
                     <td>{teacher.contact_info || '-'}</td>
                     <td className="table-actions d-flex gap-2">
                       <Button
@@ -291,7 +320,18 @@ function TeachersPage() {
                       >
                         <EyeIcon />
                       </Button>
-                      {hasPermission(PERMISSIONS.TEACHERS_EDIT) && (
+                      {teacher.deleted_at && hasPermission(PERMISSIONS.TEACHERS_DELETE) && (
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => handleRestore(teacher)}
+                          aria-label="استعادة المعلم"
+                          title="استعادة"
+                        >
+                          <RestoreIcon />
+                        </Button>
+                      )}
+                      {!teacher.deleted_at && hasPermission(PERMISSIONS.TEACHERS_EDIT) && (
                         <Button
                           variant="outline-success"
                           size="sm"
@@ -302,7 +342,7 @@ function TeachersPage() {
                           <EditIcon />
                         </Button>
                       )}
-                      {hasPermission(PERMISSIONS.TEACHERS_DELETE) && (
+                      {!teacher.deleted_at && hasPermission(PERMISSIONS.TEACHERS_DELETE) && (
                         <Button
                           variant="outline-danger"
                           size="sm"
@@ -319,9 +359,11 @@ function TeachersPage() {
               ) : (
                 <tr>
                   <td colSpan="5" className="text-center">
-                    {searchTerm || genderFilter !== 'all'
-                      ? 'لا توجد نتائج تطابق معايير البحث.'
-                      : 'لا يوجد معلمون مسجلون حالياً.'}
+                    {showDeleted
+                      ? 'لا يوجد معلمون محذوفون.'
+                      : searchTerm || genderFilter !== 'all'
+                        ? 'لا توجد نتائج تطابق معايير البحث.'
+                        : 'لا يوجد معلمون مسجلون حالياً.'}
                   </td>
                 </tr>
               )}
@@ -357,7 +399,7 @@ function TeachersPage() {
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
         title="تأكيد حذف المعلم"
-        body={`هل أنت متأكد من رغبتك في حذف المعلم "${teacherToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف المعلم "${teacherToDelete?.name}"؟ تبقى فصوله وسجلّاته محفوظة، ويمكن استعادته لاحقاً من «عرض المحذوفات».`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

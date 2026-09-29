@@ -18,6 +18,8 @@ import EditIcon from '@renderer/components/icons/EditIcon';
 import TrashIcon from '@renderer/components/icons/TrashIcon';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import RestoreIcon from '@renderer/components/icons/RestoreIcon';
+import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
 import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 
@@ -36,6 +38,7 @@ function ClassesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [classToDelete, setClassToDelete] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -52,13 +55,14 @@ function ClassesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, showDeleted]);
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);
     try {
       const filters = {
         searchTerm,
+        showDeleted,
         page: currentPage,
         limit: pageSize,
       };
@@ -78,7 +82,7 @@ function ClassesPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, currentPage, pageSize]);
+  }, [searchTerm, showDeleted, currentPage, pageSize]);
 
   useEffect(() => {
     fetchClasses();
@@ -200,6 +204,17 @@ function ClassesPage() {
     setShowDeleteModal(true);
   };
 
+  const handleRestore = async (cls) => {
+    try {
+      await window.electronAPI.restoreClass(cls.id);
+      toast.success(`تمت استعادة الفصل "${cls.name}" بنجاح.`);
+      fetchClasses();
+    } catch (err) {
+      logError('Error restoring class:', err);
+      toast.error(`فشل استعادة الفصل "${cls.name}".`);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!classToDelete) return;
     try {
@@ -289,6 +304,15 @@ function ClassesPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </InputGroup>
+        {hasPermission(PERMISSIONS.CLASSES_DELETE) && (
+          <div className="filter-controls">
+            <ShowDeletedSwitch
+              id="classes-show-deleted"
+              checked={showDeleted}
+              onChange={setShowDeleted}
+            />
+          </div>
+        )}
       </div>
       {loading ? (
         <div className="text-center">
@@ -317,9 +341,27 @@ function ClassesPage() {
                     <td>{cls.teacher_name || <span className="text-muted">غير محدد</span>}</td>
                     <td>{formatSchedule(cls.schedule)}</td>
                     <td>{cls.age_group_name || <span className="text-muted">غير محدد</span>}</td>
-                    <td>{renderStatusBadge(cls.status)}</td>
+                    <td>
+                      {renderStatusBadge(cls.status)}
+                      {cls.deleted_at && (
+                        <Badge bg="secondary" className="ms-1">
+                          محذوف
+                        </Badge>
+                      )}
+                    </td>
                     <td className="table-actions d-flex gap-2" style={{ minWidth: '260px' }}>
-                      {hasPermission(PERMISSIONS.CLASSES_EDIT) && (
+                      {cls.deleted_at && hasPermission(PERMISSIONS.CLASSES_DELETE) && (
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => handleRestore(cls)}
+                          aria-label="استعادة الفصل"
+                          title="استعادة"
+                        >
+                          <RestoreIcon />
+                        </Button>
+                      )}
+                      {!cls.deleted_at && hasPermission(PERMISSIONS.CLASSES_EDIT) && (
                         <Button
                           variant="outline-primary"
                           size="sm"
@@ -337,7 +379,7 @@ function ClassesPage() {
                       >
                         <EyeIcon />
                       </Button>
-                      {hasPermission(PERMISSIONS.CLASSES_EDIT) && (
+                      {!cls.deleted_at && hasPermission(PERMISSIONS.CLASSES_EDIT) && (
                         <Button
                           variant="outline-success"
                           size="sm"
@@ -348,7 +390,7 @@ function ClassesPage() {
                           <EditIcon />
                         </Button>
                       )}
-                      {hasPermission(PERMISSIONS.CLASSES_DELETE) && (
+                      {!cls.deleted_at && hasPermission(PERMISSIONS.CLASSES_DELETE) && (
                         <Button
                           variant="outline-danger"
                           size="sm"
@@ -365,9 +407,11 @@ function ClassesPage() {
               ) : (
                 <tr>
                   <td colSpan="7" className="text-center">
-                    {searchTerm
-                      ? 'لا توجد نتائج تطابق معايير البحث.'
-                      : 'لا توجد فصول دراسية مسجلة حالياً.'}
+                    {showDeleted
+                      ? 'لا توجد فصول محذوفة.'
+                      : searchTerm
+                        ? 'لا توجد نتائج تطابق معايير البحث.'
+                        : 'لا توجد فصول دراسية مسجلة حالياً.'}
                   </td>
                 </tr>
               )}
@@ -403,7 +447,7 @@ function ClassesPage() {
         handleClose={() => setShowDeleteModal(false)}
         handleConfirm={confirmDelete}
         title="تأكيد حذف الفصل"
-        body={`هل أنت متأكد من رغبتك في حذف الفصل "${classToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        body={`هل أنت متأكد من رغبتك في حذف الفصل "${classToDelete?.name}"؟ يبقى تسجيل طلابه وحضورهم ورسومهم محفوظاً، ويمكن استعادته لاحقاً من «عرض المحذوفات».`}
         confirmVariant="danger"
         confirmText="نعم، حذف"
       />

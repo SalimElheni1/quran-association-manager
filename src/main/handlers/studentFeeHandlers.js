@@ -1755,7 +1755,7 @@ async function recordStudentPayment(event, paymentDetails) {
       throw new Error('رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.');
     }
     if (error.message === 'DELETED_STUDENT') {
-      throw new Error('هذا الطالب محذوف. استرجعه أولاً لتسجيل دفعة له.');
+      throw new Error('هذا الطالب محذوف. استعِده أولاً لتسجيل دفعة له.');
     }
     throw new Error('فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.');
   }

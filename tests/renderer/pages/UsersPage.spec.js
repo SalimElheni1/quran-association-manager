@@ -32,6 +32,8 @@ jest.mock('react-bootstrap', () => ({
     Select: (props) => <select {...props} />,
     Label: ({ children }) => <label>{children}</label>,
     Group: ({ children }) => <div>{children}</div>,
+    // eslint-disable-next-line no-unused-vars
+    Check: ({ label, type, ...props }) => <input type="checkbox" aria-label={label} {...props} />,
   },
   Modal: Object.assign(({ children, show }) => (show ? <div>{children}</div> : null), {
     Header: ({ children }) => <div>{children}</div>,
