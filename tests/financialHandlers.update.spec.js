@@ -146,7 +146,7 @@ describe('transactions linked to a student fee payment', () => {
     expect(db.runQuery.mock.calls[1][0]).toContain('UPDATE transactions SET');
   });
 
-  it('deletes a fee payment through the student fee reversal', async () => {
+  it('voids a fee payment through the student fee reversal', async () => {
     const studentFeeHandlers = require('../src/main/handlers/studentFeeHandlers');
     const spy = jest
       .spyOn(studentFeeHandlers, 'deleteStudentPayment')
@@ -155,7 +155,7 @@ describe('transactions linked to a student fee payment', () => {
 
     await expect(handlers.handleDeleteTransaction(null, 7)).resolves.toEqual({ id: 7 });
 
-    expect(spy).toHaveBeenCalledWith(3);
+    expect(spy).toHaveBeenCalledWith(3, null);
     expect(db.runQuery).not.toHaveBeenCalledWith('DELETE FROM transactions WHERE id = ?', [7]);
     spy.mockRestore();
   });
@@ -171,5 +171,72 @@ describe('transactions linked to a student fee payment', () => {
 
     await expect(handlers.handleDeleteTransaction(null, 7)).rejects.toThrow('مرتبطة برسوم الطلاب');
     expect(db.runQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe('voiding transactions', () => {
+  let handlers;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    handlers = require('../src/main/handlers/financialHandlers');
+  });
+
+  it('keeps a deleted transaction as voided and takes it out of the balance', async () => {
+    const txn = { id: 9, account_id: 2, type: 'INCOME', amount: 40, category: 'تبرع' };
+    db.getQuery
+      .mockResolvedValueOnce(txn) // lookup
+      .mockResolvedValueOnce(undefined) // not a fee payment
+      .mockResolvedValueOnce(txn); // inside the transaction
+
+    await expect(handlers.handleDeleteTransaction(null, 9)).resolves.toEqual({ id: 9 });
+
+    expect(db.runQuery).toHaveBeenCalledWith(
+      'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?',
+      [-40, 2],
+    );
+    expect(db.runQuery).toHaveBeenCalledWith(
+      'UPDATE transactions SET voided_at = ?, voided_by = ? WHERE id = ?',
+      [expect.any(String), null, 9],
+    );
+    expect(db.runQuery).not.toHaveBeenCalledWith(
+      'DELETE FROM transactions WHERE id = ?',
+      expect.anything(),
+    );
+  });
+
+  it('refuses to void a transaction twice or to edit a voided one', async () => {
+    const voided = { id: 9, account_id: 2, type: 'INCOME', amount: 40, voided_at: '2026-09-29' };
+    db.getQuery.mockResolvedValueOnce(voided);
+    await expect(handlers.handleDeleteTransaction(null, 9)).rejects.toThrow('ملغاة بالفعل');
+
+    db.getQuery.mockResolvedValueOnce(voided);
+    await expect(
+      handlers.handleUpdateTransaction(null, 9, {
+        type: 'INCOME',
+        category: 'تبرع',
+        amount: 40,
+        transaction_date: '2026-01-15',
+        payment_method: 'CASH',
+        account_id: 2,
+      }),
+    ).rejects.toThrow('لا يمكن تعديل عملية ملغاة');
+    expect(db.runQuery).not.toHaveBeenCalled();
+  });
+
+  it('leaves voided transactions and payments out of the financial summary', async () => {
+    db.getQuery.mockResolvedValue({ name: 'transactions', total: 0, count: 0 });
+    db.allQuery.mockResolvedValue([]);
+
+    await handlers.handleGetFinancialSummary(null, {
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+    });
+
+    const sqls = [...db.allQuery.mock.calls, ...db.getQuery.mock.calls]
+      .map(([sql]) => sql)
+      .filter((sql) => /FROM (transactions|student_payments)/.test(sql) && /SUM\(/.test(sql));
+    expect(sqls.length).toBeGreaterThanOrEqual(3);
+    for (const sql of sqls) expect(sql).toContain('voided_at IS NULL');
   });
 });

@@ -564,6 +564,7 @@ async function fetchExportData({ type, fields, options = {} }) {
       query = `SELECT ${selectedFields}
                FROM student_payments sp
                JOIN students s ON sp.student_id = s.id
+               WHERE sp.voided_at IS NULL
                ORDER BY sp.payment_date DESC, s.name`;
       return allQuery(query, params);
     }
@@ -589,7 +590,7 @@ async function fetchExportData({ type, fields, options = {} }) {
 
       query = `SELECT ${selectedFields}
                FROM transactions
-               WHERE type = 'EXPENSE'
+               WHERE type = 'EXPENSE' AND voided_at IS NULL
                ORDER BY transaction_date DESC`;
       return allQuery(query, params);
     }
@@ -618,7 +619,7 @@ async function fetchExportData({ type, fields, options = {} }) {
 
       query = `SELECT ${incomeSelectedFields}
                FROM transactions
-               WHERE type = 'INCOME'
+               WHERE type = 'INCOME' AND voided_at IS NULL
                ORDER BY transaction_date DESC`;
       return allQuery(query, params);
     }

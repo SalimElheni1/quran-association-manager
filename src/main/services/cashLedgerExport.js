@@ -9,7 +9,7 @@ async function getStartingBalance(startDate) {
       SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_income,
       SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense
      FROM transactions 
-     WHERE transaction_date < ?`,
+     WHERE transaction_date < ? AND voided_at IS NULL`,
     [startDate],
   );
   const account = await db.getQuery('SELECT initial_balance FROM accounts WHERE id = 1');
@@ -54,7 +54,7 @@ async function generateCashLedgerReport(event, { period }) {
   try {
     const { startDate, endDate } = period;
     const transactions = await db.allQuery(
-      `SELECT * FROM transactions WHERE transaction_date BETWEEN ? AND ? AND category != 'التبرعات العينية' ORDER BY transaction_date ASC, id ASC`,
+      `SELECT * FROM transactions WHERE transaction_date BETWEEN ? AND ? AND category != 'التبرعات العينية' AND voided_at IS NULL ORDER BY transaction_date ASC, id ASC`,
       [startDate, endDate],
     );
     const startingBalance = await getStartingBalance(startDate);

@@ -136,7 +136,7 @@ const ENROLLED_CLASSES_SQL = `
   FROM classes c
   JOIN class_students cs ON c.id = cs.class_id
   LEFT JOIN age_groups ag ON ag.id = c.age_group_id
-  WHERE cs.student_id = ? AND c.status = 'active'
+  WHERE cs.student_id = ? AND c.status = 'active' AND c.deleted_at IS NULL
 `;
 
 // The age groups of a student's active classes, with their fee amounts (NULL = branch amount),
@@ -148,7 +148,7 @@ const ENROLLED_FEE_GROUPS_SQL = `
   FROM classes c
   JOIN class_students cs ON c.id = cs.class_id
   JOIN age_groups ag ON ag.id = c.age_group_id
-  WHERE cs.student_id = ? AND c.status = 'active'
+  WHERE cs.student_id = ? AND c.status = 'active' AND c.deleted_at IS NULL
   GROUP BY ag.id
   ORDER BY ag.min_age, ag.id
 `;
@@ -314,7 +314,7 @@ async function generateAnnualFeeCharges(academicYear) {
     }
 
     const students = await db.allQuery(
-      "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+      "SELECT id FROM students WHERE status = 'active' AND deleted_at IS NULL AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
     );
 
     const chargeDate = toLocalISODate();
@@ -358,7 +358,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
     .withTransaction(async () => {
       const branchFees = await getBranchFees();
       const hasSpecialFeeClasses = await db.getQuery(
-        "SELECT 1 AS found FROM classes WHERE status = 'active' AND fee_type = 'special' AND monthly_fee > 0 LIMIT 1",
+        "SELECT 1 AS found FROM classes WHERE status = 'active' AND deleted_at IS NULL AND fee_type = 'special' AND monthly_fee > 0 LIMIT 1",
       );
 
       if (!(await getConfiguredFeeKinds(branchFees)).monthly && !hasSpecialFeeClasses) {
@@ -387,7 +387,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
       const monthName = monthNames[month - 1];
 
       const students = await db.allQuery(
-        "SELECT id, gender, discount_percentage FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+        "SELECT id, gender, discount_percentage FROM students WHERE status = 'active' AND deleted_at IS NULL AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
       );
 
       let createdCount = 0;
@@ -581,11 +581,12 @@ async function triggerChargeRegenerationForStudent(studentId, options = {}) {
     log(`[ChargeRegen] Options: regenCurrentMonth=${regenCurrentMonth}`);
 
     const student = await db.getQuery(
-      'SELECT id, name, status, fee_category FROM students WHERE id = ?',
+      'SELECT id, name, status, fee_category, deleted_at FROM students WHERE id = ?',
       [studentId],
     );
 
-    if (!student) {
+    // A deleted student is never billed again (a restore brings their charges back).
+    if (!student || student.deleted_at) {
       log(`[ChargeRegen] ❌ Student ${studentId} not found`);
       releaseChargeRegenerationLock(studentId);
       return { success: false, message: 'Student not found' };
@@ -763,7 +764,7 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
       throw new Error('Student not found');
     }
 
-    if (student.status !== 'active') {
+    if (student.status !== 'active' || student.deleted_at) {
       log(`[refreshStudentCharges] Student ${studentId} is not active - skipping`);
       return {
         success: true,
@@ -977,9 +978,9 @@ async function identifyStudentsNeedingChargeRefresh(academicYear = null) {
     JOIN class_students cs ON s.id = cs.student_id
     JOIN classes c ON cs.class_id = c.id
     LEFT JOIN student_fee_charges sfc ON s.id = sfc.student_id AND sfc.academic_year = ?
-    WHERE s.status = 'active'
+    WHERE s.status = 'active' AND s.deleted_at IS NULL
       AND s.fee_category IN ('CAN_PAY', 'SPONSORED')
-      AND c.status = 'active'
+      AND c.status = 'active' AND c.deleted_at IS NULL
       AND c.fee_type = 'special'
       AND sfc.id IS NOT NULL
     GROUP BY s.id, s.name, s.matricule, cs.enrollment_date
@@ -1147,7 +1148,7 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
     const currentMonth = now.getMonth() + 1;
 
     const students = await db.allQuery(
-      "SELECT id, name, matricule FROM students WHERE status = 'active' AND fee_category IN ('CAN_PAY', 'SPONSORED')",
+      "SELECT id, name, matricule FROM students WHERE status = 'active' AND deleted_at IS NULL AND fee_category IN ('CAN_PAY', 'SPONSORED')",
     );
 
     if (students.length === 0) {
@@ -1236,7 +1237,8 @@ async function getStudentFeeStatus(studentId, academicYear = null) {
   try {
     const normalizedYear = normalizeAcademicYear(academicYear);
     const charges = await db.allQuery(
-      `SELECT * FROM student_fee_charges WHERE student_id = ?${
+      // Cancelled charges (of a deleted student) are history, not money owed.
+      `SELECT * FROM student_fee_charges WHERE student_id = ? AND cancelled_at IS NULL${
         normalizedYear ? " AND (academic_year = ? OR fee_type = 'CREDIT')" : ''
       }`,
       normalizedYear ? [studentId, normalizedYear] : [studentId],
@@ -1317,7 +1319,7 @@ async function getStudentPreviousYearsArrears(studentId, academicYear) {
   if (!normalizedYear) return [];
   const charges = await db.allQuery(
     `SELECT * FROM student_fee_charges
-     WHERE student_id = ? AND academic_year < ? AND fee_type != 'CREDIT'
+     WHERE student_id = ? AND academic_year < ? AND fee_type != 'CREDIT' AND cancelled_at IS NULL
      ORDER BY academic_year DESC, due_date ASC, created_at ASC`,
     [studentId, normalizedYear],
   );
@@ -1440,6 +1442,9 @@ async function recordStudentPayment(event, paymentDetails) {
     const studentPaymentId = await db.withTransaction(async () => {
       console.log(`[PAYMENT_DB] Transaction started successfully`);
 
+      const payer = await db.getQuery('SELECT deleted_at FROM students WHERE id = ?', [student_id]);
+      if (payer && payer.deleted_at) throw new Error('DELETED_STUDENT');
+
       const normalizedAcademicYear =
         normalizeAcademicYear(academic_year) || (await getConfiguredAcademicYear());
 
@@ -1458,15 +1463,16 @@ async function recordStudentPayment(event, paymentDetails) {
           [receipt_number],
         );
 
-        // Check student_payments table (exclude current payment if updating)
+        // Check student_payments table. A voided payment frees its receipt number for the
+        // corrected entry (it stays on the voided row for history).
         const existingStudentPayment = await db.getQuery(
-          'SELECT id FROM student_payments WHERE receipt_number = ?',
+          'SELECT id FROM student_payments WHERE receipt_number = ? AND voided_at IS NULL',
           [receipt_number],
         );
 
         // Check unified transactions table (receipts are stored in voucher_number)
         const existingTransaction = await db.getQuery(
-          'SELECT id FROM transactions WHERE voucher_number = ?',
+          'SELECT id FROM transactions WHERE voucher_number = ? AND voided_at IS NULL',
           [receipt_number],
         );
 
@@ -1534,7 +1540,7 @@ async function recordStudentPayment(event, paymentDetails) {
         `
       SELECT * FROM student_fee_charges
       WHERE student_id = ? AND status IN ('UNPAID', 'PARTIALLY_PAID') AND fee_type != 'CREDIT'
-        AND academic_year = ?
+        AND academic_year = ? AND cancelled_at IS NULL
       ORDER BY due_date ASC, created_at ASC
     `,
         [student_id, normalizedAcademicYear],
@@ -1748,12 +1754,17 @@ async function recordStudentPayment(event, paymentDetails) {
     if (error.message === 'DUPLICATE_RECEIPT') {
       throw new Error('رقم الوصل الذي أدخلته موجود بالفعل. يرجى استخدام رقم وصل جديد.');
     }
+    if (error.message === 'DELETED_STUDENT') {
+      throw new Error('هذا الطالب محذوف. استرجعه أولاً لتسجيل دفعة له.');
+    }
     throw new Error('فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.');
   }
 }
 
+const ALREADY_VOIDED_MESSAGE = 'هذه الدفعة ملغاة بالفعل.';
+
 const CREDIT_USED_MESSAGE =
-  'لا يمكن حذف أو استرجاع هذه الدفعة لأن رصيدها الزائد استُعمل في دفعة لاحقة. احذف الدفعة اللاحقة أولاً.';
+  'لا يمكن إلغاء أو استرجاع هذه الدفعة لأن رصيدها الزائد استُعمل في دفعة لاحقة. ألغِ الدفعة اللاحقة أولاً.';
 
 /**
  * Throws when the overpayment credit a payment created has already been used by a later
@@ -1773,17 +1784,20 @@ async function assertCreditNotUsed(paymentId) {
 }
 
 /**
- * Reverses a student payment as if it never happened, atomically.
- * Reverses: charge amount_paid/status, breakdown rows, the overpayment credit
- * created by this payment, the linked transactions row, and the account balance.
- * @param {number} paymentId - student_payments row to remove
+ * Voids a student payment ("delete" in the UI), atomically. The payment and its transaction
+ * stay in history marked voided; they no longer count anywhere. Reverses the charge
+ * amount_paid/status, the breakdown rows, the overpayment credit created by this payment and
+ * the account balance.
+ * @param {number} paymentId - student_payments row to void
+ * @param {number|null} [userId] - acting user id
  * @returns {Promise<{success: boolean, message: string}>}
  */
-async function deleteStudentPayment(paymentId) {
+async function deleteStudentPayment(paymentId, userId = null) {
   try {
     const result = await db.withTransaction(async () => {
       const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
       if (!payment) throw new Error('الدفعة غير موجودة');
+      if (payment.voided_at) throw new Error(ALREADY_VOIDED_MESSAGE);
       if (payment.refunded) throw new Error('لا يمكن حذف دفعة مسترجعة');
       await assertCreditNotUsed(paymentId);
 
@@ -1814,25 +1828,37 @@ async function deleteStudentPayment(paymentId) {
       // 3. Remove the overpayment credit this payment created
       await db.runQuery('DELETE FROM student_fee_charges WHERE source_payment_id = ?', [paymentId]);
 
-      // 4. Reverse the linked INCOME transaction and the account balance
+      const voidedAt = toLocalISODateTime();
+
+      // 4. Void the linked INCOME transaction and reverse the account balance
       if (payment.transaction_id) {
         const txn = await db.getQuery(
-          'SELECT amount, account_id, type FROM transactions WHERE id = ?',
+          'SELECT amount, account_id, type, voided_at FROM transactions WHERE id = ?',
           [payment.transaction_id],
         );
-        if (txn && txn.type === 'INCOME') {
-          await db.runQuery(
-            'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
-            [txn.amount, txn.account_id],
-          );
+        if (txn && !txn.voided_at) {
+          if (txn.type === 'INCOME') {
+            await db.runQuery(
+              'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?',
+              [txn.amount, txn.account_id],
+            );
+          }
+          await db.runQuery('UPDATE transactions SET voided_at = ?, voided_by = ? WHERE id = ?', [
+            voidedAt,
+            userId,
+            payment.transaction_id,
+          ]);
         }
-        await db.runQuery('DELETE FROM transactions WHERE id = ?', [payment.transaction_id]);
       }
 
-      // 5. Delete the payment record
-      await db.runQuery('DELETE FROM student_payments WHERE id = ?', [paymentId]);
+      // 5. Void the payment record (kept for history)
+      await db.runQuery('UPDATE student_payments SET voided_at = ?, voided_by = ? WHERE id = ?', [
+        voidedAt,
+        userId,
+        paymentId,
+      ]);
 
-      return { success: true, message: 'تم حذف الدفعة بنجاح' };
+      return { success: true, message: 'تم إلغاء الدفعة بنجاح' };
     });
 
     notifyFinancialDataChanged();
@@ -1842,11 +1868,12 @@ async function deleteStudentPayment(paymentId) {
     if (
       error.message === 'الدفعة غير موجودة' ||
       error.message === 'لا يمكن حذف دفعة مسترجعة' ||
+      error.message === ALREADY_VOIDED_MESSAGE ||
       error.message === CREDIT_USED_MESSAGE
     ) {
       throw error;
     }
-    throw new Error('فشل في حذف الدفعة');
+    throw new Error('فشل في إلغاء الدفعة');
   }
 }
 
@@ -1863,6 +1890,7 @@ async function refundStudentPayment(paymentId, userId = null) {
     const result = await db.withTransaction(async () => {
       const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
       if (!payment) throw new Error('الدفعة غير موجودة');
+      if (payment.voided_at) throw new Error(ALREADY_VOIDED_MESSAGE);
       if (payment.refunded) throw new Error('الدفعة مسترجعة بالفعل');
       await assertCreditNotUsed(paymentId);
 
@@ -1934,6 +1962,7 @@ async function refundStudentPayment(paymentId, userId = null) {
     if (
       error.message === 'الدفعة غير موجودة' ||
       error.message === 'الدفعة مسترجعة بالفعل' ||
+      error.message === ALREADY_VOIDED_MESSAGE ||
       error.message === CREDIT_USED_MESSAGE
     ) {
       throw error;
@@ -2006,6 +2035,7 @@ function registerStudentFeeHandlers() {
         SELECT c.id, c.name FROM classes c
         JOIN class_students cs ON c.id = cs.class_id
         WHERE cs.student_id = ? AND c.status = 'active' AND c.fee_type = 'special'
+          AND c.deleted_at IS NULL
       `,
           [studentId],
         );
@@ -2102,7 +2132,7 @@ function registerStudentFeeHandlers() {
     'student-fees:deletePayment',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { paymentId }) => {
-        return await deleteStudentPayment(paymentId);
+        return await deleteStudentPayment(paymentId, getUserIdForEvent(event));
       },
     ),
   );
@@ -2122,7 +2152,7 @@ function registerStudentFeeHandlers() {
       async (_event, academicYear) => {
         try {
           const students = await db.allQuery(
-            'SELECT id, name, matricule, fee_category, sponsor_name, sponsor_phone FROM students WHERE status = ? ORDER BY name',
+            'SELECT id, name, matricule, fee_category, sponsor_name, sponsor_phone FROM students WHERE status = ? AND deleted_at IS NULL ORDER BY name',
             ['active'],
           );
 
@@ -2134,7 +2164,7 @@ function registerStudentFeeHandlers() {
               // Credit is left out: it counts toward the current year (see getStudentFeeStatus).
               `SELECT student_id, academic_year, SUM(amount - amount_paid) AS balance
                FROM student_fee_charges
-               WHERE academic_year < ? AND fee_type != 'CREDIT'
+               WHERE academic_year < ? AND fee_type != 'CREDIT' AND cancelled_at IS NULL
                GROUP BY student_id, academic_year`,
               [normalizedYear],
             );
@@ -2403,7 +2433,7 @@ async function checkAndGenerateChargesForAllStudents(settings) {
     log(`[checkAndGenerateChargesForAllStudents] Using academic year: ${academicYear}`);
 
     const students = await db.allQuery(
-      "SELECT id FROM students WHERE status = 'active' AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
+      "SELECT id FROM students WHERE status = 'active' AND deleted_at IS NULL AND (fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED')",
     );
 
     if (students.length === 0) {
@@ -2495,7 +2525,8 @@ async function checkAndGenerateChargesForAllStudents(settings) {
 async function resetStudentFeeCharges(academicYear = 'ALL') {
   return db.withTransaction(async () => {
     let sql =
-      "DELETE FROM student_fee_charges WHERE (amount_paid IS NULL OR amount_paid = 0) AND status = 'UNPAID'";
+      // Cancelled charges belong to deleted students and are kept for their history.
+      "DELETE FROM student_fee_charges WHERE (amount_paid IS NULL OR amount_paid = 0) AND status = 'UNPAID' AND cancelled_at IS NULL";
     const params = [];
 
     if (academicYear && academicYear !== 'ALL') {

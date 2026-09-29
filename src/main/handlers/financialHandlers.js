@@ -13,6 +13,7 @@ const { getUserIdForEvent } = require('../sessionManager');
 const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
 const { translateTransaction, translateArray } = require('../utils/translations');
 const { roundCurrency } = require('../utils');
+const { toLocalISODateTime } = require('../utils/dates');
 
 // ============================================
 // HELPER FUNCTIONS
@@ -65,7 +66,10 @@ async function recomputeAccountBalances() {
     const accounts = await db.allQuery(
       'SELECT id, name, initial_balance, current_balance FROM accounts',
     );
-    const transactions = await db.allQuery('SELECT account_id, type, amount FROM transactions');
+    // Voided transactions no longer count toward any balance.
+    const transactions = await db.allQuery(
+      'SELECT account_id, type, amount FROM transactions WHERE voided_at IS NULL',
+    );
 
     const totals = new Map();
     for (const txn of transactions) {
@@ -126,7 +130,7 @@ async function handleGetTransactions(event, filters) {
       FROM transactions t
       LEFT JOIN accounts a ON t.account_id = a.id
       LEFT JOIN users u ON t.created_by_user_id = u.id
-      WHERE 1=1
+      WHERE ${filters && filters.showVoided ? 't.voided_at IS NOT NULL' : 't.voided_at IS NULL'}
     `;
     const params = [];
 
@@ -200,7 +204,9 @@ async function handleGetEarliestTransactionDate() {
     if (!tableCheck) {
       return { date: null };
     }
-    const result = await db.getQuery('SELECT MIN(transaction_date) as date FROM transactions');
+    const result = await db.getQuery(
+      'SELECT MIN(transaction_date) as date FROM transactions WHERE voided_at IS NULL',
+    );
     return { date: result?.date || null };
   } catch (error) {
     logError('Error in handleGetEarliestTransactionDate:', error);
@@ -240,9 +246,10 @@ async function handleAddTransaction(event, transaction) {
 
       // For in-kind donations, if voucher_number conflicts, make it unique by prefixing
       if (validatedData.category === 'التبرعات العينية' && validatedData.voucher_number) {
-        const existing = await db.getQuery('SELECT id FROM transactions WHERE voucher_number = ?', [
-          validatedData.voucher_number,
-        ]);
+        const existing = await db.getQuery(
+          'SELECT id FROM transactions WHERE voucher_number = ? AND voided_at IS NULL',
+          [validatedData.voucher_number],
+        );
         if (existing) {
           validatedData.voucher_number = `INK-${validatedData.voucher_number}-${Date.now()}`;
         }
@@ -319,6 +326,9 @@ async function handleUpdateTransaction(event, id, transaction) {
       const oldTransaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [id]);
       if (!oldTransaction) {
         throw new Error('العملية المالية غير موجودة');
+      }
+      if (oldTransaction.voided_at) {
+        throw new Error('لا يمكن تعديل عملية ملغاة.');
       }
 
       // Validate data
@@ -417,9 +427,10 @@ const FEE_LINKED_MESSAGE =
  * @returns {Promise<{payment: object|null, isFeeRefund: boolean}>}
  */
 async function findFeeLink(transaction) {
-  const payment = await db.getQuery('SELECT id FROM student_payments WHERE transaction_id = ?', [
-    transaction.id,
-  ]);
+  const payment = await db.getQuery(
+    'SELECT id FROM student_payments WHERE transaction_id = ? AND voided_at IS NULL',
+    [transaction.id],
+  );
   const isFeeRefund =
     transaction.type === 'EXPENSE' &&
     transaction.category === 'استرجاع رسوم' &&
@@ -427,20 +438,30 @@ async function findFeeLink(transaction) {
   return { payment: payment || null, isFeeRefund };
 }
 
+const ALREADY_VOIDED_MESSAGE = 'هذه العملية ملغاة بالفعل.';
+
+/**
+ * Voids a transaction ("delete" in the UI): the row stays in history marked voided, its amount
+ * is taken back out of the account balance and it no longer counts in totals or reports.
+ */
 async function handleDeleteTransaction(event, transactionId) {
   try {
+    const userId = getUserIdForEvent(event);
     const existing = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [transactionId]);
+    if (existing && existing.voided_at) {
+      throw Object.assign(new Error(ALREADY_VOIDED_MESSAGE), { userFacing: true });
+    }
     if (existing) {
       const { payment, isFeeRefund } = await findFeeLink(existing);
       if (isFeeRefund) {
         throw Object.assign(new Error(FEE_LINKED_MESSAGE), { userFacing: true });
       }
       if (payment) {
-        // Delete it the way the student fees tab does: charges, credit, balance and the
+        // Void it the way the student fees tab does: charges, credit, balance and the
         // transaction are all reversed together.
         const { deleteStudentPayment } = require('./studentFeeHandlers');
         try {
-          await deleteStudentPayment(payment.id);
+          await deleteStudentPayment(payment.id, userId);
         } catch (feeError) {
           throw Object.assign(new Error(feeError.message), { userFacing: true });
         }
@@ -459,7 +480,11 @@ async function handleDeleteTransaction(event, transactionId) {
       // Reverse balance
       await updateAccountBalance(transaction.account_id, transaction.type, -transaction.amount);
 
-      await db.runQuery('DELETE FROM transactions WHERE id = ?', [transactionId]);
+      await db.runQuery('UPDATE transactions SET voided_at = ?, voided_by = ? WHERE id = ?', [
+        toLocalISODateTime(),
+        userId,
+        transactionId,
+      ]);
       return transaction;
     });
 
@@ -472,7 +497,7 @@ async function handleDeleteTransaction(event, transactionId) {
   } catch (error) {
     logError('Error in handleDeleteTransaction:', error);
     if (error.userFacing) throw new Error(error.message);
-    throw new Error('فشل في حذف العملية المالية');
+    throw new Error('فشل في إلغاء العملية المالية');
   }
 }
 
@@ -513,7 +538,7 @@ async function handleGetFinancialSummary(_event, period) {
         COUNT(*) as count
       FROM transactions
       WHERE transaction_date BETWEEN ? AND ?
-        AND type = 'INCOME'
+        AND type = 'INCOME' AND voided_at IS NULL
         AND category NOT IN ('معلوم الترسيم', 'معلوم شهري', 'رسوم الطلاب')
         AND (receipt_type IS NULL OR (receipt_type != 'رسوم الطلاب' AND receipt_type != 'fee_payment'))
       GROUP BY
@@ -534,7 +559,7 @@ async function handleGetFinancialSummary(_event, period) {
       -- Compare dates, not date-times: '2026-10-31 14:00:00' is after '2026-10-31' as text,
       -- which dropped payments made on a period's last day.
       WHERE date(sp.payment_date) BETWEEN ? AND ?
-        AND sp.amount > 0
+        AND sp.amount > 0 AND sp.voided_at IS NULL
     `;
 
     // Get expenses grouped by category
@@ -544,7 +569,7 @@ async function handleGetFinancialSummary(_event, period) {
         SUM(amount) as total,
         COUNT(*) as count
       FROM transactions
-      WHERE transaction_date BETWEEN ? AND ? AND type = 'EXPENSE'
+      WHERE transaction_date BETWEEN ? AND ? AND type = 'EXPENSE' AND voided_at IS NULL
       GROUP BY category
     `;
 
@@ -565,7 +590,7 @@ async function handleGetFinancialSummary(_event, period) {
 
     const recentTransactions = await db.allQuery(
       `SELECT * FROM transactions
-       WHERE transaction_date BETWEEN ? AND ?
+       WHERE transaction_date BETWEEN ? AND ? AND voided_at IS NULL
        ORDER BY transaction_date DESC, id DESC
        LIMIT 10`,
       [startDate, endDate],

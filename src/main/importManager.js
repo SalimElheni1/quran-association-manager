@@ -1497,7 +1497,9 @@ async function processAttendanceRow(row, headerRow) {
       message: `لم يتم العثور على طالب بالرقم التعريفي "${studentMatricule}".`,
     };
   }
-  const classData = await getQuery('SELECT id FROM classes WHERE name = ?', [className]);
+  const classData = await getQuery('SELECT id FROM classes WHERE name = ? AND deleted_at IS NULL', [
+    className,
+  ]);
   if (!classData) return { success: false, message: `لم يتم العثور على فصل باسم "${className}".` };
   const data = {
     student_id: student.id,

@@ -480,7 +480,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       payment_method: 'CASH',
     };
 
-    it('should reverse charges, breakdown, credit, transaction and balance, then delete', async () => {
+    it('should reverse charges, breakdown, credit and balance, then void the payment and its transaction', async () => {
       db.getQuery
         .mockResolvedValueOnce(payment) // payment lookup
         .mockResolvedValueOnce(undefined) // its credit was not used by a later payment
@@ -490,9 +490,9 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         { student_fee_charge_id: 4, amount: 40 },
       ]);
 
-      const result = await deleteStudentPayment(10);
+      const result = await deleteStudentPayment(10, 5);
 
-      expect(result).toEqual({ success: true, message: 'تم حذف الدفعة بنجاح' });
+      expect(result).toEqual({ success: true, message: 'تم إلغاء الدفعة بنجاح' });
 
       // charge reversal
       const chargeUpdate = db.runQuery.mock.calls.find(([sql]) =>
@@ -518,9 +518,30 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         [100, 1],
       );
 
-      // transaction + payment deletion
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM transactions WHERE id = ?', [55]);
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM student_payments WHERE id = ?', [10]);
+      // transaction + payment are voided (kept for history), never deleted
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE transactions SET voided_at = ?, voided_by = ? WHERE id = ?',
+        [expect.any(String), 5, 55],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE student_payments SET voided_at = ?, voided_by = ? WHERE id = ?',
+        [expect.any(String), 5, 10],
+      );
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        'DELETE FROM transactions WHERE id = ?',
+        expect.anything(),
+      );
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        'DELETE FROM student_payments WHERE id = ?',
+        expect.anything(),
+      );
+    });
+
+    it('should refuse to void a payment twice', async () => {
+      db.getQuery.mockResolvedValueOnce({ ...payment, voided_at: '2026-09-29 10:00:00' });
+
+      await expect(deleteStudentPayment(10)).rejects.toThrow('ملغاة بالفعل');
+      expect(db.runQuery).not.toHaveBeenCalled();
     });
 
     it('should throw when the payment does not exist', async () => {

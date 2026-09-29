@@ -308,7 +308,7 @@ function registerStudentHandlers() {
       const classes = await db.allQuery(
         `SELECT c.id, c.name FROM classes c
          JOIN class_students cs ON c.id = cs.class_id
-         WHERE cs.student_id = ?`,
+         WHERE cs.student_id = ? AND c.deleted_at IS NULL`,
         [id],
       );
 

@@ -21,7 +21,7 @@ async function getStartingBalance(startDate) {
   // Get last transaction before period
   const lastTransaction = await db.getQuery(
     `SELECT amount, type FROM transactions
-     WHERE transaction_date < ?
+     WHERE transaction_date < ? AND voided_at IS NULL
      ORDER BY transaction_date DESC, id DESC
      LIMIT 1`,
     [startDate],
@@ -39,7 +39,7 @@ async function getStartingBalance(startDate) {
       SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_income,
       SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense
      FROM transactions
-     WHERE transaction_date < ?`,
+     WHERE transaction_date < ? AND voided_at IS NULL`,
     [startDate],
   );
 
@@ -96,7 +96,7 @@ async function generateInventoryRegister(event, { period }) {
     // Get in-kind donations from period
     const inKindDonations = await db.allQuery(
       `SELECT * FROM transactions
-       WHERE category = 'التبرعات العينية'
+       WHERE category = 'التبرعات العينية' AND voided_at IS NULL
        AND transaction_date BETWEEN ? AND ?
        ORDER BY transaction_date DESC`,
       [startDate, endDate],
@@ -294,7 +294,7 @@ async function generateFinancialSummary(event, { period }) {
         END as category,
         SUM(amount) as total
        FROM transactions
-       WHERE transaction_date BETWEEN ? AND ? AND type = 'INCOME'
+       WHERE transaction_date BETWEEN ? AND ? AND type = 'INCOME' AND voided_at IS NULL
          AND (category != 'التبرعات النقدية' OR receipt_type IS NOT NULL)
        GROUP BY CASE
          WHEN category = 'التبرعات النقدية' THEN receipt_type
@@ -306,7 +306,7 @@ async function generateFinancialSummary(event, { period }) {
     const expenses = await db.allQuery(
       `SELECT category, SUM(amount) as total
        FROM transactions
-       WHERE transaction_date BETWEEN ? AND ? AND type = 'EXPENSE'
+       WHERE transaction_date BETWEEN ? AND ? AND type = 'EXPENSE' AND voided_at IS NULL
        GROUP BY category`,
       [startDate, endDate],
     );
