@@ -49,14 +49,8 @@ const defaultSettings = {
   annual_fee: 0,
   standard_monthly_fee: 0,
   auto_charge_generation_enabled: true,
-  charge_generation_frequency: 'daily',
-  pre_generate_months_ahead: 2,
-  men_payment_frequency: 'MONTHLY',
-  women_payment_frequency: 'MONTHLY',
-  kids_payment_frequency: 'MONTHLY',
   academic_year_start_month: 9,
   charge_generation_day: 25,
-  last_charge_generation_check: '',
   association_transfer_key: '',
 };
 

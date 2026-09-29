@@ -125,7 +125,23 @@ describe('Student Handlers', () => {
       });
       generateMatricule.mockResolvedValue('S-0001');
 
-      await expect(ipcMain.invoke('students:add', { name: 'Young Student' })).rejects.toThrow();
+      await expect(ipcMain.invoke('students:add', { name: 'Young Student' })).rejects.toThrow(
+        'عمر الطالب أقل من الحد الأدنى',
+      );
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
+
+    it('shows the minimum-age message on update too', async () => {
+      const dateOfBirth = new Date();
+      dateOfBirth.setFullYear(dateOfBirth.getFullYear() - 2);
+      studentValidationSchema.validateAsync.mockResolvedValue({
+        name: 'Young Student',
+        date_of_birth: dateOfBirth,
+      });
+
+      await expect(ipcMain.invoke('students:update', 1, { name: 'Young Student' })).rejects.toThrow(
+        'عمر الطالب أقل من الحد الأدنى',
+      );
       expect(db.runQuery).not.toHaveBeenCalled();
     });
 

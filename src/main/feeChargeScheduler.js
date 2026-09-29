@@ -188,9 +188,9 @@ const startScheduler = (settings) => {
   }
 
   log('Starting automated fee charge generation scheduler.');
-  log('Charges will be checked daily at midnight.');
+  log('Charges are checked at startup and then every 24 hours while the app stays open.');
 
-  // Check once per day (24 hours) for charges that need generation
+  // Re-check every 24 hours while the app runs; onAppStartup covers each launch.
   schedulerIntervalId = setInterval(
     async () => {
       await checkAndGenerateCharges(settings);

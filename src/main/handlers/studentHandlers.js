@@ -30,6 +30,19 @@ const { calculateAge } = require('../utils/age');
 const MIN_STUDENT_AGE = 4;
 
 /**
+ * The error shown when a student is younger than MIN_STUDENT_AGE. It is marked `userFacing`
+ * so the add/update handlers pass its message on instead of the generic server error.
+ * @returns {Error}
+ */
+function minimumAgeError() {
+  const error = new Error(
+    `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
+  );
+  error.userFacing = true;
+  return error;
+}
+
+/**
  * Array of valid student database fields used for INSERT and UPDATE operations.
  * This ensures only valid fields are processed and prevents SQL injection.
  *
@@ -353,9 +366,7 @@ function registerStudentHandlers() {
           if (validatedData.date_of_birth) {
             const studentAge = calculateAge(validatedData.date_of_birth);
             if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
-              throw new Error(
-                `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
-              );
+              throw minimumAgeError();
             }
           }
 
@@ -440,6 +451,7 @@ function registerStudentHandlers() {
       } catch (error) {
         if (error.isJoi)
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        if (error.userFacing) throw error;
         logError('Error in students:add handler:', error);
         throw new Error('حدث خطأ غير متوقع في الخادم.');
       }
@@ -472,9 +484,7 @@ function registerStudentHandlers() {
           if (validatedData.date_of_birth) {
             const studentAge = calculateAge(validatedData.date_of_birth);
             if (studentAge !== null && studentAge < MIN_STUDENT_AGE) {
-              throw new Error(
-                `عمر الطالب أقل من الحد الأدنى. يجب أن يكون عمر الطالب ${MIN_STUDENT_AGE} سنوات على الأقل.`,
-              );
+              throw minimumAgeError();
             }
           }
 
@@ -584,6 +594,7 @@ function registerStudentHandlers() {
       } catch (error) {
         if (error.isJoi)
           throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        if (error.userFacing) throw error;
         logError('Error in students:update handler:', error);
         throw new Error('حدث خطأ غير متوقع في الخادم.');
       }

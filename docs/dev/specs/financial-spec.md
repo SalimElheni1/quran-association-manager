@@ -126,7 +126,11 @@ none.
 | `annual_fee`, `standard_monthly_fee` | 0 | Branch fees (age groups can override) |
 | `auto_charge_generation_enabled` | true | Whether the scheduler bills months automatically |
 | `charge_generation_day` | 25 | Day of the month from which next month is billed |
-| `charge_generation_frequency` | daily | Saved from the settings form (`daily`/`weekly`); the scheduler does not read it |
+
+The scheduler bills at startup and every 24 hours while the app is open. Older databases also
+store `charge_generation_frequency`, `pre_generate_months_ahead`, `last_charge_generation_check`
+and `men_/women_/kids_payment_frequency`; nothing reads them (payment frequency belongs to age
+groups) and saving the settings ignores them.
 
 ## Reports
 

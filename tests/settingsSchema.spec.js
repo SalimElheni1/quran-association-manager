@@ -47,14 +47,8 @@ describe('settingsValidationSchema (real Joi)', () => {
       annual_fee: 200,
       standard_monthly_fee: 50,
       auto_charge_generation_enabled: true,
-      charge_generation_frequency: 'daily',
-      pre_generate_months_ahead: 2,
-      men_payment_frequency: 'MONTHLY',
-      women_payment_frequency: 'ANNUAL',
-      kids_payment_frequency: 'MONTHLY',
       academic_year_start_month: 9,
       charge_generation_day: 25,
-      last_charge_generation_check: '',
       association_transfer_key: 'secret',
     });
     expect(value.association_transfer_key).toBe('secret');
@@ -100,5 +94,23 @@ describe('internalUpdateSettingsHandler (legacy settings rows)', () => {
       'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
       ['google_connected', 'false'],
     );
+  });
+
+  it('ignores the retired fee settings still stored by older databases', async () => {
+    const result = await internalUpdateSettingsHandler({
+      charge_generation_day: 25,
+      charge_generation_frequency: 'daily',
+      men_payment_frequency: 'ANNUAL',
+      pre_generate_months_ahead: 2,
+    });
+
+    expect(result.success).toBe(true);
+    const savedKeys = db.runQuery.mock.calls
+      .filter(([sql]) => sql.startsWith('INSERT OR REPLACE INTO settings'))
+      .map(([, params]) => params[0]);
+    expect(savedKeys).toContain('charge_generation_day');
+    expect(savedKeys).not.toContain('charge_generation_frequency');
+    expect(savedKeys).not.toContain('men_payment_frequency');
+    expect(savedKeys).not.toContain('pre_generate_months_ahead');
   });
 });
