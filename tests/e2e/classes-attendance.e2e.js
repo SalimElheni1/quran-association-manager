@@ -11,6 +11,16 @@ function formatDateEnGB(dateStr) {
   return new Date(year, month - 1, day).toLocaleDateString('en-GB');
 }
 
+/**
+ * Closes the open toasts. They sit over the top of the page (the saved-records panel
+ * included) for 8s, and a later "saved" check could otherwise match an earlier toast.
+ */
+async function dismissToasts(page) {
+  const toasts = page.locator('.Toastify__toast');
+  await toasts.evaluateAll((els) => els.forEach((el) => el.click()));
+  await expect(toasts).toHaveCount(0);
+}
+
 async function addStudent(page, name, gender = 'ذكر', age = 9) {
   await navigate(page, 'شؤون الطلاب');
   await page.getByRole('button', { name: 'إضافة طالب' }).click();
@@ -166,5 +176,89 @@ test.describe('classes, enrollment and attendance', () => {
 
     const rowAfterNavigation = page.locator('table tbody tr', { hasText: studentName });
     await expect(rowAfterNavigation.locator('button.btn-danger')).toBeVisible();
+  });
+
+  test('marks student as late (تأخر) and allows cancelling edit', async ({ authedPage: page }) => {
+    const className = `فصل الحفظ ${Date.now()}`;
+    const studentName = `طالب متأخر ${Date.now()}`;
+    await addClass(page, className, 'active');
+    await addStudent(page, studentName, 'ذكر');
+    await enrollStudent(page, className, studentName);
+
+    await navigate(page, 'الحضور والغياب');
+    const classSelect = page.locator('select#classSelect');
+    await classSelect.selectOption({ label: className });
+
+    // Initial save (default present)
+    await page.getByRole('button', { name: 'حفظ التغييرات' }).click();
+    await expectToast(page, 'success', 'تم حفظ سجل الحضور بنجاح!');
+
+    // Click edit
+    await page.getByRole('button', { name: 'تعديل' }).click();
+
+    // Change to late
+    const row = page.locator('table tbody tr', { hasText: studentName });
+    await row.getByRole('button', { name: 'تأخر' }).click();
+
+    // Cancel edit: the student is back to present
+    await page.getByRole('button', { name: 'إلغاء' }).click();
+    await expectToast(page, 'info', 'تم إلغاء التعديلات.');
+    await expect(row.locator('button.btn-success')).toBeVisible();
+    await expect(row.locator('button.btn-warning')).toHaveCount(0);
+
+    // Edit again and save as late
+    await dismissToasts(page);
+    await page.getByRole('button', { name: 'تعديل' }).click();
+    await row.getByRole('button', { name: 'تأخر' }).click();
+    await page.getByRole('button', { name: 'حفظ التغييرات' }).click();
+    await expectToast(page, 'success', 'تم حفظ سجل الحضور بنجاح!');
+
+    // The late mark was saved, not just shown
+    await navigate(page, 'شؤون الطلاب');
+    await navigate(page, 'الحضور والغياب');
+    await page.locator('select#classSelect').selectOption({ label: className });
+    const rowAfterNavigation = page.locator('table tbody tr', { hasText: studentName });
+    await expect(rowAfterNavigation.locator('button.btn-warning')).toBeVisible();
+  });
+
+  test('selects a saved attendance record from the summary panel', async ({ authedPage: page }) => {
+    const className = `فصل القراءات ${Date.now()}`;
+    const studentName = `طالب القراءات ${Date.now()}`;
+    await addClass(page, className, 'active');
+    await addStudent(page, studentName, 'ذكر');
+    await enrollStudent(page, className, studentName);
+
+    await navigate(page, 'الحضور والغياب');
+    const classSelect = page.locator('select#classSelect');
+    await classSelect.selectOption({ label: className });
+
+    // Save for today
+    await page.getByRole('button', { name: 'حفظ التغييرات' }).click();
+    await expectToast(page, 'success', 'تم حفظ سجل الحضور بنجاح!');
+
+    const todayDate = await page.locator('#dateSelect').inputValue();
+    const todayDisplay = formatDateEnGB(todayDate);
+
+    // Change date to an earlier date
+    const earlierDate = '2025-01-15';
+    const earlierDisplay = formatDateEnGB(earlierDate);
+    await page.locator('#dateSelect').fill(earlierDate);
+
+    // Save attendance for earlier date
+    const row = page.locator('table tbody tr', { hasText: studentName });
+    await dismissToasts(page);
+    await row.getByRole('button', { name: 'غياب' }).click();
+    await page.getByRole('button', { name: 'حفظ التغييرات' }).click();
+    await expectToast(page, 'success', 'تم حفظ سجل الحضور بنجاح!');
+
+    // The summary panel now has both dates
+    const summaryList = page.locator('.card .list-group-item');
+    await expect(summaryList.filter({ hasText: todayDisplay })).toBeVisible();
+    await expect(summaryList.filter({ hasText: earlierDisplay })).toBeVisible();
+
+    // Click on today's record in the summary list (the toast would cover it)
+    await dismissToasts(page);
+    await summaryList.filter({ hasText: todayDisplay }).click();
+    await expect(page.locator('#dateSelect')).toHaveValue(todayDate);
   });
 });

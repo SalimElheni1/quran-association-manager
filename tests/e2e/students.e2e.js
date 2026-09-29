@@ -122,6 +122,50 @@ test.describe('students page', () => {
     ).toBeVisible();
   });
 
+  test('filters students table by gender select option', async ({ authedPage: page }) => {
+    const maleName = 'أمين التونسي';
+    const femaleName = 'مريم التونسية';
+
+    await addStudent(page, { name: maleName, dob: yearsAgoISODate(8), gender: 'Male' });
+    await addStudent(page, { name: femaleName, dob: yearsAgoISODate(9), gender: 'Female' });
+
+    const genderSelect = page.getByRole('combobox', { name: 'Filter by gender' });
+
+    // Filter Male
+    await genderSelect.selectOption('Male');
+    await expect(page.locator('table.students-table tbody tr')).toHaveCount(1);
+    await expect(
+      page.locator('table.students-table tbody tr', { hasText: maleName }),
+    ).toBeVisible();
+
+    // Filter Female
+    await genderSelect.selectOption('Female');
+    await expect(page.locator('table.students-table tbody tr')).toHaveCount(1);
+    await expect(
+      page.locator('table.students-table tbody tr', { hasText: femaleName }),
+    ).toBeVisible();
+
+    // Reset All
+    await genderSelect.selectOption('all');
+    await expect(page.locator('table.students-table tbody tr')).toHaveCount(2);
+  });
+
+  test('views student details modal and closes it', async ({ authedPage: page }) => {
+    const studentName = 'عبد الله الرواشدة';
+    await addStudent(page, { name: studentName, dob: yearsAgoISODate(10), gender: 'Male' });
+
+    const row = page.locator('table.students-table tbody tr', { hasText: studentName });
+    await row.getByRole('button', { name: 'عرض تفاصيل الطالب' }).click();
+
+    await expect(modal(page)).toBeVisible();
+    await expect(modal(page).locator('.modal-title')).toContainText(studentName);
+    await expect(modal(page).getByText('المعلومات الشخصية')).toBeVisible();
+    await expect(modal(page).getByText('معلومات الجمعية')).toBeVisible();
+
+    await modal(page).getByRole('button', { name: 'إغلاق' }).click();
+    await expectNoModal(page);
+  });
+
   test('edit a student name', async ({ authedPage: page }) => {
     const oldName = 'خالد بن الوليد';
     const newName = 'خالد بن الوليد المحدث';
