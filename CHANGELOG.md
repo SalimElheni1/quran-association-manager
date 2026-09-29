@@ -64,6 +64,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The monthly fees chart is labelled "last 12 months", which is what it shows.
 - The e2e test clock can no longer be switched on in a packaged build.
 - README screenshots moved to `docs/screenshots/` so they are not bundled into the app.
+- **A deleted payment could take the student's credit with it.** When a payment used credit
+  from an earlier overpayment, deleting or refunding it now gives that credit back. A payment
+  whose own credit a later payment already used can only be reversed after that later one.
+- **Deleting a class deleted its students' fee charges**, paid ones and earlier years' arrears
+  included. The charges now stay on the students' accounts.
+- **Fee payments deleted from the income list stayed «paid».** Deleting one there now reverses
+  it the way the student fees tab does; its amount, account and date can only be changed from
+  the student fees tab, and a fee refund cannot be deleted on its own.
+- **Saving a profile with a birth or start date failed**, and the profile update wrote any
+  field the page sent (a plain `password` was stored unhashed). Only the profile's own fields
+  are saved now.
+- The last active Superadmin can no longer be deleted, deactivated or demoted, and a user can
+  no longer delete their own account; the users page says why.
+- Weekly and monthly automatic backups ran every day once the backup time had passed.
+- The association transfer key was written to the log file when settings were saved.
+- Transactions, refunds and receipts now record the user who made them (they recorded none, or
+  user 1).
+- A duplicate receipt number on a fee payment showed «Failed to record student payment.»
+  instead of the Arabic message saying the receipt number is already used.
+- Restoring a backup could write its asset files outside the app's data folder.
+- A database import confirmed the password of the user id the page sent, not the logged-in
+  user's.
+- A SQLite module built for another platform (left behind by `npm run dist`, which builds for
+  Windows) was reported as «Incorrect password or corrupt database» and the app closed without
+  a word. It is now named, with the fix (`npx electron-builder install-app-deps`), and startup
+  errors are shown in a dialog. The encryption check no longer warns that encryption is missing.
 
 ## [1.4.0-beta.1] - 2026-09-24
 
