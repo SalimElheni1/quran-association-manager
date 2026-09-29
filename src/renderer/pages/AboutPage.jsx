@@ -33,7 +33,7 @@ function AboutPage() {
   };
 
   const projectInfo = {
-    github: 'https://github.com/SalimElheni1/quran-association-manage',
+    github: 'https://github.com/SalimElheni1/quran-association-manager',
   };
 
   const bugReportSubject = encodeURIComponent('تقرير خطأ: مدير فروع القرآن الكريم');
