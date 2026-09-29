@@ -7,8 +7,6 @@ module.exports = {
       testMatch: ['<rootDir>/tests/*.spec.js'],
       moduleNameMapper: {
         'electron-store': '<rootDir>/tests/mocks/electron-store.js',
-        sqlite3: '<rootDir>/tests/mocks/sqlite3.js',
-        '^@journeyapps/sqlcipher$': '<rootDir>/tests/mocks/sqlcipher.js',
         '^electron$': '<rootDir>/tests/mocks/electron.js',
         pizzip: '<rootDir>/tests/mocks/pizzip.js',
         bcryptjs: '<rootDir>/tests/mocks/bcryptjs.js',

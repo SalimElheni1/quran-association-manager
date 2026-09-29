@@ -32,8 +32,8 @@ npm run e2e:open-data                    # open the data the real-world scenario
 | `main-process` | node | `tests/*.spec.js` | `moduleNameMapper` swaps `electron`, `electron-store`, `bcryptjs`, `jsonwebtoken`, `joi`, `exceljs`, `pizzip`, `fs` and `../db/db` for the mocks in `tests/mocks/`. |
 | `renderer-process` | jsdom | `tests/renderer/**/*.spec.js` | Babel transforms JSX; `@renderer/*` resolves to `src/renderer/*`; `tests/renderer/setup.js` loads jest-dom and stubs `window.electronAPI` and `react-toastify`. |
 
-Only those two patterns run. A spec anywhere else (for example `tests/business/`, whose specs
-are not wired in yet) is silently skipped, so put new specs in `tests/` or `tests/renderer/`.
+Only those two patterns run. A spec anywhere else is silently skipped, so put new specs in
+`tests/` or `tests/renderer/`.
 
 ### Main-process tests
 

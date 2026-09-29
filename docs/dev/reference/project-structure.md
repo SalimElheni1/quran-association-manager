@@ -172,12 +172,10 @@ tests/
 ├── *.spec.js               # Main-process Jest tests (node environment)
 ├── renderer/               # Renderer Jest tests (jsdom)
 ├── mocks/                  # Module mocks mapped in jest.config.js
-├── business/               # Business-process specs (not run by Jest yet; see below)
 └── e2e/                    # Playwright tests against the built Electron app (*.e2e.js)
 ```
 
-`npm test` runs `tests/*.spec.js` and `tests/renderer/**/*.spec.js`. The specs in
-`tests/business/` are not matched by `jest.config.js` and need fixing before they can be.
+`npm test` runs `tests/*.spec.js` and `tests/renderer/**/*.spec.js`.
 
 ## Key Files
 
