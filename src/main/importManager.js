@@ -479,7 +479,12 @@ async function replaceDatabase(importedDbPath, password, backupPassword) {
         for (const assetFile of assetFiles) {
           const relativePath = assetFile.name.replace(/^assets\//, '');
           if (relativePath && !assetFile.dir) {
-            const destPath = path.join(targetAssetsDir, relativePath);
+            const destPath = path.resolve(targetAssetsDir, relativePath);
+            // Zip entry names are untrusted: never write outside the assets folder.
+            if (!destPath.startsWith(path.resolve(targetAssetsDir) + path.sep)) {
+              logWarn(`Skipping backup asset outside the assets folder: ${assetFile.name}`);
+              continue;
+            }
             fsSync.mkdirSync(path.dirname(destPath), { recursive: true });
             fsSync.writeFileSync(destPath, assetFile.asNodeBuffer());
           }
