@@ -1,4 +1,12 @@
-const { test, expect, navigate, modal, expectToast, confirmDialog } = require('./fixtures');
+const {
+  test,
+  expect,
+  navigate,
+  modal,
+  expectToast,
+  confirmDialog,
+  expectNoModal,
+} = require('./fixtures');
 
 function yearsAgoISODate(years) {
   const date = new Date();
@@ -26,7 +34,7 @@ async function addStudent(page, { name, dob, gender = 'Male' }) {
   await modal(page).getByRole('button', { name: 'إضافة الطالب' }).click();
 
   await expectToast(page, 'success', `تمت إضافة الطالب "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 test.describe('students page', () => {
@@ -128,7 +136,7 @@ test.describe('students page', () => {
     await modal(page).getByRole('button', { name: 'حفظ التعديلات' }).click();
 
     await expectToast(page, 'success', `تم تحديث بيانات الطالب "${newName}" بنجاح!`);
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
 
     await expect(page.locator('table.students-table tbody tr')).toHaveCount(1);
     const updatedRow = page.locator('table.students-table tbody tr').first();

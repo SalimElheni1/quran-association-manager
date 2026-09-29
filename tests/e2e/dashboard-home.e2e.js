@@ -33,7 +33,7 @@ async function addStudent(page, { name, dob, gender = 'Male' }) {
   await modal(page).getByRole('button', { name: 'إضافة الطالب' }).click();
 
   await expectToast(page, 'success', `تمت إضافة الطالب "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function addTeacher(page, { name, phone, gender = 'Male' }) {
@@ -95,7 +95,7 @@ async function addClass(page, name, status = 'active', ageGroup = 'الأطفا�
 
   await modal(page).getByRole('button', { name: 'إضافة الفصل' }).click();
   await expectToast(page, 'success', `تمت إضافة الفصل "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 test.describe('Dashboard home page', () => {

@@ -112,7 +112,7 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     await expect(option).toBeAttached();
 
     await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
   });
 
   test('age group edit and delete reflect in the list', async ({ authedPage }) => {

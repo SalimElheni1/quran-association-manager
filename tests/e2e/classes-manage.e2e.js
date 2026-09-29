@@ -40,7 +40,7 @@ async function addStudent(page, name, gender = 'ذكر', age = 9) {
   await modal(page).locator('#formStudentGender').selectOption({ label: gender });
   await modal(page).getByRole('button', { name: 'إضافة الطالب' }).click();
   await expectToast(page, 'success', `تمت إضافة الطالب "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function addClass(page, name, status = 'active', ageGroup = 'الأطفال', teacherName = null) {
@@ -65,7 +65,7 @@ async function addClass(page, name, status = 'active', ageGroup = 'الأطفا�
 
   await modal(page).getByRole('button', { name: 'إضافة الفصل' }).click();
   await expectToast(page, 'success', `تمت إضافة الفصل "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function openEnrollment(page, className) {
@@ -89,7 +89,7 @@ async function enrollStudent(page, className, studentName) {
   ).toBeVisible();
   await modal(page).getByRole('button', { name: 'حفظ التغييرات' }).click();
   await expectToast(page, 'success', 'تم تحديث قائمة الطلاب بنجاح!');
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function removeStudentFromEnrollment(page, studentName) {
@@ -120,7 +120,7 @@ test.describe('class management', () => {
 
     await modal(page).getByRole('button', { name: 'حفظ التعديلات' }).click();
     await expectToast(page, 'success', `تم تحديث بيانات الفصل "${newClassName}" بنجاح!`);
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
 
     const updatedRow = page.locator('table tbody tr', { hasText: newClassName });
     await expect(updatedRow).toBeVisible();
@@ -168,7 +168,7 @@ test.describe('class management', () => {
     await expect(body.getByText('الأطفال')).toBeVisible();
 
     await modal(page).getByRole('button', { name: 'إغلاق' }).click();
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
   });
 
   test('search filters classes by name and clearing restores the list', async ({
@@ -226,7 +226,7 @@ test.describe('class management', () => {
 
     await modal(page).getByRole('button', { name: 'حفظ التغييرات' }).click();
     await expectToast(page, 'success', 'تم تحديث قائمة الطلاب بنجاح!');
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
 
     await openEnrollment(page, className);
     await expect(
@@ -241,7 +241,7 @@ test.describe('class management', () => {
     ).toBeVisible();
 
     await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
   });
 
   test('edits saved attendance from present to late and persists it', async ({

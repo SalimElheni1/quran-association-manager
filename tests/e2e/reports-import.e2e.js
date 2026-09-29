@@ -69,7 +69,7 @@ async function addIncome(page, { voucher, amount }) {
 async function closeVoucherModal(page, title) {
   await expect(modal(page).locator('.modal-title')).toHaveText(title);
   await modal(page).getByRole('button', { name: 'إغلاق', exact: true }).click();
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function docxText(filePath) {

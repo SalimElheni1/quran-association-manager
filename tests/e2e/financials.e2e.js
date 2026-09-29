@@ -1,4 +1,12 @@
-const { test, expect, navigate, modal, expectToast, confirmDialog } = require('./fixtures');
+const {
+  test,
+  expect,
+  navigate,
+  modal,
+  expectToast,
+  confirmDialog,
+  expectNoModal,
+} = require('./fixtures');
 
 // Mid-month date: the dashboard's default period is the current month, and its
 // month bounds are computed via toISOString(), which shifts them by a day in
@@ -57,7 +65,7 @@ async function addExpense(page, { voucher, amount }) {
 async function closeVoucherModal(page, title) {
   await expect(modal(page).locator('.modal-title')).toHaveText(title);
   await modal(page).getByRole('button', { name: 'إغلاق', exact: true }).click();
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 /** Formats a number exactly like SummaryCard (Intl ar-TN, 2 decimals). */
@@ -165,7 +173,7 @@ test.describe('financials', () => {
     await form.getByRole('button', { name: 'حفظ' }).click();
 
     await expectToast(page, 'success', 'تم تحديث المدخول بنجاح');
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
     await expect(activePane(page).locator('tbody tr', { hasText: 'E2E-EDIT' })).toHaveCount(1);
 
     await openTab(page, 'لوحة التحكم');

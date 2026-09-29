@@ -356,7 +356,7 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expect(modal(page).locator('.modal-title')).toHaveText('وصل استلام');
     await guide.pause(2200);
     await guide.click(modal(page).getByRole('button', { name: 'إغلاق', exact: true }));
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
 
     await guide.say('بنفس الطريقة تُسجَّل المصاريف في تبويب «المصاريف» مع إذن بالدفع.');
     await openTab(guide, 'المصاريف');
@@ -371,7 +371,7 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expect(modal(page).locator('.modal-title')).toHaveText('إذن بالدفع');
     await guide.pause(1500);
     await guide.click(modal(page).getByRole('button', { name: 'إغلاق', exact: true }));
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
 
     await guide.say(
       'في «لوحة التحكم» ترى مجموع المداخيل والمصاريف والرصيد للفترة المختارة، مع التوزيع حسب الأصناف.',

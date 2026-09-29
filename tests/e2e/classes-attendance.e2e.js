@@ -1,4 +1,4 @@
-const { test, expect, navigate, modal, expectToast } = require('./fixtures');
+const { test, expect, navigate, modal, expectToast, expectNoModal } = require('./fixtures');
 
 function yearsAgo(years) {
   const d = new Date();
@@ -19,7 +19,7 @@ async function addStudent(page, name, gender = 'ذكر', age = 9) {
   await modal(page).locator('#formStudentGender').selectOption({ label: gender });
   await modal(page).getByRole('button', { name: 'إضافة الطالب' }).click();
   await expectToast(page, 'success', `تمت إضافة الطالب "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function addClass(page, name, status = 'active', ageGroup = 'الأطفال') {
@@ -40,7 +40,7 @@ async function addClass(page, name, status = 'active', ageGroup = 'الأطفا�
 
   await modal(page).getByRole('button', { name: 'إضافة الفصل' }).click();
   await expectToast(page, 'success', `تمت إضافة الفصل "${name}" بنجاح!`);
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 async function openEnrollment(page, className) {
@@ -64,7 +64,7 @@ async function enrollStudent(page, className, studentName) {
   ).toBeVisible();
   await modal(page).getByRole('button', { name: 'حفظ التغييرات' }).click();
   await expectToast(page, 'success', 'تم تحديث قائمة الطلاب بنجاح!');
-  await expect(modal(page)).toHaveCount(0);
+  await expectNoModal(page);
 }
 
 test.describe('classes, enrollment and attendance', () => {
@@ -114,7 +114,7 @@ test.describe('classes, enrollment and attendance', () => {
     );
 
     await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
-    await expect(modal(page)).toHaveCount(0);
+    await expectNoModal(page);
   });
 
   test('enrolls a matching student into a single-gender class without a warning', async ({
