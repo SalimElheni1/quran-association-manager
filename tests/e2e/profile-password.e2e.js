@@ -91,3 +91,20 @@ test.describe('forced password change', () => {
     await expectLoginAccepted(page, { username: LEGACY.username, password: NEW_PASSWORD });
   });
 });
+
+test.describe('profile details', () => {
+  test('saving the profile with a birth date keeps the date', async ({ authedPage: page }) => {
+    await navigate(page, 'ملفي الشخصي');
+    await page.locator('input[name="date_of_birth"]').fill('1988-04-12');
+    await page.locator('input[name="national_id"]').fill('52345678');
+    await page.locator('input[name="phone_number"]').fill('94234567');
+    await page.getByRole('button', { name: 'حفظ معلوماتي' }).click();
+    await expectToast(page, 'success', 'تم تحديث الملف الشخصي بنجاح.');
+
+    // Read back from the database on a fresh visit
+    await navigate(page, 'الرئيسية');
+    await navigate(page, 'ملفي الشخصي');
+    await expect(page.locator('input[name="date_of_birth"]')).toHaveValue('1988-04-12');
+    await expect(page.locator('input[name="national_id"]')).toHaveValue('52345678');
+  });
+});

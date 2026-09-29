@@ -177,6 +177,40 @@ test.describe('student fees', () => {
     await expect(refunded.getByRole('button', { name: 'إلغاء الدفعة' })).toBeDisabled();
   });
 
+  test('a fee payment voided from the income list reverses the charge; its amount stays locked', async ({
+    authedPage: page,
+  }) => {
+    await recordPayment(page, STUDENT, { amount: 50, receipt: 'FEE-INCOME' });
+
+    await page.getByRole('tab', { name: 'المداخيل' }).click();
+    const row = page.locator('.tab-pane.active tbody tr', { hasText: 'FEE-INCOME' });
+
+    // Changing its amount here would leave the student's charges out of step: refused
+    await row.getByRole('button', { name: 'تعديل العملية' }).click();
+    await modal(page).locator('input[name="amount"]').fill('80');
+    await modal(page).getByRole('button', { name: 'حفظ' }).click();
+    await expectToast(page, 'error', 'مرتبطة برسوم الطلاب');
+    await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+
+    // Voiding it here reverses the payment the way the fees tab does
+    await row.getByRole('button', { name: 'إلغاء العملية' }).click();
+    await modal(page).getByRole('button', { name: 'نعم، إلغاء' }).click();
+    await expectNoModal(page);
+    await expectToast(page, 'success', 'تم إلغاء المدخول بنجاح');
+    await expect(row).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'رسوم الطلاب' }).click();
+    await expectFeeRow(page, STUDENT, {
+      due: ANNUAL_FEE,
+      paid: 0,
+      remaining: ANNUAL_FEE,
+      status: 'غير مدفوع',
+    });
+    await openPaymentModal(page, STUDENT);
+    await expect(modal(page).locator('tbody tr', { hasText: 'FEE-INCOME' })).toContainText('ملغاة');
+  });
+
   test('a student fee payment counts as income on the financial dashboard', async ({
     authedPage: page,
   }) => {

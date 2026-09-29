@@ -1,4 +1,14 @@
-const { test, expect, navigate, modal, expectNoModal, expectToast } = require('./fixtures');
+const {
+  test,
+  expect,
+  navigate,
+  modal,
+  expectNoModal,
+  expectToast,
+  logout,
+  login,
+  setAppDate,
+} = require('./fixtures');
 
 const MONTHLY_FEE = 15;
 const SPECIAL_FEE = 25;
@@ -170,5 +180,71 @@ test.describe('monthly student fees', () => {
     await expect(dueCell(page, student)).toHaveText('0.00 د.ت');
     // The students on monthly billing are still charged.
     await expect(dueCell(page, IN_STANDARD_CLASS)).toHaveText(`${MONTHLY_FEE.toFixed(2)} د.ت`);
+  });
+});
+
+/** Moves the app clock and logs in again (sessions follow the clock). */
+async function moveTo(electronApp, page, iso) {
+  await setAppDate(electronApp, page, iso);
+  await logout(page);
+  await login(page);
+  await expect(page.locator('.topbar')).toBeVisible();
+}
+
+async function pay(page, name, amount, receipt) {
+  await page
+    .locator('.tab-pane.active tbody tr', { hasText: name })
+    .locator('button.btn-success')
+    .click();
+  await modal(page).locator('input[type="number"]').first().fill(String(amount));
+  await modal(page).getByPlaceholder('أدخل رقم الوصل').fill(receipt);
+  await modal(page).getByRole('button', { name: 'تسجيل الدفعة' }).click();
+  await expectToast(page, 'success', 'تم تسجيل الدفعة بنجاح');
+  await expectNoModal(page);
+}
+
+test.describe('overpayment credit', () => {
+  test('voiding a payment that used credit gives the credit back', async ({
+    authedPage: page,
+    electronApp,
+  }) => {
+    const name = 'نور بنت صالح';
+    const cells = () => page.locator('.tab-pane.active tbody tr', { hasText: name }).locator('td');
+
+    // October: 20 paid for a 15 fee leaves 5 of credit
+    await moveTo(electronApp, page, '2026-10-05T09:00:00');
+    await setMonthlyFee(page, MONTHLY_FEE);
+    await addStudent(page, name);
+    await generateCharges(page);
+    await pay(page, name, 20, 'CREDIT-1');
+
+    // November: the 5 of credit plus 10 cash settle the new month
+    await moveTo(electronApp, page, '2026-11-05T09:00:00');
+    await generateCharges(page);
+    await expect(cells().nth(1)).toHaveText(`${(2 * MONTHLY_FEE).toFixed(2)} د.ت`);
+    await pay(page, name, 10, 'CREDIT-2');
+    await expect(cells().nth(3)).toHaveText('0.00 د.ت');
+
+    // Voiding the November payment reopens November but keeps the credit it had used:
+    // 30 due - 15 paid - 5 credit = 10 (the credit used to be lost, leaving 15)
+    await page
+      .locator('.tab-pane.active tbody tr', { hasText: name })
+      .locator('button.btn-success')
+      .click();
+    await modal(page)
+      .locator('tbody tr', { hasText: 'CREDIT-2' })
+      .getByRole('button', { name: 'إلغاء الدفعة' })
+      .click();
+    const confirm = page.locator('.modal.show', {
+      has: page.locator('.modal-title', { hasText: 'تأكيد إلغاء الدفعة' }),
+    });
+    await confirm.getByRole('button', { name: 'نعم، إلغاء' }).click();
+    await expect(confirm).toHaveCount(0);
+    await expectToast(page, 'success', 'تم إلغاء الدفعة بنجاح');
+    await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+
+    await expect(cells().nth(2)).toHaveText(`${MONTHLY_FEE.toFixed(2)} د.ت`);
+    await expect(cells().nth(3)).toHaveText('10.00 د.ت');
   });
 });

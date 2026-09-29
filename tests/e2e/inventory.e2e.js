@@ -158,6 +158,32 @@ test.describe('inventory', () => {
     await expect(inventoryRow(page, 'مكتبة خشبية E2E')).toHaveCount(0);
   });
 
+  test('a deleted item is kept, listed with the deleted ones, and can be restored', async ({
+    authedPage: page,
+  }) => {
+    await addInventoryItem(page, {
+      itemName: 'سبورة بيضاء E2E',
+      category: 'أخرى',
+      quantity: 2,
+      unitValue: 60,
+      condition: 'New',
+    });
+    await inventoryRow(page, 'سبورة بيضاء E2E').getByRole('button', { name: 'حذف' }).click();
+    await confirmDialog(page, 'تأكيد');
+    await expect(inventoryRow(page, 'سبورة بيضاء E2E')).toHaveCount(0);
+
+    await activePane(page).getByLabel('عرض المحذوفات').check();
+    await expect(inventoryRow(page, 'سبورة بيضاء E2E')).toContainText('محذوف');
+    await inventoryRow(page, 'سبورة بيضاء E2E').getByRole('button', { name: 'استعادة' }).click();
+    await expectToast(page, 'success', 'تمت استعادة الصنف "سبورة بيضاء E2E" بنجاح.');
+    await expect(inventoryRow(page, 'سبورة بيضاء E2E')).toHaveCount(0);
+
+    await activePane(page).getByLabel('عرض المحذوفات').uncheck();
+    const restored = inventoryRow(page, 'سبورة بيضاء E2E');
+    await expect(restored).toBeVisible();
+    await expect(restored).not.toContainText('محذوف');
+  });
+
   test('in-kind donations without a voucher number create inventory items and income', async ({
     authedPage: page,
   }) => {

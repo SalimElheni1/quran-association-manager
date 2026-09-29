@@ -74,6 +74,30 @@ test.describe('user administration', () => {
     await expect(page.locator('.topbar')).toHaveCount(0);
   });
 
+  test('the logged-in user and the last Superadmin are protected', async ({ authedPage: page }) => {
+    await navigate(page, 'إدارة المستخدمين');
+    const me = userRow(page, SUPERADMIN.username);
+
+    // Own account: refused, with the reason
+    await me.getByRole('button', { name: 'حذف' }).click();
+    await confirmDialog(page, 'نعم، قم بالحذف');
+    await expectToast(page, 'error', 'لا يمكنك حذف حسابك الخاص');
+    await expect(me).toBeVisible();
+
+    // Last Superadmin: taking the role away is refused
+    await me.getByRole('button', { name: 'تعديل' }).click();
+    const form = modal(page);
+    await form.locator('input[name="national_id"]').fill('62345678');
+    await form.locator('input[name="phone_number"]').fill('95234567');
+    await form.locator('#role-Administrator').check();
+    await form.locator('#role-Superadmin').uncheck();
+    await form.getByRole('button', { name: 'حفظ' }).click();
+    await expectToast(page, 'error', 'آخر مدير نظام');
+    await form.getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+    await expect(me).toContainText('مدير النظام');
+  });
+
   test('an inactive user can no longer log in', async ({ authedPage: page }) => {
     await createUser(page, ADMIN_USER, 'Administrator');
 

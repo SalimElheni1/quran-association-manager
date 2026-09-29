@@ -102,6 +102,33 @@ test.describe('إدارة الفئات (in-kind donation categories)', () => {
     await expect(page.locator('tbody tr', { hasText: name })).toHaveCount(0);
   });
 
+  test('a deleted category can be restored, and its name stays taken until then', async ({
+    authedPage: page,
+  }) => {
+    const name = 'أدوات رياضية';
+    const pane = page.locator('.tab-pane.active');
+    await addCategory(page, name);
+    await deleteCategory(page, name);
+
+    // Adding the same name again points to the restore instead
+    await page.getByRole('button', { name: '+ إضافة فئة' }).click();
+    await modal(page).locator('input[placeholder="مثال: أثاث"]').fill(name);
+    await modal(page).getByRole('button', { name: 'حفظ' }).click();
+    await expectToast(page, 'error', 'توجد فئة محذوفة بهذا الاسم');
+    await modal(page).getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await expectNoModal(page);
+
+    await pane.getByLabel('عرض المحذوفات').check();
+    const deleted = pane.locator('tbody tr', { hasText: name });
+    await expect(deleted).toContainText('محذوف');
+    await deleted.getByRole('button', { name: 'استعادة' }).click();
+    await expectToast(page, 'success', 'تمت استعادة الفئة بنجاح');
+
+    await pane.getByLabel('عرض المحذوفات').uncheck();
+    await expect(pane.locator('tbody tr', { hasText: name })).toBeVisible();
+    await expectInventoryCategoryOption(page, name);
+  });
+
   test('a new category is offered in the inventory tab add-item form category select', async ({
     authedPage: page,
   }) => {
