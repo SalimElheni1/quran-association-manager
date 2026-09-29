@@ -1,67 +1,47 @@
 # Building and Packaging the Application
 
-This document provides instructions on how to build the application from source, create a distributable installer, and publish it to GitHub Releases.
+How to build the Windows installer, locally or with GitHub Actions, and publish a release.
 
 ## Prerequisites
 
 - Node.js (v22.x.x or later)
 - npm (v10.x.x or later)
-- A configured `GH_TOKEN` environment variable for publishing to GitHub.
+- To build the installer locally: Windows (x64). `npm run dist` builds for Windows only.
 
-## Building the Application
+## Building Locally
 
-To build the application and create a distributable installer, follow these steps:
+1. **Install dependencies.** `postinstall` rebuilds the native SQLite module
+   (`better-sqlite3-multiple-ciphers`) for Electron:
 
-1. **Install Dependencies:**
-   Open your terminal or command prompt, navigate to the project's root directory, and run the following command to install the required dependencies:
    ```bash
    npm install
    ```
 
-2. **Run the Build Script:**
-   Once the dependencies are installed, run the following command to build the application and package it into an installer:
+2. **Generate the installer icon** (once; `release/` is ignored by git).
+   `electron-builder.yml` reads `release/.icon-ico/icon.ico`, made from `build/icon.png`:
+
+   ```bash
+   "$(node -p "require('app-builder-bin').appBuilderPath")" icon --format ico --root build --input build/icon.png --out release/.icon-ico
+   ```
+
+3. **Build the renderer and package the installer:**
+
    ```bash
    npm run dist
    ```
 
-## Publishing to GitHub Releases
+   The installer (`.exe`) is written to `release/`.
 
-To publish a new release to GitHub, you need to have a `GH_TOKEN` (GitHub token) environment variable set up with the `repo` scope.
-
-1. **Create a new version:**
-   - Bump the `version` in `package.json`.
-   - Commit and push your changes to the `main` branch.
-   - Create a new git tag for the version (e.g., `git tag v1.0.1`).
-   - Push the tag to GitHub (e.g., `git push origin v1.0.1`).
-
-2. **Run the publish command:**
-   After building the application with `npm run dist`, you can publish the release to GitHub by running:
-   ```bash
-   npm run dist -- --publish always
-   ```
-   Alternatively, you can configure electron-builder to always publish by adding `--publish always` to the `dist` script in `package.json`.
-
-   Electron Builder will then create a new release on GitHub, upload the installer artifacts, and generate a `latest.yml` file for the auto-updater.
-
-## Auto-Update System
-
-The application is configured to automatically check for updates when it starts.
-
-### How it Works
-
-1.  **Check for Updates:** When the application is launched, it silently checks for a new release on GitHub.
-2.  **Download in Background:** If a new version is available, it will be downloaded in the background without interrupting the user.
-3.  **Notification:** Once the download is complete, the user will see a notification with an "Install" button.
-4.  **Install and Restart:** Clicking "Install" will quit the current application, install the new version, and restart the application.
-
-This ensures a seamless and secure update process for all users.
+`npm run build` alone builds the renderer into `dist/renderer`, which is what the e2e tests
+run against.
 
 ## Releasing with GitHub Actions
 
 `.github/workflows/release.yml` builds the Windows installer on GitHub's Windows machines, so a
 release needs no Windows PC and no token (it uses the workflow's own `GITHUB_TOKEN`).
 
-1. Set the version in `package.json` (e.g. `1.4.0-beta.1`), commit, and push to `main`.
+1. Set the version in `package.json` (e.g. `1.4.0-beta.1`), move the `[Unreleased]` entries of
+   `CHANGELOG.md` under it, commit, and push to `main`.
 2. Tag that commit with the same version and push the tag:
 
    ```bash
@@ -76,3 +56,19 @@ release needs no Windows PC and no token (it uses the workflow's own `GITHUB_TOK
 
 To try an installer before releasing it: **Actions → Release (Windows) → Run workflow**, leave
 "publish" unticked, then download the installer from the run's **Artifacts**.
+
+Publishing from a local machine is not set up: `electron-builder.yml` has no `publish` section
+(the workflow passes it on the command line), so use the workflow.
+
+## Updates
+
+The app has no auto-updater. Users install a new version by downloading the installer from the
+GitHub release and running it over the existing installation; the database lives in the user's
+app data folder and is kept (`deleteAppDataOnUninstall: false`), and migrations run on the next
+start.
+
+## Code Signing
+
+The installer is not code-signed, so Windows SmartScreen warns on first install ("More info →
+Run anyway"). `npm run dist:ci` forces signing and fails without a certificate; it is not used by
+the workflow.
