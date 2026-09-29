@@ -1,658 +1,379 @@
-# API Reference
+# IPC API Reference
 
-This document provides a comprehensive reference for all IPC (Inter-Process Communication) channels available in the Quran Branch Manager application. These channels facilitate secure communication between the Electron main process and the renderer process.
-
-## Table of Contents
-
-- [Authentication APIs](#authentication-apis)
-- [Student Management APIs](#student-management-apis)
-- [Teacher Management APIs](#teacher-management-apis)
-- [Class Management APIs](#class-management-apis)
-- [Age Groups APIs](#age-groups-apis)
-- [User Management APIs](#user-management-apis)
-- [Attendance APIs](#attendance-apis)
-- [Financial APIs](#financial-apis)
-- [Settings APIs](#settings-apis)
-- [System APIs](#system-apis)
-- [Export/Import APIs](#exportimport-apis)
-
-## Authentication APIs
-
-### `auth:login`
-Authenticates a user with username and password.
-
-**Parameters:**
-- `credentials` (Object)
-  - `username` (string): The username
-  - `password` (string): The password
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Authentication success status
-- `token` (string): JWT token if successful
-- `user` (Object): User information if successful
-- `message` (string): Error message if failed
-
-**Example:**
-```javascript
-const result = await window.electronAPI.login({
-  username: 'superadmin',
-  password: 'password123'
-});
-```
-
-### `auth:getProfile`
-Retrieves the current user's profile information.
-
-**Parameters:**
-- `data` (Object, optional)
-  - `token` (string): JWT token (defaults to localStorage token)
-
-**Returns:** `Promise<Object>`
-- User profile object or error response
-
-### `auth:updateProfile`
-Updates the current user's profile information.
-
-**Parameters:**
-- `data` (Object)
-  - `token` (string): JWT token
-  - Profile fields to update
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `auth:updatePassword`
-Updates the current user's password.
-
-**Parameters:**
-- `data` (Object)
-  - `token` (string): JWT token
-  - `currentPassword` (string): Current password for verification
-  - `newPassword` (string): New password
-
-**Returns:** `Promise<Object>`
-- Update result
-
-## Student Management APIs
-
-### `students:get`
-Retrieves students with optional filtering.
-
-**Parameters:**
-- `filters` (Object, optional)
-  - `searchTerm` (string): Search term for name or matricule
-  - `genderFilter` (string): Gender filter ('male', 'female', 'all')
-  - `minAgeFilter` (number): Minimum age filter
-  - `maxAgeFilter` (number): Maximum age filter
-
-**Returns:** `Promise<Array>`
-- Array of student objects with basic information
-
-### `students:getById`
-Retrieves a specific student by ID.
-
-**Parameters:**
-- `id` (number): The student ID
-
-**Returns:** `Promise<Object|null>`
-- Complete student object or null if not found
-
-### `students:add`
-Adds a new student to the database.
-
-**Parameters:**
-- `studentData` (Object)
-  - `name` (string, required): Student's full name
-  - `email` (string, optional): Student's email address
-  - `contact_info` (string, optional): Contact information
-  - `parent_name` (string, optional): Parent/guardian name
-  - `memorization_level` (string, optional): Current memorization level
-  - `groupIds` (Array<number>, optional): Array of group IDs to assign student to
-
-**Returns:** `Promise<Object>`
-- Database result with new student ID
-
-### `students:update`
-Updates an existing student's information.
-
-**Parameters:**
-- `id` (number): The student ID to update
-- `studentData` (Object): Updated student information
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `students:delete`
-Deletes a student from the database.
-
-**Parameters:**
-- `id` (number): The student ID to delete
-
-**Returns:** `Promise<Object>`
-- Deletion result
-
-## Teacher Management APIs
-
-### `teachers:get`
-Retrieves teachers with optional filtering.
-
-**Parameters:**
-- `filters` (Object, optional): Filter criteria
-
-**Returns:** `Promise<Array>`
-- Array of teacher objects
-
-### `teachers:getById`
-Retrieves a specific teacher by ID.
-
-**Parameters:**
-- `id` (number): The teacher ID
-
-**Returns:** `Promise<Object|null>`
-- Teacher object or null if not found
-
-### `teachers:add`
-Adds a new teacher to the database.
-
-**Parameters:**
-- `teacherData` (Object): Teacher information
-
-**Returns:** `Promise<Object>`
-- Database result with new teacher ID
-
-### `teachers:update`
-Updates an existing teacher's information.
-
-**Parameters:**
-- `id` (number): The teacher ID to update
-- `teacherData` (Object): Updated teacher information
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `teachers:delete`
-Deletes a teacher from the database.
-
-**Parameters:**
-- `id` (number): The teacher ID to delete
-
-**Returns:** `Promise<Object>`
-- Deletion result
-
-## Class Management APIs
-
-### `classes:get`
-Retrieves classes with optional filtering.
-
-**Parameters:**
-- `filters` (Object, optional): Filter criteria
-
-**Returns:** `Promise<Array>`
-- Array of class objects
-
-### `classes:add`
-Adds a new class to the database.
-
-**Parameters:**
-- `classData` (Object): Class information
-
-**Returns:** `Promise<Object>`
-- Database result with new class ID
-
-### `classes:update`
-Updates an existing class's information.
-
-**Parameters:**
-- `id` (number): The class ID to update
-- `classData` (Object): Updated class information
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `classes:delete`
-Deletes a class from the database.
-
-**Parameters:**
-- `id` (number): The class ID to delete
-
-**Returns:** `Promise<Object>`
-- Deletion result
-
-### `classes:getById`
-Retrieves a specific class by ID.
-
-**Parameters:**
-- `id` (number): The class ID
-
-**Returns:** `Promise<Object|null>`
-- Class object or null if not found
-
-### `classes:getEnrollmentData`
-Gets enrollment data for a class.
-
-**Parameters:**
-- `data` (Object): Request data
-
-**Returns:** `Promise<Object>`
-- Enrollment information
-
-### `classes:updateEnrollments`
-Updates student enrollments for a class.
-
-**Parameters:**
-- `classId` (number): The class ID
-- `studentIds` (Array<number>): Array of student IDs to enroll
-
-**Returns:** `Promise<Object>`
-- Update result
-
-## Age Groups APIs
-
-### `ageGroups:get`
-Retrieves all age groups with optional filters.
-
-**Parameters:**
-- `filters` (Object, optional): Filter criteria (e.g., `{ isActive: true }`)
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Operation success
-- `ageGroups` (Array): Array of age group objects with fields:
-  - `id`: Group ID
-  - `uuid`: Unique identifier for default groups
-  - `name`: Display name (Arabic or English)
-  - `description`: Purpose and usage
-  - `min_age`: Minimum age (inclusive)
-  - `max_age`: Maximum age (inclusive, null for unlimited)
-  - `gender`: Gender category ('all', 'male', 'female')
-  - `gender_policy`: Organization policy ('mixed', 'separated', 'single_gender')
-  - `is_active`: Whether group is available for new classes
-
-**Example:**
-```javascript
-const result = await window.electronAPI.getAgeGroups();
-console.log(result.ageGroups); // Array of age groups
-```
-
-### `ageGroups:add`
-Creates a new age group.
-
-**Parameters:**
-- `groupData` (Object): Age group information
-  - `name` (string): Required. Group name
-  - `min_age` (number): Required. Minimum age
-  - `max_age` (number|null): Maximum age or null for no limit
-  - `gender` (string): Optional. Gender category ('all', 'male', 'female')
-  - `gender_policy` (string): Optional. Default 'mixed'
-  - `description` (string): Optional. Description
-  - `is_active` (boolean): Optional. Default true
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Creation success
-- `id` (number): New group ID if successful
-- `message` (string): Error message if failed
-
-### `ageGroups:update`
-Updates an existing age group.
-
-**Parameters:**
-- `id` (number): Age group ID
-- `groupData` (Object): Fields to update
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Update success
-- `message` (string): Status or error message
-
-### `ageGroups:delete`
-Deletes an age group (if not in use by classes).
-
-**Parameters:**
-- `id` (number): Age group ID
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Deletion success
-- `message` (string): Status or error message
-
-### `ageGroups:matchStudent`
-Finds all age groups matching a student's age and gender.
-
-**Parameters:**
-- `studentId` (number): Student ID
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Operation success
-- `matchedGroups` (Array): Age groups the student qualifies for
-- `studentAge` (number): Calculated age of the student
-
-**Example:**
-```javascript
-const result = await window.electronAPI.matchStudentToAgeGroups(15);
-// Returns groups matching 15-year-old's profile
-```
-
-### `ageGroups:validateStudentForClass`
-Validates if a student can enroll in a specific class based on age group requirements.
-
-**Parameters:**
-- `studentId` (number): Student ID
-- `classId` (number): Class ID
-
-**Returns:** `Promise<Object>`
-- `success` (boolean): Validation result (true if allowed)
-- `message` (string): Error message if validation fails
-  - "Student age/gender does not match class requirements"
-  - "Class has no age group assigned"
-  - etc.
-
-**Example:**
-```javascript
-const result = await window.electronAPI.validateStudentForClass(10, 5);
-if (result.success) {
-  console.log('Student can enroll');
-} else {
-  console.log('Validation failed:', result.message);
-}
-```
-
-## User Management APIs
-
-### `users:get`
-Retrieves users with optional filtering.
-
-**Parameters:**
-- `filters` (Object, optional): Filter criteria
-
-**Returns:** `Promise<Array>`
-- Array of user objects
-
-### `users:add`
-Adds a new user to the database.
-
-**Parameters:**
-- `userData` (Object): User information
-
-**Returns:** `Promise<Object>`
-- Database result with new user ID
-
-### `users:getUserById`
-Retrieves a specific user by ID.
-
-**Parameters:**
-- `id` (number): The user ID
-
-**Returns:** `Promise<Object|null>`
-- User object or null if not found
-
-### `users:update`
-Updates an existing user's information.
-
-**Parameters:**
-- `id` (number): The user ID to update
-- `userData` (Object): Updated user information
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `users:delete`
-Deletes a user from the database.
-
-**Parameters:**
-- `id` (number): The user ID to delete
-
-**Returns:** `Promise<Object>`
-- Deletion result
-
-## Attendance APIs
-
-### `attendance:getClassesForDay`
-Gets classes scheduled for a specific day.
-
-**Parameters:**
-- `date` (string): Date in YYYY-MM-DD format
-
-**Returns:** `Promise<Array>`
-- Array of class objects for the specified day
-
-### `attendance:getStudentsForClass`
-Gets students enrolled in a specific class.
-
-**Parameters:**
-- `classId` (number): The class ID
-
-**Returns:** `Promise<Array>`
-- Array of student objects
-
-### `attendance:getForDate`
-Gets attendance records for a specific class and date.
-
-**Parameters:**
-- `classId` (number): The class ID
-- `date` (string): Date in YYYY-MM-DD format
-
-**Returns:** `Promise<Array>`
-- Array of attendance records
-
-### `attendance:save`
-Saves attendance records for a class session.
-
-**Parameters:**
-- `data` (Object): Attendance data
-
-**Returns:** `Promise<Object>`
-- Save result
-
-## Financial APIs
-
-### `get-expenses`
-Retrieves all expense records.
-
-**Returns:** `Promise<Array>`
-- Array of expense objects
-
-### `add-expense`
-Adds a new expense record.
-
-**Parameters:**
-- `expense` (Object): Expense information
-
-**Returns:** `Promise<Object>`
-- Database result
-
-### `update-expense`
-Updates an existing expense record.
-
-**Parameters:**
-- `expense` (Object): Updated expense information
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `delete-expense`
-Deletes an expense record.
-
-**Parameters:**
-- `id` (number): The expense ID to delete
-
-**Returns:** `Promise<Object>`
-- Deletion result
-
-### `get-donations`
-Retrieves all donation records.
-
-**Returns:** `Promise<Array>`
-- Array of donation objects
-
-### `add-donation`
-Adds a new donation record.
-
-**Parameters:**
-- `donation` (Object): Donation information
-
-**Returns:** `Promise<Object>`
-- Database result
-
-### `get-salaries`
-Retrieves all salary records.
-
-**Returns:** `Promise<Array>`
-- Array of salary objects
-
-### `add-salary`
-Adds a new salary record.
-
-**Parameters:**
-- `salary` (Object): Salary information
-
-**Returns:** `Promise<Object>`
-- Database result
-
-### `get-payments`
-Retrieves all payment records.
-
-**Returns:** `Promise<Array>`
-- Array of payment objects
-
-### `add-payment`
-Adds a new payment record.
-
-**Parameters:**
-- `payment` (Object): Payment information
-
-**Returns:** `Promise<Object>`
-- Database result
-
-### `get-financial-summary`
-Gets financial summary for a specific year.
-
-**Parameters:**
-- `year` (number): The year to get summary for
-
-**Returns:** `Promise<Object>`
-- Financial summary data
-
-## Settings APIs
-
-### `settings:get`
-Retrieves application settings.
-
-**Parameters:**
-- `key` (string, optional): Specific setting key
-
-**Returns:** `Promise<Object|string>`
-- Settings object or specific setting value
-
-### `settings:update`
-Updates application settings.
-
-**Parameters:**
-- `settingsData` (Object): Settings to update
-
-**Returns:** `Promise<Object>`
-- Update result
-
-### `settings:uploadLogo`
-Opens file dialog to upload a logo.
-
-**Returns:** `Promise<Object>`
-- Upload result with file path
-
-### `settings:getLogo`
-Gets the current logo information.
-
-**Returns:** `Promise<Object>`
-- Logo information
-
-## System APIs
-
-### `get-is-packaged`
-Checks if the application is running in packaged mode.
-
-**Returns:** `Promise<boolean>`
-- True if packaged, false if in development
-
-### `get-app-version`
-Gets the current application version.
-
-**Returns:** `Promise<string>`
-- Application version string
-
-### `dialog:openDirectory`
-Opens a directory selection dialog.
-
-**Returns:** `Promise<Object>`
-- Selected directory path
-
-### `backup:run`
-Runs a database backup operation.
-
-**Parameters:**
-- `settings` (Object): Backup settings
-
-**Returns:** `Promise<Object>`
-- Backup result
-
-### `backup:getStatus`
-Gets the current backup status.
-
-**Returns:** `Promise<Object>`
-- Backup status information
-
-### `db:import`
-Imports data from a backup file.
-
-**Parameters:**
-- `data` (Object): Import configuration
-
-**Returns:** `Promise<Object>`
-- Import result
-
-## Export/Import APIs
-
-### `export:generate`
-Generates an export file with specified options.
-
-**Parameters:**
-- `options` (Object): Export configuration
-
-**Returns:** `Promise<Object>`
-- Export result with file path
-
-### `import:generate-template`
-Generates an import template file.
-
-**Returns:** `Promise<Object>`
-- Template generation result
-
-### `import:execute`
-Executes an import operation.
-
-**Parameters:**
-- `args` (Object): Import arguments
-
-**Returns:** `Promise<Object>`
-- Import execution result
-
-## Error Handling
-
-All API calls return Promises and may throw errors. It's recommended to wrap API calls in try-catch blocks:
+The renderer talks to the main process only through `window.electronAPI`, which
+`src/main/preload.js` builds with one named method per IPC channel:
 
 ```javascript
-try {
-  const students = await window.electronAPI.getStudents();
-  // Handle success
-} catch (error) {
-  console.error('Failed to fetch students:', error);
-  // Handle error
-}
+const students = await window.electronAPI.getStudents({ searchTerm: 'أحمد' });
+// → ipcRenderer.invoke('students:get', filters) → handler in src/main/handlers/studentHandlers.js
 ```
 
-## Security Notes
+## Conventions
 
-- All API calls go through secure IPC channels
-- Authentication is required for most operations
-- Input validation is performed on the main process
-- SQL injection protection is implemented through parameterized queries
-- JWT tokens are used for session management
+- **Names:** `<feature>:<action>` (`students:add`, `settings:update`). A few older channels use
+  dashes (`get-app-version`).
+- **Results:** methods return a Promise. Most return the data directly; some return
+  `{ success, message, … }` objects.
+- **Errors:** a failed call rejects with an `Error` whose message is in Arabic and safe to show
+  (`toast.error(err.message)`). Joi validation failures read «بيانات غير صالحة: …».
+- **Access:** every call passes `src/main/ipcSecurity.js` first: the sender must be the app
+  window, the user must be logged in (except public channels), and their roles must include one
+  of the channel's allowed roles. The **Allowed** column below comes from that file. "Any
+  logged-in user" means the channel is not classified in `CHANNEL_ROLES` yet.
+- **Parameters:** see the handler in the listed file; inputs that create or change records are
+  validated with the Joi schemas in `src/main/validationSchemas.js` (settings:
+  `settingsValidation.js`).
 
----
+To add a channel, see [development.md](../setup/development.md#a-new-ipc-channel).
 
-*This documentation is automatically generated and maintained. Last updated: 2025-01-15*
+## Channels
+
+Generated from the code by `npm run docs:api`; do not edit this section by hand.
+
+<!-- api-doc:start -->
+
+140 channels.
+
+### accounts
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `accounts:add` | `addAccount` | Superadmin, Administrator | `handlers/financialHandlers.js` |
+| `accounts:get` | `getAccounts` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+
+### ageGroups
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `ageGroups:create` | `createAgeGroup` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `ageGroups:delete` | `deleteAgeGroup` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `ageGroups:get` | `getAgeGroups` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/settingsHandlers.js` |
+| `ageGroups:matchStudent` | `matchStudentToAgeGroups` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/settingsHandlers.js` |
+| `ageGroups:update` | `updateAgeGroup` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `ageGroups:validateStudentForClass` | `validateStudentForClass` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+
+### app
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `app:relaunch` | `relaunchApp` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+
+### attendance
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `attendance:getClassesForDay` | `getClassesForDay` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/attendanceHandlers.js` |
+| `attendance:getForDate` | `getAttendanceForDate` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/attendanceHandlers.js` |
+| `attendance:getStudentsForClass` | `getStudentsForClass` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/attendanceHandlers.js` |
+| `attendance:save` | `saveAttendance` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/attendanceHandlers.js` |
+
+### auth
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `auth:getProfile` | `getProfile` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/authHandlers.js` |
+| `auth:login` | `login` | Public (before login) | `handlers/authHandlers.js` |
+| `auth:setup-superadmin` | `setupSuperadmin` | Public (before login) | `handlers/authHandlers.js` |
+| `auth:updatePassword` | `updatePassword` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/authHandlers.js` |
+| `auth:updateProfile` | `updateProfile` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/authHandlers.js` |
+
+### backup
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `backup:get-reminder-status` | `getBackupReminderStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+| `backup:getStatus` | `getBackupStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+| `backup:run` | `runBackup` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+
+### categories
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `categories:get` | `getCategories` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+
+### classes
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `classes:add` | `addClass` | Superadmin, Administrator | `handlers/classHandlers.js` |
+| `classes:delete` | `deleteClass` | Superadmin, Administrator | `handlers/classHandlers.js` |
+| `classes:get` | `getClasses` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
+| `classes:getById` | `getClassById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
+| `classes:getEnrollmentData` | `getEnrollmentData` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
+| `classes:getForStudent` | `getClassesForStudent` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/classHandlers.js` |
+| `classes:update` | `updateClass` | Superadmin, Administrator | `handlers/classHandlers.js` |
+| `classes:updateEnrollments` | `updateEnrollments` | Superadmin, Administrator | `handlers/classHandlers.js` |
+
+### db
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `db:get-attendance-summary-for-class` | `getAttendanceSummaryForClass` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/attendanceHandlers.js` |
+| `db:import` | `importDatabase` | Superadmin | `handlers/systemHandlers.js` |
+
+### dialog
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `dialog:openDirectory` | `openDirectoryDialog` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+| `dialog:openFile` | `openFileDialog` | Superadmin, Administrator, FinanceManager | `index.js` |
+
+### export
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `export:generate` | `generateExport` | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
+| `export:generate-dev-template` | `generateDevTemplate` | Superadmin | `index.js` |
+
+### fee
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `fee-charges:runManualCheck` | `runManualFeeChargeCheck` | Superadmin, Administrator, FinanceManager | `handlers/settingsHandlers.js` |
+
+### financial
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `financial-export:cash-ledger` | `exportCashLedger` | Superadmin, Administrator, FinanceManager | `index.js` |
+| `financial-export:financial-summary` | `exportFinancialSummary` | Superadmin, Administrator, FinanceManager | `services/financialExportService.js` |
+| `financial-export:inventory-ledger` | `exportInventoryLedger` | Superadmin, Administrator, FinanceManager | `index.js` |
+| `financial-export:inventory-register` | `exportInventoryRegister` | Superadmin, Administrator, FinanceManager | `services/financialExportService.js` |
+| `financial-export:word-report` | `exportFinancialReportWord` | Superadmin, Administrator, FinanceManager | `services/financialWordExportService.js` |
+| `financial:export-excel` | `exportFinancialReportExcel` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `financial:export-pdf` | `exportFinancialReportPDF` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `financial:get-summary` | `getFinancialSummary` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `financial:reconcile` | — | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+
+### generate
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `generate-import-template` | `generateImportTemplate` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
+
+### get
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `get-app-version` | `getAppVersion` | Public (before login) | `handlers/systemHandlers.js` |
+| `get-dashboard-stats` | `getDashboardStats` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/dashboardHandlers.js` |
+| `get-initial-credentials` | `getInitialCredentials` | Public (before login) | `index.js` |
+| `get-is-packaged` | `isPackaged` | Public (before login) | `index.js` |
+| `get-todays-classes` | `getTodaysClasses` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/dashboardHandlers.js` |
+
+### groups
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `groups:add` | `addGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:addStudentToGroup` | `addStudentToGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:delete` | `deleteGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:get` | `getGroups` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:getAssignmentData` | `getAssignmentData` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:getEligibleGroupsForClass` | `getEligibleGroupsForClass` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:getEligibleStudentsForGroup` | `getEligibleStudentsForGroup` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:getGroupStudents` | `getGroupStudents` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:getStudentGroups` | `getStudentGroups` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/groupHandlers.js` |
+| `groups:removeStudentFromGroup` | `removeStudentFromGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:update` | `updateGroup` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+| `groups:updateGroupStudents` | `updateGroupStudents` | Superadmin, Administrator | `handlers/groupHandlers.js` |
+
+### hizbs
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `hizbs:get` | `getHizbs` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+
+### import
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `import:excel` | `importExcel` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
+| `import:execute` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
+| `import:generate-template` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
+| `import:get-sheet-info` | `getSheetInfo` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
+| `import:get-sheets` | `getImportSheets` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
+
+### in
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `in-kind-categories:add` | `addInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
+| `in-kind-categories:delete` | `deleteInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
+| `in-kind-categories:get` | `getInKindCategories` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `in-kind-categories:update` | `updateInKindCategory` | Superadmin, Administrator | `handlers/financialHandlers.js` |
+
+### inventory
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `inventory:add` | `addInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
+| `inventory:check-uniqueness` | `checkInventoryItemUniqueness` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
+| `inventory:delete` | `deleteInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
+| `inventory:get` | `getInventoryItems` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
+| `inventory:update` | `updateInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
+
+### logout
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `logout` | `logout` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `index.js` |
+
+### logs
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `logs:clear` | `clearLogs` | Superadmin | `handlers/systemHandlers.js` |
+| `logs:get-file-path` | `getLogFilePath` | Superadmin | `handlers/systemHandlers.js` |
+| `logs:get-filtered` | `getFilteredLogs` | Superadmin | `handlers/systemHandlers.js` |
+| `logs:get-recent` | `getRecentLogs` | Superadmin | `handlers/systemHandlers.js` |
+
+### receipt
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `receipt-books:add` | `addReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:check-exists` | `checkReceiptExists` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:delete` | `deleteReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:get` | `getReceiptBooks` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:get-active` | `getActiveReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:get-next-number` | `getNextReceiptNumber` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+| `receipt-books:update` | `updateReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
+
+### receipts
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `receipts:generate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `receipts:getStats` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `receipts:validate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+
+### settings
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `settings:get` | `getSetting` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `settings:getLogo` | `getLogo` | Public (before login) | `handlers/settingsHandlers.js` |
+| `settings:update` | `updateSettings` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `settings:uploadLogo` | `uploadLogo` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+
+### student
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `student-fees:deletePayment` | `studentFeesDeletePayment` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:generateAllCharges` | `studentFeesGenerateAllCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:generateAnnualCharges` | `studentFeesGenerateAnnualCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:generateMonthlyCharges` | `studentFeesGenerateMonthlyCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getAcademicYear` | `studentFeesGetAcademicYear` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getAll` | `studentFeesGetAll` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getBalanceSummary` | `studentFeesGetBalanceSummary` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getClassesWithSpecialFees` | `studentFeesGetClassesWithSpecialFees` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getFeeGroup` | `studentFeesGetFeeGroup` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getPaymentHistory` | `studentFeesGetPaymentHistory` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:getStatus` | `studentFeesGetStatus` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:recordPayment` | `studentFeesRecordPayment` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:refreshAllStudentCharges` | `studentFeesRefreshAllStudentCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:refreshStudentCharges` | `studentFeesRefreshStudentCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:refundPayment` | `studentFeesRefundPayment` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:resetCharges` | `studentFeesResetCharges` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+| `student-fees:setFeeGroup` | `studentFeesSetFeeGroup` | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
+
+### students
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `students:add` | `addStudent` | Superadmin, Administrator | `handlers/studentHandlers.js` |
+| `students:delete` | `deleteStudent` | Superadmin, Administrator | `handlers/studentHandlers.js` |
+| `students:get` | `getStudents` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+| `students:getByAgeGroup` | `getStudentsByAgeGroup` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+| `students:getById` | `getStudentById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+| `students:update` | `updateStudent` | Superadmin, Administrator | `handlers/studentHandlers.js` |
+
+### surahs
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `surahs:get` | `getSurahs` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/studentHandlers.js` |
+
+### teachers
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `teachers:add` | `addTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
+| `teachers:delete` | `deleteTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
+| `teachers:get` | `getTeachers` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/teacherHandlers.js` |
+| `teachers:getById` | `getTeacherById` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/teacherHandlers.js` |
+| `teachers:update` | `updateTeacher` | Superadmin, Administrator | `handlers/teacherHandlers.js` |
+
+### transactions
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `transactions:add` | `addTransaction` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `transactions:delete` | `deleteTransaction` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `transactions:get` | `getTransactions` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `transactions:get-earliest-date` | `getEarliestTransactionDate` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+| `transactions:update` | `updateTransaction` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
+
+### ui
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `ui:show-error-toast` | `showErrorToast` | Public (before login) | `handlers/systemHandlers.js` |
+| `ui:show-success-toast` | `showSuccessToast` | Public (before login) | `handlers/systemHandlers.js` |
+
+### users
+
+| Channel | `window.electronAPI` | Allowed | File |
+|---|---|---|---|
+| `users:add` | `addUser` | Superadmin | `handlers/userHandlers.js` |
+| `users:delete` | `deleteUser` | Superadmin | `handlers/userHandlers.js` |
+| `users:get` | `getUsers` | Superadmin, Administrator, FinanceManager | `handlers/userHandlers.js` |
+| `users:getById` | `getUserById` | Superadmin | `handlers/userHandlers.js` |
+| `users:update` | `updateUser` | Superadmin | `handlers/userHandlers.js` |
+| `users:updateGuide` | `updateUserGuide` | Superadmin, Administrator, FinanceManager, SessionSupervisor | `handlers/userHandlers.js` |
+
+### Loose ends
+
+- `addDonation` in preload.js calls `add-donation`, which has no handler.
+- `addExpense` in preload.js calls `add-expense`, which has no handler.
+- `addPayment` in preload.js calls `add-payment`, which has no handler.
+- `addSalary` in preload.js calls `add-salary`, which has no handler.
+- `deleteDonation` in preload.js calls `delete-donation`, which has no handler.
+- `deleteExpense` in preload.js calls `delete-expense`, which has no handler.
+- `deletePayment` in preload.js calls `delete-payment`, which has no handler.
+- `deleteSalary` in preload.js calls `delete-salary`, which has no handler.
+- `onForceLogout` in preload.js calls `force-logout`, which has no handler.
+- `getDonations` in preload.js calls `get-donations`, which has no handler.
+- `getExpenses` in preload.js calls `get-expenses`, which has no handler.
+- `getMonthlySnapshot` in preload.js calls `get-monthly-snapshot`, which has no handler.
+- `getPayments` in preload.js calls `get-payments`, which has no handler.
+- `getSalaries` in preload.js calls `get-salaries`, which has no handler.
+- `getStatementOfActivities` in preload.js calls `get-statement-of-activities`, which has no handler.
+- `studentFeesTriggerManualGeneration` in preload.js calls `student-fees:triggerManualGeneration`, which has no handler.
+- `updateDonation` in preload.js calls `update-donation`, which has no handler.
+- `updateExpense` in preload.js calls `update-expense`, which has no handler.
+- `updatePayment` in preload.js calls `update-payment`, which has no handler.
+- `updateSalary` in preload.js calls `update-salary`, which has no handler.
+- Not registered: `add-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `add-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `add-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `add-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `delete-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `delete-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `delete-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `delete-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-donations` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-expenses` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-financial-summary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-monthly-snapshot` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-payments` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-salaries` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `get-statement-of-activities` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `update-donation` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `update-expense` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `update-payment` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+- Not registered: `update-salary` (src/main/handlers/legacyFinancialHandlers.js, `registerLegacyFinancialHandlers` is never called).
+
+<!-- api-doc:end -->

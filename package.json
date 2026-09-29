@@ -26,7 +26,8 @@
     "docs:screenshots": "npm run build && QBM_SCREENSHOTS=1 playwright test",
     "docs:guide": "npm run build && QBM_GUIDE=1 playwright test",
     "docs:guide:audio": "npm run build && QBM_GUIDE=1 QBM_GUIDE_MODE=audio playwright test",
-    "docs:guide:mp4": "node scripts/guide-video.js"
+    "docs:guide:mp4": "node scripts/guide-video.js",
+    "docs:api": "node scripts/api-doc.js"
   },
   "dependencies": {
     "arabic-reshaper": "^1.1.0",
