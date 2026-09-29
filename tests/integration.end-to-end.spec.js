@@ -325,11 +325,31 @@ describe('Integration Tests - End-to-End Workflows', () => {
       };
 
       // Mock payment processing failure
+      db.getQuery.mockResolvedValue(undefined); // receipt number is free
       db.runQuery.mockRejectedValueOnce(new Error('Duplicate receipt number')); // Payment fails
 
-      // Expect the error to be caught and re-thrown with generic message
+      // The raw DB error stays hidden behind recordStudentPayment's own user-facing message
       await expect(ipcMain.invoke('student-fees:recordPayment', paymentData)).rejects.toThrow(
-        'Failed to record student payment',
+        'فشل في تسجيل الدفعة',
+      );
+    });
+
+    it('should tell the user when the receipt number is already used', async () => {
+      const paymentData = {
+        student_id: 1,
+        amount: 100,
+        payment_method: 'CASH',
+        receipt_number: 'RCP-2024-001',
+      };
+      // receipt already recorded as a student payment
+      db.getQuery.mockImplementation((sql) =>
+        Promise.resolve(
+          sql.includes('FROM student_payments WHERE receipt_number') ? { id: 9 } : undefined,
+        ),
+      );
+
+      await expect(ipcMain.invoke('student-fees:recordPayment', paymentData)).rejects.toThrow(
+        'رقم الوصل الذي أدخلته موجود بالفعل',
       );
     });
 

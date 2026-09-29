@@ -2090,7 +2090,9 @@ function registerStudentFeeHandlers() {
             throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
           }
           logError('Error recording student payment:', error);
-          throw new Error('Failed to record student payment.');
+          // recordStudentPayment already throws a user-facing Arabic message (e.g. a
+          // duplicate receipt number); pass it on instead of a generic English one.
+          throw new Error(error.message || 'فشل في تسجيل الدفعة. يرجى المحاولة مرة أخرى.');
         }
       },
     ),
