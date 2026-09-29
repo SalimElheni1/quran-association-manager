@@ -1,18 +1,16 @@
 # Import / Export Field Mapping
 
-This document lists the canonical mapping between Excel template headers (Arabic), the renderer UI logical keys (used by `ExportModal` and `ImportModal`), and the database column names / SQL expressions used by the backend.
+The Arabic column headers the Excel import expects and the export writes, and the database
+columns they map to. The code is the reference: required headers are in
+`src/main/importConstants.js` (and `REQUIRED_COLUMNS` in `importManager.js`), row mapping in the
+`process…Row` functions of `src/main/importManager.js`, and export columns in
+`src/main/exportManager.js`. Update this file when you change them.
 
-Purpose
-- Ensure exports use the correct DB columns and joins.
-- Ensure import templates keep the same Arabic headers expected by `importManager`.
-- Provide a single source of truth when adding new fields or debugging mismatches.
-
-Assumptions
-- The authoritative DB schema is in `src/db/schema.js`.
-- UI keys used by pages (e.g., `studentsAdultFields`, `classesFields`) are the logical keys used by `ExportModal` and passed to the backend.
-- For joined/derived fields we indicate SQL expression (alias) to be used in `SELECT` (e.g., `t.name as teacher_name`).
-
-If a DB column doesn't exist yet, add a note under "Notes" and coordinate a migration.
+- Each sheet is named after its table in Arabic (e.g. «الطلاب»). A workbook can contain any of
+  the sheets; the import wizard lets the user pick which to import.
+- Rows with a known matricule (الرقم التعريفي) **update** the existing record; rows without one
+  are created and get a new matricule.
+- Headers marked **required** must be present in the sheet.
 
 ---
 
@@ -21,7 +19,7 @@ If a DB column doesn't exist yet, add a note under "Notes" and coordinate a migr
 | Arabic header | UI key | DB column / SQL expression | Notes |
 |---|---:|---|---|
 | الرقم التعريفي | matricule | matricule | Leave blank for new rows; system generates on import |
-| الاسم واللقب | name | name | |
+| الاسم واللقب | name | name | **Required** |
 | تاريخ الميلاد | date_of_birth | date_of_birth | ISO yyyy-mm-dd |
 | الجنس | gender | gender | Values: 'Male'/'Female' internally; templates use Arabic 'ذكر'/'أنثى' |
 | العنوان | address | address | |
@@ -57,7 +55,7 @@ If a DB column doesn't exist yet, add a note under "Notes" and coordinate a migr
 | Arabic header | UI key | DB column / SQL expression | Notes |
 |---|---:|---|---|
 | الرقم التعريفي | matricule | matricule | Optional; used to update existing teacher |
-| الاسم واللقب | name | name | |
+| الاسم واللقب | name | name | **Required** |
 | رقم الهوية | national_id | national_id | |
 | رقم الهاتف | contact_info | contact_info | |
 | البريد الإلكتروني | email | email | |
@@ -77,19 +75,19 @@ If a DB column doesn't exist yet, add a note under "Notes" and coordinate a migr
 | Arabic header | UI key | DB column / SQL expression | Notes |
 |---|---:|---|---|
 | الرقم التعريفي | matricule | matricule | If present, used to update existing user |
-| اسم المستخدم | username | username | Unique login name |
-| الاسم الأول | first_name | first_name | |
-| اللقب | last_name | last_name | |
+| اسم المستخدم | username | username | **Required**. Unique login name |
+| الاسم الأول | first_name | first_name | **Required** |
+| اللقب | last_name | last_name | **Required** |
 | تاريخ الميلاد | date_of_birth | date_of_birth | |
 | رقم الهوية | national_id | national_id | |
 | البريد الإلكتروني | email | email | |
 | رقم الهاتف | phone_number | phone_number | |
 | المهنة | occupation | occupation | |
 | الحالة الاجتماعية | civil_status | civil_status | |
-| نوع التوظيف | employment_type | employment_type | e.g., contract/volunteer |
+| نوع التوظيف | employment_type | employment_type | **Required**. contract / volunteer |
 | تاريخ البدء | start_date | start_date | |
 | تاريخ الانتهاء | end_date | end_date | |
-| الدور | role | role | DB stores normalized role codes (e.g., 'FinanceManager') |
+| الدور | role | `user_roles` | **Required**. A role name (e.g. FinanceManager); stored as a row in `user_roles`, not a column |
 | الحالة | status | status | |
 | ملاحظات | notes | notes | |
 
@@ -100,18 +98,28 @@ If a DB column doesn't exist yet, add a note under "Notes" and coordinate a migr
 | Arabic header | UI key | DB column | Notes |
 |---|---:|---|---|
 | الرقم التعريفي | matricule | matricule | Optional identifier |
-| اسم المجموعة | name | name | |
+| اسم المجموعة | name | name | **Required** |
 | الوصف | description | description | |
-| الفئة | category | category | e.g., 'رجال' / 'نساء' |
+| الفئة | category | category | **Required**. e.g. 'رجال' / 'نساء' |
 
 ---
 
 ## Classes (الفصول)
 
-Note: `classes` sheet/exports typically join `classes` and `teachers` (teacher_id). Use `c.` and `t.` aliases.
-
-| Arabic header / UI label | UI key | DB column / expression | Notes |
+| Arabic header | UI key | DB column / expression | Notes |
 |---|---:|---|---|
+| اسم الفصل | name | c.name | **Required** |
+| معرف المعلم | teacher_matricule | teacher_id (lookup by `teachers.matricule`) | **Required header**. A row may leave it empty and give اسم المعلم instead |
+| اسم المعلم | teacher_name | t.name as teacher_name | Import: teacher looked up by name when there is no matricule. Export: `LEFT JOIN teachers t ON c.teacher_id = t.id` |
+| نوع الفصل | class_type | c.class_type | |
+| الجدول الزمني | schedule | c.schedule | JSON or free text (the header «الجدول الزمني (JSON)» is also read) |
+| تاريخ البدء | start_date | c.start_date | |
+| تاريخ الانتهاء | end_date | c.end_date | |
+| السعة | capacity | c.capacity | |
+| الجنس | gender | c.gender | Mapped to the stored class audience |
+| الحالة | status | c.status | Mapped to the stored status |
+
+---|---:|---|---|
 | اسم الفصل | name | c.name | |
 | اسم المعلم | teacher_name | t.name as teacher_name | Requires LEFT JOIN teachers t ON c.teacher_id = t.id |
 | الجدول الزمني | schedule | c.schedule | Free text or JSON depending on schema |
@@ -125,10 +133,10 @@ Note: `classes` sheet/exports typically join `classes` and `teachers` (teacher_i
 | Arabic header | UI key | DB column | Notes |
 |---|---:|---|---|
 | الرقم التعريفي | matricule | matricule | Optional |
-| اسم العنصر | item_name | item_name | |
-| الفئة | category | category | |
-| الكمية | quantity | quantity | Numeric |
-| قيمة الوحدة | unit_value | unit_value | Numeric |
+| اسم العنصر | item_name | item_name | **Required** |
+| الفئة | category | category | **Required** |
+| الكمية | quantity | quantity | **Required**. Numeric |
+| قيمة الوحدة | unit_value | unit_value | **Required**. Numeric |
 | تاريخ الاقتناء | acquisition_date | acquisition_date | |
 | مصدر الاقتناء | acquisition_source | acquisition_source | |
 | الحالة | condition_status | condition_status | e.g., 'جديد', 'مستخدم' |
@@ -141,46 +149,47 @@ Note: `classes` sheet/exports typically join `classes` and `teachers` (teacher_i
 
 | Arabic header | UI key | DB column / SQL expression | Notes |
 |---|---:|---|---|
-| الرقم التعريفي للطالب | student_matricule | s.matricule or s.id lookup by matricule | Import uses matricule to resolve student id |
-| اسم الفصل | class_name | c.name or c.id lookup | |
-| التاريخ | date | a.date | |
-| الحالة | status | a.status | Present/Absent/Late mapped to Arabic |
+| الرقم التعريفي للطالب | student_matricule | s.matricule or s.id lookup by matricule | **Required**. Import uses matricule to resolve student id |
+| اسم الفصل | class_name | c.name or c.id lookup | **Required** |
+| التاريخ | date | a.date | **Required** |
+| الحالة | status | a.status | **Required**. Present/Absent/Late mapped to Arabic |
 
 ---
 
 ## Financial Operations (العمليات المالية)
 
-Financial sheet mapping can vary; include the most common fields used in `generateFinancialXlsx`.
+Rows become `transactions`. Arabic type, category and payment-method values are mapped to the stored codes (e.g. «مدخول» → `INCOME`, «نقدي» → `CASH`).
 
 | Arabic header | UI key | DB column | Notes |
 |---|---:|---|---|
 | الرقم التسلسلي | matricule | matricule | Optional |
-| النوع | type | type | e.g., 'income'/'expense' (localized texts used in templates)
-| الفئة | category | category | |
+| النوع | type | type | **Required**. «مدخول» / «مصروف» (or «إيراد» / «مصاريف») |
+| الفئة | category | category | **Required** |
 | نوع الوصل | receipt_type | receipt_type | |
-| المبلغ | amount | amount | Numeric |
-| التاريخ | transaction_date | transaction_date | |
+| المبلغ | amount | amount | **Required**. Numeric |
+| التاريخ | transaction_date | transaction_date | **Required** |
 | الوصف | description | description | |
-| طريقة الدفع | payment_method | payment_method | |
+| طريقة الدفع | payment_method | payment_method | **Required**. «نقدي» / «شيك» / «تحويل (بنكي)» |
 | رقم الشيك | check_number | check_number | |
 | رقم الوصل | voucher_number | voucher_number | |
 | اسم الشخص | related_person_name | related_person_name | |
 
 ---
 
-## Notes & Next Steps
+## Student Fees (رسوم الطلاب)
 
-- If any UI key listed above does not match your actual renderer field arrays (e.g., `studentsAdultFields`), update the mapping here and adjust `buildFieldSelectionFor` in `src/main/exportManager.js` to match.
-- For joined/aggregated fields (e.g., user role aggregation), prefer using SQL expressions and explicit JOINs rather than trying to compute in JS after a generic `SELECT`.
-- After this file is reviewed, I recommend:
-  1. Updating `buildFieldSelectionFor` to fully cover the UI keys for all pages.
-  2. Adding minimal unit tests for `fetchExportData` for `classes` and `inventory` on a local test DB or using mocked `allQuery`.
-  3. Implementing an import dry-run/validate mode in `importManager` and wiring it into `ImportWizard` UI.
+Each row is recorded as a student payment and applied to the student's charges like a payment
+made in the app.
 
-If you'd like, I can now:
-- update `buildFieldSelectionFor` to include any missing UI keys, or
-- add tests that exercise the new `classes` and `inventory` export branches.
-
----
-
-Generated: 2025-10-28
+| Arabic header | Field | Notes |
+|---|---|---|
+| رقم التعريفي | student matricule | **Required**. The student must exist |
+| المبلغ | amount | **Required** |
+| تاريخ الدفع | payment_date | **Required** |
+| طريقة الدفع | payment_method | **Required**. «نقدي» / «شيك» / «تحويل (بنكي)» |
+| نوع الدفعة | payment_type | «رسوم شهرية» / «رسوم سنوية» / «رسوم خاصة» (MONTHLY / ANNUAL / SPECIAL) |
+| السنة الدراسية | academic_year | `YYYY-YYYY`; defaults to the current academic year |
+| رقم تعريفي الفصل | class matricule | For special (class) fees |
+| رقم الشيك | check_number | |
+| رقم الوصل | receipt_number | Must be unique; generated (`RCP-YYYY-NNNN`) when empty |
+| ملاحظات | notes | |

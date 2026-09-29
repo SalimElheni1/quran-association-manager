@@ -4,7 +4,7 @@
 **Module:** Financial Management System
 **Date regenerated:** 2026-08-08
 **Basis:** Runtime audit `docs/dev/reports/financial-runtime-audit.md` + DB audit `docs/dev/reports/financial-db-schema-audit.md`
-**Status:** Sprint 2 is the active sprint. Sprints 3–4 are the queued backlog.
+**Status:** All four sprints are completed (see the resolution status in `docs/dev/reports/financial-runtime-audit.md`). Kept as a record.
 
 > Rule of engagement (AGENTS.md): changes are strictly additive or confined to the files named in each task. Never delete unrelated features.
 
@@ -20,7 +20,7 @@ Restore fee settings and rewire charge generation for configurable academic year
 
 ---
 
-## Sprint 2 — Financial Core Integrity (ACTIVE)
+## Sprint 2 — Financial Core Integrity (COMPLETED)
 
 Goal: make the financial numbers trustworthy — account balances, charge generation, credit handling, and working export buttons.
 

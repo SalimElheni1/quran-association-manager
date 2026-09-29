@@ -40,8 +40,12 @@ cp .env.example .env     # then fill it in
 
 ```bash
 npm run dev          # Vite dev server on :3000 + Electron, with live reload
-npm run seed:manual  # optional: demo data in a local database (.db/ in the project root)
 ```
+
+`npm run seed:manual` (demo data) is currently broken: the seeder still writes the removed
+`users.role` column, and plain Node cannot load the SQLite module once it has been rebuilt for
+Electron (see [troubleshooting.md](../troubleshooting.md)). For realistic data, run the
+real-world e2e scenario and open its data with `npm run e2e:open-data`.
 
 On first start the app asks you to create the first superadmin. In development the database is
 in Electron's `userData` folder, like the installed app, so it survives restarts; delete it to

@@ -2,6 +2,9 @@
 
 **Date:** 2026-08-05
 **Scope:** Read-only audit. No fixes proposed.
+**Status:** Point-in-time record. Its findings fed the financial sprints; see
+`docs/dev/sprints/financial-module-sprints.md` for what was fixed. Line numbers refer to the code
+at the time.
 **Audited area:** `src/db/db.js` migration runner, all migrations `src/db/migrations/001-049`, base schema `src/db/schema.js`, and financial handlers/services that read or write these tables (`financialHandlers.js`, `studentFeeHandlers.js`, `receiptHandlers.js`, `inventoryHandlers.js`, `settingsHandlers.js`, `settingsManager.js`, `feeChargeScheduler.js`, `legacyFinancialHandlers.js`, `receiptService.js`, `matriculeService.js`, `validationSchemas.js`, import/export services, renderer components).
 
 ---

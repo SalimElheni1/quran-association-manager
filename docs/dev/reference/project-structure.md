@@ -37,7 +37,7 @@ docs/
 │   ├── reports/            # Audits
 │   ├── sprints/            # Sprint notes
 │   └── troubleshooting.md  # Developer Troubleshooting
-├── archive/                # Superseded migrations kept for reference
+├── archive/                # Superseded migrations and the 2024 financial redesign plan
 └── screenshots/            # README screenshots (npm run docs:screenshots)
 ```
 
@@ -159,6 +159,7 @@ The main process and the renderer do not share modules, so a few small helpers e
 - `manual-seeder.js` - demo data (`npm run seed:manual`)
 - `guide-video.js` - MP4s from the recorded video guide (`npm run docs:guide:mp4`)
 - `open-e2e-data.js` - open data kept by the real-world e2e run (`npm run e2e:open-data`)
+- `api-doc.js` - regenerate the channel reference in `docs/dev/specs/api.md` (`npm run docs:api`)
 - `capture-demo.js` - portfolio screenshots without Playwright
 - `diagnose-db.js`, `check-payment-methods.js` - database inspection
 - `fix-logo-path.js`, `fix-matricule-format.js`, `migrate-student-fees.js` - one-off data fixes
