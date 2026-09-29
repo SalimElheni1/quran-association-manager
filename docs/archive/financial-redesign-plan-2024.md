@@ -1,3 +1,7 @@
+> **Archived.** This is the 2024 plan for the unified financial module, kept for its reasoning.
+> The plan has been implemented; the current behaviour is described in
+> [docs/dev/specs/financial-spec.md](../dev/specs/financial-spec.md).
+
 # Financial System Redesign - Single Source of Truth
 
 **Project:** Quran Branch Manager  
