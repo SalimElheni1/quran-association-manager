@@ -1,6 +1,6 @@
 # Quran Branch Manager
 
-**Quran Branch Manager** is a modern, cross-platform desktop application designed to streamline the administrative operations of Quranic associations. Built with Electron and React, it provides an offline-first, secure, and user-friendly system to manage students, teachers, classes, finances, and more.
+**Quran Branch Manager** is a desktop application for Windows designed to streamline the administrative operations of Quranic associations. Built with Electron and React, it provides an offline-first, secure, and user-friendly system to manage students, teachers, classes, finances, and more.
 
 This application was developed to replace manual, paper-based workflows, offering a digital solution tailored to the needs of organizations like the National Quran Association in Tunisia.
 
@@ -12,11 +12,12 @@ This application was developed to replace manual, paper-based workflows, offerin
 - **Teacher & Class Management:** Manage teacher profiles, create class schedules, and assign students and teachers to classes.
 - **Attendance Tracking:** Record and monitor student attendance with ease, and generate detailed reports.
 - **Financial Management:** A complete module to track student payments, teacher salaries, donations (cash and in-kind), and general expenses. Student fees are billed monthly or yearly per age group, each age group can have its own fees, and unpaid fees from earlier academic years are kept apart.
-- **Comprehensive Reporting:** Generate and export detailed reports for students, attendance, and financials in both PDF and Excel formats.
-- **Role-Based Access Control:** Secure login system with distinct roles (Superadmin, Branch Admin, Teacher) to ensure data privacy and security.
-- **Offline-First:** The application is designed to work seamlessly without an internet connection, storing all data locally and securely on your computer.
+- **Comprehensive Reporting:** Generate and export detailed reports for students, attendance, and financials in PDF, Excel and Word formats.
+- **Inventory:** Track in-kind donations and stock movements, with an inventory ledger export.
+- **Role-Based Access Control:** Secure login with four roles (Superadmin, Administrator, Finance Manager, Session Supervisor); a user can hold several. Every IPC call is checked against the user's roles in the main process.
+- **Offline-First:** The application works without an internet connection, storing all data locally in an encrypted SQLite database on your computer.
 - **Arabic Language Support:** A full Right-to-Left (RTL) interface designed for Arabic-speaking users.
-- **Data Backup & Export:** Tools to back up the database and export data for external use.
+- **Data Backup & Import:** Encrypted, signed backups (manual or scheduled) that can be restored on another computer with the association transfer key, and an Excel import wizard.
 
 ## 📸 Gallery
 
@@ -72,8 +73,8 @@ To run the application in development mode with live reloading:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/quran-branch-manager.git
-    cd quran-branch-manager
+    git clone https://github.com/SalimElheni1/quran-association-manager.git
+    cd quran-association-manager
     ```
 2.  **Install dependencies:**
     ```bash
@@ -84,51 +85,67 @@ To run the application in development mode with live reloading:
     npm run dev
     ```
 
+### Testing
+
+```bash
+npm test              # Jest unit and integration tests (main process and renderer)
+npm run lint          # ESLint + Prettier
+npm run test:e2e      # Playwright end-to-end tests against the built Electron app
+```
+
+See the [Testing Guide](docs/dev/setup/testing.md) for the real-world scenario and the video guide.
+
 ### Building for Production
 
-To build the application and create a distributable installer for your platform:
+To build the Windows installer:
 
 ```bash
 npm run dist
 ```
 
-The installer will be located in the `release/` directory. For more details, see the [Build and Packaging documentation](docs/dev/setup/building.md).
+The installer will be located in the `release/` directory. Pushing a version tag (`v` + the
+version in `package.json`) builds it on GitHub Actions and publishes a GitHub release. For more
+details, see the [Build and Packaging documentation](docs/dev/setup/building.md).
 
 ## 🏁 من هنا نبدأ (Start Here)
- 
- **مرحباً بكم في تطبيق مدير الفروع القرآنية!**
- 
- هذا التطبيق مصمم لتسهيل إدارة الجمعيات القرآنية. إليكم الروابط الأساسية:
- 
- - **📖 [دليل المستخدم (عربي)](docs/user/manual.md):** شرح شامل لكيفية استخدام البرنامج (إضافة طلاب، تسجيل حضور، مالية).
- - **💰 [الدليل المالي (عربي)](docs/user/financial.md):** شرح خاص للنظام المالي الموحد.
- - **🔧 [حل المشاكل (عربي)](docs/user/troubleshooting.md):** ماذا تفعل إذا واجهت مشكلة؟
- 
- ---
- 
- ## 📚 Documentation (For Developers)
- 
- Comprehensive documentation for developers and contributors.
- 
- | File | Description |
- | :--- | :--- |
- | **Setup & Guides** | |
- | [`docs/dev/setup/development.md`](docs/dev/setup/development.md) | Setup Guide & Workflow. |
- | [`docs/dev/setup/building.md`](docs/dev/setup/building.md) | Build & Release Instructions. |
- | [`docs/dev/setup/testing.md`](docs/dev/setup/testing.md) | Testing Guide (Jest/Playwright). |
- | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution Guidelines. |
- | **Technical Specs** | |
- | [`docs/dev/specs/architecture.md`](docs/dev/specs/architecture.md) | System Architecture. |
- | [`docs/dev/specs/api.md`](docs/dev/specs/api.md) | IPC API Reference. |
- | [`docs/dev/specs/security.md`](docs/dev/specs/security.md) | Security Protocol. |
- | [`docs/dev/specs/financial-spec.md`](docs/dev/specs/financial-spec.md) | Financial Module Specification. |
- | **References** | |
- | [`docs/dev/reference/project-structure.md`](docs/dev/reference/project-structure.md) | Codebase Directory Map. |
- | [`docs/dev/troubleshooting.md`](docs/dev/troubleshooting.md) | Developer Troubleshooting. |
- 
- ## 🤝 Contributing
- 
- Contributions are welcome! Please read our [**Contributing Guidelines**](CONTRIBUTING.md) to get started.
+
+**مرحباً بكم في تطبيق مدير الفروع القرآنية!**
+
+هذا التطبيق مصمم لتسهيل إدارة الجمعيات القرآنية. إليكم الروابط الأساسية:
+
+- **📖 [دليل المستخدم (عربي)](docs/user/manual.md):** شرح شامل لكيفية استخدام البرنامج (إضافة طلاب، تسجيل حضور، مالية).
+- **💰 [الدليل المالي (عربي)](docs/user/financial.md):** شرح خاص للنظام المالي الموحد.
+- **🔧 [حل المشاكل (عربي)](docs/user/troubleshooting.md):** ماذا تفعل إذا واجهت مشكلة؟
+
+---
+
+## 📚 Documentation (For Developers)
+
+Comprehensive documentation for developers and contributors.
+
+| File | Description |
+| :--- | :--- |
+| **Setup & Guides** | |
+| [`docs/dev/setup/development.md`](docs/dev/setup/development.md) | Setup Guide & Workflow. |
+| [`docs/dev/setup/building.md`](docs/dev/setup/building.md) | Build & Release Instructions. |
+| [`docs/dev/setup/testing.md`](docs/dev/setup/testing.md) | Testing Guide (Jest/Playwright). |
+| [`docs/dev/setup/deployment.md`](docs/dev/setup/deployment.md) | Release and distribution. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution Guidelines. |
+| **Technical Specs** | |
+| [`docs/dev/specs/architecture.md`](docs/dev/specs/architecture.md) | System Architecture. |
+| [`docs/dev/specs/api.md`](docs/dev/specs/api.md) | IPC API Reference. |
+| [`docs/dev/specs/security.md`](docs/dev/specs/security.md) | Security Protocol. |
+| [`docs/dev/specs/financial-spec.md`](docs/dev/specs/financial-spec.md) | Financial Module Specification. |
+| **References** | |
+| [`docs/dev/reference/project-structure.md`](docs/dev/reference/project-structure.md) | Codebase Directory Map. |
+| [`docs/dev/troubleshooting.md`](docs/dev/troubleshooting.md) | Developer Troubleshooting. |
+| [`docs/dev/reference/import-export-map.md`](docs/dev/reference/import-export-map.md) | Excel import/export field mapping. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history. |
+| [`SECURITY_REMEDIATION_PLAN.md`](SECURITY_REMEDIATION_PLAN.md) | Security work plan and its status. |
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [**Contributing Guidelines**](CONTRIBUTING.md) to get started.
 
 To ensure a welcoming and inclusive environment, all contributors are expected to adhere to our [**Code of Conduct**](CODE_OF_CONDUCT.md).
 

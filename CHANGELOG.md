@@ -7,21 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Created `LICENSE` file with CC BY-NC-SA 4.0 license.
-- Created `CODE_OF_CONDUCT.md` with the Contributor Covenant.
-- Created `CONTRIBUTING.md` with guidelines for contributors.
-- Created `CHANGELOG.md` to track project changes.
-- Created `AGENTS.md` to assist AI agents.
-
 ### Changed
 
-- Updated `README.md` to be a more comprehensive entry point.
-- Refined `docs/USAGE.md` and `docs/DEVELOPMENT.md`.
+- Documentation reviewed against the code: README (roles, export formats, Windows-only
+  installer, testing), contributing and release process, developer guides and references.
+
+### Removed
+
+- Unused code and files: the unwired groups and receipt-books tabs and other components nothing
+  imported, scripts that could no longer run, one-off verification scripts and screenshots,
+  and the leftovers of the removed Google Drive backup (setup guide, `GOOGLE_*` variables,
+  `google-auth-library`). Unused dependencies `docxtemplater`, `react-select`, `d3-shape` and
+  `@fortawesome/fontawesome-free` were dropped.
 
 ### Fixed
 
+- The students table showed «NaN» as the age of a student with an unreadable birth date
+  (now «غير متوفر»), and the age filters kept such students.
+- The About page's project link pointed to a repository that does not exist.
 - **The first month of an academic year was billed twice.** Next month's charges billed from
   the generation day (e.g. 25 August) took the ending academic year, so September was billed
   under 2025-2026 and again under 2026-2027 when it started (and showed as last year's arrears).

@@ -19,7 +19,8 @@ Have an idea for a new feature or an improvement? Open an issue to discuss your 
 1.  **Fork the Repository:** Start by forking the main project repository on GitHub.
 2.  **Clone Your Fork:** Clone your forked repository to your local machine.
     ```bash
-    git clone https://github.com/your-username/quran-branch-manager.git
+    git clone https://github.com/your-username/quran-association-manager.git
+    cd quran-association-manager
     ```
 3.  **Create a New Branch:** Create a new branch for your feature or bug fix. Use a descriptive name (e.g., `feature/add-student-search`, `bugfix/login-issue`).
     ```bash
@@ -27,9 +28,11 @@ Have an idea for a new feature or an improvement? Open an issue to discuss your 
     ```
 4.  **Set Up Development Environment:** Follow the instructions in the [docs/dev/setup/development.md](docs/dev/setup/development.md) file to set up your local development environment, install dependencies, and run the application.
 5.  **Make Your Changes:** Implement your feature or fix the bug. Ensure your code adheres to the project's coding standards and best practices.
-6.  **Test Your Changes:** Run all relevant tests to ensure your changes work as expected and do not introduce regressions.
+6.  **Test Your Changes:** Run the linter and the tests to ensure your changes work as expected and do not introduce regressions. For UI changes, also run the end-to-end tests (see [docs/dev/setup/testing.md](docs/dev/setup/testing.md)).
     ```bash
+    npm run lint
     npm test
+    npm run test:e2e
     ```
 7.  **Commit Your Changes:** Write clear and concise commit messages following conventional commit standards.
     ```bash
@@ -51,12 +54,17 @@ Have an idea for a new feature or an improvement? Open an issue to discuss your 
 
 ## Release Process
 
-New versions of the application are released periodically. The release process involves:
+Releases are built by the **Release (Windows)** GitHub Actions workflow
+(`.github/workflows/release.yml`):
 
-1.  **Feature Freeze:** All new features are halted.
-2.  **Testing Phase:** Extensive testing is conducted to identify and fix any remaining bugs.
-3.  **Documentation Update:** User and technical documentation are updated to reflect new features and changes.
-4.  **Build and Package:** The application is built and packaged for all supported platforms using Electron Builder.
-5.  **Code Signing:** The builds are digitally signed for security and authenticity.
-6.  **Release Notes:** Comprehensive release notes are prepared, detailing new features, bug fixes, and known issues. This is often managed in a `CHANGELOG.md` file.
-7.  **Deployment:** The new version is deployed to the distribution channels (e.g., GitHub Releases).
+1.  **Version:** Set the new version in `package.json` (e.g. `1.4.0` or `1.5.0-beta.1`) and move
+    the `[Unreleased]` entries of `CHANGELOG.md` under that version.
+2.  **Tag:** Push a tag `v` + that version (e.g. `v1.4.0`). The workflow refuses a tag that does
+    not match `package.json`.
+3.  **Checks:** Lint and the Jest tests run first; the installer is only built if they pass.
+4.  **Build and publish:** The Windows installer is built and published as a GitHub release.
+    Versions with a suffix (`-beta.1`, `-rc.1`) are published as pre-releases.
+
+To try an installer before publishing, run the workflow by hand from the Actions tab and
+download it from the run's artifacts. The installer is not code-signed yet, so Windows
+SmartScreen warns on first install.
