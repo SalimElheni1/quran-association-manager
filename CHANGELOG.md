@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Fee settings nothing read: `charge_generation_frequency`, `pre_generate_months_ahead`,
+  `last_charge_generation_check` and `men_/women_/kids_payment_frequency` (payment frequency is
+  set per age group). Values stored by older databases are ignored.
+- The legacy financial IPC channels (`get-expenses`, `add-donation`, …), which were never
+  registered, from the preload script and the role matrix.
+- The `tests/business` specs, which never ran and did not test the app.
 - Unused code and files: the unwired groups and receipt-books tabs and other components nothing
   imported, scripts that could no longer run, one-off verification scripts and screenshots,
   and the leftovers of the removed Google Drive backup (setup guide, `GOOGLE_*` variables,
@@ -27,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Adding or editing a student younger than 4 showed «حدث خطأ غير متوقع في الخادم.» instead of the
+  minimum-age message.
+- A new database no longer carries an empty `users_new` table (migration 059), and the mixed
+  «المراهقون (12-17 سنة)» age group, which overlapped the 12-14 and 15-17 groups, is deactivated
+  unless a class or student uses it (migration 060).
+- `npm run seed:manual` works again and fills the database `npm run dev` opens.
+- The students search e2e test failed because it typed while a closing dialog still held focus;
+  e2e steps now wait for dialogs to be fully closed.
 - The students table showed «NaN» as the age of a student with an unreadable birth date
   (now «غير متوفر»), and the age filters kept such students.
 - The About page's project link pointed to a repository that does not exist.
