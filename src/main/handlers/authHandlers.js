@@ -61,6 +61,23 @@ const profileUpdateValidationSchema = userUpdateValidationSchema
   })
   .with('new_password', 'current_password');
 
+const PROFILE_EDITABLE_FIELDS = [
+  'username',
+  'password',
+  'first_name',
+  'last_name',
+  'date_of_birth',
+  'national_id',
+  'email',
+  'phone_number',
+  'occupation',
+  'civil_status',
+  'employment_type',
+  'start_date',
+  'end_date',
+  'notes',
+];
+
 const getUserIdFromSession = (event) => {
   const senderId = event && event.sender ? event.sender.id : null;
   const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
@@ -117,6 +134,8 @@ const updateProfileHandler = async (userId, profileData) => {
     }
   }
 
+  // A plain `password` key from the renderer is never stored; only a verified new_password is.
+  delete validatedData.password;
   if (validatedData.new_password) {
     const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
     if (!currentUser) {
@@ -129,19 +148,25 @@ const updateProfileHandler = async (userId, profileData) => {
     validatedData.password = await bcrypt.hash(validatedData.new_password, 10);
   }
 
-  const fieldsToExclude = [
-    'id',
-    'current_password',
-    'new_password',
-    'confirm_new_password',
-    'roles',
-  ];
+  // Only the columns a user may edit on their own profile. The schema lets unknown keys
+  // through, and the column names go into the SQL, so everything else is dropped here
+  // (status and roles are admin-only; a password only ever arrives hashed, above).
   const fieldsToUpdate = Object.keys(validatedData).filter(
-    (field) => !fieldsToExclude.includes(field) && validatedData[field] !== undefined,
+    (field) => PROFILE_EDITABLE_FIELDS.includes(field) && validatedData[field] !== undefined,
   );
 
   if (fieldsToUpdate.length === 0) {
     return { success: true, message: 'لم يتم تحديث أي بيانات.' };
+  }
+
+  // Joi turns date fields into Date objects, which SQLite cannot bind. Store them the
+  // way users:add / users:update do.
+  for (const field of fieldsToUpdate) {
+    if (validatedData[field] instanceof Date) {
+      validatedData[field] = validatedData[field].toISOString();
+    } else if (validatedData[field] === '') {
+      validatedData[field] = null;
+    }
   }
 
   const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');

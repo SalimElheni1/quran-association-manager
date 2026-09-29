@@ -288,6 +288,46 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toBe('تم تحديث الملف الشخصي بنجاح.');
     });
 
+    it('should only write editable profile columns, never raw keys or a plain password', async () => {
+      db.getQuery.mockResolvedValue(null);
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      const result = await handlers['auth:updateProfile'](sessionEvent, {
+        profileData: {
+          first_name: 'John',
+          status: 'active',
+          branch_id: 3,
+          password: 'plaintext99',
+          'first_name = 1, password': 'x',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(db.runQuery).toHaveBeenCalledTimes(1);
+      expect(db.runQuery).toHaveBeenCalledWith('UPDATE users SET first_name = ? WHERE id = ?', [
+        'John',
+        1,
+      ]);
+    });
+
+    it('should store date fields as strings, since SQLite cannot bind Date objects', async () => {
+      db.getQuery.mockResolvedValue(null);
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      // The real schema converts ISO date strings into Date objects.
+      userUpdateValidationSchema.validateAsync.mockResolvedValue({
+        date_of_birth: new Date('1990-05-01'),
+        email: '',
+      });
+
+      const result = await handlers['auth:updateProfile'](sessionEvent, { profileData: {} });
+
+      expect(result.success).toBe(true);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE users SET date_of_birth = ?, email = ? WHERE id = ?',
+        ['1990-05-01T00:00:00.000Z', null, 1],
+      );
+    });
+
     it('should check username uniqueness', async () => {
       db.getQuery.mockResolvedValue({ id: 2 });
 
