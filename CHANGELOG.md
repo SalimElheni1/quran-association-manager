@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Documentation reviewed against the code: README (roles, export formats, Windows-only
-  installer, testing), contributing and release process, developer guides and references.
+- Documentation reviewed against the code. The Arabic user guides are rewritten for the current
+  screens (first-run setup, roles, age groups, student fees, arrears, backups and the transfer
+  key); the developer guides, architecture, security and financial specs describe what is
+  implemented; the IPC reference is generated from the code (`npm run docs:api`).
 
 ### Removed
 

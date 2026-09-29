@@ -18,8 +18,9 @@ student fees are rounded to cents (millimes are not billed).
 | Reports | (reads the above) | `services/financialExportService.js`, `financialWordExportService.js`, `cashLedgerExport.js`, `inventoryLedgerExport.js` |
 
 UI: `FinancialsPage` with tabs for the dashboard (`FinancialDashboard`), income (`IncomePage`),
-student fees (`components/financial/StudentFeesTab`), expenses (`ExpensesPage`), accounts
-(`AccountsPage`), inventory (`InventoryTab`) and reports (`FinancialReportsTab`).
+student fees (`components/financial/StudentFeesTab`), expenses (`ExpensesPage`), in-kind
+donation categories («إدارة الفئات», `AccountsPage`, despite its name), inventory (`InventoryTab`)
+and reports (`FinancialReportsTab`). Accounts have no page of their own.
 
 The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist and are read
 by some exports through `legacyFinancialHandlers.js`; nothing writes to them any more and their
@@ -34,7 +35,7 @@ One row per movement of money.
 | `type` | `INCOME` or `EXPENSE` |
 | `category` | A category name (`categories`, per type). Defaults: income «التبرعات النقدية», «التبرعات العينية», «مداخيل أخرى»; expenses «منح ومرتبات», «كراء وفواتير», «الفعاليات والتكوين والتنقلات», «المسابقات والجوائز», «لوازم مكتبية وصيانة», «نفقات متنوعة». |
 | `payment_method` | `CASH`, `CHECK` (`check_number`) or `TRANSFER` |
-| `voucher_number` | Unique. Generated as `R-YYYY-NNNN` (income) or `P-YYYY-NNNN` (expense), numbered per year; can be corrected when editing. |
+| `voucher_number` | Unique, typed by the user (required, except for in-kind donations); can be corrected when editing. Excel imports without one get `R-YYYY-NNNN` (income) / `P-YYYY-NNNN` (expense) from `voucherService.js`. |
 | `receipt_number`, `receipt_type` | Receipt from a receipt book, when one is used |
 | `account_id` | The account the money goes into or out of |
 | `related_entity_type` / `related_entity_id` / `related_person_name` | Who it concerns (student, teacher, donor…) |
