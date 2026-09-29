@@ -1575,7 +1575,17 @@ async function recordStudentPayment(event, paymentDetails) {
             SET amount_paid = ?
             WHERE id = ?
           `,
-              [credit.available - creditToApply, credit.id],
+              [roundCents(credit.available - creditToApply), credit.id],
+            );
+            // Record the credit this payment used as a negative breakdown row on the credit
+            // charge, so deleting or refunding the payment gives the credit back (the
+            // reversal subtracts each breakdown amount from its charge).
+            await db.runQuery(
+              `
+            INSERT INTO student_payment_breakdown (student_payment_id, student_fee_charge_id, amount)
+            VALUES (?, ?, ?)
+          `,
+              [studentPaymentId, credit.id, -creditToApply],
             );
             credit.available -= creditToApply;
             amountFromCredit += creditToApply;
@@ -1742,6 +1752,26 @@ async function recordStudentPayment(event, paymentDetails) {
   }
 }
 
+const CREDIT_USED_MESSAGE =
+  'لا يمكن حذف أو استرجاع هذه الدفعة لأن رصيدها الزائد استُعمل في دفعة لاحقة. احذف الدفعة اللاحقة أولاً.';
+
+/**
+ * Throws when the overpayment credit a payment created has already been used by a later
+ * payment. Reversing it would leave that later payment's charges paid with money that no
+ * longer exists; the later payment has to be reversed first (which gives the credit back).
+ * @param {number} paymentId - student_payments row about to be deleted or refunded
+ */
+async function assertCreditNotUsed(paymentId) {
+  const used = await db.getQuery(
+    `SELECT b.id FROM student_payment_breakdown b
+     JOIN student_fee_charges c ON c.id = b.student_fee_charge_id
+     WHERE c.source_payment_id = ? AND b.student_payment_id != ?
+     LIMIT 1`,
+    [paymentId, paymentId],
+  );
+  if (used) throw new Error(CREDIT_USED_MESSAGE);
+}
+
 /**
  * Reverses a student payment as if it never happened, atomically.
  * Reverses: charge amount_paid/status, breakdown rows, the overpayment credit
@@ -1755,6 +1785,7 @@ async function deleteStudentPayment(paymentId) {
       const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
       if (!payment) throw new Error('الدفعة غير موجودة');
       if (payment.refunded) throw new Error('لا يمكن حذف دفعة مسترجعة');
+      await assertCreditNotUsed(paymentId);
 
       // 1. Reverse the charges this payment paid toward
       const breakdowns = await db.allQuery(
@@ -1808,7 +1839,11 @@ async function deleteStudentPayment(paymentId) {
     return result;
   } catch (error) {
     logError('Error deleting student payment:', error);
-    if (error.message === 'الدفعة غير موجودة' || error.message === 'لا يمكن حذف دفعة مسترجعة') {
+    if (
+      error.message === 'الدفعة غير موجودة' ||
+      error.message === 'لا يمكن حذف دفعة مسترجعة' ||
+      error.message === CREDIT_USED_MESSAGE
+    ) {
       throw error;
     }
     throw new Error('فشل في حذف الدفعة');
@@ -1829,6 +1864,7 @@ async function refundStudentPayment(paymentId, userId = null) {
       const payment = await db.getQuery('SELECT * FROM student_payments WHERE id = ?', [paymentId]);
       if (!payment) throw new Error('الدفعة غير موجودة');
       if (payment.refunded) throw new Error('الدفعة مسترجعة بالفعل');
+      await assertCreditNotUsed(paymentId);
 
       // 1. Reverse the charges this payment paid toward
       const breakdowns = await db.allQuery(
@@ -1895,7 +1931,11 @@ async function refundStudentPayment(paymentId, userId = null) {
     return result;
   } catch (error) {
     logError('Error refunding student payment:', error);
-    if (error.message === 'الدفعة غير موجودة' || error.message === 'الدفعة مسترجعة بالفعل') {
+    if (
+      error.message === 'الدفعة غير موجودة' ||
+      error.message === 'الدفعة مسترجعة بالفعل' ||
+      error.message === CREDIT_USED_MESSAGE
+    ) {
       throw error;
     }
     throw new Error('فشل في استرجاع الدفعة');

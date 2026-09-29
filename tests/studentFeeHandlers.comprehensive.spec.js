@@ -483,6 +483,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
     it('should reverse charges, breakdown, credit, transaction and balance, then delete', async () => {
       db.getQuery
         .mockResolvedValueOnce(payment) // payment lookup
+        .mockResolvedValueOnce(undefined) // its credit was not used by a later payment
         .mockResolvedValueOnce({ amount: 100, account_id: 1, type: 'INCOME' }); // linked txn
       db.allQuery.mockResolvedValue([
         { student_fee_charge_id: 3, amount: 60 },
@@ -533,6 +534,33 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       await expect(deleteStudentPayment(10)).rejects.toThrow('لا يمكن حذف دفعة مسترجعة');
     });
+
+    it('should give back the credit the payment used', async () => {
+      db.getQuery
+        .mockResolvedValueOnce(payment)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({ amount: 100, account_id: 1, type: 'INCOME' });
+      // 20 of credit from credit charge 90 plus 80 cash paid charge 3
+      db.allQuery.mockResolvedValue([
+        { student_fee_charge_id: 3, amount: 100 },
+        { student_fee_charge_id: 90, amount: -20 },
+      ]);
+
+      await deleteStudentPayment(10);
+
+      // amount_paid - (-20) puts the 20 back on the credit charge
+      const creditUpdate = db.runQuery.mock.calls.find(
+        ([sql, params]) => sql.includes('UPDATE student_fee_charges') && params[3] === 90,
+      );
+      expect(creditUpdate[1]).toEqual([-20, -20, -20, 90]);
+    });
+
+    it('should refuse when a later payment already used the credit it created', async () => {
+      db.getQuery.mockResolvedValueOnce(payment).mockResolvedValueOnce({ id: 7 });
+
+      await expect(deleteStudentPayment(10)).rejects.toThrow('استُعمل في دفعة لاحقة');
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
   });
 
   describe('refundStudentPayment', () => {
@@ -554,6 +582,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
     it('should reverse charges/credit/balance, mark refunded and record an EXPENSE', async () => {
       db.getQuery
         .mockResolvedValueOnce(payment) // payment lookup
+        .mockResolvedValueOnce(undefined) // its credit was not used by a later payment
         .mockResolvedValueOnce({ amount: 100, account_id: 1, type: 'INCOME' }); // linked txn
       db.allQuery.mockResolvedValue([{ student_fee_charge_id: 3, amount: 60 }]);
 

@@ -784,6 +784,13 @@ describe('Student Fee Handlers', () => {
         [expect.any(Number), 5, 100],
       );
 
+      // The 40 of credit it used is recorded against the credit charge, so a delete or
+      // refund of this payment gives it back
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO student_payment_breakdown'),
+        [expect.any(Number), 90, -40],
+      );
+
       // Remaining 40 cash stored as overpayment credit
       expect(db.runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO student_fee_charges'),
