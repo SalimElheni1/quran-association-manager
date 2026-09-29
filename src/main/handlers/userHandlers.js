@@ -8,6 +8,33 @@ const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
 const sessionManager = require('../sessionManager');
 
+const LAST_SUPERADMIN_MESSAGE =
+  'لا يمكن حذف آخر مدير نظام نشط أو تعطيله أو سحب صلاحيته. أضف مدير نظام آخر أولاً.';
+
+/**
+ * True when `userId` is a Superadmin and no other active Superadmin exists. Losing the last
+ * one would leave nobody to manage users, and the login screen would offer first-run setup
+ * (create a Superadmin) to whoever is at the computer.
+ * @param {number} userId
+ * @returns {Promise<boolean>}
+ */
+async function isLastActiveSuperadmin(userId) {
+  const target = await db.getQuery(
+    `SELECT 1 AS yes FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+     WHERE ur.user_id = ? AND r.name = 'Superadmin'`,
+    [userId],
+  );
+  if (!target) return false;
+  const others = await db.getQuery(
+    `SELECT COUNT(*) AS count FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN roles r ON r.id = ur.role_id
+     WHERE r.name = 'Superadmin' AND u.id != ? AND (u.status IS NULL OR u.status = 'active')`,
+    [userId],
+  );
+  return !others || others.count === 0;
+}
+
 const userFields = [
   'matricule',
   'username',
@@ -193,6 +220,13 @@ function registerUserHandlers() {
             stripUnknown: true,
           });
 
+          const losesSuperadmin =
+            validatedData.status === 'inactive' ||
+            (Array.isArray(roles) && !roles.includes('Superadmin'));
+          if (losesSuperadmin && (await isLastActiveSuperadmin(id))) {
+            throw new Error(LAST_SUPERADMIN_MESSAGE);
+          }
+
           if (validatedData.password) {
             validatedData.password = bcrypt.hashSync(validatedData.password, 10);
           } else {
@@ -273,9 +307,15 @@ function registerUserHandlers() {
 
   ipcMain.handle(
     'users:delete',
-    requireRoles(['Superadmin'])((_event, id) => {
+    requireRoles(['Superadmin'])(async (event, id) => {
       if (!id || typeof id !== 'number')
         throw new Error('A valid user ID is required for deletion.');
+      if (id === sessionManager.getUserIdForEvent(event)) {
+        throw new Error('لا يمكنك حذف حسابك الخاص.');
+      }
+      if (await isLastActiveSuperadmin(id)) {
+        throw new Error(LAST_SUPERADMIN_MESSAGE);
+      }
       const sql = 'DELETE FROM users WHERE id = ?';
       return db.runQuery(sql, [id]);
     }),

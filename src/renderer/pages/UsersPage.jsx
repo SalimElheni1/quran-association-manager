@@ -162,7 +162,9 @@ function UsersPage() {
       fetchUsers();
     } catch (err) {
       logError('Error deleting user:', err);
-      toast.error('فشل في حذف المستخدم.');
+      // Show why (e.g. last Superadmin, own account), without Electron's IPC prefix.
+      const reason = err && err.message ? err.message.split('Error:').pop().trim() : '';
+      toast.error(reason ? `فشل في حذف المستخدم: ${reason}` : 'فشل في حذف المستخدم.');
     } finally {
       setShowDeleteModal(false);
       setUserToDelete(null);

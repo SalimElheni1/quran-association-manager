@@ -112,15 +112,67 @@ describe('userHandlers', () => {
 
   describe('users:delete', () => {
     it('should delete a user successfully', async () => {
+      db.getQuery.mockResolvedValue(undefined); // not a Superadmin
       db.runQuery.mockResolvedValue({ changes: 1 });
       await handlers['users:delete'](null, 1);
       expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [1]);
     });
 
-    it('should throw error for invalid user ID', () => {
-      expect(() => handlers['users:delete'](null, null)).toThrow(
+    it('should throw error for invalid user ID', async () => {
+      await expect(handlers['users:delete'](null, null)).rejects.toThrow(
         'A valid user ID is required for deletion.',
       );
+    });
+
+    it('should refuse to delete the logged-in user', async () => {
+      const sessionManager = require('../src/main/sessionManager');
+      sessionManager.createSession({ id: 77 }, { id: 5, username: 'me' }, null);
+
+      await expect(handlers['users:delete']({ sender: { id: 77 } }, 5)).rejects.toThrow(
+        'لا يمكنك حذف حسابك الخاص',
+      );
+      expect(db.runQuery).not.toHaveBeenCalled();
+      sessionManager.revokeAllSessions();
+    });
+
+    it('should refuse to delete the last active Superadmin', async () => {
+      db.getQuery.mockResolvedValueOnce({ yes: 1 }).mockResolvedValueOnce({ count: 0 });
+
+      await expect(handlers['users:delete'](null, 2)).rejects.toThrow('آخر مدير نظام');
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
+
+    it('should delete a Superadmin when another active one remains', async () => {
+      db.getQuery.mockResolvedValueOnce({ yes: 1 }).mockResolvedValueOnce({ count: 1 });
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      await handlers['users:delete'](null, 2);
+
+      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [2]);
+    });
+  });
+
+  describe('users:update - last Superadmin', () => {
+    it('should refuse to deactivate the last active Superadmin', async () => {
+      userUpdateValidationSchema.validateAsync.mockResolvedValue({ status: 'inactive' });
+      db.getQuery.mockResolvedValueOnce({ yes: 1 }).mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        handlers['users:update'](null, { id: 1, userData: { status: 'inactive' } }),
+      ).rejects.toThrow('آخر مدير نظام');
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to remove the Superadmin role from the last one', async () => {
+      userUpdateValidationSchema.validateAsync.mockResolvedValue({ status: 'active' });
+      db.getQuery.mockResolvedValueOnce({ yes: 1 }).mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        handlers['users:update'](null, {
+          id: 1,
+          userData: { status: 'active', roles: ['Administrator'] },
+        }),
+      ).rejects.toThrow('آخر مدير نظام');
     });
   });
 });
