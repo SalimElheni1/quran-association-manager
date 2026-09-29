@@ -130,5 +130,39 @@ describe('Backup Manager', () => {
       mockStore.get.mockReturnValue({ timestamp: eightDaysAgo });
       expect(isBackupDue({ backup_frequency: 'weekly' })).toBe(true);
     });
+
+    describe('with a backup time already passed today', () => {
+      const pastTime = () => {
+        const d = new Date(Date.now() - 60 * 60 * 1000); // an hour ago, today when possible
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      };
+      const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+
+      beforeEach(() => {
+        // Keep "an hour ago" on today's date.
+        jest.useFakeTimers({ now: new Date(2026, 8, 29, 14, 0, 0) });
+      });
+      afterEach(() => jest.useRealTimers());
+
+      it('runs a daily backup that has not run today', () => {
+        mockStore.get.mockReturnValue({ timestamp: daysAgo(1) });
+        expect(isBackupDue({ backup_frequency: 'daily', backup_time: pastTime() })).toBe(true);
+      });
+
+      it('does not run a weekly backup two days after the last one', () => {
+        mockStore.get.mockReturnValue({ timestamp: daysAgo(2) });
+        expect(isBackupDue({ backup_frequency: 'weekly', backup_time: pastTime() })).toBe(false);
+      });
+
+      it('runs a weekly backup on its seventh day', () => {
+        mockStore.get.mockReturnValue({ timestamp: daysAgo(7) });
+        expect(isBackupDue({ backup_frequency: 'weekly', backup_time: pastTime() })).toBe(true);
+      });
+
+      it('does not run a monthly backup ten days after the last one', () => {
+        mockStore.get.mockReturnValue({ timestamp: daysAgo(10) });
+        expect(isBackupDue({ backup_frequency: 'monthly', backup_time: pastTime() })).toBe(false);
+      });
+    });
   });
 });

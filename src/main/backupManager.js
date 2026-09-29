@@ -264,7 +264,18 @@ const isBackupDue = (settings) => {
       }
     }
 
-    return true;
+    // Past today's backup time and none ran today. Count calendar days since the last one, so a
+    // weekly or monthly backup waits for its day instead of running every day.
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const daysSinceLast = Math.round((startOfDay(now) - startOfDay(lastBackupDate)) / 86400000);
+    switch (settings.backup_frequency) {
+      case 'weekly':
+        return daysSinceLast >= 7;
+      case 'monthly':
+        return daysSinceLast >= 30;
+      default:
+        return true;
+    }
   }
 
   switch (settings.backup_frequency) {
