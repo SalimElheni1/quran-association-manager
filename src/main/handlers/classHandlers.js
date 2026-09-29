@@ -3,60 +3,7 @@ const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
 const { mapCategory } = require('../utils/translations');
-
-/**
- * Calculates age from date of birth.
- * Handles multiple date formats including Unix timestamps.
- *
- * @param {string|number} birthDateValue - Date of birth in various formats
- * @returns {number|null} Age in years or null if invalid date
- */
-function calculateAge(birthDateValue) {
-  // Handle null, undefined, or empty values
-  if (!birthDateValue) return null;
-
-  let birthDate;
-
-  // Handle Unix timestamp (number)
-  if (typeof birthDateValue === 'number') {
-    birthDate = new Date(birthDateValue);
-  }
-  // Handle string dates
-  else if (typeof birthDateValue === 'string') {
-    if (birthDateValue.trim() === '') return null;
-
-    // Try multiple date formats to handle different storage formats
-    const dateFormats = [
-      birthDateValue, // Try original format first
-      birthDateValue.replace(/\//g, '-'), // Convert DD/MM/YYYY to DD-MM-YYYY
-      birthDateValue.split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
-      birthDateValue.split('-').reverse().join('-'), // Convert DD-MM-YYYY to YYYY-MM-DD
-    ];
-
-    for (const dateStr of dateFormats) {
-      const parsedDate = new Date(dateStr);
-      if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 1900) {
-        birthDate = parsedDate;
-        break;
-      }
-    }
-  }
-
-  // If we couldn't parse the date, return null
-  if (!birthDate || isNaN(birthDate.getTime())) return null;
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  const dayDiff = today.getDate() - birthDate.getDate();
-
-  // Adjust age if birthday hasn't occurred this year yet
-  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    age--;
-  }
-
-  return age;
-}
+const { calculateAge } = require('../utils/age');
 
 const classFields = [
   'name',

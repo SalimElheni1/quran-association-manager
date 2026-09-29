@@ -1,32 +1,7 @@
 const { ipcMain } = require('electron');
 const { runQuery, getQuery, allQuery, withTransaction } = require('../../db/db');
 const { mapCategory } = require('../utils/translations');
-
-/**
- * Calculates age from date of birth.
- * Uses the same logic as the frontend calculateAge function.
- *
- * @param {string} birthDateString - Date of birth in YYYY-MM-DD format
- * @returns {number|null} Age in years or null if invalid date
- */
-function calculateAge(birthDateString) {
-  if (!birthDateString) return null;
-
-  const birthDate = new Date(birthDateString);
-  if (isNaN(birthDate.getTime())) return null;
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  const dayDiff = today.getDate() - birthDate.getDate();
-
-  // Adjust age if birthday hasn't occurred this year yet
-  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    age--;
-  }
-
-  return age;
-}
+const { calculateAge } = require('../utils/age');
 
 function registerGroupHandlers() {
   // Groups Management

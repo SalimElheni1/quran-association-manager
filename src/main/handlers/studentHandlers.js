@@ -19,25 +19,7 @@ const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateStudent } = require('../utils/translations');
-
-/**
- * Calculates age from date of birth string.
- * Uses the same logic as the frontend calculateAge function.
- *
- * @param {string} dob - Date of birth in YYYY-MM-DD format
- * @returns {number|null} Age in years or null if invalid date
- */
-function calculateAge(dob) {
-  if (!dob) return null;
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
+const { calculateAge } = require('../utils/age');
 
 /**
  * Minimum age (in years) enforced for registered students.

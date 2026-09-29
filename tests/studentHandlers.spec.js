@@ -115,6 +115,37 @@ describe('Student Handlers', () => {
         'بيانات غير صالحة: Invalid name',
       );
     });
+
+    it('rejects a student younger than the minimum age (Joi returns the birth date as a Date)', async () => {
+      const dateOfBirth = new Date();
+      dateOfBirth.setFullYear(dateOfBirth.getFullYear() - 2);
+      studentValidationSchema.validateAsync.mockResolvedValue({
+        name: 'Young Student',
+        date_of_birth: dateOfBirth,
+      });
+      generateMatricule.mockResolvedValue('S-0001');
+
+      await expect(ipcMain.invoke('students:add', { name: 'Young Student' })).rejects.toThrow();
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
+
+    it('accepts a student at or above the minimum age', async () => {
+      const dateOfBirth = new Date();
+      dateOfBirth.setFullYear(dateOfBirth.getFullYear() - 10);
+      studentValidationSchema.validateAsync.mockResolvedValue({
+        name: 'Student',
+        date_of_birth: dateOfBirth,
+      });
+      generateMatricule.mockResolvedValue('S-0002');
+      db.runQuery.mockResolvedValue({ id: 5 });
+
+      await ipcMain.invoke('students:add', { name: 'Student' });
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO students'),
+        expect.any(Array),
+      );
+    });
   });
 
   describe('students:update', () => {

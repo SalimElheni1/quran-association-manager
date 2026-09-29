@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Button, Row, Col } from 'react-bootstrap';
 import TeacherIcon from './icons/TeacherIcon';
+import { calculateAge } from '@renderer/utils/age';
 
 function DetailItem({ label, value }) {
   if (!value) return null;
@@ -17,18 +18,6 @@ function DetailItem({ label, value }) {
 
 function TeacherDetailsModal({ show, handleClose, teacher }) {
   if (!teacher) return null;
-
-  const calculateAge = (dob) => {
-    if (!dob) return null;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
 
   return (
     <Modal show={show} onHide={handleClose} centered size="lg" backdrop="static">

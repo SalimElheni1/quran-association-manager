@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge } from 'react-bootstrap';
 import UserCircleIcon from './icons/UserCircleIcon';
+import { calculateAge } from '@renderer/utils/age';
 
 function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' }) {
   if (!value) return null;
@@ -23,18 +24,6 @@ function DetailItem({ label, value, isBadge = false, badgeVariant = 'secondary' 
 
 function StudentDetailsModal({ show, handleClose, student }) {
   if (!student) return null;
-
-  const calculateAge = (dob) => {
-    if (!dob) return null;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
 
   const statusTranslations = {
     active: 'نشط',

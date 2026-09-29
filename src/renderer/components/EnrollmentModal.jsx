@@ -5,50 +5,7 @@ import '@renderer/styles/EnrollmentModal.css';
 import { error as logError } from '@renderer/utils/logger';
 import TimesCircleIcon from './icons/TimesCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
-
-/**
- * Calculate age from date of birth
- * Handles multiple date formats including timestamps
- */
-function calculateAge(birthDateValue) {
-  if (!birthDateValue) return null;
-
-  let birthDate;
-
-  if (typeof birthDateValue === 'number') {
-    birthDate = new Date(birthDateValue);
-  } else if (typeof birthDateValue === 'string') {
-    if (birthDateValue.trim() === '') return null;
-
-    const dateFormats = [
-      birthDateValue,
-      birthDateValue.replace(/\//g, '-'),
-      birthDateValue.split('/').reverse().join('-'),
-      birthDateValue.split('-').reverse().join('-'),
-    ];
-
-    for (const dateStr of dateFormats) {
-      const parsedDate = new Date(dateStr);
-      if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 1900) {
-        birthDate = parsedDate;
-        break;
-      }
-    }
-  }
-
-  if (!birthDate || isNaN(birthDate.getTime())) return null;
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  const dayDiff = today.getDate() - birthDate.getDate();
-
-  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    age--;
-  }
-
-  return age;
-}
+import { calculateAge } from '@renderer/utils/age';
 
 function EnrollmentModal({ show, handleClose, classData }) {
   const [enrolled, setEnrolled] = useState([]);

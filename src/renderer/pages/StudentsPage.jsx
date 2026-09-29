@@ -19,6 +19,7 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import ExportIcon from '@renderer/components/icons/ExportIcon';
 import ImportIcon from '@renderer/components/icons/ImportIcon';
+import { calculateAge } from '@renderer/utils/age';
 
 const studentsAdultFields = [
   { key: 'matricule', label: 'الرقم التعريفي' },
@@ -354,18 +355,6 @@ function StudentsPage() {
     } finally {
       handleCloseDeleteModal();
     }
-  };
-
-  const calculateAge = (dob) => {
-    if (!dob) return null;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
   };
 
   const renderStatusBadge = (status) => {
