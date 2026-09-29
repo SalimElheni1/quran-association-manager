@@ -15,7 +15,7 @@
     "postdist": "electron-builder install-app-deps",
     "lint": "eslint . --ext .js,.jsx,.mjs",
     "format": "prettier --write .",
-    "seed:manual": "node scripts/manual-seeder.js",
+    "seed:manual": "electron scripts/manual-seeder.js",
     "test": "jest",
     "postinstall": "electron-builder install-app-deps",
     "test:e2e": "npm run build && playwright test",

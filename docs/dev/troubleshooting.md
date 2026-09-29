@@ -14,8 +14,9 @@ version, not your system Node.
 
 - *In the app (`npm run dev`)*: the module was built for plain Node. Rebuild it for Electron:
   `npx electron-builder install-app-deps`.
-- *In a script run with `node`* that opens the database: expected after a normal install. Run the
-  script with Electron's Node instead:
+- *In a script run with `node`* that opens the database: expected after a normal install. Scripts
+  that need the app's database should run inside Electron, as `npm run seed:manual` does
+  (`electron scripts/<script>.js`); for a quick check, Electron's Node also works:
   `ELECTRON_RUN_AS_NODE=1 npx electron scripts/<script>.js` (PowerShell:
   `$env:ELECTRON_RUN_AS_NODE=1; npx electron scripts/<script>.js`).
 - Jest does not need the module: the database is mocked in unit tests, which is why CI installs
@@ -76,3 +77,10 @@ Studio Build Tools with "Desktop development with C++"; on Linux `build-essentia
 The main process writes `app-logs.txt` in the `userData` folder (secrets are redacted). In
 development the log also goes to the terminal, and the renderer's DevTools console shows
 renderer errors.
+
+## Seeding
+
+- **`npm run seed:manual` changes nothing you can see**: quit the app first, and run it from the
+  project folder so it uses the dev app's data folder.
+- **Linux as root (containers, CI)**: Electron refuses to start without `--no-sandbox`; run
+  `npx electron --no-sandbox scripts/manual-seeder.js` (under `xvfb-run -a` without a display).

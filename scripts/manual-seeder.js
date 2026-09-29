@@ -2,12 +2,25 @@
 
 /**
  * Manual Seeder Script for Quran Association Manager
- * Run this script when you need to populate demo/sample data
- * Usage: npm run seed:manual
+ * Populates the development database (the one `npm run dev` opens) with demo data.
+ * Usage: npm run seed:manual   (runs this file with Electron; quit the app first)
+ *
+ * It runs inside Electron, not plain Node, because the SQLite module is built for Electron and
+ * the database key is protected with Electron's safeStorage. The demo superadmin logs in with
+ * SUPERADMIN_USERNAME / SUPERADMIN_PASSWORD from .env.
  */
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const { app } = require('electron');
+
+if (!app) {
+  console.error('Run this script with Electron: npm run seed:manual');
+  process.exit(1);
+}
+// Same app name, so the same userData folder, key store and database as `npm run dev`.
+app.setName(require('../package.json').name);
 
 const {
   seedBranches,
@@ -25,19 +38,10 @@ async function manualSeeder() {
   console.log('🌱 Starting Manual Seeder Script...');
   console.log('=====================================');
 
+  let failed = false;
   try {
-    // The seeder now needs the password to open the encrypted database.
-    // We'll use the superadmin password from the .env file for this.
-    const dbPassword = process.env.SUPERADMIN_PASSWORD;
-    if (!dbPassword) {
-      throw new Error(
-        'SUPERADMIN_PASSWORD is not defined in your .env file. The seeder cannot run.',
-      );
-    }
-
-    // Initialize database connection
     console.log('📊 Initializing database connection...');
-    await initializeDatabase(dbPassword);
+    await initializeDatabase();
     console.log('✅ Database connection established');
 
     // Seed demo data in sequence
@@ -70,15 +74,20 @@ async function manualSeeder() {
     console.log('🔄 You can run this script again to add more demo data');
   } catch (error) {
     console.error('❌ Error during manual seeding:', error);
-    process.exit(1);
+    failed = true;
   } finally {
     await closeDatabase();
   }
+  return !failed;
 }
 
-// Run the seeder if this script is executed directly
-if (require.main === module) {
-  manualSeeder();
+// Run the seeder when Electron starts this file (`electron scripts/manual-seeder.js`). Electron
+// loads it through its own entry point, so `require.main === module` is false here.
+if (process.type === 'browser') {
+  app
+    .whenReady()
+    .then(manualSeeder)
+    .then((ok) => app.exit(ok ? 0 : 1));
 }
 
 module.exports = { manualSeeder };

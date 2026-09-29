@@ -45,7 +45,7 @@ const dummyUsers = [
     last_name: 'محمود',
     email: 'manager1@quran-center.tn',
     phone_number: '+21651123456',
-    role: 'Manager',
+    role: 'Administrator',
     employment_type: 'contract',
     start_date: '2023-01-01',
     status: 'active',
@@ -61,7 +61,7 @@ const dummyUsers = [
     last_name: 'الزهراء',
     email: 'manager2@quran-center.tn',
     phone_number: '+21652123456',
-    role: 'Manager',
+    role: 'Administrator',
     employment_type: 'contract',
     start_date: '2023-06-01',
     status: 'active',
@@ -78,7 +78,7 @@ const dummyUsers = [
     last_name: 'الحسن',
     email: 'admin1@quran-center.tn',
     phone_number: '+21653123456',
-    role: 'Admin',
+    role: 'FinanceManager',
     employment_type: 'volunteer',
     start_date: '2023-01-15',
     status: 'active',
@@ -341,23 +341,34 @@ async function seedUsers() {
     const existingUsers = await allQuery('SELECT username FROM users');
     const existingUsernames = existingUsers.map((user) => user.username);
 
+    // The demo superadmin logs in with SUPERADMIN_USERNAME / SUPERADMIN_PASSWORD from .env
+    // when they are set.
+    const users = dummyUsers.map((user) =>
+      user.role === 'Superadmin'
+        ? {
+            ...user,
+            username: process.env.SUPERADMIN_USERNAME || user.username,
+            password: process.env.SUPERADMIN_PASSWORD || user.password,
+          }
+        : user,
+    );
+
     let insertedCount = 0;
-    for (const user of dummyUsers) {
+    for (const user of users) {
       if (existingUsernames.includes(user.username)) {
         log(`User with username '${user.username}' already exists. Skipping...`);
         continue;
       }
 
       const hashedPassword = bcrypt.hashSync(user.password, 10);
-      const sql = `INSERT INTO users (username, password, first_name, last_name, email, phone_number, role, employment_type, start_date, status, national_id, date_of_birth, occupation, civil_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      await runQuery(sql, [
+      const sql = `INSERT INTO users (username, password, first_name, last_name, email, phone_number, employment_type, start_date, status, national_id, date_of_birth, occupation, civil_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const { id: userId } = await runQuery(sql, [
         user.username,
         hashedPassword,
         user.first_name,
         user.last_name,
         user.email,
         user.phone_number,
-        user.role,
         user.employment_type,
         user.start_date,
         user.status,
@@ -366,6 +377,11 @@ async function seedUsers() {
         user.occupation,
         user.civil_status,
       ]);
+      // Roles live in user_roles (a user can hold several).
+      await runQuery(
+        'INSERT OR IGNORE INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name = ?',
+        [userId, user.role],
+      );
       insertedCount++;
     }
     log(`Successfully seeded ${insertedCount} users`);
@@ -442,7 +458,7 @@ async function seedStudents() {
         email,
         parent_name,
         parent_contact,
-        memorization_level,
+        notes,
         school_name,
         grade_level,
         occupation,
@@ -459,7 +475,7 @@ async function seedStudents() {
         student.email || '',
         student.parent_name || '',
         student.parent_contact || '',
-        student.memorization_level || '',
+        student.memorization_level ? `مستوى الحفظ: ${student.memorization_level}` : '',
         student.school_name || '',
         student.grade_level || '',
         student.occupation || '',

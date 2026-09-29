@@ -34,7 +34,7 @@ cp .env.example .env     # then fill it in
 | Variable | Used for |
 |---|---|
 | `JWT_SECRET` | Required in development (the packaged app generates its own). Any long random string. |
-| `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD` | `npm run seed:manual` only. The app itself never seeds a default account. |
+| `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD` | Login of the demo superadmin created by `npm run seed:manual`. The app itself never seeds a default account. |
 
 ## Running
 
@@ -42,10 +42,12 @@ cp .env.example .env     # then fill it in
 npm run dev          # Vite dev server on :3000 + Electron, with live reload
 ```
 
-`npm run seed:manual` (demo data) is currently broken: the seeder still writes the removed
-`users.role` column, and plain Node cannot load the SQLite module once it has been rebuilt for
-Electron (see [troubleshooting.md](../troubleshooting.md)). For realistic data, run the
-real-world e2e scenario and open its data with `npm run e2e:open-data`.
+`npm run seed:manual` fills the development database with demo data (users for each role,
+teachers, students, classes, enrollments and attendance). Quit the app first; the script runs with
+Electron so it opens the same database and key as `npm run dev`. The demo superadmin logs in with
+`SUPERADMIN_USERNAME` / `SUPERADMIN_PASSWORD` from `.env`; the other demo users are in
+`src/db/seederFunctions.js`. For a larger, realistic data set, run the real-world e2e scenario and
+open it with `npm run e2e:open-data`.
 
 On first start the app asks you to create the first superadmin. In development the database is
 in Electron's `userData` folder, like the installed app, so it survives restarts; delete it to
