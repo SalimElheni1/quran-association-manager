@@ -140,15 +140,17 @@ age range (`max_age` NULL = no upper limit), a `gender` (`any`, `male_only`, `fe
 Classes point to one through `classes.age_group_id`; the older `classes.gender` column is kept for
 compatibility.
 
-A fresh database gets these groups from migrations 043 and 048:
+A fresh database gets these groups (`schema.js`, migration 043):
 
 | uuid | Ages | Gender | Policy |
 |---|---|---|---|
 | `children-6-11` | 6-11 | any | mixed |
-| `teens-12-17` | 12-17 | any | mixed |
 | `youth-boys-12-14` / `youth-girls-12-14` | 12-14 | male_only / female_only | separated |
 | `young-adults-boys-15-17` / `young-adults-girls-15-17` | 15-17 | male_only / female_only | separated |
 | `men-18-plus` / `women-18-plus` | 18+ | male_only / female_only | single_gender |
+
+Migration 048 also added a mixed `teens-12-17` group that overlapped the 12-14 and 15-17 groups;
+migration 060 deactivates it unless a class or a student's fee-group choice uses it.
 
 Channels: `ageGroups:get`, `ageGroups:create`, `ageGroups:update`, `ageGroups:delete`,
 `ageGroups:matchStudent`, `ageGroups:validateStudentForClass`, `students:getByAgeGroup`.
