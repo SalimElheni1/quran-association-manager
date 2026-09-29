@@ -39,6 +39,8 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
         ...initialData,
         ...user,
         roles: user.roles || [], // Ensure roles is an array
+        // The select shows «متطوع» for a user without one; save what it shows.
+        employment_type: user.employment_type || 'volunteer',
         password: '', // Clear password on edit
         date_of_birth: dob,
         start_date: start,

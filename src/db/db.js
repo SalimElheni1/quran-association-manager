@@ -82,7 +82,8 @@ async function createSuperadminUser(username, hashedPassword) {
     throw new Error('فشل إنشاء المستخدم.');
   }
 
-  const matricule = `U-${result.id.toString().padStart(6, '0')}`;
+  // Same 4-digit form as matriculeService (U-0001); the user validation only accepts that.
+  const matricule = `U-${result.id.toString().padStart(4, '0')}`;
   await runQuery('UPDATE users SET matricule = ? WHERE id = ?', [matricule, result.id]);
 
   const superadminRole = await getQuery("SELECT id FROM roles WHERE name = 'Superadmin'");

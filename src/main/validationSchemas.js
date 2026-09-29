@@ -154,7 +154,8 @@ const userValidationSchema = Joi.object({
     'string.empty': 'اللقب مطلوب',
     'any.required': 'اللقب مطلوب',
   }),
-  employment_type: Joi.string().valid('volunteer', 'contract'),
+  // Not required: the first Superadmin (created by the setup) and imported users have none.
+  employment_type: Joi.string().valid('volunteer', 'contract').allow(null, ''),
   roles: Joi.array()
     .items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'))
     .min(1)

@@ -128,8 +128,13 @@ const StudentFeesTab = () => {
 
     window.addEventListener('settings-updated', handleSettingsUpdated);
 
+    // Money changed elsewhere (e.g. a fee payment voided from the income list): reload the fees
+    const handleFinancialDataChanged = () => loadStudents();
+    window.addEventListener('financial-data-changed', handleFinancialDataChanged);
+
     return () => {
       window.removeEventListener('settings-updated', handleSettingsUpdated);
+      window.removeEventListener('financial-data-changed', handleFinancialDataChanged);
     };
   }, []);
 

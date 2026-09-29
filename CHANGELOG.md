@@ -92,6 +92,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The association transfer key was written to the log file when settings were saved.
 - Transactions, refunds and receipts now record the user who made them (they recorded none, or
   user 1).
+- **The first Superadmin could not be edited from the users page.** The first-run setup gave it
+  a 6-digit ID (U-000001) that the user form rejects; it now gets U-0001, and migration 062
+  converts existing ones. A user without a work type («طبيعة العمل») could not be saved either
+  (an English validation error); the field is optional again and the edit form saves the
+  «متطوع» it shows.
+- The inventory list ignored its filters (the deleted items view, the page and the page size).
+- The student fees tab kept showing old totals after money changed elsewhere (e.g. a fee
+  payment voided from the income list) until «تحديث» was clicked.
 - A duplicate receipt number on a fee payment showed «Failed to record student payment.»
   instead of the Arabic message saying the receipt number is already used.
 - Restoring a backup could write its asset files outside the app's data folder.

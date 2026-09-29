@@ -252,7 +252,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('db:get-attendance-summary-for-class', classId),
 
   // Inventory API
-  getInventoryItems: () => ipcRenderer.invoke('inventory:get'),
+  getInventoryItems: (filters) => ipcRenderer.invoke('inventory:get', filters),
   checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
