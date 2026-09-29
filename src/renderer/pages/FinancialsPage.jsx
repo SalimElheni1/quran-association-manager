@@ -3,11 +3,11 @@ import { useEffect } from 'react';
 import { Tabs, Tab, Container, Card } from 'react-bootstrap';
 import FinancialDashboard from './FinancialDashboard';
 import IncomePage from './IncomePage';
-import StudentFeesTab from '@renderer/components/financials/StudentFeesTab';
+import StudentFeesTab from '@renderer/components/financial/StudentFeesTab';
 import ExpensesPage from './ExpensesPage';
 import AccountsPage from './AccountsPage';
-import InventoryTab from '@renderer/components/financials/InventoryTab';
-import FinancialReportsTab from '@renderer/components/financials/FinancialReportsTab';
+import InventoryTab from '@renderer/components/financial/InventoryTab';
+import FinancialReportsTab from '@renderer/components/financial/FinancialReportsTab';
 
 function FinancialsPage() {
   const [activeTab, setActiveTab] = useState('dashboard');

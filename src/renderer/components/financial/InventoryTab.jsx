@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
 import TablePagination from '../common/TablePagination';
 import InventoryFormModal from './InventoryFormModal';
-import TransactionModal from '../financial/TransactionModal';
+import TransactionModal from './TransactionModal';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ExportModal from '@renderer/components/modals/ExportModal';
 import ImportModal from '@renderer/components/modals/ImportModal';
