@@ -6,6 +6,8 @@ jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('../src/main/backupManager');
 jest.mock('../src/main/logger');
+// settings:update restarts the fee scheduler; a real 24h interval would keep Jest from exiting.
+jest.mock('../src/main/feeChargeScheduler');
 
 // Note: 'joi' is automatically mocked by the jest.config.js moduleNameMapper
 
@@ -139,6 +141,19 @@ describe('settingsHandlers', () => {
         expect.objectContaining(mockNewSettings),
       );
       expect(mockRefreshSettings).toHaveBeenCalled();
+    });
+
+    it('should never write the association transfer key to the log', async () => {
+      const settingsData = { association_transfer_key: 'SECRET-KEY-123' };
+      Joi.object().validateAsync.mockResolvedValue(settingsData);
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      db.allQuery.mockResolvedValue([{ key: 'association_transfer_key', value: 'SECRET-KEY-123' }]);
+
+      await handlers['settings:update'](null, settingsData);
+
+      const logged = log.mock.calls.flat().map(String).join('\n');
+      expect(logged).not.toContain('SECRET-KEY-123');
+      expect(logged).toContain('[redacted]');
     });
   });
 

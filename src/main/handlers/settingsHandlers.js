@@ -140,6 +140,18 @@ const internalUpdateSettingsHandler = async (settingsData) => {
   }
 };
 
+/**
+ * Copy of settings safe to write to the log: the association transfer key encrypts backups.
+ * @param {object} settings
+ * @returns {object}
+ */
+function redactSettings(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const copy = { ...settings };
+  if (copy.association_transfer_key) copy.association_transfer_key = '[redacted]';
+  return copy;
+}
+
 function registerSettingsHandlers(refreshSettings) {
   ipcMain.handle('settings:get', async () => {
     try {
@@ -157,7 +169,7 @@ function registerSettingsHandlers(refreshSettings) {
     try {
       log(
         '[DEBUG] settings:update IPC handler called with settingsData:',
-        JSON.stringify(settingsData, null, 2),
+        JSON.stringify(redactSettings(settingsData), null, 2),
       );
 
       const { settings: oldSettings } = await internalGetSettingsHandler();
@@ -175,7 +187,7 @@ function registerSettingsHandlers(refreshSettings) {
         log('Settings updated, restarting backup scheduler...');
         const { settings: newSettings } = await internalGetSettingsHandler();
 
-        log(`[Settings] New settings loaded: ${JSON.stringify(newSettings)}`);
+        log(`[Settings] New settings loaded: ${JSON.stringify(redactSettings(newSettings))}`);
 
         if (newSettings) {
           const backupManager = require('../backupManager');
