@@ -629,6 +629,17 @@ describe('systemHandlers', () => {
       expect(result.success).toBe(false);
       expect(result.message).toContain('حدث خطأ فادح أثناء الاستيراد');
     });
+
+    it('should check the password of the logged-in user, not the id the renderer sends', async () => {
+      const sessionManager = require('../src/main/sessionManager');
+      sessionManager.createSession({ id: 31 }, { id: 4, username: 'admin' }, null);
+      db.getQuery.mockResolvedValue(undefined);
+
+      await handlers['db:import']({ sender: { id: 31 } }, { password: 'password', userId: 1 });
+
+      expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [4]);
+      sessionManager.revokeAllSessions();
+    });
   });
 
   describe('handleGetBackupReminderStatus', () => {

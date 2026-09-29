@@ -10,6 +10,7 @@ const backupManager = require('../backupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
+const { getUserIdForEvent } = require('../sessionManager');
 
 async function handleGetBackupReminderStatus() {
   try {
@@ -231,12 +232,16 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (_event, { password, userId, filePath, backupPassword }) => {
-    if (!password || !userId) {
+  ipcMain.handle('db:import', async (event, { password, userId, filePath, backupPassword }) => {
+    // Re-authenticate the logged-in user, not whichever user id the renderer sends.
+    const confirmingUserId = getUserIdForEvent(event) ?? userId;
+    if (!password || !confirmingUserId) {
       return { success: false, message: 'بيانات المصادقة غير كاملة.' };
     }
     try {
-      const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+      const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [
+        confirmingUserId,
+      ]);
       if (!currentUser) {
         return { success: false, message: 'المستخدم الحالي غير موجود.' };
       }
