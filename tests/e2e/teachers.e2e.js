@@ -88,8 +88,6 @@ test.describe('Teachers page (شؤون المعلمين)', () => {
     const search = page.getByPlaceholder('البحث بالاسم أو الرقم التعريفي...');
     await search.fill(teachers[0].name);
 
-    // Exactly one row means the filtered result has rendered; zero rows would also
-    // match while the loading spinner replaces the table mid-fetch.
     await expect(page.locator('tbody tr')).toHaveCount(1);
     await expect(page.locator('tbody tr', { hasText: teachers[0].name })).toBeVisible();
 
@@ -98,6 +96,53 @@ test.describe('Teachers page (شؤون المعلمين)', () => {
     await expect(page.locator('tbody tr')).toHaveCount(2);
     await expect(page.locator('tbody tr', { hasText: teachers[0].name })).toBeVisible();
     await expect(page.locator('tbody tr', { hasText: teachers[1].name })).toBeVisible();
+  });
+
+  test('filters teachers by gender select option', async ({ authedPage: page }) => {
+    await navigate(page, 'شؤون المعلمين');
+
+    const maleTeacher = { name: 'عثمان بن عفان', phone: '12341234', gender: 'Male' };
+    const femaleTeacher = { name: 'أسماء بنت أبي بكر', phone: '56785678', gender: 'Female' };
+
+    await addTeacher(page, maleTeacher);
+    await addTeacher(page, femaleTeacher);
+
+    const genderSelect = page.getByRole('combobox', { name: 'Filter by gender' });
+
+    // Filter Male
+    await genderSelect.selectOption('Male');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody tr', { hasText: maleTeacher.name })).toBeVisible();
+
+    // Filter Female
+    await genderSelect.selectOption('Female');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody tr', { hasText: femaleTeacher.name })).toBeVisible();
+
+    // Reset All
+    await genderSelect.selectOption('all');
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+  });
+
+  test('views teacher details in TeacherDetailsModal and closes it', async ({
+    authedPage: page,
+  }) => {
+    await navigate(page, 'شؤون المعلمين');
+
+    const teacherName = 'علي بن أبي طالب';
+    const phone = '98765432';
+
+    await addTeacher(page, { name: teacherName, phone, gender: 'Male' });
+
+    const row = page.locator('tbody tr', { hasText: teacherName });
+    await row.getByRole('button', { name: 'عرض تفاصيل المعلم' }).click();
+
+    await expect(modal(page)).toBeVisible();
+    await expect(modal(page).locator('.modal-title')).toContainText(teacherName);
+    await expect(modal(page).getByText('المعلومات الشخصية')).toBeVisible();
+
+    await modal(page).getByRole('button', { name: 'إغلاق' }).click();
+    await expectNoModal(page);
   });
 
   test("edit a teacher's name -> success toast, table shows the new name and not the old one", async ({
