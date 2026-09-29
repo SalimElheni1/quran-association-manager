@@ -89,6 +89,19 @@ describe('Class Handlers', () => {
       expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM classes WHERE id = ?', [classId]);
     });
 
+    it("should keep the students' fee charges instead of letting them cascade away", async () => {
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      await ipcMain.invoke('classes:delete', 4);
+
+      const calls = db.runQuery.mock.calls.map(([sql]) => sql);
+      const detach = calls.indexOf(
+        'UPDATE student_fee_charges SET related_class_id = NULL WHERE related_class_id = ?',
+      );
+      expect(detach).toBeGreaterThanOrEqual(0);
+      expect(detach).toBeLessThan(calls.indexOf('DELETE FROM classes WHERE id = ?'));
+    });
+
     it('should throw an error if no ID is provided', async () => {
       await expect(ipcMain.invoke('classes:delete', null)).rejects.toThrow(
         'معرف الفصل صالح مطلوب للحذف.',

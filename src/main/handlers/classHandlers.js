@@ -85,10 +85,20 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:delete', (_event, id) => {
+  ipcMain.handle('classes:delete', async (_event, id) => {
     if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للحذف.');
-    const sql = 'DELETE FROM classes WHERE id = ?';
-    return db.runQuery(sql, [id]);
+    return db.withTransaction(async () => {
+      // Fee charges point at the class they were billed for, and that foreign key cascades:
+      // deleting the class would delete its students' charges, paid ones and earlier years'
+      // arrears included. Keep the charges on the students' accounts; the link only decides
+      // which charges a payment for that class settles first.
+      await db.runQuery(
+        'UPDATE student_fee_charges SET related_class_id = NULL WHERE related_class_id = ?',
+        [id],
+      );
+      const sql = 'DELETE FROM classes WHERE id = ?';
+      return db.runQuery(sql, [id]);
+    });
   });
 
   ipcMain.handle('classes:get', async (_event, filters) => {
