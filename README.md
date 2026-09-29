@@ -168,7 +168,22 @@ Your feedback is crucial for the stability and improvement of the application.
 
 ## 📄 License
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License**. See the [**LICENSE**](LICENSE) file for the full license text.
+The source code is open, under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International License (CC BY-NC-SA 4.0)**. See [LICENSE](LICENSE) for the full text and
+[NOTICE](NOTICE) for the summary. In short, you may use, study, modify and share it if:
+
+- **Attribution:** you credit this project (see below) and say what you changed;
+- **NonCommercial:** you do not use it commercially (no selling it or access to it);
+- **ShareAlike:** you publish modified versions under the same license.
+
+For uses outside these terms, such as commercial use, contact the author.
+
+### How to credit this project
+
+If you use, adapt or redistribute this project, keep the `NOTICE` file and add this line where
+users will see it (README, About screen or documentation):
+
+> Based on [Quran Branch Manager](https://github.com/SalimElheni1/quran-association-manager) by Salim Elheni, licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 ---
 

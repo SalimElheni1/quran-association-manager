@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The license is stated consistently as CC BY-NC-SA 4.0 (it said MIT in `package.json`): open
+  source, no commercial use, credit the project. A `NOTICE` file explains how to credit it and
+  ships with the app, and the About page shows the license.
 - Documentation reviewed against the code. The Arabic user guides are rewritten for the current
   screens (first-run setup, roles, age groups, student fees, arrears, backups and the transfer
   key); the developer guides, architecture, security and financial specs describe what is

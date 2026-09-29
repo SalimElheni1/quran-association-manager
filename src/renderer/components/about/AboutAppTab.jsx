@@ -16,7 +16,7 @@ const AboutAppTab = () => {
             </Card.Header>
             <Card.Body>
               <Card.Text>
-                مدير فروع القرآن الكريم هو تطبيق سطح مكتب حديث ومتعدد المنصات، مصمم خصيصاً لتنظيم
+                مدير فروع القرآن الكريم هو تطبيق سطح مكتب حديث لنظام Windows، مصمم خصيصاً لتنظيم
                 وإدارة العمليات الإدارية للجمعيات القرآنية. تم تطويره باستخدام تقنيات Electron و
                 React لتوفير نظام آمن وسهل الاستخدام يعمل بدون اتصال بالإنترنت.
               </Card.Text>
@@ -66,7 +66,7 @@ const AboutAppTab = () => {
                 </ListGroup.Item>
                 <ListGroup.Item>
                   <strong>نظام التقارير الشامل:</strong> إنشاء تقارير عن مستوى الطلاب، الحضور،
-                  والوضع المالي بصيغة PDF و Excel.
+                  والوضع المالي بصيغ PDF و Excel و Word.
                 </ListGroup.Item>
                 <ListGroup.Item>
                   <strong>التحكم في الصلاحيات:</strong> نظام دخول آمن مع صلاحيات متعددة.
@@ -87,6 +87,22 @@ const AboutAppTab = () => {
             </Accordion.Body>
           </Accordion.Item>
         </Accordion>
+      </Card>
+
+      <Card className="mb-4">
+        <Card.Header as="h5">الترخيص</Card.Header>
+        <Card.Body>
+          <Card.Text>
+            الشيفرة المصدرية مفتوحة ومرخصة بموجب رخصة المشاع الإبداعي
+            <span dir="ltr"> (CC BY-NC-SA 4.0) </span>: يمكنك استعمال البرنامج ونسخه وتعديله
+            ومشاركته بشرط ذكر المشروع الأصلي وصاحبه، وعدم استعماله لأغراض تجارية، ونشر النسخ
+            المعدّلة بنفس الرخصة.
+          </Card.Text>
+          <Card.Text className="text-muted small mb-0" dir="ltr">
+            Based on Quran Branch Manager by Salim Elheni —
+            github.com/SalimElheni1/quran-association-manager
+          </Card.Text>
+        </Card.Body>
       </Card>
     </>
   );

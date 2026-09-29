@@ -4,7 +4,7 @@
   "description": "Desktop application for managing Quran association branches.",
   "main": "src/main/index.js",
   "author": "Salim Elheni",
-  "license": "MIT",
+  "license": "CC-BY-NC-SA-4.0",
   "scripts": {
     "react-dev": "vite --port 3000",
     "electron-start": "electron .",

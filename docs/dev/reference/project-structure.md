@@ -198,7 +198,8 @@ tests/
 - `CHANGELOG.md` - Version history
 - `CONTRIBUTING.md` - Contribution guidelines
 - `CODE_OF_CONDUCT.md` - Community standards
-- `LICENSE` - License information
+- `LICENSE` - CC BY-NC-SA 4.0 license text
+- `NOTICE` - Copyright, license summary and how to credit the project (shipped with the app)
 - `AGENTS.md` - Working rules for AI agents
 - `PRODUCT.md` - Product overview
 - `SECURITY_REMEDIATION_PLAN.md` - Security work plan

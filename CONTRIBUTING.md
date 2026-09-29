@@ -44,6 +44,11 @@ Have an idea for a new feature or an improvement? Open an issue to discuss your 
     ```
 9.  **Create a Pull Request (PR):** Open a pull request from your branch to the `main` branch of the original repository. Provide a detailed description of your changes and reference any related issues.
 
+## License of Contributions
+
+By submitting a contribution you agree that it is licensed under the project's license,
+CC BY-NC-SA 4.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)).
+
 ## Coding Standards and Best Practices
 
 - **Code Style:** Adhere to the ESLint and Prettier configurations defined in the project. Run `npm run lint` and `npm run format` before committing to ensure your code is clean and consistent.
