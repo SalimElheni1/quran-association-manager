@@ -9,6 +9,7 @@ const db = require('../../db/db');
 const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
+const { getUserIdForEvent } = require('../sessionManager');
 const { translateTransaction, translateArray } = require('../utils/translations');
 const { roundCurrency } = require('../utils');
 
@@ -271,7 +272,7 @@ async function handleAddTransaction(event, transaction) {
         validatedData.related_entity_type || null,
         validatedData.related_entity_id || null,
         validatedData.amount > 500 ? 1 : 0,
-        event.sender.userId || null,
+        getUserIdForEvent(event),
         validatedData.receipt_type || null,
       ]);
 
@@ -324,6 +325,20 @@ async function handleUpdateTransaction(event, id, transaction) {
         abortEarly: false,
         stripUnknown: false,
       });
+
+      // A fee payment (or its refund) keeps its money fields in step with the student's
+      // charges; only its other details may be edited here.
+      const { payment, isFeeRefund } = await findFeeLink(oldTransaction);
+      if (payment || isFeeRefund) {
+        const newDate = new Date(validatedData.transaction_date).toISOString().split('T')[0];
+        const moneyChanged =
+          validatedData.type !== oldTransaction.type ||
+          validatedData.category !== oldTransaction.category ||
+          roundCurrency(validatedData.amount) !== roundCurrency(oldTransaction.amount) ||
+          Number(validatedData.account_id) !== Number(oldTransaction.account_id) ||
+          newDate !== String(oldTransaction.transaction_date).slice(0, 10);
+        if (moneyChanged) throw new Error(FEE_LINKED_MESSAGE);
+      }
 
       // Reverse old balance
       await updateAccountBalance(
@@ -389,8 +404,49 @@ async function handleUpdateTransaction(event, id, transaction) {
   }
 }
 
+const FEE_LINKED_MESSAGE =
+  'هذه العملية مرتبطة برسوم الطلاب. عدّل المبلغ أو احذف الدفعة من تبويب رسوم الطلاب.';
+
+/**
+ * Finds the student fee record a transaction belongs to: the student_payments row of a fee
+ * payment, or the refund of one (an 'استرجاع رسوم' EXPENSE). Changing either transaction on
+ * its own would leave the student's charges, and the fee totals built from student_payments,
+ * out of step with the account balance.
+ * @param {object} transaction - transactions row
+ * @returns {Promise<{payment: object|null, isFeeRefund: boolean}>}
+ */
+async function findFeeLink(transaction) {
+  const payment = await db.getQuery('SELECT id FROM student_payments WHERE transaction_id = ?', [
+    transaction.id,
+  ]);
+  const isFeeRefund =
+    transaction.type === 'EXPENSE' &&
+    transaction.category === 'استرجاع رسوم' &&
+    transaction.receipt_type === 'fee_payment';
+  return { payment: payment || null, isFeeRefund };
+}
+
 async function handleDeleteTransaction(event, transactionId) {
   try {
+    const existing = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [transactionId]);
+    if (existing) {
+      const { payment, isFeeRefund } = await findFeeLink(existing);
+      if (isFeeRefund) {
+        throw Object.assign(new Error(FEE_LINKED_MESSAGE), { userFacing: true });
+      }
+      if (payment) {
+        // Delete it the way the student fees tab does: charges, credit, balance and the
+        // transaction are all reversed together.
+        const { deleteStudentPayment } = require('./studentFeeHandlers');
+        try {
+          await deleteStudentPayment(payment.id);
+        } catch (feeError) {
+          throw Object.assign(new Error(feeError.message), { userFacing: true });
+        }
+        return { id: transactionId };
+      }
+    }
+
     await db.withTransaction(async () => {
       const transaction = await db.getQuery('SELECT * FROM transactions WHERE id = ?', [
         transactionId,
@@ -414,6 +470,7 @@ async function handleDeleteTransaction(event, transactionId) {
     return { id: transactionId };
   } catch (error) {
     logError('Error in handleDeleteTransaction:', error);
+    if (error.userFacing) throw new Error(error.message);
     throw new Error('فشل في حذف العملية المالية');
   }
 }

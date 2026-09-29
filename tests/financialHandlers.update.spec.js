@@ -24,6 +24,7 @@ describe('handleUpdateTransaction - balance sign on type change', () => {
     // Old transaction: EXPENSE 100 on account 1 -> edited to INCOME 100
     db.getQuery
       .mockResolvedValueOnce({ id: 1, account_id: 1, type: 'EXPENSE', amount: 100 })
+      .mockResolvedValueOnce(undefined) // not a student fee payment
       .mockResolvedValueOnce({ id: 1, account_id: 1, type: 'INCOME', amount: 100 });
 
     await handleUpdateTransaction(null, 1, {
@@ -58,6 +59,7 @@ describe('handleUpdateTransaction - balance sign on type change', () => {
   it('should persist a corrected voucher number', async () => {
     db.getQuery
       .mockResolvedValueOnce({ id: 1, account_id: 1, type: 'INCOME', amount: 100 })
+      .mockResolvedValueOnce(undefined) // not a student fee payment
       .mockResolvedValueOnce({ id: 1, account_id: 1, type: 'INCOME', amount: 100 });
 
     await handleUpdateTransaction(null, 1, {
@@ -95,5 +97,79 @@ describe('handleUpdateTransaction - balance sign on type change', () => {
         account_id: 1,
       }),
     ).rejects.toThrow('رقم الوصل موجود مسبقاً');
+  });
+});
+
+describe('transactions linked to a student fee payment', () => {
+  let handlers;
+  const feeTxn = {
+    id: 7,
+    account_id: 1,
+    type: 'INCOME',
+    category: 'رسوم الطلاب',
+    amount: 50,
+    transaction_date: '2026-01-15',
+    receipt_type: 'fee_payment',
+  };
+  const edit = (changes) => ({
+    type: 'INCOME',
+    category: 'رسوم الطلاب',
+    amount: 50,
+    transaction_date: '2026-01-15',
+    payment_method: 'CASH',
+    account_id: 1,
+    ...changes,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    handlers = require('../src/main/handlers/financialHandlers');
+  });
+
+  it('refuses to change the amount of a fee payment outside the fees tab', async () => {
+    db.getQuery.mockResolvedValueOnce(feeTxn).mockResolvedValueOnce({ id: 3 });
+
+    await expect(handlers.handleUpdateTransaction(null, 7, edit({ amount: 80 }))).rejects.toThrow(
+      'مرتبطة برسوم الطلاب',
+    );
+    expect(db.runQuery).not.toHaveBeenCalled();
+  });
+
+  it('still lets the description of a fee payment be edited', async () => {
+    db.getQuery
+      .mockResolvedValueOnce(feeTxn)
+      .mockResolvedValueOnce({ id: 3 })
+      .mockResolvedValueOnce(feeTxn);
+
+    await handlers.handleUpdateTransaction(null, 7, edit({ description: 'ملاحظة' }));
+
+    expect(db.runQuery.mock.calls[1][0]).toContain('UPDATE transactions SET');
+  });
+
+  it('deletes a fee payment through the student fee reversal', async () => {
+    const studentFeeHandlers = require('../src/main/handlers/studentFeeHandlers');
+    const spy = jest
+      .spyOn(studentFeeHandlers, 'deleteStudentPayment')
+      .mockResolvedValue({ success: true });
+    db.getQuery.mockResolvedValueOnce(feeTxn).mockResolvedValueOnce({ id: 3 });
+
+    await expect(handlers.handleDeleteTransaction(null, 7)).resolves.toEqual({ id: 7 });
+
+    expect(spy).toHaveBeenCalledWith(3);
+    expect(db.runQuery).not.toHaveBeenCalledWith('DELETE FROM transactions WHERE id = ?', [7]);
+    spy.mockRestore();
+  });
+
+  it('refuses to delete a fee refund on its own', async () => {
+    db.getQuery
+      .mockResolvedValueOnce({
+        ...feeTxn,
+        type: 'EXPENSE',
+        category: 'استرجاع رسوم',
+      })
+      .mockResolvedValueOnce(undefined);
+
+    await expect(handlers.handleDeleteTransaction(null, 7)).rejects.toThrow('مرتبطة برسوم الطلاب');
+    expect(db.runQuery).not.toHaveBeenCalled();
   });
 });
