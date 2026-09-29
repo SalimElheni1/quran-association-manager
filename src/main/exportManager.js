@@ -325,10 +325,10 @@ async function fetchExportData({ type, fields, options = {} }) {
       const fieldSelection = allowed.join(', ');
 
       if (options.groupId) {
-        query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ? ORDER BY s.name`;
+        query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ? AND s.deleted_at IS NULL ORDER BY s.name`;
         params.push(options.groupId);
       } else {
-        query = `SELECT ${fieldSelection} FROM students s ORDER BY s.name`;
+        query = `SELECT ${fieldSelection} FROM students s WHERE s.deleted_at IS NULL ORDER BY s.name`;
       }
 
       const results = await allQuery(query, params);
@@ -361,7 +361,8 @@ async function fetchExportData({ type, fields, options = {} }) {
       if (allowedT.length === 0) throw new Error('No valid teacher fields available for export.');
       const fieldSelectionT = allowedT.join(', ');
       query = `SELECT ${fieldSelectionT} FROM teachers`;
-      let teacherWhereClauses = [];
+      // Deleted teachers are not exported (they stay in the database for history).
+      let teacherWhereClauses = ['deleted_at IS NULL'];
       if (options.gender && options.gender !== 'all') {
         if (options.gender === 'men' || options.gender === 'Male') {
           teacherWhereClauses.push('gender = ? AND gender IS NOT NULL');
@@ -411,7 +412,7 @@ async function fetchExportData({ type, fields, options = {} }) {
                FROM users u
                JOIN user_roles ur ON u.id = ur.user_id
                JOIN roles r ON ur.role_id = r.id
-               WHERE r.name IN ('Branch Admin', 'Superadmin')
+               WHERE r.name IN ('Branch Admin', 'Superadmin') AND u.deleted_at IS NULL
                ORDER BY u.username`;
       return allQuery(query, params);
     }
@@ -475,10 +476,10 @@ async function fetchExportData({ type, fields, options = {} }) {
 
       const fieldSelection = allowed.join(', ');
 
-      query = `SELECT ${fieldSelection} FROM classes c LEFT JOIN teachers t ON c.teacher_id = t.id`;
+      query = `SELECT ${fieldSelection} FROM classes c LEFT JOIN teachers t ON c.teacher_id = t.id WHERE c.deleted_at IS NULL`;
       // Optional filtering by class id
       if (options.classId && options.classId !== 'all') {
-        query += ' WHERE c.id = ?';
+        query += ' AND c.id = ?';
         params.push(options.classId);
       }
       query += ' ORDER BY c.name';
@@ -514,9 +515,9 @@ async function fetchExportData({ type, fields, options = {} }) {
 
       const fieldSelection = allowed.join(', ');
 
-      query = `SELECT ${fieldSelection} FROM inventory_items i`;
+      query = `SELECT ${fieldSelection} FROM inventory_items i WHERE i.deleted_at IS NULL`;
       if (options.category) {
-        query += ' WHERE i.category = ?';
+        query += ' AND i.category = ?';
         params.push(options.category);
       }
       query += ' ORDER BY i.item_name';

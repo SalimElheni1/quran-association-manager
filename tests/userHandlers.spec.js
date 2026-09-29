@@ -115,7 +115,10 @@ describe('userHandlers', () => {
       db.getQuery.mockResolvedValue(undefined); // not a Superadmin
       db.runQuery.mockResolvedValue({ changes: 1 });
       await handlers['users:delete'](null, 1);
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [1]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE users SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+        [expect.any(String), null, 1],
+      );
     });
 
     it('should throw error for invalid user ID', async () => {
@@ -148,7 +151,10 @@ describe('userHandlers', () => {
 
       await handlers['users:delete'](null, 2);
 
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [2]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE users SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+        [expect.any(String), null, 2],
+      );
     });
   });
 

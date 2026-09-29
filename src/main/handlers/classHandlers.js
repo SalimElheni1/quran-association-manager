@@ -4,6 +4,8 @@ const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
 const { mapCategory } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
+const { deletedFilter, notDeleted, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 const classFields = [
   'name',
@@ -85,31 +87,27 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:delete', async (_event, id) => {
+  // Soft delete: the class's enrollments, attendance and the fee charges billed for it stay.
+  ipcMain.handle('classes:delete', async (event, id) => {
     if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للحذف.');
-    return db.withTransaction(async () => {
-      // Fee charges point at the class they were billed for, and that foreign key cascades:
-      // deleting the class would delete its students' charges, paid ones and earlier years'
-      // arrears included. Keep the charges on the students' accounts; the link only decides
-      // which charges a payment for that class settles first.
-      await db.runQuery(
-        'UPDATE student_fee_charges SET related_class_id = NULL WHERE related_class_id = ?',
-        [id],
-      );
-      const sql = 'DELETE FROM classes WHERE id = ?';
-      return db.runQuery(sql, [id]);
-    });
+    const { changes } = await softDeleteRow('classes', id, getUserIdForEvent(event));
+    return { changes };
+  });
+
+  ipcMain.handle('classes:restore', async (_event, id) => {
+    if (!id || typeof id !== 'number') throw new Error('معرف الفصل صالح مطلوب للاسترجاع.');
+    return restoreRow('classes', id);
   });
 
   ipcMain.handle('classes:get', async (_event, filters) => {
     let sql = `
       SELECT c.id, c.name, c.class_type, c.schedule, c.status, c.gender, c.age_group_id,
              c.teacher_id, t.name as teacher_name,
-             ag.name as age_group_name, ag.min_age, ag.max_age
+             ag.name as age_group_name, ag.min_age, ag.max_age, c.deleted_at
       FROM classes c
       LEFT JOIN teachers t ON c.teacher_id = t.id
       LEFT JOIN age_groups ag ON c.age_group_id = ag.id
-      WHERE 1=1
+      WHERE ${deletedFilter(filters, 'c')}
     `;
     const params = [];
     if (filters?.searchTerm) {
@@ -192,7 +190,7 @@ function registerClassHandlers() {
         SELECT s.id, s.name
         FROM students s
         INNER JOIN class_students cs ON s.id = cs.student_id
-        WHERE cs.class_id = ? AND s.status = 'active'
+        WHERE cs.class_id = ? AND s.status = 'active' AND ${notDeleted('s')}
         ORDER BY s.name ASC
       `;
 
@@ -200,7 +198,7 @@ function registerClassHandlers() {
         SELECT s.id, s.name, s.date_of_birth, s.gender
         FROM students s
         LEFT JOIN class_students cs ON s.id = cs.student_id AND cs.class_id = ?
-        WHERE s.status = 'active' AND cs.student_id IS NULL
+        WHERE s.status = 'active' AND ${notDeleted('s')} AND cs.student_id IS NULL
         ORDER BY s.name ASC
       `;
 
@@ -249,8 +247,11 @@ function registerClassHandlers() {
   ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
     try {
       // Track which students were added/removed for charge regeneration
+      // Deleted students are not in the dialog, so their enrollments are left as they are
+      // (kept for history and for a restore).
       const oldEnrollments = await db.allQuery(
-        'SELECT student_id FROM class_students WHERE class_id = ?',
+        `SELECT cs.student_id FROM class_students cs JOIN students s ON s.id = cs.student_id
+         WHERE cs.class_id = ? AND ${notDeleted('s')}`,
         [classId],
       );
       const oldStudentIds = oldEnrollments.map((e) => e.student_id);
@@ -269,7 +270,11 @@ function registerClassHandlers() {
       log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
 
       await db.withTransaction(async () => {
-        await db.runQuery('DELETE FROM class_students WHERE class_id = ?', [classId]);
+        await db.runQuery(
+          `DELETE FROM class_students WHERE class_id = ?
+           AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)`,
+          [classId],
+        );
         if (studentIds && studentIds.length > 0) {
           const placeholders = studentIds.map(() => '(?, ?)').join(', ');
           const params = [];
@@ -350,7 +355,7 @@ function registerClassHandlers() {
         FROM classes c
         LEFT JOIN teachers t ON c.teacher_id = t.id
         LEFT JOIN age_groups ag ON c.age_group_id = ag.id
-        WHERE c.age_group_id IN (${placeholders}) AND c.status != 'pending'
+        WHERE c.age_group_id IN (${placeholders}) AND c.status != 'pending' AND ${notDeleted('c')}
         ORDER BY c.name ASC
       `;
 

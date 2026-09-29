@@ -1,13 +1,14 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { error: logError } = require('../logger');
+const { notDeleted } = require('../softDelete');
 
 function registerDashboardHandlers() {
   ipcMain.handle('get-dashboard-stats', async () => {
     try {
-      const studentCountQuery = "SELECT COUNT(*) as count FROM students WHERE status = 'active'";
-      const teacherCountQuery = 'SELECT COUNT(*) as count FROM teachers';
-      const classCountQuery = "SELECT COUNT(*) as count FROM classes WHERE status = 'active'";
+      const studentCountQuery = `SELECT COUNT(*) as count FROM students WHERE status = 'active' AND ${notDeleted()}`;
+      const teacherCountQuery = `SELECT COUNT(*) as count FROM teachers WHERE ${notDeleted()}`;
+      const classCountQuery = `SELECT COUNT(*) as count FROM classes WHERE status = 'active' AND ${notDeleted()}`;
 
       // Run all queries in parallel for better performance
       const [studentResult, teacherResult, classResult] = await Promise.all([
@@ -45,7 +46,7 @@ function registerDashboardHandlers() {
         SELECT c.id, c.name, c.schedule, t.name as teacher_name
         FROM classes c
         LEFT JOIN teachers t ON c.teacher_id = t.id
-        WHERE c.status = 'active' AND c.schedule LIKE ?
+        WHERE c.status = 'active' AND ${notDeleted('c')} AND c.schedule LIKE ?
       `;
       // This is a simple but effective optimization. It filters in the DB, reducing data
       // transfer and JS processing. It's not as robust as a full JSON query but avoids

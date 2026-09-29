@@ -2,6 +2,8 @@ const { ipcMain } = require('electron');
 const { runQuery, getQuery, allQuery, withTransaction } = require('../../db/db');
 const { mapCategory } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 function registerGroupHandlers() {
   // Groups Management
@@ -13,7 +15,7 @@ function registerGroupHandlers() {
         FROM groups g
       `;
       const params = [];
-      const conditions = [];
+      const conditions = [deletedFilter(filters, 'g')];
 
       if (filters.name) {
         conditions.push('g.name LIKE ?');
@@ -107,16 +109,24 @@ function registerGroupHandlers() {
     }
   });
 
+  // Soft delete: the group and its memberships stay for history and a restore.
   ipcMain.handle('groups:delete', async (event, id) => {
     try {
-      // The ON DELETE CASCADE constraint on student_groups table will handle removing assignments.
-      // No need for a separate transaction here unless more complex logic is needed.
-      const query = 'DELETE FROM groups WHERE id = ?';
-      await runQuery(query, [id]);
+      await softDeleteRow('groups', id, getUserIdForEvent(event));
       return { success: true };
     } catch (error) {
       console.error(`Error deleting group ${id}:`, error);
       return { success: false, message: 'فشل في حذف المجموعة.' };
+    }
+  });
+
+  ipcMain.handle('groups:restore', async (event, id) => {
+    try {
+      await restoreRow('groups', id);
+      return { success: true };
+    } catch (error) {
+      console.error(`Error restoring group ${id}:`, error);
+      return { success: false, message: 'فشل في استرجاع المجموعة.' };
     }
   });
 
@@ -126,7 +136,7 @@ function registerGroupHandlers() {
       const query = `
         SELECT s.*, sg.joined_at FROM students s
         JOIN student_groups sg ON s.id = sg.student_id
-        WHERE sg.group_id = ?
+        WHERE sg.group_id = ? AND s.deleted_at IS NULL
         ORDER BY s.name ASC
       `;
       const students = await allQuery(query, [groupId]);
@@ -168,7 +178,7 @@ function registerGroupHandlers() {
       const query = `
         SELECT g.* FROM groups g
         JOIN student_groups sg ON g.id = sg.group_id
-        WHERE sg.student_id = ?
+        WHERE sg.student_id = ? AND g.deleted_at IS NULL
       `;
       const groups = await allQuery(query, [studentId]);
       return { success: true, data: groups };
@@ -201,7 +211,7 @@ function registerGroupHandlers() {
                CASE WHEN sg.student_id IS NOT NULL THEN 1 ELSE 0 END as isMember
         FROM students s
         LEFT JOIN student_groups sg ON s.id = sg.student_id AND sg.group_id = ?
-        WHERE s.status = 'active' AND s.date_of_birth IS NOT NULL
+        WHERE s.status = 'active' AND s.deleted_at IS NULL AND s.date_of_birth IS NOT NULL
       `;
       let params = [groupId];
 
@@ -236,8 +246,12 @@ function registerGroupHandlers() {
     try {
       // Using a transaction to ensure atomicity
       await withTransaction(async () => {
-        // 1. Remove all existing students from the group
-        await runQuery('DELETE FROM student_groups WHERE group_id = ?', [groupId]);
+        // 1. Remove the group's students, except deleted ones (not listed, kept for a restore)
+        await runQuery(
+          `DELETE FROM student_groups WHERE group_id = ?
+           AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)`,
+          [groupId],
+        );
 
         // 2. Add the new list of students to the group
         if (studentIds && studentIds.length > 0) {
@@ -282,7 +296,8 @@ function registerGroupHandlers() {
       const query = `
         SELECT g.*,
                (SELECT COUNT(*) FROM student_groups sg WHERE sg.group_id = g.id) AS studentCount
-        FROM groups g ${categoryCondition} ORDER BY g.name ASC
+        FROM groups g ${categoryCondition ? `${categoryCondition} AND` : 'WHERE'} g.deleted_at IS NULL
+        ORDER BY g.name ASC
       `;
       const groups = await allQuery(query, params);
 
@@ -309,7 +324,7 @@ function registerGroupHandlers() {
       let sql = `
         SELECT s.id, s.name, s.matricule, s.date_of_birth, s.gender
         FROM students s
-        WHERE s.status = 'active' AND s.date_of_birth IS NOT NULL
+        WHERE s.status = 'active' AND s.deleted_at IS NULL AND s.date_of_birth IS NOT NULL
       `;
 
       let students = await allQuery(sql);

@@ -7,6 +7,7 @@ const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
 const sessionManager = require('../sessionManager');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
 
 const LAST_SUPERADMIN_MESSAGE =
   'لا يمكن حذف آخر مدير نظام نشط أو تعطيله أو سحب صلاحيته. أضف مدير نظام آخر أولاً.';
@@ -29,7 +30,8 @@ async function isLastActiveSuperadmin(userId) {
     `SELECT COUNT(*) AS count FROM users u
      JOIN user_roles ur ON ur.user_id = u.id
      JOIN roles r ON r.id = ur.role_id
-     WHERE r.name = 'Superadmin' AND u.id != ? AND (u.status IS NULL OR u.status = 'active')`,
+     WHERE r.name = 'Superadmin' AND u.id != ? AND (u.status IS NULL OR u.status = 'active')
+       AND u.deleted_at IS NULL`,
     [userId],
   );
   return !others || others.count === 0;
@@ -63,11 +65,11 @@ function registerUserHandlers() {
       let sql = `
       SELECT
         u.id, u.matricule, u.username, u.first_name, u.last_name, u.email, u.status, u.need_guide, u.current_step,
-        GROUP_CONCAT(r.name) as roles
+        u.deleted_at, GROUP_CONCAT(r.name) as roles
       FROM users u
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
-      WHERE 1=1
+      WHERE ${deletedFilter(filters, 'u')}
     `;
       const params = [];
 
@@ -93,7 +95,8 @@ function registerUserHandlers() {
       }
 
       // First, get the total count without pagination
-      let countSql = `SELECT COUNT(*) as total FROM (${sql.replace('GROUP BY u.id ORDER BY u.username ASC', 'GROUP BY u.id')}) as filtered_users`;
+      // Grouped per user: the roles join has one row per role.
+      let countSql = `SELECT COUNT(*) as total FROM (${sql} GROUP BY u.id) as filtered_users`;
       const countResult = await db.getQuery(countSql, params);
       const totalCount = countResult?.total || 0;
 
@@ -316,8 +319,18 @@ function registerUserHandlers() {
       if (await isLastActiveSuperadmin(id)) {
         throw new Error(LAST_SUPERADMIN_MESSAGE);
       }
-      const sql = 'DELETE FROM users WHERE id = ?';
-      return db.runQuery(sql, [id]);
+      // Soft delete: the user can no longer log in; what they recorded keeps their name.
+      const { changes } = await softDeleteRow('users', id, sessionManager.getUserIdForEvent(event));
+      return { changes };
+    }),
+  );
+
+  ipcMain.handle(
+    'users:restore',
+    requireRoles(['Superadmin'])(async (_event, id) => {
+      if (!id || typeof id !== 'number')
+        throw new Error('A valid user ID is required for restore.');
+      return restoreRow('users', id);
     }),
   );
 

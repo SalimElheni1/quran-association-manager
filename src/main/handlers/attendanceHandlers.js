@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { log, error: logError } = require('../logger');
+const { notDeleted } = require('../softDelete');
 
 function registerAttendanceHandlers() {
   ipcMain.handle('attendance:getClassesForDay', async (_event, date) => {
@@ -10,7 +11,7 @@ function registerAttendanceHandlers() {
         SELECT DISTINCT c.id, c.name, c.class_type, c.teacher_id, t.name as teacher_name
         FROM classes c
         LEFT JOIN teachers t ON c.teacher_id = t.id
-        WHERE c.status = 'active'
+        WHERE c.status = 'active' AND ${notDeleted('c')}
         AND (
           (c.start_date IS NULL OR c.start_date <= ?)
           AND (c.end_date IS NULL OR c.end_date >= ?)
@@ -30,7 +31,7 @@ function registerAttendanceHandlers() {
         SELECT s.id, s.name, s.date_of_birth
         FROM students s
         INNER JOIN class_students cs ON s.id = cs.student_id
-        WHERE cs.class_id = ? AND s.status = 'active'
+        WHERE cs.class_id = ? AND s.status = 'active' AND ${notDeleted('s')}
         ORDER BY s.name ASC
       `;
       return db.allQuery(sql, [classId]);

@@ -16,7 +16,7 @@ function formatDateDDMMYYYY(dateStr) {
 async function generateInventoryLedger() {
   try {
     const inventory = await db.allQuery(
-      'SELECT * FROM inventory_items ORDER BY category, item_name',
+      'SELECT * FROM inventory_items WHERE deleted_at IS NULL ORDER BY category, item_name',
     );
 
     const { filePath } = await dialog.showSaveDialog({

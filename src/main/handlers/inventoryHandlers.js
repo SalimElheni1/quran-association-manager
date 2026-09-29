@@ -3,6 +3,8 @@ const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { error: logError } = require('../logger');
 const { generateMatricule } = require('../services/matriculeService');
 const { requireRoles } = require('../authMiddleware');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -21,7 +23,7 @@ function createHandler(handler) {
 async function handleGetInventoryItems(_, filters = {}) {
   const { search, category, page, limit } = filters;
 
-  let sql = 'SELECT * FROM inventory_items WHERE 1=1';
+  let sql = `SELECT * FROM inventory_items WHERE ${deletedFilter(filters)}`;
   const params = [];
 
   if (search) {
@@ -153,8 +155,14 @@ async function handleUpdateInventoryItem(_, item) {
   return getQuery('SELECT * FROM inventory_items WHERE id = ?', [id]);
 }
 
-async function handleDeleteInventoryItem(_, itemId) {
-  await runQuery('DELETE FROM inventory_items WHERE id = ?', [itemId]);
+// Soft delete: the item leaves the stock lists but stays for history and a restore.
+async function handleDeleteInventoryItem(event, itemId) {
+  await softDeleteRow('inventory_items', itemId, getUserIdForEvent(event));
+  return { id: itemId };
+}
+
+async function handleRestoreInventoryItem(_, itemId) {
+  await restoreRow('inventory_items', itemId);
   return { id: itemId };
 }
 
@@ -172,6 +180,10 @@ function registerInventoryHandlers() {
   ipcMain.handle(
     'inventory:delete',
     requireRoles(['Superadmin', 'Administrator'])(createHandler(handleDeleteInventoryItem)),
+  );
+  ipcMain.handle(
+    'inventory:restore',
+    requireRoles(['Superadmin', 'Administrator'])(createHandler(handleRestoreInventoryItem)),
   );
 }
 

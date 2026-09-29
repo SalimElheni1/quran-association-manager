@@ -189,10 +189,40 @@ describe('Student Handlers', () => {
   });
 
   describe('students:delete', () => {
-    it('should delete a student', async () => {
+    it('should soft delete a student and cancel their unpaid charges', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
       await ipcMain.invoke('students:delete', 1);
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM students WHERE id = ?', [1]);
+
+      const [softSql, softParams] = db.runQuery.mock.calls[0];
+      expect(softSql).toBe(
+        'UPDATE students SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+      );
+      expect(softParams[2]).toBe(1);
+      const [cancelSql, cancelParams] = db.runQuery.mock.calls[1];
+      expect(cancelSql).toContain('UPDATE student_fee_charges SET cancelled_at = ?');
+      expect(cancelSql).toContain("status IN ('UNPAID', 'PARTIALLY_PAID')");
+      // Stamped with the deletion time, so a restore finds exactly these charges again
+      expect(cancelParams).toEqual([softParams[0], 1]);
+      expect(db.runQuery).not.toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM'),
+        expect.anything(),
+      );
+    });
+
+    it('should restore a student and the charges its deletion cancelled', async () => {
+      db.getQuery.mockResolvedValue({ deleted_at: '2026-09-29 10:00:00' });
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      await ipcMain.invoke('students:restore', 1);
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE student_fee_charges SET cancelled_at = NULL WHERE student_id = ? AND cancelled_at = ?',
+        [1, '2026-09-29 10:00:00'],
+      );
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE students SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL',
+        [1],
+      );
     });
 
     it('should throw an error for invalid ID', async () => {

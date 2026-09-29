@@ -1224,20 +1224,26 @@ async function processClassRow(row, headerRow) {
 
     let teacher = null;
     if (teacherMatricule) {
-      teacher = await getQuery('SELECT id FROM teachers WHERE matricule = ?', [teacherMatricule]);
+      // A class is never assigned to a deleted teacher.
+      teacher = await getQuery(
+        'SELECT id FROM teachers WHERE matricule = ? AND deleted_at IS NULL',
+        [teacherMatricule],
+      );
       if (!teacher) {
         return { success: false, message: `لم يتم العثور على معلم بالمعرف "${teacherMatricule}".` };
       }
     } else if (teacherName) {
       // Try to find teacher by name (case-insensitive)
-      teacher = await getQuery('SELECT id FROM teachers WHERE LOWER(name) = LOWER(?)', [
-        teacherName,
-      ]);
+      teacher = await getQuery(
+        'SELECT id FROM teachers WHERE LOWER(name) = LOWER(?) AND deleted_at IS NULL',
+        [teacherName],
+      );
       if (!teacher) {
         // Try a LIKE search as fallback
-        const likeMatch = await getQuery('SELECT id FROM teachers WHERE name LIKE ?', [
-          `%${teacherName}%`,
-        ]);
+        const likeMatch = await getQuery(
+          'SELECT id FROM teachers WHERE name LIKE ? AND deleted_at IS NULL',
+          [`%${teacherName}%`],
+        );
         if (likeMatch) teacher = likeMatch;
       }
       if (!teacher) {
@@ -1604,7 +1610,7 @@ async function processInventoryRow(row, headerRow) {
 
     // Check if item already exists - if so, update quantity instead of rejecting
     const existingItem = await getQuery(
-      'SELECT id, quantity, unit_value FROM inventory_items WHERE item_name = ? COLLATE NOCASE',
+      'SELECT id, quantity, unit_value FROM inventory_items WHERE item_name = ? COLLATE NOCASE AND deleted_at IS NULL',
       [data.item_name],
     );
     if (existingItem) {

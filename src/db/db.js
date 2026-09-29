@@ -50,7 +50,7 @@ async function hasSuperadmin() {
       SELECT u.id FROM users u
       JOIN user_roles ur ON u.id = ur.user_id
       JOIN roles r ON ur.role_id = r.id
-      WHERE r.name = 'Superadmin'
+      WHERE r.name = 'Superadmin' AND u.deleted_at IS NULL
     `);
     return !!existingAdmin;
   } catch (error) {

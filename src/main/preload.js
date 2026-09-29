@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @returns {Promise<Object>} Deletion result
    */
   deleteStudent: (id) => ipcRenderer.invoke('students:delete', id),
+  restoreStudent: (id) => ipcRenderer.invoke('students:restore', id),
 
   /**
    * Retrieves all surahs in the Quran.
@@ -160,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addTeacher: (teacherData) => ipcRenderer.invoke('teachers:add', teacherData),
   updateTeacher: (id, teacherData) => ipcRenderer.invoke('teachers:update', id, teacherData),
   deleteTeacher: (id) => ipcRenderer.invoke('teachers:delete', id),
+  restoreTeacher: (id) => ipcRenderer.invoke('teachers:restore', id),
 
   // Classes API
   getClasses: (filters) => ipcRenderer.invoke('classes:get', filters),
@@ -167,6 +169,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addClass: (classData) => ipcRenderer.invoke('classes:add', classData),
   updateClass: (id, classData) => ipcRenderer.invoke('classes:update', id, classData),
   deleteClass: (id) => ipcRenderer.invoke('classes:delete', id),
+  restoreClass: (id) => ipcRenderer.invoke('classes:restore', id),
   getClassById: (id) => ipcRenderer.invoke('classes:getById', id),
   getEnrollmentData: (data) => ipcRenderer.invoke('classes:getEnrollmentData', data),
   updateEnrollments: (classId, studentIds) =>
@@ -177,6 +180,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addGroup: (groupData) => ipcRenderer.invoke('groups:add', groupData),
   updateGroup: (id, groupData) => ipcRenderer.invoke('groups:update', id, groupData),
   deleteGroup: (id) => ipcRenderer.invoke('groups:delete', id),
+  restoreGroup: (id) => ipcRenderer.invoke('groups:restore', id),
   getGroupStudents: (groupId) => ipcRenderer.invoke('groups:getGroupStudents', groupId),
   addStudentToGroup: (studentId, groupId) =>
     ipcRenderer.invoke('groups:addStudentToGroup', { studentId, groupId }),
@@ -228,6 +232,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserById: (id) => ipcRenderer.invoke('users:getById', id),
   updateUser: (id, userData) => ipcRenderer.invoke('users:update', { id, userData }),
   deleteUser: (id) => ipcRenderer.invoke('users:delete', id),
+  restoreUser: (id) => ipcRenderer.invoke('users:restore', id),
   // Onboarding helpers
   updateUserGuide: (id, guideData) =>
     // Use lightweight handler that only updates onboarding fields to avoid validation errors
@@ -252,6 +257,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
   deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete', id),
+  restoreInventoryItem: (id) => ipcRenderer.invoke('inventory:restore', id),
 
   // New Unified Financial API
   getTransactions: (filters) => ipcRenderer.invoke('transactions:get', filters),
@@ -266,10 +272,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAccounts: () => ipcRenderer.invoke('accounts:get'),
   addAccount: (account) => ipcRenderer.invoke('accounts:add', account),
   getCategories: (type) => ipcRenderer.invoke('categories:get', type),
-  getInKindCategories: () => ipcRenderer.invoke('in-kind-categories:get'),
+  getInKindCategories: (filters) => ipcRenderer.invoke('in-kind-categories:get', filters),
   addInKindCategory: (name) => ipcRenderer.invoke('in-kind-categories:add', name),
   updateInKindCategory: (id, name) => ipcRenderer.invoke('in-kind-categories:update', id, name),
   deleteInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:delete', id),
+  restoreInKindCategory: (id) => ipcRenderer.invoke('in-kind-categories:restore', id),
 
   // Student Fees API
   studentFeesGetStatus: (studentId, academicYear) =>
@@ -333,6 +340,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addReceiptBook: (book) => ipcRenderer.invoke('receipt-books:add', book),
   updateReceiptBook: (book) => ipcRenderer.invoke('receipt-books:update', book),
   deleteReceiptBook: (id) => ipcRenderer.invoke('receipt-books:delete', id),
+  restoreReceiptBook: (id) => ipcRenderer.invoke('receipt-books:restore', id),
   getNextReceiptNumber: (receiptType) =>
     ipcRenderer.invoke('receipt-books:get-next-number', receiptType),
   checkReceiptExists: (data) => ipcRenderer.invoke('receipt-books:check-exists', data),

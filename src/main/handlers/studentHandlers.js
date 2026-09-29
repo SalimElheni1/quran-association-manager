@@ -20,6 +20,8 @@ const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { translateStudent } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
+const { deletedFilter, notDeleted, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 /**
  * Minimum age (in years) enforced for registered students.
@@ -110,7 +112,7 @@ function registerStudentHandlers() {
           let havingClauses = [];
 
           let sql = `
-        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category
+        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category, s.deleted_at
         FROM students s
       `;
 
@@ -136,7 +138,8 @@ function registerStudentHandlers() {
             params.push(...filters.hizbIds);
           }
 
-          sql += ' WHERE 1=1';
+          // Deleted students are listed only when asked for (restore view).
+          sql += ` WHERE ${deletedFilter(filters, 's')}`;
 
           if (filters?.searchTerm) {
             sql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
@@ -170,7 +173,7 @@ function registerStudentHandlers() {
           let countSql = `
             SELECT COUNT(*) as total
             FROM (
-              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category', 'SELECT COUNT(*) as cnt')}
+              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category, s.deleted_at', 'SELECT COUNT(*) as cnt')}
             ) as filtered_students
           `;
 
@@ -213,7 +216,7 @@ function registerStudentHandlers() {
               `;
             }
 
-            baseSql += ' WHERE 1=1';
+            baseSql += ` WHERE ${deletedFilter(filters, 's')}`;
 
             if (filters?.searchTerm) {
               baseSql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
@@ -603,15 +606,50 @@ function registerStudentHandlers() {
 
   ipcMain.handle(
     'students:delete',
-    requireRoles(['Superadmin', 'Administrator'])(async (_event, id) => {
+    requireRoles(['Superadmin', 'Administrator'])(async (event, id) => {
       try {
         if (!id || typeof id !== 'number')
           throw new Error('A valid student ID is required for deletion.');
-        const sql = 'DELETE FROM students WHERE id = ?';
-        return await db.runQuery(sql, [id]);
+        // Soft delete: payments, charges and attendance stay for reports and history.
+        // The student's unpaid charges are cancelled (stamped with the deletion time,
+        // so a restore brings back exactly those).
+        return await db.withTransaction(async () => {
+          const result = await softDeleteRow('students', id, getUserIdForEvent(event));
+          if (result.changes > 0) {
+            await db.runQuery(
+              `UPDATE student_fee_charges SET cancelled_at = ?
+               WHERE student_id = ? AND cancelled_at IS NULL AND fee_type != 'CREDIT'
+                 AND status IN ('UNPAID', 'PARTIALLY_PAID')`,
+              [result.deletedAt, id],
+            );
+          }
+          return { changes: result.changes };
+        });
       } catch (error) {
         logError(`Error deleting student ${id}:`, error);
         throw new Error('فشل حذف الطالب.');
+      }
+    }),
+  );
+
+  ipcMain.handle(
+    'students:restore',
+    requireRoles(['Superadmin', 'Administrator'])(async (_event, id) => {
+      try {
+        if (!id || typeof id !== 'number')
+          throw new Error('A valid student ID is required for restore.');
+        return await db.withTransaction(async () => {
+          const student = await db.getQuery('SELECT deleted_at FROM students WHERE id = ?', [id]);
+          if (!student || !student.deleted_at) return { changes: 0 };
+          await db.runQuery(
+            'UPDATE student_fee_charges SET cancelled_at = NULL WHERE student_id = ? AND cancelled_at = ?',
+            [id, student.deleted_at],
+          );
+          return restoreRow('students', id);
+        });
+      } catch (error) {
+        logError(`Error restoring student ${id}:`, error);
+        throw new Error('فشل استرجاع الطالب.');
       }
     }),
   );
@@ -659,7 +697,7 @@ function registerStudentHandlers() {
       let sql = `
         SELECT s.id, s.name, s.matricule, s.gender, s.date_of_birth, s.status
         FROM students s
-        WHERE s.status = 'active'
+        WHERE s.status = 'active' AND ${notDeleted('s')}
       `;
 
       const params = [];

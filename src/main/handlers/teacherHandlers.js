@@ -4,6 +4,8 @@ const { teacherValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { mapGender } = require('../utils/translations');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 const teacherFields = [
   'matricule',
@@ -94,21 +96,31 @@ function registerTeacherHandlers() {
     }
   });
 
-  ipcMain.handle('teachers:delete', async (_event, id) => {
+  // Soft delete: the teacher stays on the classes they taught.
+  ipcMain.handle('teachers:delete', async (event, id) => {
     try {
       if (!id || typeof id !== 'number') throw new Error('معرف المعلم صالح مطلوب للحذف.');
-      const sql = 'DELETE FROM teachers WHERE id = ?';
-      return await db.runQuery(sql, [id]);
+      const { changes } = await softDeleteRow('teachers', id, getUserIdForEvent(event));
+      return { changes };
     } catch (error) {
       logError(`Error deleting teacher ${id}:`, error);
       throw new Error('فشل حذف المعلم.');
     }
   });
 
+  ipcMain.handle('teachers:restore', async (_event, id) => {
+    try {
+      if (!id || typeof id !== 'number') throw new Error('معرف المعلم صالح مطلوب للاسترجاع.');
+      return await restoreRow('teachers', id);
+    } catch (error) {
+      logError(`Error restoring teacher ${id}:`, error);
+      throw new Error('فشل استرجاع المعلم.');
+    }
+  });
+
   ipcMain.handle('teachers:get', async (_event, filters) => {
     try {
-      let sql =
-        'SELECT id, matricule, name, contact_info, specialization, gender FROM teachers WHERE 1=1';
+      let sql = `SELECT id, matricule, name, contact_info, specialization, gender, deleted_at FROM teachers WHERE ${deletedFilter(filters)}`;
       const params = [];
       if (filters?.searchTerm) {
         sql += ' AND (name LIKE ? OR matricule LIKE ?)';

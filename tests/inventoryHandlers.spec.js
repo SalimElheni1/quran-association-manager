@@ -81,7 +81,7 @@ describe('Inventory Handlers', () => {
       const result = await ipcMain.invoke('inventory:get');
 
       expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT * FROM inventory_items WHERE 1=1 ORDER BY item_name ASC',
+        'SELECT * FROM inventory_items WHERE deleted_at IS NULL ORDER BY item_name ASC',
         [],
       );
       expect(result).toEqual(mockItems);
@@ -246,13 +246,27 @@ describe('Inventory Handlers', () => {
   });
 
   describe('inventory:delete', () => {
-    it('should delete an inventory item by ID', async () => {
+    it('should soft delete an inventory item by ID', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result = await ipcMain.invoke('inventory:delete', 1);
 
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM inventory_items WHERE id = ?', [1]);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE inventory_items SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+        [expect.any(String), 1, 1],
+      );
       expect(result).toEqual({ id: 1 });
+    });
+
+    it('should list deleted items only when asked for', async () => {
+      db.allQuery.mockResolvedValue([]);
+
+      await ipcMain.invoke('inventory:get', { showDeleted: true });
+
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE deleted_at IS NOT NULL'),
+        [],
+      );
     });
 
     it('should handle deletion errors', async () => {

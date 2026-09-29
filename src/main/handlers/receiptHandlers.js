@@ -2,6 +2,8 @@ const { ipcMain } = require('electron');
 const { allQuery, runQuery, getQuery } = require('../../db/db');
 const { generateReceiptNumber } = require('../services/receiptService');
 const { error: logError } = require('../logger');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
+const { getUserIdForEvent } = require('../sessionManager');
 
 function createHandler(handler) {
   return async (event, ...args) => {
@@ -16,7 +18,7 @@ function createHandler(handler) {
 
 // Get all receipt books
 async function handleGetReceiptBooks(event, filters = {}) {
-  let query = 'SELECT * FROM receipt_books WHERE 1=1';
+  let query = `SELECT * FROM receipt_books WHERE ${deletedFilter(filters)}`;
   const params = [];
 
   if (filters.status) {
@@ -36,7 +38,7 @@ async function handleGetReceiptBooks(event, filters = {}) {
 // Get active receipt book for a specific type
 async function handleGetActiveReceiptBook(event, receiptType) {
   return getQuery(
-    'SELECT * FROM receipt_books WHERE receipt_type = ? AND status = ? ORDER BY issued_date DESC LIMIT 1',
+    'SELECT * FROM receipt_books WHERE receipt_type = ? AND status = ? AND deleted_at IS NULL ORDER BY issued_date DESC LIMIT 1',
     [receiptType, 'active'],
   );
 }
@@ -98,9 +100,14 @@ async function handleUpdateReceiptBook(event, book) {
   return getQuery('SELECT * FROM receipt_books WHERE id = ?', [id]);
 }
 
-// Delete receipt book
+// Delete receipt book (soft: its number range stays taken and it can be restored)
 async function handleDeleteReceiptBook(event, bookId) {
-  await runQuery('DELETE FROM receipt_books WHERE id = ?', [bookId]);
+  await softDeleteRow('receipt_books', bookId, getUserIdForEvent(event));
+  return { id: bookId };
+}
+
+async function handleRestoreReceiptBook(event, bookId) {
+  await restoreRow('receipt_books', bookId);
   return { id: bookId };
 }
 
@@ -155,6 +162,7 @@ function registerReceiptHandlers() {
   ipcMain.handle('receipt-books:add', createHandler(handleAddReceiptBook));
   ipcMain.handle('receipt-books:update', createHandler(handleUpdateReceiptBook));
   ipcMain.handle('receipt-books:delete', createHandler(handleDeleteReceiptBook));
+  ipcMain.handle('receipt-books:restore', createHandler(handleRestoreReceiptBook));
   ipcMain.handle('receipt-books:get-next-number', createHandler(handleGetNextReceiptNumber));
   ipcMain.handle('receipt-books:check-exists', createHandler(handleCheckReceiptExists));
 }
@@ -166,6 +174,7 @@ module.exports = {
   handleAddReceiptBook,
   handleUpdateReceiptBook,
   handleDeleteReceiptBook,
+  handleRestoreReceiptBook,
   handleGetNextReceiptNumber,
   handleCheckReceiptExists,
 };

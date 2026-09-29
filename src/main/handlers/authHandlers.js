@@ -251,8 +251,14 @@ function registerAuthHandlers() {
 
       clearLoginLockout();
 
-      // An account set to inactive keeps its data but can no longer sign in. Checked after the
-      // password so the message doesn't reveal which usernames exist.
+      // A deleted account (kept for history) can no longer sign in, nor can an inactive one.
+      // Checked after the password so the message doesn't reveal which usernames exist.
+      if (user.deleted_at) {
+        return {
+          success: false,
+          message: 'هذا الحساب محذوف. يرجى التواصل مع مدير النظام.',
+        };
+      }
       if (user.status && user.status !== 'active') {
         return {
           success: false,

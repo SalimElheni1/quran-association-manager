@@ -10,6 +10,7 @@ const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
 const { getUserIdForEvent } = require('../sessionManager');
+const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
 const { translateTransaction, translateArray } = require('../utils/translations');
 const { roundCurrency } = require('../utils');
 
@@ -656,14 +657,15 @@ async function handleGetCategories(event, type) {
   }
 }
 
-async function handleGetInKindCategories() {
+async function handleGetInKindCategories(event, filters) {
   try {
     const tableCheck = await db.getQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='in_kind_categories'",
     );
     if (!tableCheck) return [];
     return await db.allQuery(
-      'SELECT * FROM in_kind_categories WHERE is_active = 1 ORDER BY is_system, name',
+      `SELECT * FROM in_kind_categories WHERE is_active = 1 AND ${deletedFilter(filters)}
+       ORDER BY is_system, name`,
     );
   } catch (error) {
     logError('Error in handleGetInKindCategories:', error);
@@ -680,6 +682,15 @@ async function handleAddInKindCategory(event, name) {
     return await db.getQuery('SELECT * FROM in_kind_categories WHERE id = ?', [result.id]);
   } catch (error) {
     logError('Error in handleAddInKindCategory:', error);
+    // Names stay taken by deleted categories; point to the restore instead.
+    const deleted = await db
+      .getQuery('SELECT id FROM in_kind_categories WHERE name = ? AND deleted_at IS NOT NULL', [
+        name,
+      ])
+      .catch(() => null);
+    if (deleted) {
+      throw new Error('توجد فئة محذوفة بهذا الاسم. يمكنك استرجاعها من قائمة المحذوفات.');
+    }
     throw new Error('فشل في إضافة الفئة');
   }
 }
@@ -704,11 +715,22 @@ async function handleDeleteInKindCategory(event, id) {
     if (category.is_system) {
       throw new Error('لا يمكن حذف الفئات الافتراضية');
     }
-    await db.runQuery('DELETE FROM in_kind_categories WHERE id = ?', [id]);
+    // Soft delete: donations recorded under it keep their category.
+    await softDeleteRow('in_kind_categories', id, getUserIdForEvent(event));
     return { id };
   } catch (error) {
     logError('Error in handleDeleteInKindCategory:', error);
     throw new Error(error.message || 'فشل في حذف الفئة');
+  }
+}
+
+async function handleRestoreInKindCategory(event, id) {
+  try {
+    await restoreRow('in_kind_categories', id);
+    return { id };
+  } catch (error) {
+    logError('Error in handleRestoreInKindCategory:', error);
+    throw new Error('فشل في استرجاع الفئة');
   }
 }
 
@@ -898,6 +920,10 @@ function registerFinancialHandlers() {
     'in-kind-categories:delete',
     requireRoles(['Superadmin', 'Administrator'])(handleDeleteInKindCategory),
   );
+  ipcMain.handle(
+    'in-kind-categories:restore',
+    requireRoles(['Superadmin', 'Administrator'])(handleRestoreInKindCategory),
+  );
 }
 
 module.exports = {
@@ -915,6 +941,7 @@ module.exports = {
   handleAddInKindCategory,
   handleUpdateInKindCategory,
   handleDeleteInKindCategory,
+  handleRestoreInKindCategory,
   handleExportFinancialReportPDF,
   handleExportFinancialReportExcel,
   recomputeAccountBalances,

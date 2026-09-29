@@ -80,26 +80,27 @@ describe('Class Handlers', () => {
   });
 
   describe('classes:delete', () => {
-    it('should delete a class successfully', async () => {
-      const classId = 1;
-      db.runQuery.mockResolvedValue({ changes: 1 });
-
-      await ipcMain.invoke('classes:delete', classId);
-
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM classes WHERE id = ?', [classId]);
-    });
-
-    it("should keep the students' fee charges instead of letting them cascade away", async () => {
+    it('should soft delete a class, leaving its charges, enrollments and attendance', async () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       await ipcMain.invoke('classes:delete', 4);
 
-      const calls = db.runQuery.mock.calls.map(([sql]) => sql);
-      const detach = calls.indexOf(
-        'UPDATE student_fee_charges SET related_class_id = NULL WHERE related_class_id = ?',
+      expect(db.runQuery).toHaveBeenCalledTimes(1);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE classes SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+        [expect.any(String), 1, 4], // deleted_by: the logged-in user (the mock invoke logs in user 1)
       );
-      expect(detach).toBeGreaterThanOrEqual(0);
-      expect(detach).toBeLessThan(calls.indexOf('DELETE FROM classes WHERE id = ?'));
+    });
+
+    it('should restore a deleted class', async () => {
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      await ipcMain.invoke('classes:restore', 4);
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE classes SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL',
+        [4],
+      );
     });
 
     it('should throw an error if no ID is provided', async () => {
@@ -113,7 +114,10 @@ describe('Class Handlers', () => {
     it('should get all classes without filters', async () => {
       db.allQuery.mockResolvedValue([{ id: 1, name: 'Class A' }]);
       const result = await ipcMain.invoke('classes:get', {});
-      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE 1=1'), []);
+      expect(db.allQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE c.deleted_at IS NULL'),
+        [],
+      );
       expect(result).toEqual([{ id: 1, name: 'Class A' }]);
     });
 
@@ -194,9 +198,13 @@ describe('Class Handlers', () => {
 
       await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds });
 
-      expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM class_students WHERE class_id = ?', [
-        classId,
-      ]);
+      // Deleted students' enrollments are kept
+      expect(db.runQuery).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)',
+        ),
+        [classId],
+      );
       expect(db.runQuery).toHaveBeenCalledWith(
         'INSERT INTO class_students (class_id, student_id) VALUES (?, ?), (?, ?)',
         [1, 10, 1, 11],

@@ -31,6 +31,7 @@ async function generateReceiptNumber(receiptType = 'fee_payment', issuedBy = nul
       let receiptBook = await db.getQuery(
         `SELECT * FROM receipt_books
        WHERE receipt_type = ? AND strftime('%Y', issued_date) = ? AND status = 'active'
+         AND deleted_at IS NULL
        ORDER BY id DESC LIMIT 1`,
         [receiptType, currentYear.toString()],
       );
