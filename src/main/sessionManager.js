@@ -68,8 +68,21 @@ function hasSession(webContentsId) {
   return getSession(webContentsId) !== null;
 }
 
+/**
+ * The id of the logged-in user behind an IPC event, for audit columns such as
+ * created_by_user_id. webContents carries no user of its own; the session does.
+ * @param {{ sender?: { id?: number } }} event
+ * @returns {number|null}
+ */
+function getUserIdForEvent(event) {
+  const senderId = event && event.sender ? event.sender.id : null;
+  const session = typeof senderId === 'number' ? getSession(senderId) : null;
+  return session ? session.userId : null;
+}
+
 module.exports = {
   createSession,
+  getUserIdForEvent,
   getSession,
   revokeSession,
   revokeAllSessions,

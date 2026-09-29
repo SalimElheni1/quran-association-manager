@@ -133,10 +133,8 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
 
       const result = await ipcMain.invoke('receipts:generate', { receiptType: 'fee_payment' });
 
-      expect(mockReceiptService.generateReceiptNumber).toHaveBeenCalledWith(
-        'fee_payment',
-        undefined,
-      );
+      // Recorded under the logged-in user of the session (the mock invoke logs in user 1).
+      expect(mockReceiptService.generateReceiptNumber).toHaveBeenCalledWith('fee_payment', 1);
       expect(result).toHaveProperty('receiptNumber', 'RCP-2024-001');
     });
 

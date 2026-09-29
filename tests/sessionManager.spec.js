@@ -87,4 +87,17 @@ describe('sessionManager', () => {
       expect(sessionManager.getSession(2)).toBeNull();
     });
   });
+
+  describe('getUserIdForEvent', () => {
+    it('returns the logged-in user behind the sender, for audit columns', () => {
+      sessionManager.createSession({ id: 9 }, { id: 42, username: 'finance' }, null);
+
+      expect(sessionManager.getUserIdForEvent({ sender: { id: 9 } })).toBe(42);
+    });
+
+    it('returns null without a session or sender', () => {
+      expect(sessionManager.getUserIdForEvent({ sender: { id: 10 } })).toBeNull();
+      expect(sessionManager.getUserIdForEvent(null)).toBeNull();
+    });
+  });
 });

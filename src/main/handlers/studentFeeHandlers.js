@@ -7,6 +7,7 @@
 const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { requireRoles } = require('../authMiddleware');
+const { getUserIdForEvent } = require('../sessionManager');
 const { log, error: logError, warn: logWarn } = require('../logger');
 const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
@@ -1703,7 +1704,7 @@ async function recordStudentPayment(event, paymentDetails) {
           targetAccountId,
           studentName,
           student_id,
-          event && event.sender && event.sender.userId ? event.sender.userId : 1,
+          getUserIdForEvent(event) || 1,
         ],
       );
 
@@ -2068,7 +2069,7 @@ function registerStudentFeeHandlers() {
     'student-fees:refundPayment',
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { paymentId }) => {
-        return await refundStudentPayment(paymentId, event.sender.userId);
+        return await refundStudentPayment(paymentId, getUserIdForEvent(event));
       },
     ),
   );
@@ -2237,7 +2238,11 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { studentId, academicYear }) => {
         try {
-          const result = await refreshStudentCharges(studentId, academicYear, event.sender.userId);
+          const result = await refreshStudentCharges(
+            studentId,
+            academicYear,
+            getUserIdForEvent(event),
+          );
           return result;
         } catch (error) {
           logError('Error refreshing student charges:', error);
@@ -2252,7 +2257,7 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(
       async (event, { academicYear }) => {
         try {
-          const result = await refreshAllStudentCharges(academicYear, event.sender.userId);
+          const result = await refreshAllStudentCharges(academicYear, getUserIdForEvent(event));
           return result;
         } catch (error) {
           logError('Error refreshing all student charges:', error);
@@ -2282,7 +2287,7 @@ function registerStudentFeeHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, options = {}) => {
       try {
         const receiptType = options.receiptType || 'fee_payment';
-        const result = await generateReceiptNumber(receiptType, event.sender.userId);
+        const result = await generateReceiptNumber(receiptType, getUserIdForEvent(event));
         return result;
       } catch (error) {
         logError('Error generating receipt number:', error);
