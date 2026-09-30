@@ -13,6 +13,13 @@ const {
  * @param {import('@playwright/test').Page} page
  * @param {{ name: string, phone: string, gender?: 'Male' | 'Female' }} opts
  */
+/** The value next to a label in a details modal (e.g. 'رقم الهاتف'). */
+function detailValue(page, label) {
+  return modal(page)
+    .locator('.detail-item', { has: page.locator('.detail-label', { hasText: `${label}:` }) })
+    .locator('.detail-value');
+}
+
 async function addTeacher(page, { name, phone, gender = 'Male' }) {
   await page.getByRole('button', { name: 'إضافة معلم' }).click();
   await expect(modal(page)).toBeVisible();
@@ -142,6 +149,8 @@ test.describe('Teachers page (شؤون المعلمين)', () => {
     await expect(modal(page)).toBeVisible();
     await expect(modal(page).locator('.modal-title')).toContainText(teacherName);
     await expect(modal(page).getByText('المعلومات الشخصية')).toBeVisible();
+    await expect(detailValue(page, 'رقم الهاتف')).toHaveText(phone);
+    await expect(detailValue(page, 'الجنس')).toHaveText('ذكر');
 
     await modal(page).getByRole('button', { name: 'إغلاق' }).click();
     await expectNoModal(page);

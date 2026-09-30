@@ -16,6 +16,11 @@ function DetailItem({ label, value }) {
   );
 }
 
+const genderTranslations = {
+  Male: 'ذكر',
+  Female: 'أنثى',
+};
+
 function TeacherDetailsModal({ show, handleClose, teacher }) {
   if (!teacher) return null;
 
@@ -36,7 +41,7 @@ function TeacherDetailsModal({ show, handleClose, teacher }) {
           <DetailItem label="رقم الهوية" value={teacher.national_id} />
           <DetailItem label="تاريخ الميلاد" value={teacher.date_of_birth?.split('T')[0]} />
           <DetailItem label="العمر" value={calculateAge(teacher.date_of_birth)} />
-          <DetailItem label="الجنس" value={teacher.gender} />
+          <DetailItem label="الجنس" value={genderTranslations[teacher.gender] || teacher.gender} />
           <DetailItem label="رقم الهاتف" value={teacher.contact_info} />
           <DetailItem label="البريد الإلكتروني" value={teacher.email} />
           <DetailItem label="العنوان" value={teacher.address} />

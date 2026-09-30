@@ -14,6 +14,13 @@ function yearsAgoISODate(years) {
   return date.toISOString().split('T')[0];
 }
 
+/** The value next to a label in a details modal (e.g. 'رقم الهاتف'). */
+function detailValue(page, label) {
+  return modal(page)
+    .locator('.detail-item', { has: page.locator('.detail-label', { hasText: `${label}:` }) })
+    .locator('.detail-value');
+}
+
 function matriculeCell(row) {
   return row.locator('td').nth(1);
 }
@@ -161,6 +168,8 @@ test.describe('students page', () => {
     await expect(modal(page).locator('.modal-title')).toContainText(studentName);
     await expect(modal(page).getByText('المعلومات الشخصية')).toBeVisible();
     await expect(modal(page).getByText('معلومات الجمعية')).toBeVisible();
+    await expect(detailValue(page, 'الجنس')).toHaveText('ذكر');
+    await expect(detailValue(page, 'العمر')).toHaveText('10');
 
     await modal(page).getByRole('button', { name: 'إغلاق' }).click();
     await expectNoModal(page);
