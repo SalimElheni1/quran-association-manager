@@ -2,10 +2,10 @@ const { ipcMain } = require('electron');
 const {
   registerStudentFeeHandlers,
   triggerChargeRegenerationForStudent,
-  getCurrentAcademicYear,
   calculateStudentMonthlyCharges,
 } = require('../src/main/handlers/studentFeeHandlers');
 const db = require('../src/db/db');
+const { error: logError } = require('../src/main/logger');
 
 // Mock dependencies
 jest.mock('../src/main/logger');
@@ -38,45 +38,64 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
   // ============================================
 
   describe('student-fees:generateAllCharges', () => {
-    it('should generate both annual and monthly charges in a transaction', async () => {
-      const academicYear = '2024-2025';
+    const currentMonth = new Date().getMonth() + 1;
+    const billingMonth = `2024-2025-${String(currentMonth).padStart(2, '0')}`;
 
+    const mockBranch = ({ existingMonthly = null } = {}) => {
+      db.getQuery.mockImplementation((sql, params) => {
+        if (sql.includes('FROM settings')) {
+          if (params[0] === 'annual_fee') return Promise.resolve({ value: '100' });
+          if (params[0] === 'standard_monthly_fee') return Promise.resolve({ value: '50' });
+          return Promise.resolve(null);
+        }
+        if (sql.includes('billing_month')) return Promise.resolve(existingMonthly);
+        return Promise.resolve(null);
+      });
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('FROM students') ? [{ id: 1, discount_percentage: 0 }] : []),
+      );
       db.runQuery.mockResolvedValue({ changes: 1 });
-      db.getQuery.mockResolvedValue({ value: '100' }); // annual_fee setting
-      db.getQuery.mockResolvedValueOnce({ value: '50' }); // standard_monthly_fee setting
-      db.allQuery.mockResolvedValue([{ id: 1 }, { id: 2 }]); // students
+    };
 
-      const result = await ipcMain.invoke('student-fees:generateAllCharges', academicYear);
+    it('bills the annual fee and the current month only, in one transaction', async () => {
+      mockBranch();
+
+      const result = await ipcMain.invoke('student-fees:generateAllCharges', '2024-2025');
 
       expect(result).toEqual({ success: true, message: 'تم إنشاء جميع الرسوم بنجاح' });
+      const inserts = db.runQuery.mock.calls.filter(([sql]) =>
+        sql.includes('INSERT INTO student_fee_charges'),
+      );
+      expect(inserts).toHaveLength(2);
+      expect(inserts[0][0]).toContain("'ANNUAL'");
+      expect(inserts[0][1]).toEqual([
+        1,
+        expect.any(String),
+        'رسوم سنوية - 2024-2025',
+        100,
+        '2024-2025',
+      ]);
+      expect(inserts[1][0]).toContain("'MONTHLY'");
+      expect(inserts[1][1][3]).toBe(50);
+      expect(inserts[1][1][6]).toBe(billingMonth);
     });
 
-    it('should handle transaction rollback on error', async () => {
-      const academicYear = '2024-2025';
-
+    it('passes a failure on to the renderer', async () => {
       db.withTransaction.mockRejectedValueOnce(new Error('Database error'));
-      db.getQuery.mockResolvedValue({ value: '100' }); // annual_fee setting
-      db.getQuery.mockResolvedValueOnce({ value: '50' }); // standard_monthly_fee setting
-      db.allQuery.mockResolvedValue([{ id: 1 }]); // students
 
-      await expect(ipcMain.invoke('student-fees:generateAllCharges', academicYear)).rejects.toThrow(
+      await expect(ipcMain.invoke('student-fees:generateAllCharges', '2024-2025')).rejects.toThrow(
         'Database error',
       );
     });
 
-    it('should support force regeneration of existing charges', async () => {
-      const academicYear = '2024-2025';
+    it('replaces the unpaid charge of the current month when forced', async () => {
+      mockBranch({ existingMonthly: { id: 12, amount_paid: 0 } });
 
-      db.runQuery.mockResolvedValue({ changes: 1 });
-      db.getQuery.mockResolvedValue({ value: '100' }); // annual_fee setting
-      db.getQuery.mockResolvedValueOnce({ value: '50' }); // standard_monthly_fee setting
-      db.allQuery.mockResolvedValue([{ id: 1 }]); // students
+      await ipcMain.invoke('student-fees:generateAllCharges', '2024-2025', true);
 
-      await ipcMain.invoke('student-fees:generateAllCharges', academicYear, true);
-
-      // Should call generateMonthlyFeeCharges with force=true
-      expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining("fee_category = 'CAN_PAY' OR fee_category = 'SPONSORED'"),
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'DELETE FROM student_fee_charges WHERE id = ?',
+        [12],
       );
     });
   });
@@ -212,30 +231,22 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
     it('should release lock after successful regeneration', async () => {
       const studentId = 456;
 
-      db.getQuery
-        .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting
-        .mockResolvedValueOnce({
-          id: studentId,
-          name: 'Test Student 2',
-          status: 'active',
-          fee_category: 'CAN_PAY',
-        }) // student details
-        .mockResolvedValueOnce({ value: '9' }) // academic_year_start_month setting for second call
-        .mockResolvedValueOnce({
-          id: studentId,
-          name: 'Test Student 2',
-          status: 'active',
-          fee_category: 'CAN_PAY',
-        }); // student details for second call
+      db.getQuery.mockImplementation((sql) =>
+        Promise.resolve(
+          sql.includes('FROM students WHERE id = ?')
+            ? { id: studentId, name: 'Test Student 2', status: 'active', fee_category: 'CAN_PAY' }
+            : null,
+        ),
+      );
       db.allQuery.mockResolvedValue([]); // No existing charges
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result = await triggerChargeRegenerationForStudent(studentId);
-      expect(result.success).toBe(true);
+      expect(result).toEqual({ success: true, message: 'Charges regenerated successfully' });
 
-      // After successful completion, another call should succeed (lock was released)
+      // After successful completion, another call runs too (the lock was released)
       const result2 = await triggerChargeRegenerationForStudent(studentId);
-      expect(result2.success).toBe(true);
+      expect(result2).toEqual({ success: true, message: 'Charges regenerated successfully' });
     });
 
     it('should release lock even when errors occur', async () => {
@@ -263,39 +274,21 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       db.runQuery.mockResolvedValue({ changes: 1 });
 
       const result2 = await triggerChargeRegenerationForStudent(studentId);
-      expect(result2.success).toBe(true);
-    });
-  });
-
-  // ============================================
-  // ACADEMIC YEAR CALCULATION TESTS
-  // ============================================
-
-  describe('getCurrentAcademicYear', () => {
-    it('should calculate correct academic year for September start', () => {
-      // September 2024 should start 2024-2025
-      const sept2024 = new Date(2024, 8, 1); // Month 8 = September (0-based)
-      const result = getCurrentAcademicYear(9, sept2024);
-      expect(result).toBe('2024-2025');
+      expect(result2).toEqual({ success: true, message: 'Charges regenerated successfully' });
     });
 
-    it('should handle academic year crossing', () => {
-      // August 2024 should still be in 2023-2024
-      const aug2024 = new Date(2024, 7, 1); // Month 7 = August (0-based)
-      const result = getCurrentAcademicYear(9, aug2024);
-      expect(result).toBe('2023-2024');
-    });
+    it('never bills a deleted student', async () => {
+      db.getQuery.mockResolvedValue({
+        id: 5,
+        status: 'active',
+        fee_category: 'CAN_PAY',
+        deleted_at: '2026-09-29 10:00:00',
+      });
 
-    it('should handle custom start months', () => {
-      // January start
-      const jan2024 = new Date(2024, 0, 15); // Month 0 = January
-      const result = getCurrentAcademicYear(1, jan2024);
-      expect(result).toBe('2024-2025');
+      const result = await triggerChargeRegenerationForStudent(5);
 
-      // December should cross to next year
-      const dec2024 = new Date(2024, 11, 15); // Month 11 = December
-      const result2 = getCurrentAcademicYear(1, dec2024);
-      expect(result2).toBe('2024-2025');
+      expect(result).toEqual({ success: false, message: 'Student not found' });
+      expect(db.runQuery).not.toHaveBeenCalled();
     });
   });
 
@@ -304,6 +297,12 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
   // ============================================
 
   describe('calculateStudentMonthlyCharges', () => {
+    // The student's classes; their age groups have no fees of their own (branch fee applies).
+    const mockClasses = (classes) =>
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('GROUP BY ag.id') ? [] : classes),
+      );
+
     it('should calculate fees for student with standard classes only', async () => {
       const studentId = 1;
       const month = 10;
@@ -315,9 +314,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         }
         return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
       });
-      db.allQuery.mockResolvedValue([
-        { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
-      ]);
+      mockClasses([{ id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 }]);
 
       const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);
 
@@ -337,7 +334,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         }
         return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
       });
-      db.allQuery.mockResolvedValue([
+      mockClasses([
         { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
         { id: 2, name: 'Special Class', fee_type: 'special', monthly_fee: 30 },
       ]);
@@ -360,9 +357,7 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         }
         return Promise.resolve({ discount_percentage: 20, fee_age_group_id: null });
       });
-      db.allQuery.mockResolvedValue([
-        { id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 },
-      ]);
+      mockClasses([{ id: 1, name: 'Standard Class', fee_type: 'standard', monthly_fee: 50 }]);
 
       const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);
 
@@ -435,28 +430,33 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
         return Promise.resolve({ discount_percentage: 0, fee_age_group_id: null });
       });
       // The standard class's age group pays annually.
-      db.allQuery.mockResolvedValueOnce([
-        {
-          id: 1,
-          name: 'Standard Class',
-          fee_type: 'standard',
-          monthly_fee: 50,
-          payment_frequency: 'ANNUAL',
-        },
-        {
-          id: 2,
-          name: 'Special Class',
-          fee_type: 'special',
-          monthly_fee: 30,
-          payment_frequency: 'MONTHLY',
-        },
-      ]);
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(
+          sql.includes('GROUP BY ag.id')
+            ? []
+            : [
+                {
+                  id: 1,
+                  name: 'Standard Class',
+                  fee_type: 'standard',
+                  monthly_fee: 50,
+                  payment_frequency: 'ANNUAL',
+                },
+                {
+                  id: 2,
+                  name: 'Special Class',
+                  fee_type: 'special',
+                  monthly_fee: 30,
+                  payment_frequency: 'MONTHLY',
+                },
+              ],
+        ),
+      );
 
       const result = await calculateStudentMonthlyCharges(studentId, month, academicYear);
 
-      expect(result.standard).toBe(0);
-      expect(result.custom).toBe(0);
-      expect(result.total).toBe(0);
+      expect(result).toEqual({ standard: 0, custom: 0, total: 0, relatedClassId: null });
+      expect(logError).not.toHaveBeenCalled();
     });
   });
 

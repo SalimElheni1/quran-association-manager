@@ -125,68 +125,74 @@ describe('exportManager', () => {
       );
     });
 
-    it('should fetch students data and filter by gender/age in JS', async () => {
-      const mockStudents = [
-        { id: 1, name: 'Adult Man', gender: 'Male', date_of_birth: '1990-01-01' },
-        { id: 2, name: 'Adult Woman', gender: 'Female', date_of_birth: '1992-01-01' },
-        { id: 3, name: 'Kid Male', gender: 'Male', date_of_birth: '2015-01-01' },
-      ];
-      allQuery.mockImplementation((sql) => {
-        if (sql.includes('PRAGMA')) {
-          return Promise.resolve([
-            { name: 'name' },
-            { name: 'gender' },
-            { name: 'date_of_birth' },
-            { name: 'email' },
-            { name: 'username' },
-            { name: 'role' },
-          ]);
-        }
-        return Promise.resolve(mockStudents);
-      });
-      getSetting.mockResolvedValue(18); // adult_age_threshold
+    // PRAGMA table_info answers with these columns; the data query answers with `rows`.
+    const mockTable = (columns, rows = []) =>
+      allQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.startsWith('PRAGMA') ? columns.map((name) => ({ name })) : rows),
+      );
+    const dataQuery = () => allQuery.mock.calls.find(([sql]) => !sql.startsWith('PRAGMA'));
+
+    it('exports students that are not deleted, only with columns that exist', async () => {
+      mockTable(['name', 'gender'], [{ name: 'Ali', date_of_birth: Date.UTC(2015, 0, 2) }]);
 
       const result = await fetchExportData({
         type: 'students',
-        fields: ['name', 'gender', 'date_of_birth'],
+        fields: ['name', 'gender', 'sponsor_cin'],
+      });
+
+      expect(dataQuery()).toEqual([
+        'SELECT name, gender FROM students s WHERE s.deleted_at IS NULL ORDER BY s.name',
+        [],
+      ]);
+      // Timestamps are exported as dates.
+      expect(result).toEqual([{ name: 'Ali', date_of_birth: '2015-01-02' }]);
+    });
+
+    it('exports the students of one group', async () => {
+      mockTable(['name']);
+
+      await fetchExportData({ type: 'students', fields: ['name'], options: { groupId: 3 } });
+
+      expect(dataQuery()).toEqual([
+        expect.stringContaining(
+          'JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ?',
+        ),
+        [3],
+      ]);
+    });
+
+    it('refuses a student export when no selected column exists', async () => {
+      mockTable(['name']);
+
+      await expect(fetchExportData({ type: 'students', fields: ['sponsor_cin'] })).rejects.toThrow(
+        'No valid student fields available for export after validating against DB columns.',
+      );
+    });
+
+    it('exports teachers that are not deleted, filtered by gender', async () => {
+      mockTable(['name', 'email']);
+
+      await fetchExportData({
+        type: 'teachers',
+        fields: ['name', 'email'],
         options: { gender: 'men' },
       });
 
-      expect(result).toEqual(mockStudents);
+      expect(dataQuery()).toEqual([
+        'SELECT name, email FROM teachers WHERE deleted_at IS NULL AND gender = ? AND gender IS NOT NULL ORDER BY name',
+        ['Male'],
+      ]);
     });
 
-    it('should fetch teachers data', async () => {
-      const mockData = [{ id: 1, name: 'Teacher 1' }];
-      allQuery.mockImplementation((sql) => {
-        if (sql.includes('PRAGMA')) {
-          return Promise.resolve([{ name: 'name' }, { name: 'email' }]);
-        }
-        return Promise.resolve(mockData);
-      });
+    it('exports users with their role name, leaving deleted users out', async () => {
+      mockTable(['username']);
 
-      const result = await fetchExportData({
-        type: 'teachers',
-        fields: ['name', 'email'],
-      });
+      await fetchExportData({ type: 'admins', fields: ['username', 'role'] });
 
-      expect(result).toEqual(mockData);
-    });
-
-    it('should fetch admins data', async () => {
-      const mockData = [{ id: 1, username: 'admin1' }];
-      allQuery.mockImplementation((sql) => {
-        if (sql.includes('PRAGMA')) {
-          return Promise.resolve([{ name: 'username' }, { name: 'role' }]);
-        }
-        return Promise.resolve(mockData);
-      });
-
-      const result = await fetchExportData({
-        type: 'admins',
-        fields: ['username', 'role'],
-      });
-
-      expect(result).toEqual(mockData);
+      const [sql] = dataQuery();
+      expect(sql).toMatch(/^SELECT username, r\.name as role\s+FROM users u/);
+      expect(sql).toContain('JOIN roles r ON ur.role_id = r.id');
+      expect(sql).toContain('u.deleted_at IS NULL');
     });
 
     it('should throw error for invalid export type', async () => {

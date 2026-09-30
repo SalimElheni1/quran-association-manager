@@ -18,29 +18,13 @@ jest.mock('bcryptjs');
 jest.mock('../src/main/services/matriculeService');
 jest.mock('../src/main/keyManager');
 
+// replaceDatabase is covered in importManager.extended.spec.js.
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const PizZip = require('pizzip');
-const { app } = require('electron');
 const ExcelJS = require('exceljs');
-const { error: logError } = require('../src/main/logger');
-const {
-  getDatabasePath,
-  isDbOpen,
-  closeDatabase,
-  initializeDatabase,
-  getDb,
-  dbExec,
-  runQuery,
-  getQuery,
-} = require('../src/db/db');
+const { runQuery, getQuery } = require('../src/db/db');
 const { generateMatricule } = require('../src/main/services/matriculeService');
-const { setDbSalt } = require('../src/main/keyManager');
-const {
-  validateDatabaseFile,
-  replaceDatabase,
-  importExcelData,
-} = require('../src/main/importManager');
+const { validateDatabaseFile, importExcelData } = require('../src/main/importManager');
 
 describe('importManager', () => {
   beforeEach(() => {
@@ -62,40 +46,6 @@ describe('importManager', () => {
       const result = await validateDatabaseFile('/path/to/backup.zip');
 
       expect(result.isValid).toBe(true);
-    });
-  });
-
-  describe.skip('replaceDatabase', () => {
-    it('should successfully replace database', async () => {
-      const mockZipContent = Buffer.from('mock zip content');
-      const mockSqlFile = { asText: () => 'CREATE TABLE students (id INTEGER);' };
-      const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "new-test-salt"}') };
-      const mockZip = {
-        file: jest.fn().mockReturnValueOnce(mockSqlFile).mockReturnValueOnce(mockConfigFile),
-      };
-      fs.readFile.mockResolvedValue(mockZipContent);
-      PizZip.mockImplementation(() => mockZip);
-      getDatabasePath.mockReturnValue('/path/to/current.db');
-      isDbOpen.mockReturnValue(true);
-      fsSync.existsSync.mockReturnValue(true);
-      app.relaunch = jest.fn();
-      app.quit = jest.fn();
-      // Ensure getDb returns a simple object, as dbExec is mocked anyway
-      getDb.mockReturnValue({});
-
-      const result = await replaceDatabase('/path/to/backup.zip', 'password123');
-
-      expect(closeDatabase).toHaveBeenCalled();
-      expect(setDbSalt).toHaveBeenCalledWith('new-test-salt');
-      expect(fs.unlink).toHaveBeenCalledWith('/path/to/current.db');
-      expect(initializeDatabase).toHaveBeenCalledWith('password123');
-      expect(dbExec).toHaveBeenCalledWith(
-        expect.any(Object),
-        'CREATE TABLE students (id INTEGER);',
-      );
-      expect(app.relaunch).toHaveBeenCalled();
-      expect(result.success).toBe(true);
-      expect(logError).not.toHaveBeenCalled();
     });
   });
 

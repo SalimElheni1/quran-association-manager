@@ -15,51 +15,19 @@ jest.mock('react-toastify', () => ({
   },
 }));
 
-// Mock the logger module directly
-jest.mock('../../src/renderer/utils/logger', () => {
-  let isPackaged = true;
-
-  const mockElectronAPI = {
-    isPackaged: jest.fn().mockResolvedValue(true),
-  };
-
-  global.window = global.window || {};
-  global.window.electronAPI = mockElectronAPI;
-
-  const log = jest.fn((...args) => {
-    if (!isPackaged) {
-      console.log(...args);
-    }
+// Loads a fresh copy of the real logger with the given packaged flag from the main process.
+async function loadLogger(isPackagedPromise) {
+  window.electronAPI = { isPackaged: jest.fn(() => isPackagedPromise) };
+  let logger;
+  jest.isolateModules(() => {
+    logger = require('../../src/renderer/utils/logger');
   });
-
-  const warn = jest.fn((...args) => {
-    if (!isPackaged) {
-      console.warn(...args);
-    }
-  });
-
-  const error = jest.fn((...args) => {
-    console.error(...args);
-  });
-
-  // Expose method to control isPackaged for testing
-  log._setPackaged = (value) => {
-    isPackaged = value;
-  };
-  warn._setPackaged = (value) => {
-    isPackaged = value;
-  };
-  error._setPackaged = (value) => {
-    isPackaged = value;
-  };
-
-  return { log, warn, error };
-});
-
-// Import after mocking
-const { log, warn, error } = require('../../src/renderer/utils/logger');
+  await Promise.resolve(); // let the flag arrive
+  return logger;
+}
 
 describe('Logger Utils', () => {
+  const originalElectronAPI = window.electronAPI;
   let consoleSpy;
 
   beforeEach(() => {
@@ -68,7 +36,6 @@ describe('Logger Utils', () => {
       warn: jest.spyOn(console, 'warn').mockImplementation(() => {}),
       error: jest.spyOn(console, 'error').mockImplementation(() => {}),
     };
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -77,46 +44,38 @@ describe('Logger Utils', () => {
     consoleSpy.error.mockRestore();
   });
 
-  describe('log function', () => {
-    it('should log in development mode', () => {
-      log._setPackaged(false);
-      log('test message', 'additional data');
-      expect(consoleSpy.log).toHaveBeenCalledWith('test message', 'additional data');
-    });
-
-    it('should not log in production mode', () => {
-      log._setPackaged(true);
-      log('test message');
-      expect(consoleSpy.log).not.toHaveBeenCalled();
-    });
+  afterAll(() => {
+    window.electronAPI = originalElectronAPI;
   });
 
-  describe('warn function', () => {
-    it('should warn in development mode', () => {
-      warn._setPackaged(false);
-      warn('warning message');
-      expect(consoleSpy.warn).toHaveBeenCalledWith('warning message');
-    });
+  it('prints logs and warnings in development', async () => {
+    const { log, warn } = await loadLogger(Promise.resolve(false));
 
-    it('should not warn in production mode', () => {
-      warn._setPackaged(true);
-      warn('warning message');
-      expect(consoleSpy.warn).not.toHaveBeenCalled();
-    });
+    log('dev message', 1);
+    warn('dev warning');
+
+    expect(consoleSpy.log).toHaveBeenCalledWith('dev message', 1);
+    expect(consoleSpy.warn).toHaveBeenCalledWith('dev warning');
   });
 
-  describe('error function', () => {
-    it('should always log errors regardless of mode', () => {
-      error._setPackaged(true);
-      error('error message', 'error details');
-      expect(consoleSpy.error).toHaveBeenCalledWith('error message', 'error details');
-    });
+  it('stays silent in the packaged app, except for errors', async () => {
+    const { log, warn, error } = await loadLogger(Promise.resolve(true));
 
-    it('should log errors in development mode', () => {
-      error._setPackaged(false);
-      error('error message');
-      expect(consoleSpy.error).toHaveBeenCalledWith('error message');
-    });
+    log('hidden');
+    warn('hidden');
+    error('shown', 42);
+
+    expect(consoleSpy.log).not.toHaveBeenCalled();
+    expect(consoleSpy.warn).not.toHaveBeenCalled();
+    expect(consoleSpy.error).toHaveBeenCalledWith('shown', 42);
+  });
+
+  it('stays silent until the main process says it is a development build', async () => {
+    const { log } = await loadLogger(new Promise(() => {}));
+
+    log('too early');
+
+    expect(consoleSpy.log).not.toHaveBeenCalled();
   });
 });
 

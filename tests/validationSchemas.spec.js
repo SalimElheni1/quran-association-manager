@@ -1,355 +1,291 @@
-const Joi = require('joi');
+// tests/validationSchemas.spec.js
+// jest.config.js maps 'joi' to a mock for the handler tests; these schemas are checked with
+// the real Joi so a wrong rule or message fails here.
+jest.mock('joi', () => jest.requireActual('../node_modules/joi/lib/index.js'));
+
 const {
   studentValidationSchema,
-  teacherValidationSchema,
+  studentPaymentValidationSchema,
   classValidationSchema,
+  teacherValidationSchema,
   userValidationSchema,
   userUpdateValidationSchema,
   passwordUpdateValidationSchema,
+  transactionValidationSchema,
 } = require('../src/main/validationSchemas');
 
-describe('validationSchemas', () => {
-  beforeEach(() => {
-    // Provide a default successful validation implementation
-    Joi.object().validate.mockImplementation((value) => ({ value, error: undefined }));
-  });
+const messageOf = (schema, value) => schema.validate(value).error?.message;
+const omit = (obj, key) => {
+  const copy = { ...obj };
+  delete copy[key];
+  return copy;
+};
 
+describe('validationSchemas (real Joi)', () => {
   describe('studentValidationSchema', () => {
-    it('should validate valid student data', () => {
-      const validStudent = {
-        name: 'أحمد محمد',
-        date_of_birth: '2005-01-15',
-        gender: 'Male',
-        national_id: '12345678',
-        contact_info: '12345678',
-        email: 'ahmed@example.com',
-        status: 'active',
-        memorization_level: '5 أجزاء',
-      };
-
-      const { error } = studentValidationSchema.validate(validStudent);
+    it('accepts a student with only a name and keeps extra fields', () => {
+      const { error, value } = studentValidationSchema.validate({
+        name: 'سارة أحمد',
+        parent_name: 'أحمد',
+      });
       expect(error).toBeUndefined();
+      expect(value.parent_name).toBe('أحمد');
+      expect(value.discount_percentage).toBe(0);
     });
 
-    it('should reject student with missing required name', () => {
-      const invalidStudent = {
-        date_of_birth: '2005-01-15',
-        gender: 'Male',
-      };
-
-      const mockError = new Joi.ValidationError('ValidationError', [
-        {
-          message: '"name" is required',
-          path: ['name'],
-          type: 'any.required',
-          context: { label: 'name', key: 'name' },
-        },
-      ]);
-      studentValidationSchema.validate.mockReturnValue({ error: mockError, value: invalidStudent });
-
-      const { error } = studentValidationSchema.validate(invalidStudent);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('name');
+    it('requires a name of at least 3 characters', () => {
+      expect(messageOf(studentValidationSchema, {})).toBe('الاسم مطلوب');
+      expect(messageOf(studentValidationSchema, { name: 'عل' })).toBe(
+        'يجب أن يكون الاسم 3 أحرف على الأقل',
+      );
     });
 
-    it('should reject student with invalid email format', () => {
-      const invalidStudent = {
-        name: 'أحمد محمد',
-        email: 'invalid-email',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['email'] }]);
-      studentValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = studentValidationSchema.validate(invalidStudent);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('email');
+    it('checks the phone number, national id and sponsor id are 8 digits', () => {
+      expect(messageOf(studentValidationSchema, { name: 'أحمد', contact_info: '1234' })).toBe(
+        'رقم الهاتف يجب أن يتكون من 8 أرقام.',
+      );
+      expect(messageOf(studentValidationSchema, { name: 'أحمد', national_id: '12345' })).toBe(
+        'رقم الهوية الوطنية يجب أن يتكون من 8 أرقام.',
+      );
+      expect(messageOf(studentValidationSchema, { name: 'أحمد', sponsor_cin: 'abc' })).toBe(
+        'رقم بطاقة الكافل يجب أن يتكون من 8 أرقام.',
+      );
+      expect(
+        studentValidationSchema.validate({ name: 'أحمد', contact_info: '', national_id: null })
+          .error,
+      ).toBeUndefined();
     });
 
-    it('should reject student with invalid gender', () => {
-      const invalidStudent = {
-        name: 'أحمد محمد',
-        gender: 'InvalidGender',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['gender'] }]);
-      studentValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = studentValidationSchema.validate(invalidStudent);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('gender');
+    it('rejects a malformed matricule', () => {
+      expect(messageOf(studentValidationSchema, { name: 'أحمد', matricule: 'T-0001' })).toBe(
+        'الرقم التعريفي للطالب غير صالح.',
+      );
+      expect(
+        studentValidationSchema.validate({ name: 'أحمد', matricule: 'S-0001' }).error,
+      ).toBeUndefined();
     });
 
-    it('should reject student with invalid status', () => {
-      const invalidStudent = {
-        name: 'أحمد محمد',
-        status: 'invalid_status',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
-      studentValidationSchema.validate.mockReturnValue({ error: mockError });
+    it('only accepts the known fee categories and a discount between 0 and 100', () => {
+      ['CAN_PAY', 'EXEMPT', 'SPONSORED'].forEach((fee_category) => {
+        expect(
+          studentValidationSchema.validate({ name: 'أحمد', fee_category }).error,
+        ).toBeUndefined();
+      });
+      expect(
+        studentValidationSchema.validate({ name: 'أحمد', fee_category: 'FREE' }).error,
+      ).toBeDefined();
+      expect(
+        studentValidationSchema.validate({ name: 'أحمد', discount_percentage: 101 }).error,
+      ).toBeDefined();
+    });
 
-      const { error } = studentValidationSchema.validate(invalidStudent);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('status');
+    it('turns the ISO birth date into a Date (the minimum-age check reads it)', () => {
+      const { value } = studentValidationSchema.validate({
+        name: 'أحمد',
+        date_of_birth: '2015-03-20',
+      });
+      expect(value.date_of_birth).toBeInstanceOf(Date);
     });
   });
 
-  describe('teacherValidationSchema', () => {
-    it('should validate valid teacher data', () => {
-      const validTeacher = {
-        name: 'فاطمة أحمد',
-        national_id: '98765432',
-        contact_info: '12345678',
-        email: 'fatima@example.com',
-        gender: 'Female',
-        specialization: 'تجويد',
-        years_of_experience: 5,
-      };
+  describe('studentPaymentValidationSchema', () => {
+    const payment = { student_id: 1, amount: 30, payment_method: 'CASH' };
 
-      const { error } = teacherValidationSchema.validate(validTeacher);
-      expect(error).toBeUndefined();
+    it('accepts a cash payment', () => {
+      expect(studentPaymentValidationSchema.validate(payment).error).toBeUndefined();
     });
 
-    it('should reject teacher with missing required name', () => {
-      const invalidTeacher = {
-        contact_info: '555-5678',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['name'] }]);
-      teacherValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = teacherValidationSchema.validate(invalidTeacher);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('name');
+    it('requires a positive amount and a known payment method', () => {
+      expect(messageOf(studentPaymentValidationSchema, { ...payment, amount: 0 })).toBe(
+        'المبلغ يجب أن يكون موجباً',
+      );
+      expect(
+        messageOf(studentPaymentValidationSchema, { ...payment, payment_method: 'CARD' }),
+      ).toBe('طريقة الدفع غير صالحة');
     });
 
-    it('should reject teacher with invalid contact info', () => {
-      const invalidTeacher = {
-        name: 'فاطمة أحمد',
-        contact_info: '123', // Too short
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['contact_info'] }]);
-      teacherValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = teacherValidationSchema.validate(invalidTeacher);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('contact_info');
+    it('requires the check number for a check payment only', () => {
+      expect(
+        messageOf(studentPaymentValidationSchema, { ...payment, payment_method: 'CHECK' }),
+      ).toBe('رقم الشيك مطلوب');
+      expect(
+        studentPaymentValidationSchema.validate({
+          ...payment,
+          payment_method: 'CHECK',
+          check_number: '123',
+        }).error,
+      ).toBeUndefined();
     });
   });
 
   describe('classValidationSchema', () => {
-    it('should validate valid class data', () => {
-      const validClass = {
-        name: 'حلقة التجويد',
-        teacher_id: 1,
-        class_type: 'تجويد',
-        schedule: JSON.stringify({ days: ['Sunday', 'Tuesday'] }),
-        start_date: '2024-01-01',
-        end_date: '2024-12-31',
-        status: 'active',
-        capacity: 20,
-        gender: 'all',
-      };
+    const cls = { name: 'حلقة الفجر', age_group_id: 2 };
 
-      const { error } = classValidationSchema.validate(validClass);
-      expect(error).toBeUndefined();
+    it('requires an age group (classes take their payment system from it)', () => {
+      expect(messageOf(classValidationSchema, { name: 'حلقة الفجر' })).toBe('فئة العمر مطلوبة');
+      expect(classValidationSchema.validate(cls).error).toBeUndefined();
     });
 
-    it('should reject class with missing required name', () => {
-      const invalidClass = {
-        teacher_id: 1,
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['name'] }]);
-      classValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = classValidationSchema.validate(invalidClass);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('name');
+    it('requires a positive monthly fee for a special-fee class only', () => {
+      expect(messageOf(classValidationSchema, { ...cls, fee_type: 'special' })).toBe(
+        'المعلم الشهري مطلوب عند اختيار معلوم خاص',
+      );
+      expect(
+        classValidationSchema.validate({ ...cls, fee_type: 'special', monthly_fee: 15 }).error,
+      ).toBeUndefined();
+      expect(
+        classValidationSchema.validate({ ...cls, fee_type: 'standard', monthly_fee: '' }).error,
+      ).toBeUndefined();
     });
 
-    it('should validate class without teacher_id', () => {
-      const validClass = {
-        name: 'حلقة التجويد',
-      };
-
-      const { error } = classValidationSchema.validate(validClass);
-      expect(error).toBeUndefined();
+    it('only accepts the known class genders and statuses', () => {
+      expect(classValidationSchema.validate({ ...cls, gender: 'kids' }).error).toBeUndefined();
+      expect(classValidationSchema.validate({ ...cls, gender: 'teens' }).error).toBeDefined();
+      expect(classValidationSchema.validate({ ...cls, status: 'archived' }).error).toBeDefined();
     });
+  });
 
-    it('should reject class with invalid capacity', () => {
-      const invalidClass = {
-        name: 'حلقة التجويد',
-        teacher_id: 1,
-        capacity: -5,
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['capacity'] }]);
-      classValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = classValidationSchema.validate(invalidClass);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('capacity');
-    });
-
-    it('should reject class with invalid gender option', () => {
-      const invalidClass = {
-        name: 'حلقة التجويد',
-        teacher_id: 1,
-        gender: 'invalid_gender',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['gender'] }]);
-      classValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = classValidationSchema.validate(invalidClass);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('gender');
+  describe('teacherValidationSchema', () => {
+    it('requires an 8-digit phone number', () => {
+      expect(messageOf(teacherValidationSchema, { name: 'الشيخ علي' })).toBe('رقم الهاتف مطلوب');
+      expect(
+        messageOf(teacherValidationSchema, { name: 'الشيخ علي', contact_info: '12 34 56 78' }),
+      ).toBe('رقم الهاتف يجب أن يتكون من 8 أرقام.');
+      expect(
+        teacherValidationSchema.validate({ name: 'الشيخ علي', contact_info: '12345678' }).error,
+      ).toBeUndefined();
     });
   });
 
   describe('userValidationSchema', () => {
-    it('should validate valid user data', () => {
-      const validUser = {
-        username: 'adminuser',
-        password: 'password123',
-        first_name: 'أحمد',
-        last_name: 'محمود',
-        email: 'admin@example.com',
-        phone_number: '12345678',
-        role: 'Admin',
-        employment_type: 'contract',
-        start_date: '2024-01-01',
-      };
+    const user = {
+      username: 'admin2',
+      password: 'longenough',
+      first_name: 'سالم',
+      last_name: 'الحاني',
+      roles: ['Administrator'],
+      national_id: '12345678',
+      phone_number: '98765432',
+    };
 
-      const { error } = userValidationSchema.validate(validUser);
+    it('accepts a user without an employment type and turns the guide on by default', () => {
+      const { error, value } = userValidationSchema.validate(user);
       expect(error).toBeUndefined();
+      expect(value.need_guide).toBe(true);
+      expect(value.current_step).toBe(0);
     });
 
-    it('should reject user with missing required username', () => {
-      const invalidUser = {
-        first_name: 'أحمد',
-        last_name: 'محمود',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['username'] }]);
-      userValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = userValidationSchema.validate(invalidUser);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('username');
+    it('only accepts the four application roles, at least one', () => {
+      ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'].forEach((role) => {
+        expect(userValidationSchema.validate({ ...user, roles: [role] }).error).toBeUndefined();
+      });
+      expect(
+        userValidationSchema.validate({ ...user, roles: ['Branch Admin'] }).error,
+      ).toBeDefined();
+      expect(userValidationSchema.validate({ ...user, roles: [] }).error).toBeDefined();
     });
 
-    it('should reject user with invalid role', () => {
-      const invalidUser = {
-        username: 'adminuser',
-        password: 'password123',
-        first_name: 'أحمد',
-        last_name: 'محمود',
-        role: 'InvalidRole',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['role'] }]);
-      userValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = userValidationSchema.validate(invalidUser);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('role');
+    it('requires a password of 8 characters and the national id', () => {
+      expect(messageOf(userValidationSchema, { ...user, password: 'short' })).toBe(
+        'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+      );
+      expect(messageOf(userValidationSchema, omit(user, 'national_id'))).toBe(
+        'رقم الهوية الوطنية (CIN) مطلوب',
+      );
     });
 
-    it('should reject user with invalid employment type', () => {
-      const invalidUser = {
-        username: 'adminuser',
-        password: 'password123',
-        first_name: 'أحمد',
-        last_name: 'محمود',
-        employment_type: 'invalid_type',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['employment_type'] }]);
-      userValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = userValidationSchema.validate(invalidUser);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('employment_type');
+    it('rejects usernames with non-alphanumeric characters', () => {
+      expect(userValidationSchema.validate({ ...user, username: 'مدير' }).error).toBeDefined();
     });
   });
 
   describe('userUpdateValidationSchema', () => {
-    it('should validate user update data', () => {
-      const validUpdate = {
-        username: 'adminuser',
-        first_name: 'أحمد',
-        last_name: 'محمود',
-        status: 'active',
-      };
+    const update = {
+      username: 'admin2',
+      first_name: 'سالم',
+      last_name: 'الحاني',
+      national_id: '12345678',
+      phone_number: '98765432',
+      status: 'active',
+    };
 
-      const { error } = userUpdateValidationSchema.validate(validUpdate);
-      expect(error).toBeUndefined();
+    it('lets the password be left empty and the roles out', () => {
+      expect(
+        userUpdateValidationSchema.validate({ ...update, password: '' }).error,
+      ).toBeUndefined();
     });
 
-    it('should reject update with invalid status', () => {
-      const invalidUpdate = {
-        username: 'adminuser',
-        first_name: 'أحمد',
-        last_name: 'محمود',
-        status: 'invalid_status',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['status'] }]);
-      userUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = userUpdateValidationSchema.validate(invalidUpdate);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('status');
+    it('requires the account status', () => {
+      expect(userUpdateValidationSchema.validate(omit(update, 'status')).error).toBeDefined();
+      expect(
+        userUpdateValidationSchema.validate({ ...update, status: 'suspended' }).error,
+      ).toBeDefined();
     });
   });
 
   describe('passwordUpdateValidationSchema', () => {
-    it('should validate valid password update data', () => {
-      const validPasswordUpdate = {
-        current_password: 'oldpassword',
-        new_password: 'newpassword123',
-        confirm_new_password: 'newpassword123',
-      };
-
-      const { error } = passwordUpdateValidationSchema.validate(validPasswordUpdate);
-      expect(error).toBeUndefined();
+    it('requires the confirmation to match the new password', () => {
+      expect(
+        messageOf(passwordUpdateValidationSchema, {
+          current_password: 'old',
+          new_password: 'newpass',
+          confirm_new_password: 'other',
+        }),
+      ).toBe('كلمة المرور الجديدة غير متطابقة');
+      expect(
+        passwordUpdateValidationSchema.validate({
+          current_password: 'old',
+          new_password: 'newpass',
+          confirm_new_password: 'newpass',
+        }).error,
+      ).toBeUndefined();
     });
 
-    it('should reject password update with missing current password', () => {
-      const invalidUpdate = {
-        new_password: 'newpassword123',
-        confirm_new_password: 'newpassword123',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [
-        { path: ['current_password'] },
-      ]);
-      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
+    it('requires a new password of at least 6 characters', () => {
+      expect(
+        messageOf(passwordUpdateValidationSchema, {
+          current_password: 'old',
+          new_password: '12345',
+          confirm_new_password: '12345',
+        }),
+      ).toBe('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');
+    });
+  });
 
-      const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('current_password');
+  describe('transactionValidationSchema', () => {
+    const transaction = {
+      type: 'INCOME',
+      category: 'التبرعات النقدية',
+      amount: 50,
+      transaction_date: '2026-09-01',
+      payment_method: 'CASH',
+      voucher_number: 'V-12',
+      account_id: 1,
+    };
+
+    it('accepts a cash income with its voucher number', () => {
+      expect(transactionValidationSchema.validate(transaction).error).toBeUndefined();
     });
 
-    it('should reject password update with short new password', () => {
-      const invalidUpdate = {
-        current_password: 'oldpassword',
-        new_password: '123',
-        confirm_new_password: '123',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [{ path: ['new_password'] }]);
-      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
-
-      const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('new_password');
+    it('requires the voucher number except for in-kind donations', () => {
+      const withoutVoucher = omit(transaction, 'voucher_number');
+      expect(messageOf(transactionValidationSchema, withoutVoucher)).toBe('رقم الوصل مطلوب');
+      expect(
+        transactionValidationSchema.validate({ ...withoutVoucher, category: 'التبرعات العينية' })
+          .error,
+      ).toBeUndefined();
     });
 
-    it('should reject password update with mismatched confirmation', () => {
-      const invalidUpdate = {
-        current_password: 'oldpassword',
-        new_password: 'newpassword123',
-        confirm_new_password: 'differentpassword',
-      };
-      const mockError = new Joi.ValidationError('ValidationError', [
-        { path: ['confirm_new_password'] },
-      ]);
-      passwordUpdateValidationSchema.validate.mockReturnValue({ error: mockError });
+    it('requires the check number for a check payment', () => {
+      expect(
+        messageOf(transactionValidationSchema, { ...transaction, payment_method: 'CHECK' }),
+      ).toBe('رقم الشيك مطلوب');
+    });
 
-      const { error } = passwordUpdateValidationSchema.validate(invalidUpdate);
-      expect(error).toBeDefined();
-      expect(error.details[0].path).toContain('confirm_new_password');
+    it('only accepts income or expense', () => {
+      expect(messageOf(transactionValidationSchema, { ...transaction, type: 'TRANSFER' })).toBe(
+        'نوع العملية يجب أن يكون مدخول أو مصروف',
+      );
     });
   });
 });

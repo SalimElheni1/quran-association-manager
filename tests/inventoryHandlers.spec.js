@@ -95,30 +95,12 @@ describe('Inventory Handlers', () => {
   });
 
   describe('inventory:check-uniqueness', () => {
-    it('should return isUnique true when item name does not exist', async () => {
-      const result = await ipcMain.invoke('inventory:check-uniqueness', { itemName: 'New Item' });
-
-      // The inventory system allows duplicates (multiple donations/purchases can have same item name)
-      expect(result).toEqual({ isUnique: true });
-    });
-
-    it('should return isUnique false when item name exists', async () => {
-      const result = await ipcMain.invoke('inventory:check-uniqueness', {
-        itemName: 'Existing Item',
-      });
-
-      // Even with existing item name, inventory system allows duplicates
-      expect(result).toEqual({ isUnique: true });
-    });
-
-    it('should exclude current item when checking uniqueness for updates', async () => {
-      const result = await ipcMain.invoke('inventory:check-uniqueness', {
-        itemName: 'Item',
-        currentId: 5,
-      });
-
-      // The inventory system always allows duplicates, regardless of currentId
-      expect(result).toEqual({ isUnique: true });
+    it('always allows a repeated item name (several donations or purchases of one item)', async () => {
+      await expect(
+        ipcMain.invoke('inventory:check-uniqueness', { itemName: 'Existing Item', currentId: 5 }),
+      ).resolves.toEqual({ isUnique: true });
+      expect(db.getQuery).not.toHaveBeenCalled();
+      expect(db.allQuery).not.toHaveBeenCalled();
     });
   });
 
@@ -177,10 +159,38 @@ describe('Inventory Handlers', () => {
 
       await ipcMain.invoke('inventory:add', itemData);
 
-      expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO inventory_items'),
-        expect.arrayContaining([0]), // total_value should be 0
-      );
+      const [, params] = db.runQuery.mock.calls[0];
+      expect(params[5]).toBe(0); // total_value
+    });
+
+    it('stores a total value of 0, not NaN, for a non-numeric quantity', async () => {
+      generateMatricule.mockResolvedValue('INV-2024-003');
+      db.runQuery.mockResolvedValue({ id: 3 });
+      db.getQuery.mockResolvedValue({ id: 3 });
+
+      await ipcMain.invoke('inventory:add', {
+        item_name: 'New Item',
+        quantity: 'invalid-number',
+        unit_value: '10',
+      });
+
+      const [sql, params] = db.runQuery.mock.calls[0];
+      expect(sql).toContain('INSERT INTO inventory_items');
+      expect(params[5]).toBe(0); // total_value
+    });
+
+    it('multiplies numeric strings from the form', async () => {
+      generateMatricule.mockResolvedValue('INV-2024-004');
+      db.runQuery.mockResolvedValue({ id: 4 });
+      db.getQuery.mockResolvedValue({ id: 4 });
+
+      await ipcMain.invoke('inventory:add', {
+        item_name: 'Mats',
+        quantity: '4',
+        unit_value: '12.5',
+      });
+
+      expect(db.runQuery.mock.calls[0][1][5]).toBe(50);
     });
   });
 
@@ -238,10 +248,9 @@ describe('Inventory Handlers', () => {
 
       await ipcMain.invoke('inventory:update', itemData);
 
-      expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE inventory_items SET'),
-        expect.arrayContaining([0]), // total_value should be 0 when quantity/unit_value are null/undefined
-      );
+      const [, params] = db.runQuery.mock.calls[0];
+      expect(params[4]).toBe(0); // total_value, when quantity/unit_value are null/undefined
+      expect(params[10]).toBe(2); // WHERE id
     });
   });
 
@@ -269,6 +278,18 @@ describe('Inventory Handlers', () => {
       );
     });
 
+    it('should restore a deleted inventory item', async () => {
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      const result = await ipcMain.invoke('inventory:restore', 1);
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'UPDATE inventory_items SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL',
+        [1],
+      );
+      expect(result).toEqual({ id: 1 });
+    });
+
     it('should handle deletion errors', async () => {
       db.runQuery.mockRejectedValue(new Error('Delete failed'));
 
@@ -276,14 +297,36 @@ describe('Inventory Handlers', () => {
     });
   });
 
-  describe('handleGetInventoryItems (direct export)', () => {
-    it('should be callable directly', async () => {
-      const mockItems = [{ id: 1, item_name: 'Test' }];
-      db.allQuery.mockResolvedValue(mockItems);
+  describe('handleGetInventoryItems (used by the financial export)', () => {
+    it('filters by search text and category, ignoring the "all" category', async () => {
+      db.allQuery.mockResolvedValue([]);
 
-      const result = await handleGetInventoryItems();
+      await handleGetInventoryItems(null, { search: 'مصحف', category: 'الكل' });
 
-      expect(result).toEqual(mockItems);
+      const [sql, params] = db.allQuery.mock.calls[0];
+      expect(sql).toContain(
+        '(item_name LIKE ? OR category LIKE ? OR location LIKE ? OR matricule LIKE ?)',
+      );
+      expect(sql).not.toContain('category = ?');
+      expect(params).toEqual(['%مصحف%', '%مصحف%', '%مصحف%', '%مصحف%']);
+    });
+
+    it('returns a page of items with the total count when paginated', async () => {
+      db.getQuery.mockResolvedValue({ total: 51 });
+      db.allQuery.mockResolvedValue([{ id: 26 }]);
+
+      const result = await handleGetInventoryItems(null, { category: 'كتب', page: '2', limit: 25 });
+
+      // The count runs on the same filter (the params array is reused, so only the SQL is checked).
+      expect(db.getQuery.mock.calls[0][0]).toBe(
+        'SELECT COUNT(*) as total FROM (SELECT * FROM inventory_items WHERE deleted_at IS NULL AND category = ?) as filtered_inventory',
+      );
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('LIMIT ? OFFSET ?'), [
+        'كتب',
+        25,
+        25,
+      ]);
+      expect(result).toEqual({ items: [{ id: 26 }], total: 51, page: 2, limit: 25, totalPages: 3 });
     });
   });
 });

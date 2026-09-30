@@ -57,10 +57,6 @@ describe('importManager - Comprehensive Tests', () => {
     });
   });
 
-  describe.skip('replaceDatabase - Advanced Scenarios', () => {
-    it('is skipped', () => {});
-  });
-
   describe('importExcelData - Complex Scenarios', () => {
     it('should handle student with Arabic gender and status localization', async () => {
       const mockGenderCell = { value: 'أنثى' };

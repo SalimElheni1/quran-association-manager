@@ -30,9 +30,6 @@ describe('backupManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    // Make setInterval return a dummy ID
-    global.setInterval = jest.fn(() => 123);
-    global.clearInterval = jest.fn();
 
     backupManager = require('../src/main/backupManager');
     db = require('../src/db/db');
@@ -41,6 +38,7 @@ describe('backupManager', () => {
   });
 
   afterEach(() => {
+    backupManager.stopScheduler();
     jest.useRealTimers();
   });
 
@@ -107,19 +105,35 @@ describe('backupManager', () => {
   });
 
   describe('startScheduler', () => {
-    it('should start scheduler when backup is enabled', () => {
+    it('should check every hour when backup is enabled', () => {
       backupManager.startScheduler({ backup_enabled: true, backup_frequency: 'daily' });
-      expect(global.setInterval).toHaveBeenCalledWith(expect.any(Function), 1000 * 60 * 60);
+      expect(jest.getTimerCount()).toBe(1);
+    });
+
+    it('should not start when backup is disabled', () => {
+      backupManager.startScheduler({ backup_enabled: false });
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('should report a due backup that has no backup folder', async () => {
+      const { error: logError } = require('../src/main/logger');
+      mockStore.get.mockReturnValue(null); // never backed up: due
+      backupManager.startScheduler({ backup_enabled: true, backup_frequency: 'daily' });
+
+      await jest.advanceTimersByTimeAsync(1000 * 60 * 60);
+
+      expect(logError).toHaveBeenCalledWith('Scheduled backup failed: No backup path configured.');
     });
   });
 
   describe('stopScheduler', () => {
-    it('should stop active scheduler', () => {
+    it('should stop the active scheduler, keeping a single timer across restarts', () => {
       backupManager.startScheduler({ backup_enabled: true });
-      const intervalId = global.setInterval.mock.results[0].value;
+      backupManager.startScheduler({ backup_enabled: true });
+      expect(jest.getTimerCount()).toBe(1);
 
       backupManager.stopScheduler();
-      expect(global.clearInterval).toHaveBeenCalledWith(intervalId);
+      expect(jest.getTimerCount()).toBe(0);
     });
   });
 });

@@ -7,6 +7,8 @@ jest.mock('fs', () => ({
     unlink: jest.fn().mockResolvedValue(),
   },
   existsSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  writeFileSync: jest.fn(),
 }));
 jest.mock('pizzip');
 jest.mock('electron', () => ({
@@ -15,7 +17,7 @@ jest.mock('electron', () => ({
     quit: jest.fn(),
   },
 }));
-jest.mock('electron-store');
+// 'electron-store' resolves to tests/mocks/electron-store.js (a working in-memory store).
 jest.mock('exceljs');
 jest.mock('../src/main/logger', () => ({
   log: jest.fn(),
@@ -40,6 +42,9 @@ const PizZip = require('pizzip');
 const { app } = require('electron');
 const ExcelJS = require('exceljs');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const Store = require('electron-store');
+const { setDbSalt } = require('../src/main/keyManager');
 
 const {
   getDatabasePath,
@@ -168,33 +173,148 @@ describe('importManager - Extended Tests', () => {
       expect(result.message).toContain('Permission denied');
     });
 
-    it.skip('should safely execute SQL, skipping statements for non-existent tables', async () => {
-      const mockSqlFile = {
-        asText: () => `
+    describe('with a valid backup', () => {
+      const backupZip = (sql, extraFiles = []) => ({
+        file: jest.fn((name) => {
+          if (name instanceof RegExp) return extraFiles.filter((f) => name.test(f.name));
+          if (name === 'backup.sql') return { asText: () => sql };
+          if (name === 'salt.json')
+            return { asNodeBuffer: () => Buffer.from('{"db-salt": "new-salt"}') };
+          return null;
+        }),
+      });
+
+      beforeEach(() => {
+        fs.readFile.mockResolvedValue(Buffer.from('zip content'));
+        getDb.mockReturnValue({});
+        initializeDatabase.mockResolvedValue();
+        dbExec.mockResolvedValue();
+        runQuery.mockResolvedValue({ changes: 1 });
+        getQuery.mockImplementation((sql) =>
+          Promise.resolve(sql.includes('FROM roles WHERE name = ?') ? { id: 2 } : undefined),
+        );
+        allQuery.mockImplementation((sql) => {
+          if (sql.includes('sqlite_master')) {
+            return Promise.resolve([{ name: 'students' }, { name: 'teachers' }]);
+          }
+          if (sql.startsWith('PRAGMA table_info')) {
+            return Promise.resolve([{ name: 'id' }, { name: 'name' }]);
+          }
+          if (sql.includes('NOT EXISTS (SELECT 1 FROM user_roles')) {
+            return Promise.resolve([{ id: 4, username: 'old_admin' }]);
+          }
+          if (sql.includes('FROM students') && sql.includes('LENGTH(matricule)')) {
+            return Promise.resolve([{ id: 1, matricule: 'S-000012' }]);
+          }
+          return Promise.resolve([]);
+        });
+      });
+
+      it('replaces the database, skipping data for tables that no longer exist', async () => {
+        PizZip.mockImplementation(() =>
+          backupZip(`
             REPLACE INTO "students" (id, name) VALUES (1, 'Ali');
             REPLACE INTO "non_existent_table" (id, data) VALUES (1, 'test');
             REPLACE INTO "teachers" (id, name) VALUES (1, 'Fatima');
-        `,
-      };
-      const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "new-salt"}') };
-      const mockZip = {
-        file: jest.fn((name) => (name === 'backup.sql' ? mockSqlFile : mockConfigFile)),
-      };
-      fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-      PizZip.mockImplementation(() => mockZip);
-      // Ensure allQuery is configured for this test
-      allQuery.mockResolvedValue([{ name: 'students' }, { name: 'teachers' }]);
-      getDb.mockReturnValue({}); // Mock db object for dbExec call
-      initializeDatabase.mockResolvedValue(); // Ensure this resolves
+          `),
+        );
 
-      await replaceDatabase('good.zip', 'pw');
+        const result = await replaceDatabase('good.qdb', 'pw');
 
-      expect(dbExec).toHaveBeenCalled();
-      const executedSql = dbExec.mock.calls[0][1];
-      expect(executedSql).toContain('REPLACE INTO "students"');
-      expect(executedSql).toContain('REPLACE INTO "teachers"');
-      expect(executedSql).not.toContain('non_existent_table');
-      expect(app.relaunch).toHaveBeenCalled();
+        expect(result).toEqual({
+          success: true,
+          message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
+        });
+        expect(setDbSalt).toHaveBeenCalledWith('new-salt');
+        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite');
+        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite-wal');
+        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite-shm');
+        expect(initializeDatabase).toHaveBeenCalledWith('pw');
+
+        // The data runs with foreign keys off, and they are always turned back on.
+        const execs = dbExec.mock.calls.map(([, sql]) => sql);
+        expect(execs[0]).toBe('PRAGMA foreign_keys = OFF');
+        expect(execs[execs.length - 1]).toBe('PRAGMA foreign_keys = ON');
+        const data = execs[1];
+        expect(data).toContain('REPLACE INTO "students"');
+        expect(data).toContain('REPLACE INTO "teachers"');
+        expect(data).not.toContain('non_existent_table');
+
+        // The renderer relaunches the app and the user has to log in again.
+        expect(Store.mockMethods.set).toHaveBeenCalledWith('force-relogin-after-restart', true);
+        expect(app.relaunch).not.toHaveBeenCalled();
+      });
+
+      it('drops columns the current schema no longer has', async () => {
+        PizZip.mockImplementation(() =>
+          backupZip(`REPLACE INTO "students" ("id", "name", "old_col") VALUES (1, 'Ali', 'x');`),
+        );
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        const data = dbExec.mock.calls[1][1];
+        expect(data).toBe('REPLACE INTO "students" ("id", "name") VALUES (1, \'Ali\')');
+      });
+
+      it('turns foreign keys back on when the data fails to load', async () => {
+        PizZip.mockImplementation(() => backupZip('REPLACE INTO "students" (id) VALUES (1);'));
+        dbExec.mockImplementation((_db, sql) =>
+          sql.startsWith('PRAGMA') ? Promise.resolve() : Promise.reject(new Error('bad data')),
+        );
+
+        const result = await replaceDatabase('good.qdb', 'pw');
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('bad data');
+        expect(dbExec).toHaveBeenLastCalledWith({}, 'PRAGMA foreign_keys = ON');
+      });
+
+      it('gives users of old backups without a role the Administrator role', async () => {
+        PizZip.mockImplementation(() => backupZip('SELECT 1;'));
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        expect(getQuery).toHaveBeenCalledWith('SELECT id FROM roles WHERE name = ?', [
+          'Administrator',
+        ]);
+        expect(runQuery).toHaveBeenCalledWith(
+          'INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
+          [4, 2],
+        );
+      });
+
+      it('converts old 6-digit matricules to the 4-digit format', async () => {
+        PizZip.mockImplementation(() => backupZip('SELECT 1;'));
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        expect(runQuery).toHaveBeenCalledWith('UPDATE students SET matricule = ? WHERE id = ?', [
+          'S-0012',
+          1,
+        ]);
+      });
+
+      it('restores backup assets but never writes outside the assets folder', async () => {
+        app.getPath = jest.fn(() => '/user/data');
+        const asset = (name) => ({ name, dir: false, asNodeBuffer: () => Buffer.from(name) });
+        PizZip.mockImplementation(() =>
+          backupZip('SELECT 1;', [
+            asset('assets/logos/logo.png'),
+            asset('assets/../../evil.js'),
+            asset('assets/../assets-evil/x.png'),
+          ]),
+        );
+
+        try {
+          const result = await replaceDatabase('good.qdb', 'pw');
+
+          expect(result.success).toBe(true);
+          const written = fsSync.writeFileSync.mock.calls.map(([dest]) => dest);
+          expect(written).toEqual([path.resolve('/user/data/assets', 'logos/logo.png')]);
+        } finally {
+          delete app.getPath;
+        }
+      });
     });
   });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LoginPage from '@renderer/pages/LoginPage';
 import '@testing-library/jest-dom';
@@ -60,26 +60,32 @@ describe('LoginPage', () => {
     );
   };
 
-  it.skip('should show an error message for empty fields', async () => {
-    await act(async () => {
-      renderLoginPage();
-    });
-
-    // Ensure initial useEffect has completed
+  it('should show an error message for empty fields', async () => {
+    renderLoginPage();
     await screen.findByAltText('Logo');
 
-    const submitButton = screen.getByRole('button', { name: 'تسجيل الدخول' });
+    // The inputs are `required`; submitting the form directly checks the handler's own guard.
+    fireEvent.submit(screen.getByRole('button', { name: 'تسجيل الدخول' }).closest('form'));
 
-    await act(async () => {
-      fireEvent.click(submitButton);
-    });
-
-    const alert = await screen.findByText('اسم المستخدم وكلمة المرور مطلوبان.');
-    expect(alert).toBeInTheDocument();
+    expect(await screen.findByText('اسم المستخدم وكلمة المرور مطلوبان.')).toBeInTheDocument();
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  // Keep other tests to ensure no regressions
+  it('should show the reason a login failed and stay on the page', async () => {
+    mockLogin.mockResolvedValue({
+      success: false,
+      message: 'اسم المستخدم أو كلمة المرور غير صحيحة',
+    });
+    renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText('اسم المستخدم'), { target: { value: 'admin' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'تسجيل الدخول' }));
+
+    expect(await screen.findByText('اسم المستخدم أو كلمة المرور غير صحيحة')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('should handle successful login', async () => {
     mockLogin.mockResolvedValue({ success: true });
     renderLoginPage();

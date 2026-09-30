@@ -45,25 +45,27 @@ describe('Student Handlers', () => {
       );
     });
 
-    it('should correctly filter by max age', async () => {
-      db.allQuery.mockResolvedValue([]);
-      const maxAge = 10;
-      const filters = { maxAgeFilter: maxAge.toString() };
+    it('keeps only students within the age range, leaving out unknown ages', async () => {
+      const yearsAgo = (years) => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - years);
+        return d.toISOString().slice(0, 10);
+      };
+      db.getQuery.mockResolvedValue({ total: 4 });
+      db.allQuery.mockResolvedValue([
+        { id: 1, name: 'A', date_of_birth: yearsAgo(5) },
+        { id: 2, name: 'B', date_of_birth: yearsAgo(10) },
+        { id: 3, name: 'C', date_of_birth: yearsAgo(12) },
+        { id: 4, name: 'D', date_of_birth: null },
+      ]);
 
-      // Control the current year via fake timers (keeps Date.now functional)
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2024-06-01T00:00:00Z'));
+      const result = await ipcMain.invoke('students:get', {
+        minAgeFilter: '6',
+        maxAgeFilter: '10',
+      });
 
-      await ipcMain.invoke('students:get', filters);
-
-      // Updated to match the actual SQL query structure - check for the SQL structure
-      expect(db.allQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT s.id, s.matricule, s.name'),
-        expect.arrayContaining([]),
-      );
-
-      // Restore real timers
-      jest.useRealTimers();
+      expect(result.students.map((s) => s.id)).toEqual([2]);
+      expect(result.total).toBe(1);
     });
   });
 
@@ -278,6 +280,17 @@ describe('Student Handlers', () => {
       db.runQuery.mockResolvedValue({ id: 4 });
 
       await ipcMain.invoke('students:add', studentData);
+
+      const [sql, params] = db.runQuery.mock.calls.find(([q]) =>
+        q.includes('INSERT INTO students'),
+      );
+      expect(sql).toContain('fee_category');
+      expect(sql).not.toContain('sponsor_');
+      expect(params).toContain('CAN_PAY');
+      expect(studentValidationSchema.validateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ matricule: 'S-2024-004', fee_category: 'CAN_PAY' }),
+        expect.any(Object),
+      );
     });
 
     it('should add student with fee_category EXEMPT', async () => {
@@ -295,6 +308,17 @@ describe('Student Handlers', () => {
       db.runQuery.mockResolvedValue({ id: 5 });
 
       await ipcMain.invoke('students:add', studentData);
+
+      const [sql, params] = db.runQuery.mock.calls.find(([q]) =>
+        q.includes('INSERT INTO students'),
+      );
+      expect(sql).toContain('fee_category');
+      expect(sql).not.toContain('sponsor_');
+      expect(params).toContain('EXEMPT');
+      expect(studentValidationSchema.validateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ matricule: 'S-2024-005', fee_category: 'EXEMPT' }),
+        expect.any(Object),
+      );
     });
   });
 

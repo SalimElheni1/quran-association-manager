@@ -147,32 +147,40 @@ describe('Class Handlers', () => {
   });
 
   describe('classes:getEnrollmentData', () => {
-    it('should fetch enrollment data for a class with age group', async () => {
-      const mockAgeGroup = {
+    it('offers only students who fit the class age group, keeping those without a birth date', async () => {
+      const yearsAgo = (years) => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - years);
+        return d.toISOString().slice(0, 10);
+      };
+      db.getQuery.mockResolvedValue({
         id: 1,
         name: 'Kids Group',
         min_age: 8,
         max_age: 12,
         gender: 'male_only',
-      };
-
-      db.getQuery.mockResolvedValue(mockAgeGroup);
-      db.allQuery.mockResolvedValue([]); // enrolled and notEnrolled
+      });
+      db.allQuery.mockImplementation((sql) =>
+        Promise.resolve(
+          sql.includes('LEFT JOIN class_students')
+            ? [
+                { id: 1, name: 'Fits', date_of_birth: yearsAgo(10), gender: 'Male' },
+                { id: 2, name: 'Too old', date_of_birth: yearsAgo(15), gender: 'Male' },
+                { id: 3, name: 'Girl', date_of_birth: yearsAgo(10), gender: 'Female' },
+                { id: 4, name: 'No birth date', date_of_birth: null, gender: 'Female' },
+              ]
+            : [{ id: 9, name: 'Enrolled' }],
+        ),
+      );
 
       const result = await ipcMain.invoke('classes:getEnrollmentData', {
         classId: 1,
         classAgeGroupId: 1,
       });
 
-      // Check that the function calls database queries for enrolled and not enrolled students
-      expect(db.allQuery).toHaveBeenCalled();
-      // The actual implementation filters by age in JavaScript, not SQL
-      const notEnrolledCall = db.allQuery.mock.calls.find((call) =>
-        call[0].includes('LEFT JOIN class_students'),
-      );
-      expect(notEnrolledCall).toBeDefined();
-      expect(result).toHaveProperty('enrolledStudents');
-      expect(result).toHaveProperty('notEnrolledStudents');
+      expect(result.enrolledStudents).toEqual([{ id: 9, name: 'Enrolled' }]);
+      expect(result.notEnrolledStudents.map((s) => s.id)).toEqual([1, 4]);
+      expect(result).not.toHaveProperty('noAgeGroupWarning');
     });
 
     it('should return warning when no age group is set', async () => {
@@ -184,9 +192,11 @@ describe('Class Handlers', () => {
         classAgeGroupId: 999,
       });
 
-      expect(result).toHaveProperty('noAgeGroupWarning', true);
-      expect(result).toHaveProperty('enrolledStudents');
-      expect(result).toHaveProperty('notEnrolledStudents');
+      expect(result).toEqual({
+        enrolledStudents: [],
+        notEnrolledStudents: [],
+        noAgeGroupWarning: true,
+      });
     });
   });
 

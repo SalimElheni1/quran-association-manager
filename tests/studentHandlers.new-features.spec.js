@@ -9,6 +9,13 @@ jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
 }));
 
+// A birth date the given number of years before today, so ages never drift out of range.
+const yearsAgo = (years) => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d.toISOString().slice(0, 10);
+};
+
 describe('Student Handlers - New Features', () => {
   beforeAll(() => {
     registerStudentHandlers();
@@ -39,7 +46,7 @@ describe('Student Handlers - New Features', () => {
           name: 'Ahmed',
           matricule: 'S-001',
           gender: 'male',
-          date_of_birth: '2015-06-15',
+          date_of_birth: yearsAgo(10),
           status: 'active',
         },
         {
@@ -47,7 +54,7 @@ describe('Student Handlers - New Features', () => {
           name: 'Sara',
           matricule: 'S-002',
           gender: 'female',
-          date_of_birth: '2014-03-10',
+          date_of_birth: yearsAgo(11),
           status: 'active',
         },
       ];
@@ -59,7 +66,10 @@ describe('Student Handlers - New Features', () => {
 
       expect(result.success).toBe(true);
       expect(result.ageGroup).toEqual(mockAgeGroup);
-      expect(result.students).toBeDefined();
+      // Sara is a girl: left out of a male-only group.
+      expect(result.students.map((s) => s.name)).toEqual(['Ahmed']);
+      expect(result.count).toBe(1);
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining('deleted_at IS NULL'), []);
     });
 
     it('should return error for invalid age group ID', async () => {
