@@ -412,7 +412,8 @@ async function fetchExportData({ type, fields, options = {} }) {
                FROM users u
                JOIN user_roles ur ON u.id = ur.user_id
                JOIN roles r ON ur.role_id = r.id
-               WHERE r.name IN ('Branch Admin', 'Superadmin') AND u.deleted_at IS NULL
+               WHERE r.name IN ('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor')
+                 AND u.deleted_at IS NULL
                ORDER BY u.username`;
       return allQuery(query, params);
     }

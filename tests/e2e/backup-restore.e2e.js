@@ -115,7 +115,11 @@ test.describe('database restore', () => {
     await expectToast(page, 'error', 'فشل الاستبدال: كلمة المرور الحالية التي أدخلتها غير صحيحة.');
 
     await startRestore(page, { password: SUPERADMIN.password, key: 'another-branch-key' });
-    await expectToast(page, 'error', 'فشل الاستبدال: خطأ في قراءة ملف النسخ الاحتياطي');
+    await expectToast(
+      page,
+      'error',
+      'فشل الاستبدال: تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح',
+    );
 
     expect(await electronApp.evaluate(() => global.__e2eRelaunches)).toBe(0);
     await navigate(page, 'شؤون الطلاب');

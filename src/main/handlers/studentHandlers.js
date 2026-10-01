@@ -719,6 +719,8 @@ function registerStudentHandlers() {
           const genderMap = {
             M: 'male_only',
             F: 'female_only',
+            Male: 'male_only',
+            Female: 'female_only',
             male: 'male_only',
             female: 'female_only',
             ذكر: 'male_only',

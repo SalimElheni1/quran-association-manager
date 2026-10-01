@@ -47,6 +47,17 @@ const mainStore = new Store();
  * @param {string} [userPassword]
  * @returns {Buffer}
  */
+function isZipBuffer(buffer) {
+  return (
+    Buffer.isBuffer(buffer) &&
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    buffer[2] === 0x03 &&
+    buffer[3] === 0x04
+  );
+}
+
 function extractZipFromBuffer(fileBuffer, userPassword) {
   if (!Buffer.isBuffer(fileBuffer)) {
     return fileBuffer;
@@ -367,6 +378,15 @@ async function validateDatabaseFile(filePath, backupPassword) {
   try {
     const rawBuffer = await fs.readFile(filePath);
     const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
+    // returns the encrypted bytes unchanged).
+    if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
+      return {
+        isValid: false,
+        message:
+          'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.',
+      };
+    }
     const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json'); // Legacy: 'config.json'
@@ -459,6 +479,15 @@ async function replaceDatabase(importedDbPath, password, backupPassword) {
     }
     const rawBuffer = await fs.readFile(importedDbPath);
     const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
+    // returns the encrypted bytes unchanged).
+    if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
+      return {
+        isValid: false,
+        message:
+          'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.',
+      };
+    }
     const zip = new PizZip(zipBuffer);
     const sqlFile = zip.file('backup.sql');
     let configFile = zip.file('salt.json');

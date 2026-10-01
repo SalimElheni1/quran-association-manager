@@ -193,6 +193,11 @@ describe('exportManager', () => {
       expect(sql).toMatch(/^SELECT username, r\.name as role\s+FROM users u/);
       expect(sql).toContain('JOIN roles r ON ur.role_id = r.id');
       expect(sql).toContain('u.deleted_at IS NULL');
+      // All four application roles, not the 'Branch Admin' role that no longer exists.
+      ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'].forEach((role) =>
+        expect(sql).toContain(`'${role}'`),
+      );
+      expect(sql).not.toContain('Branch Admin');
     });
 
     it('should throw error for invalid export type', async () => {

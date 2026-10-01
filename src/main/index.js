@@ -252,12 +252,12 @@ const initializeApp = async () => {
       const existing = await db.getQuery('SELECT COUNT(*) as count FROM age_groups');
       if (existing && existing.count === 0) {
         log('Initializing default age groups...');
-        await db.run(
-          `INSERT INTO age_groups (id, name, min_age, max_age, gender_policy, created_at) VALUES
-           (1, 'أطفال (6-11)', 6, 11, 'all', datetime('now')),
-           (2, 'مراهقون (12-17)', 12, 17, 'all', datetime('now')),
-           (3, 'رجال (18+)', 18, 150, 'male', datetime('now')),
-           (4, 'نساء (18+)', 18, 150, 'female', datetime('now'))`,
+        // Same defaults as migration 048, without the teens group retired by migration 060.
+        await db.runQuery(
+          `INSERT OR IGNORE INTO age_groups (uuid, name, description, min_age, max_age, gender, gender_policy, is_active) VALUES
+           ('children-6-11', 'الأطفال (6-11 سنة)', 'فئة الأطفال من 6 إلى 11 سنة', 6, 11, 'any', 'mixed', 1),
+           ('men-18-plus', 'الرجال (18+ سنة)', 'فئة الرجال البالغين من 18 سنة فما فوق', 18, NULL, 'male_only', 'single_gender', 1),
+           ('women-18-plus', 'النساء (18+ سنة)', 'فئة النساء البالغات من 18 سنة فما فوق', 18, NULL, 'female_only', 'single_gender', 1)`,
         );
         log('Default age groups initialized successfully.');
       }
