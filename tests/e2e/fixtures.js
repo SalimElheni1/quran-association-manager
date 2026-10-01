@@ -7,7 +7,6 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_INDEX = path.join(ROOT, 'dist', 'renderer', 'index.html');
 
-// Meets the password policy (SEC-010): 12+ characters, upper, lower, digit and symbol.
 const SUPERADMIN = { username: 'e2eadmin', password: 'Zitouna#Test-2026' };
 
 /**

@@ -82,7 +82,7 @@ function SuperadminSetupForm({ onSuccess }) {
               name="setup-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="12 حرفاً على الأقل"
+              placeholder="6 أحرف على الأقل"
               label={null}
               helpText={PASSWORD_RULES_HINT}
               required

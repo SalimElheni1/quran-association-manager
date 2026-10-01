@@ -4,36 +4,23 @@
 // not shipped to the renderer); tests/renderer/utils/passwordPolicy.spec.js checks both copies
 // give the same verdict.
 
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 6;
 
 export const PASSWORD_RULES_HINT =
-  '12 حرفاً على الأقل، مع حرف كبير وحرف صغير ورقم ورمز، ودون اسم المستخدم.';
+  '6 أحرف على الأقل؛ يمكنك استخدام الحروف أو الأرقام فقط أو اختيار كلمة مرور أكثر تعقيداً. تجنب كلمات المرور الشائعة.';
 
 export const PASSWORD_MESSAGES = {
-  tooShort: 'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
-  missingClasses: 'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.',
-  containsUsername: 'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
+  tooShort: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
 };
 
 /**
- * Checks a new password against the length, character-class and username rules.
+ * Checks a new password against the minimum-length rule.
  * @param {string} password
- * @param {{ username?: string }} [options]
  * @returns {string|null} The Arabic message of the first failed rule, or null.
  */
-export function checkPasswordRules(password, { username } = {}) {
+export function checkPasswordRules(password) {
   if (typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
     return PASSWORD_MESSAGES.tooShort;
-  }
-  const hasUpper = /\p{Lu}/u.test(password);
-  const hasLower = /\p{Ll}/u.test(password);
-  const hasDigit = /\p{Nd}/u.test(password);
-  const hasSymbol = /[^\p{L}\p{N}]/u.test(password);
-  if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
-    return PASSWORD_MESSAGES.missingClasses;
-  }
-  if (username && password.toLowerCase().includes(String(username).toLowerCase())) {
-    return PASSWORD_MESSAGES.containsUsername;
   }
   return null;
 }

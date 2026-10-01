@@ -460,8 +460,7 @@ const COMMON_PASSWORDS = [
   'linkedin1',
   'twitter',
   'twitter1',
-  // 12+ characters that pass the character-class rule once capitalised: the
-  // predictable word + digits + symbol patterns people pick to satisfy the policy
+  // Predictable word + digits + symbol patterns people pick to look complex
   '1q2w3e4r5t6y!',
   '1qaz2wsx3edc!',
   'aa123456789!',

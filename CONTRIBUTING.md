@@ -64,7 +64,7 @@ CC BY-NC-SA 4.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)).
 - Validate all input in the main process even when the renderer form already validates.
 - Never log secrets, passwords, tokens, transfer keys, national IDs, or other personal data. The logger (`src/main/logger.js`) redacts known fields, but do not rely on it — avoid passing sensitive data to log calls.
 - Never expose Node.js APIs (`fs`, `require`, `process`, etc.) or a generic `invoke` through the preload script (`src/main/preload.js`). Expose only named, typed methods on `window.electronAPI`.
-- All password-setting flows (first-run setup, user creation, user update, profile change, forced change after legacy login) must go through `src/main/passwordPolicy.js` (bcrypt cost 10, 12+ chars, upper/lower/digit/symbol, not common, not containing username).
+- All password-setting flows (first-run setup, user creation, user update, profile change, forced change after legacy login) must go through `src/main/passwordPolicy.js` (bcrypt cost 10, at least 6 characters, not a common password).
 - See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process and [docs/dev/specs/security.md](docs/dev/specs/security.md) for the full security model.
 
 ## Release Process

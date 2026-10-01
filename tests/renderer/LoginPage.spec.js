@@ -112,7 +112,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
       target: { value: 'branch_admin' },
     });
-    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
       target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
@@ -142,7 +142,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
       target: { value: 'branch_admin' },
     });
-    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
       target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
@@ -170,7 +170,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByPlaceholderText('أدخل كلمة المرور الحالية'), {
       target: { value: '123456' },
     });
-    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
       target: { value: 'Qalam#Sousse2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور الجديدة'), {
@@ -190,22 +190,22 @@ describe('LoginPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
-  it('refuses a weak superadmin password before calling the main process (SEC-010)', async () => {
+  it('refuses a superadmin password shorter than 6 characters before calling the main process', async () => {
     renderLoginPage({ needsSetup: true });
 
     fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
       target: { value: 'branch_admin' },
     });
-    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
-      target: { value: 'securepass123' },
+    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
+      target: { value: 'abc12' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
-      target: { value: 'securepass123' },
+      target: { value: 'abc12' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
     expect(
-      await screen.findByText('يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.'),
+      await screen.findByText('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.'),
     ).toBeInTheDocument();
     expect(mockElectronAPI.setupSuperadmin).not.toHaveBeenCalled();
   });

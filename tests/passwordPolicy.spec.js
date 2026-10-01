@@ -3,20 +3,18 @@ const { checkPassword, RULE_MESSAGES, PASSWORD_MIN_LENGTH } = require('../src/ma
 const COMMON_PASSWORDS = require('../src/main/commonPasswords');
 
 describe('passwordPolicy.checkPassword', () => {
-  it('accepts a long password mixing all four character classes', () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(12);
+  it('accepts simple passwords and longer complex passwords', () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(6);
+    expect(checkPassword('Zitouna')).toBeNull();
+    expect(checkPassword('839271')).toBeNull();
     expect(checkPassword('Zitouna#Fes2026')).toBeNull();
-    expect(checkPassword('Zitouna#Fes2026', { username: 'mourad' })).toBeNull();
+    expect(checkPassword('Mourad1')).toBeNull();
   });
 
   it.each([
-    ['11 characters', 'Ab1#5678901', RULE_MESSAGES.tooShort],
+    ['5 characters', 'Ab1#5', RULE_MESSAGES.tooShort],
     ['an empty password', '', RULE_MESSAGES.tooShort],
     ['a missing password', undefined, RULE_MESSAGES.tooShort],
-    ['no uppercase letter', 'zitouna#fes2026', RULE_MESSAGES.missingClasses],
-    ['no lowercase letter', 'ZITOUNA#FES2026', RULE_MESSAGES.missingClasses],
-    ['no digit', 'Zitouna#Fes-Sfax', RULE_MESSAGES.missingClasses],
-    ['no symbol', 'ZitounaFes2026x', RULE_MESSAGES.missingClasses],
   ])('rejects %s', (_label, password, message) => {
     expect(checkPassword(password)).toBe(message);
   });
@@ -31,21 +29,10 @@ describe('passwordPolicy.checkPassword', () => {
     COMMON_PASSWORDS.forEach((password) => expect(password).toBe(password.toLowerCase()));
   });
 
-  it('rejects a password containing the username, in any case', () => {
-    expect(checkPassword('Mourad#Branch2026', { username: 'mourad' })).toBe(
-      RULE_MESSAGES.containsUsername,
-    );
-    expect(checkPassword('xMOURADx#2026a', { username: 'Mourad' })).toBe(
-      RULE_MESSAGES.containsUsername,
-    );
-  });
-
   it('gives exact Arabic messages', () => {
     expect(RULE_MESSAGES).toEqual({
-      tooShort: 'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
+      tooShort: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
       common: 'كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.',
-      missingClasses: 'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.',
-      containsUsername: 'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
     });
   });
 });

@@ -186,18 +186,13 @@ describe('validationSchemas (real Joi)', () => {
     });
 
     it('applies the password policy (SEC-010) and requires the national id', () => {
-      expect(messageOf(userValidationSchema, { ...user, password: 'Short#1a' })).toBe(
-        'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
+      expect(messageOf(userValidationSchema, { ...user, password: 'abc12' })).toBe(
+        'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
       );
-      expect(messageOf(userValidationSchema, { ...user, password: 'longenoughpassword1' })).toBe(
-        'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.',
-      );
-      expect(messageOf(userValidationSchema, { ...user, password: 'Password123!' })).toBe(
+      expect(messageOf(userValidationSchema, { ...user, password: 'password' })).toBe(
         'كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.',
       );
-      expect(messageOf(userValidationSchema, { ...user, password: 'Admin2#Branch99' })).toBe(
-        'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
-      );
+      expect(userValidationSchema.validate({ ...user, password: 'Zitouna' }).error).toBeUndefined();
       expect(messageOf(userValidationSchema, omit(user, 'national_id'))).toBe(
         'رقم الهوية الوطنية (CIN) مطلوب',
       );
@@ -225,8 +220,8 @@ describe('validationSchemas (real Joi)', () => {
     });
 
     it('applies the password policy to a new password', () => {
-      expect(messageOf(userUpdateValidationSchema, { ...update, password: 'newpass' })).toBe(
-        'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
+      expect(messageOf(userUpdateValidationSchema, { ...update, password: 'abc' })).toBe(
+        'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
       );
       expect(
         userUpdateValidationSchema.validate({ ...update, password: 'Zitouna#Fes2026' }).error,
@@ -266,7 +261,7 @@ describe('validationSchemas (real Joi)', () => {
           new_password: '12345',
           confirm_new_password: '12345',
         }),
-      ).toBe('يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.');
+      ).toBe('يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
       expect(
         messageOf(passwordUpdateValidationSchema, {
           current_password: 'old',

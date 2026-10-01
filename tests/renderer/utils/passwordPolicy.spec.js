@@ -9,14 +9,11 @@ import {
 const main = require('../../../src/main/passwordPolicy');
 
 const CASES = [
-  ['too short', 'Ab1#short', {}],
-  ['no uppercase', 'zitouna#fes2026', {}],
-  ['no lowercase', 'ZITOUNA#FES2026', {}],
-  ['no digit', 'Zitouna#Fes-Sfax', {}],
-  ['no symbol', 'ZitounaFes2026x', {}],
-  ['Arabic letters and digits with a symbol', 'Zitouna#جامع2026', {}],
-  ['contains the username', 'Mourad#Branch2026', { username: 'mourad' }],
-  ['valid', 'Zitouna#Fes2026', { username: 'mourad' }],
+  ['too short', 'Ab1#5', {}],
+  ['letters only', 'Zitouna', {}],
+  ['numbers only', '839271', {}],
+  ['complex password', 'Zitouna#Fes2026', {}],
+  ['contains the username', 'Mourad1', { username: 'mourad' }],
   ['empty', '', {}],
   ['not a string', undefined, {}],
 ];
@@ -25,8 +22,6 @@ describe('renderer password rules (SEC-010)', () => {
   it('uses the same minimum length and messages as the main process', () => {
     expect(PASSWORD_MIN_LENGTH).toBe(main.PASSWORD_MIN_LENGTH);
     expect(PASSWORD_MESSAGES.tooShort).toBe(main.RULE_MESSAGES.tooShort);
-    expect(PASSWORD_MESSAGES.missingClasses).toBe(main.RULE_MESSAGES.missingClasses);
-    expect(PASSWORD_MESSAGES.containsUsername).toBe(main.RULE_MESSAGES.containsUsername);
   });
 
   it.each(CASES)('gives the main process verdict for %s', (_label, password, options) => {

@@ -72,11 +72,11 @@ test.describe('profile password change', () => {
     await expectLoginAccepted(page, SUPERADMIN);
   });
 
-  test('a weak new password is refused with the rule, and the old one still works', async ({
+  test('a password shorter than 6 characters is refused, and the old one still works', async ({
     authedPage: page,
   }) => {
-    await changePassword(page, { current: SUPERADMIN.password, next: 'changed-pass-456' });
-    await expectToast(page, 'error', 'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.');
+    await changePassword(page, { current: SUPERADMIN.password, next: 'abc12' });
+    await expectToast(page, 'error', 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.');
 
     await logout(page);
     await expectLoginAccepted(page, SUPERADMIN);

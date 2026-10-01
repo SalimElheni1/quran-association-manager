@@ -8,7 +8,7 @@ Operational procedures for branch staff and maintainers. UI labels are quoted ex
 2. Launch the app. The first-run setup screen appears.
 3. Create the first superadmin account:
    - Username: choose a unique identifier.
-   - Password: at least 12 characters, with an upper-case letter, a lower-case letter, a digit, and a symbol. The form shows the rule «12 حرفاً على الأقل، مع حرف كبير وحرف صغير ورقم ورمز، ودون اسم المستخدم.» and rejects common passwords.
+   - Password: at least 6 characters and not a common password. The form shows the rule «6 أحرف على الأقل؛ يمكنك استخدام الحروف أو الأرقام فقط أو اختيار كلمة مرور أكثر تعقيداً. تجنب كلمات المرور الشائعة.» A longer password is safer.
    - Click «إنشاء مدير النظام» (Create system administrator).
 4. Log in with the new superadmin account.
 5. Open **الإعدادات** in the sidebar (page «إعدادات النظام والنسخ الاحتياطي»), tab «النسخ الاحتياطي»:

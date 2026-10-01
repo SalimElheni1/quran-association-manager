@@ -30,12 +30,10 @@ accounts. The main risks are:
 
 - **Passwords:** bcrypt hashes (cost 10). Wherever a password is set — first-run setup,
   `users:add`, `users:update`, the profile password change, and the forced change after a
-  legacy-password login — it must be at least 12 characters with an upper-case and a lower-case
-  letter, a digit and a symbol, must not be in the bundled common-password list
-  (`src/main/commonPasswords.js`, case-insensitive), and must not contain the username. Arabic
-  messages, one per rule. The renderer (`src/renderer/utils/passwordPolicy.js`) repeats the
-  length, character-class and username rules to fail fast; the main process is authoritative and
-  also checks the common-password list. Logging in is unchanged: older passwords keep working;
+  legacy-password login — it must be at least 6 characters and must not be in the bundled
+  common-password list (`src/main/commonPasswords.js`, case-insensitive), with an Arabic message
+  for each rule. The renderer (`src/renderer/utils/passwordPolicy.js`) repeats the length rule to
+  fail fast; the main process is authoritative and also checks the common-password list. Logging in is unchanged: older passwords keep working;
   no forced reset.
 - **First run:** no default account is ever seeded; the first superadmin is created in the setup
   form (`auth:setup-superadmin`).

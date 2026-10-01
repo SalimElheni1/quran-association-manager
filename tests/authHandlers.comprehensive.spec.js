@@ -417,19 +417,19 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toContain('بيانات غير صالحة');
     });
 
-    it('rejects a new password that contains the account username', async () => {
+    it('rejects a common new password', async () => {
       passwordUpdateValidationSchema.validateAsync.mockImplementation(async (data) => data);
       db.getQuery.mockResolvedValue({ username: 'mourad', password: 'hash' });
       bcrypt.compare.mockResolvedValue(true);
 
       const result = await handlers['auth:updatePassword'](sessionEvent, {
-        passwordData: { current_password: 'old', new_password: 'Mourad#Branch2026' },
+        passwordData: { current_password: 'old', new_password: 'password123' },
       });
 
       expect(result).toEqual(
         expect.objectContaining({
           success: false,
-          message: 'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
+          message: 'كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.',
         }),
       );
       expect(bcrypt.hash).not.toHaveBeenCalled();
