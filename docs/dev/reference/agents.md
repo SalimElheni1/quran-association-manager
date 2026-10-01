@@ -20,7 +20,7 @@ Details: [project-structure.md](project-structure.md), [architecture.md](../spec
 
 ```bash
 npm install
-npm run dev        # Vite on :3000 + Electron (needs JWT_SECRET in .env; see .env.example)
+npm run dev        # Vite on :3000 + Electron
 npm run lint       # must pass
 npm test           # Jest, must pass
 npm run test:e2e   # Playwright against the built app (xvfb-run -a on a headless Linux box)

@@ -28,8 +28,10 @@ Studio Build Tools with "Desktop development with C++"; on Linux `build-essentia
 
 ## Running in Development
 
-- **"FATAL ERROR: JWT_SECRET is not defined"**: create `.env` from `.env.example` and set
-  `JWT_SECRET`. Only the packaged app generates its own.
+- **"FATAL ERROR: JWT_SECRET could not be derived"**: the session secret is derived from the
+  database key (HKDF, `keyManager.getJwtSecret`); this error means the key could not be read or is
+  not 64 hex characters. Check the key store (`db-secure-config.json` in the user data folder) and
+  the OS keychain. `JWT_SECRET` in `.env` is no longer used.
 - **Port 3000 in use**: `npm run dev` expects Vite on 3000 (the main process loads
   `http://localhost:3000`, and `ipcSecurity.js` only trusts that origin in development). Stop the
   other process rather than changing the port.

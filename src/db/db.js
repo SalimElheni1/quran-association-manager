@@ -4,7 +4,7 @@ const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
-const { getDbKey, getDbSalt } = require('../main/keyManager');
+const { getDbKey, getDbSalt, validateHexKey } = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
 // --- Refactor: `db` is now a better-sqlite3 instance ---
@@ -127,6 +127,18 @@ function isDbEncrypted(filePath) {
 }
 
 /**
+ * Sets the SQLCipher `key` or `rekey` PRAGMA. The key is validated first (64 hex characters),
+ * so nothing but a hex string ever reaches the PRAGMA text.
+ * @param {import('better-sqlite3-multiple-ciphers').Database} database
+ * @param {'key'|'rekey'} pragmaName
+ * @param {string} key
+ */
+function applyKeyPragma(database, pragmaName, key) {
+  validateHexKey(key);
+  database.pragma(`${pragmaName} = '${key}'`);
+}
+
+/**
  * Migrates a plaintext SQLite database to an encrypted database.
  * @param {string} dbPath The path to the database file.
  * @param {string} key The encryption key.
@@ -148,7 +160,7 @@ async function migrateToEncrypted(dbPath, key) {
     // better-sqlite3-multiple-ciphers supports the "rekey" pragma for SQLCipher.
 
     log('Applying rekey pragma...');
-    tempDb.pragma(`rekey = '${key}'`);
+    applyKeyPragma(tempDb, 'rekey', key);
     // Force a write to ensure encryption is applied? VACUUM is often good practice.
     tempDb.exec('VACUUM');
     tempDb.close();
@@ -229,7 +241,8 @@ async function initializeDatabase() {
 
   const dbPath = getDatabasePath();
   log(`[DB_LOG] Database path: ${dbPath}`);
-  const key = getDbKey();
+  // Rejected here, before the database file is touched, when it is not 64 hex characters.
+  const key = validateHexKey(getDbKey());
   const keyHash = crypto.createHash('sha256').update(key).digest('hex');
   log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
@@ -254,7 +267,7 @@ async function initializeDatabase() {
     db = new Database(dbPath, { verbose: null }); // verbose: console.log for debug
 
     // Apply encryption key
-    db.pragma(`key = '${key}'`);
+    applyKeyPragma(db, 'key', key);
 
     // DIAGNOSTIC START: Check if encryption is actually working
     try {
@@ -285,7 +298,7 @@ async function initializeDatabase() {
         try {
           db.close();
           db = new Database(dbPath, { verbose: null });
-          db.pragma(`key = '${key}'`);
+          applyKeyPragma(db, 'key', key);
           db.pragma('cipher_compatibility = 3');
 
           db.prepare('SELECT count(*) FROM sqlite_master').get();
@@ -298,7 +311,7 @@ async function initializeDatabase() {
           try {
             db.close();
             db = new Database(dbPath, { verbose: null });
-            db.pragma(`key = '${key}'`);
+            applyKeyPragma(db, 'key', key);
             db.pragma('cipher_migrate');
 
             db.prepare('SELECT count(*) FROM sqlite_master').get();

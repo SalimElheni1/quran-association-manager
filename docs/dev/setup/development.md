@@ -33,7 +33,6 @@ cp .env.example .env     # then fill it in
 
 | Variable | Used for |
 |---|---|
-| `JWT_SECRET` | Required in development (the packaged app generates its own). Any long random string. |
 | `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD` | Login of the demo superadmin created by `npm run seed:manual`. The app itself never seeds a default account. |
 
 ## Running

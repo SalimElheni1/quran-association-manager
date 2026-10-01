@@ -3,7 +3,10 @@ const path = require('path');
 
 jest.mock('../src/main/logger');
 jest.mock('electron-reloader', () => jest.fn());
-jest.mock('electron-store', () => jest.fn());
+jest.mock('electron-store', () =>
+  jest.fn(() => ({ get: jest.fn(), set: jest.fn(), has: jest.fn(() => false), delete: jest.fn() })),
+);
+jest.mock('../src/main/keyManager', () => ({ getJwtSecret: jest.fn(() => 'ab'.repeat(32)) }));
 jest.mock('../src/db/db');
 jest.mock('fs');
 jest.mock('crypto');

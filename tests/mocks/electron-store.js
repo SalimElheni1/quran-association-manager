@@ -7,6 +7,7 @@ const mockMethods = {
   get: jest.fn((key) => globalData.get(key)),
   set: jest.fn((key, value) => globalData.set(key, value)),
   delete: jest.fn((key) => globalData.delete(key)),
+  has: jest.fn((key) => globalData.has(key)),
   clear: jest.fn(() => globalData.clear()),
 };
 

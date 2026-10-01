@@ -49,7 +49,14 @@ jest.mock('electron-store', () => {
 
 const crypto = require('crypto');
 const electron = require('electron');
-const { getDbKey, getDbSalt, setDbSalt, getSaltConfigPath } = require('../src/main/keyManager');
+const {
+  getDbKey,
+  getDbSalt,
+  setDbSalt,
+  getSaltConfigPath,
+  getJwtSecret,
+  validateHexKey,
+} = require('../src/main/keyManager');
 const { log, error: logError } = require('../src/main/logger');
 
 const makeBlob = (value) => 'enc:v1:' + Buffer.from(`enc:${value}`).toString('base64');
@@ -334,6 +341,74 @@ describe('keyManager', () => {
       const result = getSaltConfigPath();
 
       expect(result).toBe('/mock/path/to/salt/config');
+    });
+  });
+  describe('validateHexKey (SEC-002)', () => {
+    const VALID = '0123456789abcdefABCDEF'.padEnd(64, 'f');
+
+    it('accepts the 64 hex characters the app generates, in either case', () => {
+      expect(validateHexKey(VALID)).toBe(VALID);
+      expect(validateHexKey('A'.repeat(64))).toBe('A'.repeat(64));
+    });
+
+    it.each([
+      ['empty', ''],
+      ['short', 'ab'.repeat(31)],
+      ['too long', 'ab'.repeat(33)],
+      ['non-hex', 'g'.repeat(64)],
+      ['a quote that would end the PRAGMA string', `${'a'.repeat(62)}'x`],
+      ['not a string', 1234],
+      ['missing', undefined],
+    ])('rejects a %s key', (_label, key) => {
+      expect(() => validateHexKey(key)).toThrow(
+        'Invalid database encryption key: expected 64 hexadecimal characters.',
+      );
+    });
+  });
+
+  describe('getJwtSecret (SEC-003)', () => {
+    const realCrypto = jest.requireActual('crypto');
+    const KEY_A = 'a1'.repeat(32);
+    const KEY_B = 'b2'.repeat(32);
+
+    beforeEach(() => {
+      crypto.hkdfSync.mockImplementation(realCrypto.hkdfSync);
+    });
+
+    it('derives a stable 64-hex secret from the database key with HKDF-SHA256', () => {
+      mockKeyStore.get.mockReturnValue(makeBlob(KEY_A));
+
+      const first = getJwtSecret();
+      const second = getJwtSecret();
+
+      expect(first).toMatch(/^[0-9a-f]{64}$/);
+      expect(second).toBe(first);
+      expect(first).not.toBe(KEY_A);
+      const expected = Buffer.from(
+        realCrypto.hkdfSync(
+          'sha256',
+          Buffer.from(KEY_A, 'hex'),
+          Buffer.from('quran-jwt-salt-v1'),
+          Buffer.from('quran-manager-jwt-secret-v1'),
+          32,
+        ),
+      ).toString('hex');
+      expect(first).toBe(expected);
+    });
+
+    it('gives a different secret for a different database key', () => {
+      mockKeyStore.get.mockReturnValue(makeBlob(KEY_A));
+      const forA = getJwtSecret();
+      mockKeyStore.get.mockReturnValue(makeBlob(KEY_B));
+
+      expect(getJwtSecret()).not.toBe(forA);
+    });
+
+    it('refuses to derive a secret from a malformed database key', () => {
+      mockKeyStore.get.mockReturnValue(makeBlob('not-a-hex-key'));
+
+      expect(() => getJwtSecret()).toThrow('Invalid database encryption key');
+      expect(crypto.hkdfSync).not.toHaveBeenCalled();
     });
   });
 });

@@ -19,7 +19,6 @@
 const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 // =================================================================================
 // E2E TEST MODE (QBM_E2E=1)
@@ -81,6 +80,7 @@ const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
 const sessionManager = require('./sessionManager');
 const { installIpcGuard } = require('./ipcSecurity');
+const { getJwtSecret } = require('./keyManager');
 const {
   registerFinancialHandlers,
   recomputeAccountBalances,
@@ -190,25 +190,22 @@ const initializeApp = async () => {
     // =================================================================================
     // JWT SECRET MANAGEMENT
     // =================================================================================
+    // Derived from the database key with HKDF (keyManager.getJwtSecret), so it is never stored.
+    // Login (auth:login) and token checks (authMiddleware) both read process.env.JWT_SECRET.
     let jwtSecret;
-    if (app.isPackaged) {
-      jwtSecret = store.get('jwt_secret');
-      if (!jwtSecret) {
-        log('JWT secret not found in store, generating a new one...');
-        jwtSecret = crypto.randomBytes(32).toString('hex');
-        store.set('jwt_secret', jwtSecret);
-        log('New JWT secret generated and stored.');
-      }
-    } else {
-      jwtSecret = process.env.JWT_SECRET;
-    }
-
-    if (!jwtSecret) {
+    try {
+      jwtSecret = getJwtSecret();
+    } catch (secretError) {
       throw new Error(
-        'FATAL ERROR: JWT_SECRET is not defined. The application cannot start securely.',
+        `FATAL ERROR: JWT_SECRET could not be derived. The application cannot start securely. (${secretError.message})`,
       );
     }
     process.env.JWT_SECRET = jwtSecret;
+    // Older versions kept a random secret in electron-store; it is no longer used.
+    if (store.has('jwt_secret')) {
+      store.delete('jwt_secret');
+      log('Removed the stored JWT secret left by an older version.');
+    }
     // =================================================================================
 
     // =============================================================================

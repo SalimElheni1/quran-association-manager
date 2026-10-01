@@ -247,12 +247,29 @@ function getSaltConfigPath() {
   return saltStore.path;
 }
 
+const HEX_KEY_PATTERN = /^[0-9a-f]{64}$/i;
+
+/**
+ * Checks that a database key is the 64-character hex string this app generates (32 random
+ * bytes), so it can be placed in a SQLCipher PRAGMA without any risk of breaking out of the
+ * quoted value.
+ * @param {string} key The database encryption key.
+ * @returns {string} The same key, when valid.
+ * @throws {Error} When the key is missing or not 64 hex characters.
+ */
+function validateHexKey(key) {
+  if (typeof key !== 'string' || !HEX_KEY_PATTERN.test(key)) {
+    throw new Error('Invalid database encryption key: expected 64 hexadecimal characters.');
+  }
+  return key;
+}
+
 /**
  * Returns the derived JWT secret based on the DB encryption key using HKDF-SHA256.
  * @returns {string} The derived JWT secret as a hex string.
  */
 function getJwtSecret() {
-  const dbKey = getDbKey();
+  const dbKey = validateHexKey(getDbKey());
   const ikm = Buffer.from(dbKey, 'hex');
   const salt = Buffer.from('quran-jwt-salt-v1');
   const info = Buffer.from('quran-manager-jwt-secret-v1');
@@ -266,4 +283,5 @@ module.exports = {
   setDbSalt,
   getSaltConfigPath,
   getJwtSecret,
+  validateHexKey,
 };

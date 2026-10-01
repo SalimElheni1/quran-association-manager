@@ -29,8 +29,8 @@ from the plan (noted in the table).
 | Item | Status | Where / how |
 |------|--------|-------------|
 | SEC-001 Key in OS keychain | Done (differently) | `keyManager.js`: random per-install key protected by Electron `safeStorage` (DPAPI / Keychain / libsecret) instead of `keytar`. The old hardcoded key stays only to migrate old store files. |
-| SEC-002 PRAGMA injection | Open | `db.js` still interpolates the key into `PRAGMA key`; the key is generated as hex, but there is no `validateHexKey` check. |
-| SEC-003 JWT secret | Done | `keyManager.js` derives it from the DB key with HKDF-SHA256. |
+| SEC-002 PRAGMA injection | Done | `keyManager.validateHexKey` accepts only 64 hex characters; `db.js` checks the key before opening the file and every `PRAGMA key` / `rekey` goes through `applyKeyPragma`, which validates it again (`tests/keyManager.spec.js`). |
+| SEC-003 JWT secret | Done | Startup (`index.js`) uses `keyManager.getJwtSecret()` (HKDF-SHA256 of the DB key) in development and packaged builds; the secret is never stored, and the random `jwt_secret` older versions kept in electron-store is deleted. Login and token checks read the same `process.env.JWT_SECRET` (`tests/index.spec.js`, `tests/keyManager.spec.js`). |
 | SEC-004 Default superadmin password | Done (differently) | No default credentials are seeded; the first superadmin is created in the first-run setup (`auth:setup-superadmin`). bcrypt cost is still 10. |
 | SEC-005 Encrypted backups | Done | `backupManager.js`: AES-256-GCM, keyed by the association transfer key setting. |
 | SEC-006 Backup signature | Done | HMAC-SHA256 signature checked on restore (`importManager.js`). |
