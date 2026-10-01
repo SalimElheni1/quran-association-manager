@@ -25,12 +25,12 @@ Screenshots from the real-world test scenario (`npm run test:e2e:realworld`): a 
 128 students, 8 teachers and 9 classes, with attendance and finances. The names are fictional.
 Regenerate them with `npm run docs:screenshots` after running the scenario.
 
-| | |
-|---|---|
-| ![Students](docs/screenshots/students.png) **Students** | ![Classes](docs/screenshots/classes.png) **Classes** |
-| ![Attendance](docs/screenshots/attendance.png) **Attendance** | ![Teachers](docs/screenshots/teachers.png) **Teachers** |
-| ![Financial dashboard](docs/screenshots/financial-dashboard.png) **Financial dashboard** | ![Student fees](docs/screenshots/student-fees.png) **Student fees** |
-| ![Age groups and their fees](docs/screenshots/age-groups.png) **Age groups and their fees** | ![Login](docs/screenshots/login.png) **Login** |
+|                                                                                             |                                                                     |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| ![Students](docs/screenshots/students.png) **Students**                                     | ![Classes](docs/screenshots/classes.png) **Classes**                |
+| ![Attendance](docs/screenshots/attendance.png) **Attendance**                               | ![Teachers](docs/screenshots/teachers.png) **Teachers**             |
+| ![Financial dashboard](docs/screenshots/financial-dashboard.png) **Financial dashboard**    | ![Student fees](docs/screenshots/student-fees.png) **Student fees** |
+| ![Age groups and their fees](docs/screenshots/age-groups.png) **Age groups and their fees** | ![Login](docs/screenshots/login.png) **Login**                      |
 
 ## 🎬 Video guide (Arabic)
 
@@ -51,11 +51,11 @@ Output goes to `guide-output/`: `guide.webm`, Arabic subtitles (`captions.vtt`),
 
 The narration uses a text-to-speech engine, chosen with `QBM_GUIDE_TTS`:
 
-| Engine | Setup | Voice (`QBM_GUIDE_VOICE`) |
-|---|---|---|
-| `edge` (default) | `pip install edge-tts`; needs internet | `ar-TN-ReemNeural` (default), `ar-TN-HediNeural`, `ar-SA-HamedNeural`… |
-| `espeak` | `espeak-ng` (+ `mbrola-ar1` for a better voice); offline, robotic | `mb-ar1` (default) or `ar` |
-| `command` | any engine: `QBM_GUIDE_TTS_CMD='piper -m ar.onnx -f {out} < {text}'` | — |
+| Engine           | Setup                                                                | Voice (`QBM_GUIDE_VOICE`)                                              |
+| ---------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `edge` (default) | `pip install edge-tts`; needs internet                               | `ar-TN-ReemNeural` (default), `ar-TN-HediNeural`, `ar-SA-HamedNeural`… |
+| `espeak`         | `espeak-ng` (+ `mbrola-ar1` for a better voice); offline, robotic    | `mb-ar1` (default) or `ar`                                             |
+| `command`        | any engine: `QBM_GUIDE_TTS_CMD='piper -m ar.onnx -f {out} < {text}'` | —                                                                      |
 
 Speech speed: `QBM_GUIDE_TTS_RATE` (e.g. `-5%` for edge, words per minute for espeak). Spoken
 sentences are cached in `guide-output/tts-cache/`, so re-recording doesn't synthesize again.
@@ -119,29 +119,26 @@ details, see the [Build and Packaging documentation](docs/dev/setup/building.md)
 
 ---
 
-## 📚 Documentation (For Developers)
+## 📚 Documentation map
 
-Comprehensive documentation for developers and contributors.
+The project documentation is organized by audience and purpose. Use the index below to navigate the active material and avoid archived or historical notes when working on the current product.
 
-| File | Description |
-| :--- | :--- |
-| **Setup & Guides** | |
-| [`docs/dev/setup/development.md`](docs/dev/setup/development.md) | Setup Guide & Workflow. |
-| [`docs/dev/setup/building.md`](docs/dev/setup/building.md) | Build & Release Instructions. |
-| [`docs/dev/setup/testing.md`](docs/dev/setup/testing.md) | Testing Guide (Jest/Playwright). |
-| [`docs/dev/setup/deployment.md`](docs/dev/setup/deployment.md) | Release and distribution. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution Guidelines. |
-| **Technical Specs** | |
-| [`docs/dev/specs/architecture.md`](docs/dev/specs/architecture.md) | System Architecture. |
-| [`docs/dev/specs/api.md`](docs/dev/specs/api.md) | IPC API Reference. |
-| [`docs/dev/specs/security.md`](docs/dev/specs/security.md) | Security Protocol. |
-| [`docs/dev/specs/financial-spec.md`](docs/dev/specs/financial-spec.md) | Financial Module Specification. |
-| **References** | |
-| [`docs/dev/reference/project-structure.md`](docs/dev/reference/project-structure.md) | Codebase Directory Map. |
-| [`docs/dev/troubleshooting.md`](docs/dev/troubleshooting.md) | Developer Troubleshooting. |
-| [`docs/dev/reference/import-export-map.md`](docs/dev/reference/import-export-map.md) | Excel import/export field mapping. |
-| [`CHANGELOG.md`](CHANGELOG.md) | Version history. |
-| [`SECURITY_REMEDIATION_PLAN.md`](SECURITY_REMEDIATION_PLAN.md) | Security work plan and its status. |
+- [docs/README.md](docs/README.md) — central documentation index for the whole project
+- [PRODUCT.md](PRODUCT.md) — product scope, positioning, and constraints
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution workflow and standards
+- [CHANGELOG.md](CHANGELOG.md) — version history and user-facing changes
+- [SECURITY_REMEDIATION_PLAN.md](SECURITY_REMEDIATION_PLAN.md) — current security roadmap and status
+- [docs/user/manual.md](docs/user/manual.md) — end-user guide in Arabic
+- [docs/user/financial.md](docs/user/financial.md) — finance-specific user workflow
+- [docs/user/troubleshooting.md](docs/user/troubleshooting.md) — user support steps
+- [docs/dev/setup/development.md](docs/dev/setup/development.md) — local setup and workflow
+- [docs/dev/setup/building.md](docs/dev/setup/building.md) — production build and packaging
+- [docs/dev/setup/testing.md](docs/dev/setup/testing.md) — automated test guidance
+- [docs/dev/specs/architecture.md](docs/dev/specs/architecture.md) — architecture overview
+- [docs/dev/specs/api.md](docs/dev/specs/api.md) — IPC API and technical contract
+- [docs/dev/specs/security.md](docs/dev/specs/security.md) — security model and implementation notes
+- [docs/dev/reference/project-structure.md](docs/dev/reference/project-structure.md) — repository layout
+- [docs/dev/troubleshooting.md](docs/dev/troubleshooting.md) — common technical issues
 
 ## 🤝 Contributing
 

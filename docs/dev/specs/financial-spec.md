@@ -1,8 +1,8 @@
 # Financial Module
 
 How money is recorded, as implemented. The user-facing guide is
-[docs/user/financial.md](../../user/financial.md) (Arabic). The original 2024 design plan is in
-[docs/archive/financial-redesign-plan-2024.md](../../archive/financial-redesign-plan-2024.md).
+[docs/user/financial.md](../../user/financial.md) (Arabic). The original 2024 design plan has been
+retired; the current behavior is described here and in the current setup and architecture docs.
 
 Amounts are Tunisian dinars (TND) stored as `REAL`, rounded with `roundCurrency` (3 decimals);
 student fees are rounded to cents (millimes are not billed).
