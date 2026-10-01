@@ -8,11 +8,13 @@
 const path = require('path');
 const sessionManager = require('./sessionManager');
 const { warn: logWarn } = require('./logger');
+const { validateChannelArgs, hasArgSchema } = require('./ipcValidation');
 
 const ERRORS = {
   AUTH_REQUIRED: 'مطلوب تسجيل الدخول.',
   FORBIDDEN: 'غير مسموح به.',
   SENDER_REJECTED: 'الوصول مرفوض.',
+  INVALID_INPUT: 'بيانات غير صالحة.',
 };
 
 const ALLOWED_DEV_URL_ORIGIN = 'http://localhost:3000';
@@ -235,14 +237,29 @@ function sessionRoles(event) {
 }
 
 /**
- * Wraps a handle registration with authentication + authorization + sender checks.
+ * SEC-011: checks the call's arguments against the channel's schema (ipcValidation.js).
+ * Logs the channel and the reason only — never the values, which can hold personal data.
+ * @returns {boolean} true when the arguments are acceptable.
+ */
+function argsAreValid(channel, args) {
+  const problem = validateChannelArgs(channel, args);
+  if (!problem) return true;
+  logWarn(`[ipcSecurity] Rejected invalid arguments for "${channel}": ${problem}`);
+  return false;
+}
+
+/**
+ * Wraps a handle registration with authentication + authorization + sender + argument checks.
  */
 function wrapHandle(channel, handler, policy) {
   return async (event, ...args) => {
     if (!isAllowedSender(event && event.sender)) {
       throw new Error(ERRORS.SENDER_REJECTED);
     }
-    if (policy.public) return handler(event, ...args);
+    if (policy.public) {
+      if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
+      return handler(event, ...args);
+    }
 
     const roles = sessionRoles(event);
     if (!roles) throw new Error(ERRORS.AUTH_REQUIRED);
@@ -254,6 +271,7 @@ function wrapHandle(channel, handler, policy) {
         `[ipcSecurity] Unclassified channel "${channel}" invoked by user with roles [${roles.join(', ')}]. Classify it in CHANNEL_ROLES.`,
       );
     }
+    if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
     return handler(event, ...args);
   };
 }
@@ -270,6 +288,7 @@ function wrapOn(channel, handler, policy) {
       if (!roles) return;
       if (policy.roles && !policy.roles.some((role) => roles.includes(role))) return;
     }
+    if (!argsAreValid(channel, args)) return;
     return handler(event, ...args);
   };
 }
@@ -283,12 +302,22 @@ function installIpcGuard(ipcMain) {
   const originalHandle = ipcMain.handle.bind(ipcMain);
   const originalOn = ipcMain.on.bind(ipcMain);
 
+  const reportMissingSchema = (channel) => {
+    if (!hasArgSchema(channel)) {
+      logWarn(
+        `[ipcSecurity] Channel "${channel}" has no argument schema. Add it to CHANNEL_ARG_SCHEMAS in ipcValidation.js.`,
+      );
+    }
+  };
+
   ipcMain.handle = (channel, handler) => {
+    reportMissingSchema(String(channel));
     const policy = getPolicy(String(channel));
     return originalHandle(channel, wrapHandle(channel, handler, policy));
   };
 
   ipcMain.on = (channel, handler) => {
+    reportMissingSchema(String(channel));
     const policy = getPolicy(String(channel));
     return originalOn(channel, wrapOn(channel, handler, policy));
   };

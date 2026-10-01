@@ -8,6 +8,15 @@ const {
   isAllowedSender,
 } = require('../src/main/ipcSecurity');
 const sessionManager = require('../src/main/sessionManager');
+const { validateChannelArgs, hasArgSchema } = require('../src/main/ipcValidation');
+const logger = require('../src/main/logger');
+
+// The guard's argument check is driven by these mocks here; the real schemas are tested with
+// the real Joi in tests/ipcValidation.spec.js.
+jest.mock('../src/main/ipcValidation', () => ({
+  validateChannelArgs: jest.fn(() => null),
+  hasArgSchema: jest.fn(() => true),
+}));
 
 jest.mock('../src/main/logger', () => ({
   log: jest.fn(),
@@ -47,6 +56,9 @@ function makeGuard() {
 describe('ipcSecurity', () => {
   beforeEach(() => {
     sessionManager.revokeAllSessions();
+    validateChannelArgs.mockReset().mockReturnValue(null);
+    hasArgSchema.mockReset().mockReturnValue(true);
+    logger.warn.mockClear();
   });
 
   afterEach(() => {
@@ -244,6 +256,89 @@ describe('ipcSecurity', () => {
         await expect(wrapped(makeEvent(1), 'a')).rejects.toThrow(ERRORS.AUTH_REQUIRED);
       });
     }
+  });
+
+  describe('argument validation (SEC-011)', () => {
+    const PROBLEM = 'argument 1: "value" must be a number';
+
+    it('passes valid arguments through to the handler', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn().mockResolvedValue('ok');
+      ipcMain.handle('students:getById', handler);
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'a', roles: ['Superadmin'] },
+        null,
+      );
+
+      await expect(ipcMain.handlers.get('students:getById')(makeEvent(1), 7)).resolves.toBe('ok');
+      expect(validateChannelArgs).toHaveBeenCalledWith('students:getById', [7]);
+      expect(handler).toHaveBeenCalledWith(expect.anything(), 7);
+    });
+
+    it('rejects invalid arguments before the handler, logging the reason but not the values', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn();
+      ipcMain.handle('students:getById', handler);
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'a', roles: ['Superadmin'] },
+        null,
+      );
+      validateChannelArgs.mockReturnValue(PROBLEM);
+
+      await expect(
+        ipcMain.handlers.get('students:getById')(makeEvent(1), 'CIN 12345678'),
+      ).rejects.toThrow(ERRORS.INVALID_INPUT);
+      expect(ERRORS.INVALID_INPUT).toBe('بيانات غير صالحة.');
+      expect(handler).not.toHaveBeenCalled();
+      const logged = logger.warn.mock.calls.map(([message]) => message).join('\n');
+      expect(logged).toContain('students:getById');
+      expect(logged).toContain(PROBLEM);
+      expect(logged).not.toContain('CIN 12345678');
+    });
+
+    it('checks authorization before the arguments', async () => {
+      const ipcMain = makeGuard();
+      ipcMain.handle('students:getById', jest.fn());
+      validateChannelArgs.mockReturnValue(PROBLEM);
+
+      await expect(ipcMain.handlers.get('students:getById')(makeEvent(1), 'x')).rejects.toThrow(
+        ERRORS.AUTH_REQUIRED,
+      );
+    });
+
+    it('validates public channels too', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn();
+      ipcMain.handle('auth:login', handler);
+      validateChannelArgs.mockReturnValue(PROBLEM);
+
+      await expect(ipcMain.handlers.get('auth:login')(makeEvent(1), null)).rejects.toThrow(
+        ERRORS.INVALID_INPUT,
+      );
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('silently drops an `on` message with invalid arguments', () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn();
+      ipcMain.on('ui:show-error-toast', handler);
+      validateChannelArgs.mockReturnValue(PROBLEM);
+
+      expect(ipcMain.ons.get('ui:show-error-toast')(makeEvent(1), { not: 'text' })).toBeUndefined();
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('reports a channel registered without an argument schema', () => {
+      hasArgSchema.mockReturnValue(false);
+      const ipcMain = makeGuard();
+      ipcMain.handle('brand-new:channel', jest.fn());
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('"brand-new:channel" has no argument schema'),
+      );
+    });
   });
 
   describe('on guard', () => {
