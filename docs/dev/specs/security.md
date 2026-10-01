@@ -1,6 +1,7 @@
 # Security
 
-How the app protects its data, as implemented. Open items and their status are tracked in
+How the app protects its data, as implemented. Procedures for staff (recovery, key rotation,
+incidents) are in [security-runbook.md](../security-runbook.md). Open items and their status are tracked in
 [SECURITY_REMEDIATION_PLAN.md](../../../SECURITY_REMEDIATION_PLAN.md).
 
 ## Threat Model
@@ -23,10 +24,19 @@ accounts. The main risks are:
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: safe-image:; font-src 'self' data:`.
 - The `safe-image://` protocol (branch logos) rejects `..`, NUL bytes and absolute paths and only
   serves files under the app's user-data and bundled `public` folders.
+- `webviewTag` is disabled.
 
 ## Authentication
 
-- **Passwords:** bcrypt hashes (cost 10). New users need at least 8 characters.
+- **Passwords:** bcrypt hashes (cost 10). Wherever a password is set — first-run setup,
+  `users:add`, `users:update`, the profile password change, and the forced change after a
+  legacy-password login — it must be at least 12 characters with an upper-case and a lower-case
+  letter, a digit and a symbol, must not be in the bundled common-password list
+  (`src/main/commonPasswords.js`, case-insensitive), and must not contain the username. Arabic
+  messages, one per rule. The renderer (`src/renderer/utils/passwordPolicy.js`) repeats the
+  length, character-class and username rules to fail fast; the main process is authoritative and
+  also checks the common-password list. Logging in is unchanged: older passwords keep working;
+  no forced reset.
 - **First run:** no default account is ever seeded; the first superadmin is created in the setup
   form (`auth:setup-superadmin`).
 - **Lockout:** 5 failed logins lock login for 5 minutes (state kept in the main process store).
@@ -61,14 +71,33 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 
 - **Database:** SQLite encrypted with SQLite3 Multiple Ciphers (SQLCipher compatible), through
   `better-sqlite3-multiple-ciphers`.
-- **Keys:** the database key is 32 random bytes generated per installation and stored protected
-  by the OS through Electron's `safeStorage` (DPAPI on Windows). The session-signing secret is
-  generated on first run. A copied database file is useless without that Windows account.
-- **Backups:** `.qdb` files encrypted with AES-256-GCM, whose authentication tag makes a modified
-  file fail to restore. The key is the association transfer key when set (so another branch
-  computer can restore it), otherwise this computer's key. Older SQL-script backups carry an
-  HMAC-SHA256 signature that is checked on import.
-- **Restore** needs the superadmin's password and replaces the whole database.
+- **Keys:** the database key is 32 random bytes generated per installation and stored as a
+  64-character hex string, protected by the OS through Electron's `safeStorage` (DPAPI on Windows,
+  Keychain on macOS, libsecret on Linux). When `safeStorage` is unavailable, the key is stored in
+  a plaintext file with owner-only permissions (`0o600`). `keyManager.validateHexKey` accepts only
+  64 hex characters; `db.js` refuses an invalid key before the file is opened, and every PRAGMA
+  `key` / `rekey` goes through `applyKeyPragma`, which validates it again. The session-signing
+  secret is derived from the database key with HKDF-SHA256 (`keyManager.getJwtSecret`), never
+  stored; the random `jwt_secret` older versions kept in electron-store is deleted at startup.
+  `.env` no longer needs `JWT_SECRET`. A copied database file is useless without that OS account
+  or key file.
+- **Backups:** `.qdb` files encrypted with AES-256-GCM (PBKDF2, 100k iterations), whose
+  authentication tag makes a modified file fail to restore. The key is the association transfer key
+  when set (so another branch computer can restore it), otherwise this computer's database key.
+  Older SQL-script backups carry an HMAC-SHA256 signature that is checked on import.
+- **Key rotation (SEC-017):** Settings > النسخ الاحتياطي > «تغيير مفتاح التشفير», Superadmin only,
+  password confirmation (IPC `db:rotate-key`, `src/main/handlers/systemHandlers.js`;
+  `db.rotateDatabaseKey`). Refused until the association transfer key is saved, because backups
+  made without it are encrypted with the database key and would no longer restore. Crash-safe: the
+  new key is stored as pending, the file is re-keyed (journal switched from WAL to DELETE for the
+  duration — SQLite3MultipleCiphers cannot re-key in WAL mode), verified with a second connection,
+  then promoted; at startup an interrupted rotation is finished or discarded. The session secret is
+  re-derived and every session ends (force-logout). No old key is kept.
+- **Backup folder (SEC-018, `backupManager.validateBackupPath`):** only an absolute, existing,
+  writable folder without NUL characters; the scheduler does not start otherwise, a manual backup
+  returns the Arabic reason, the safety copy before a restore is skipped with a warning.
+- **Restore** needs the logged-in user's password, and the transfer key for backups from another
+  computer.
 
 ## Input Handling
 
@@ -77,6 +106,23 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 - Inputs that create or change records are validated with Joi (`validationSchemas.js`,
   `settingsValidation.js`) and unknown fields are stripped.
 - Excel imports map known Arabic headers to known columns (`importConstants.js`).
+- Every IPC channel has an argument schema (`CHANNEL_ARG_SCHEMAS` in `ipcValidation.js`, one Joi
+  schema per positional argument, matching `preload.js`). The guard checks it after the session and
+  role checks and before the handler: wrong types, missing ids, extra arguments or a non-object
+  payload are refused with «بيانات غير صالحة.», and the log names the channel and the failed rule,
+  never the values. Handlers still validate payload contents with their own schemas.
+
+## Window Navigation
+
+`navigationGuard.js` hardens the `BrowserWindow`'s `webContents`:
+
+- `window.open` / `target="_blank"` is always denied inside Electron; allowlisted external URLs
+  are handed to the system browser instead.
+- `will-navigate` and `will-redirect` are allowed only for internal URLs (the app's own page:
+  `http://localhost:3000` in development, `dist/renderer/index.html` otherwise); allowlisted
+  external URLs (exact hosts: `mailto:`, `github.com`, `www.github.com`, `linkedin.com`,
+  `www.linkedin.com`, `wa.me`, `api.whatsapp.com`; no credentials in the URL) are opened in the
+  system browser; anything else is blocked and logged.
 
 ## Errors and Logs
 

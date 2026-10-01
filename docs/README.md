@@ -7,6 +7,7 @@ This project keeps the active documentation close to the work it describes. The 
 - [README.md](../README.md) — project overview, setup, and product summary
 - [PRODUCT.md](../PRODUCT.md) — product purpose and product-level decisions
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — contribution flow and release expectations
+- [SECURITY.md](../SECURITY.md) — vulnerability disclosure and supported versions
 - [SECURITY_REMEDIATION_PLAN.md](../SECURITY_REMEDIATION_PLAN.md) — security work status and tracked risks
 - [CHANGELOG.md](../CHANGELOG.md) — release history and important changes
 
@@ -31,6 +32,10 @@ This project keeps the active documentation close to the work it describes. The 
 - [dev/specs/api.md](dev/specs/api.md) — IPC and renderer/main-process contract
 - [dev/specs/security.md](dev/specs/security.md) — security model and constraints
 - [dev/specs/financial-spec.md](dev/specs/financial-spec.md) — implemented financial module specification
+
+### Security operations
+
+- [dev/security-runbook.md](dev/security-runbook.md) — operational runbook for branch staff and maintainers (setup, backup/recovery, key rotation, incident response)
 
 ### Reference and troubleshooting
 

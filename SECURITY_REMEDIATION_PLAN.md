@@ -20,7 +20,7 @@ This plan addresses 20 security vulnerabilities identified in the Quran Branch M
 
 ---
 
-## Implementation status (2026-09-29)
+## Implementation status (2026-10-01)
 
 Checked against the code on `main`. The checklists below are the original plan and were not
 ticked as work landed; this table is the current state. Several items were solved differently
@@ -37,18 +37,18 @@ from the plan (noted in the table).
 | SEC-007 `executeJavaScript` token | Done (differently) | Sessions live in the main process (`sessionManager.js`); the renderer never supplies a token. |
 | SEC-008 Login rate limit | Done | Lockout state in `authHandlers.js` (`tests/loginLockout.spec.js`). |
 | SEC-009 `safe-image` traversal | Done | `index.js` rejects `..`, NUL and absolute paths and resolves under allowed bases (`tests/safeImage.spec.js`). |
-| SEC-010 Password rules | Partial | Minimum 8 characters (6 for a password change); no complexity or common-password check. |
-| SEC-011 Validation on all IPC input | Partial | Joi schemas cover students, teachers, classes, users, settings and financial writes; not every handler. |
+| SEC-010 Password rules | Done | `passwordPolicy.js`, applied wherever a password is set (setup, users:add/update, profile and forced change): 12+ characters, upper and lower case, digit, symbol, not a common password (`commonPasswords.js`), not containing the username; Arabic message per rule. The forms repeat the rules to fail fast. Login is unchanged: existing passwords keep working, no forced reset. |
+| SEC-011 Validation on all IPC input | Done | `ipcValidation.js` gives every IPC channel a per-argument Joi schema (matching `preload.js`); the `ipcSecurity.js` guard checks it after the role check and before the handler, refuses bad input with «بيانات غير صالحة.» and logs the channel and failed rule without values. A test fails when a registered channel has no schema. Handlers keep their own payload schemas. |
 | SEC-012 Signed auto-updates | Not applicable yet | There is no auto-updater; installers come from GitHub releases. |
 | SEC-013 Role checks on IPC | Done (differently) | `ipcSecurity.js` checks every channel against a role matrix, denies anonymous calls and validates the sender frame. |
 | SEC-014 CSP | Done | `Content-Security-Policy` meta tag in `index.html`. |
 | SEC-015 Log redaction | Done | `logger.js` `sanitizeForLog`. |
 | SEC-016 Token rotation / in-memory storage | Done (differently) | Main-process sessions with expiry (`sessionManager.js`). |
-| SEC-017 DB key rotation | Open | Only the one-time plaintext-to-encrypted migration exists. |
-| SEC-018 Backup path check on startup | Open | `backup_path` is used as configured. |
-| SEC-019 External navigation | Partial | `nodeIntegration: false`, `contextIsolation: true` and CSP are set; no `setWindowOpenHandler` / `will-navigate` guard. |
+| SEC-017 DB key rotation | Done | Settings > النسخ الاحتياطي > «تغيير مفتاح التشفير» (Superadmin, password): `db.rotateDatabaseKey` stages the new key, re-keys (WAL off for the duration), verifies, promotes; startup finishes or discards an interrupted rotation. Refused until the association transfer key is saved (backups made without it use the DB key). Every session ends. |
+| SEC-018 Backup path check on startup | Done | `backupManager.validateBackupPath` (absolute, existing, writable, no NUL): the scheduler does not start otherwise and re-checks before each run; manual backup returns the reason; the pre-restore copy is skipped with a warning. |
+| SEC-019 External navigation | Done | `navigationGuard.js`: window.open always denied; navigation only to the app's own page; an exact-host allowlist (mailto:, GitHub, LinkedIn, WhatsApp) opens in the system browser; anything else blocked and logged; `webviewTag: false`. |
 | SEC-020 `electron-reloader` in production | Done | Loaded only when `!app.isPackaged`, and never in e2e runs. |
-| SEC-021 Security documentation | Partial | `docs/dev/specs/security.md`; no incident runbook. |
+| SEC-021 Security documentation | Done | `SECURITY.md` (disclosure, supported versions), `docs/dev/specs/security.md` (security model, updated), `docs/dev/security-runbook.md` (setup, backup and recovery, key rotation, incident response), secure-coding rules in `CONTRIBUTING.md`. |
 
 ---
 

@@ -57,6 +57,16 @@ CC BY-NC-SA 4.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)).
 - **Testing:** Write tests for new features and bug fixes. Aim for good test coverage.
 - **Security:** Always consider security implications. Use parameterized queries for database interactions and validate all user inputs.
 
+### Secure Coding
+
+- Use parameterized SQL only (`?` placeholders). Never interpolate values into SQL strings.
+- Every new IPC channel must be added to `CHANNEL_ROLES` in `src/main/ipcSecurity.js` and an argument schema in `CHANNEL_ARG_SCHEMAS` (`src/main/ipcValidation.js`), which the guard checks before the handler runs.
+- Validate all input in the main process even when the renderer form already validates.
+- Never log secrets, passwords, tokens, transfer keys, national IDs, or other personal data. The logger (`src/main/logger.js`) redacts known fields, but do not rely on it — avoid passing sensitive data to log calls.
+- Never expose Node.js APIs (`fs`, `require`, `process`, etc.) or a generic `invoke` through the preload script (`src/main/preload.js`). Expose only named, typed methods on `window.electronAPI`.
+- All password-setting flows (first-run setup, user creation, user update, profile change, forced change after legacy login) must go through `src/main/passwordPolicy.js` (bcrypt cost 10, 12+ chars, upper/lower/digit/symbol, not common, not containing username).
+- See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process and [docs/dev/specs/security.md](docs/dev/specs/security.md) for the full security model.
+
 ## Release Process
 
 Releases are built by the **Release (Windows)** GitHub Actions workflow
