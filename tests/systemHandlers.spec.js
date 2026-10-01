@@ -475,6 +475,24 @@ describe('systemHandlers', () => {
         message: 'Backup failed',
       });
     });
+
+    it('should return validation error when backup_path is configured but invalid', async () => {
+      const settings = { backup_path: 'relative/path' };
+      backupManager.validateBackupPath.mockReturnValue({
+        valid: false,
+        message: 'مسار النسخ الاحتياطي يجب أن يكون مساراً كاملاً.',
+      });
+
+      const result = await handlers['backup:run'](null, settings);
+
+      expect(backupManager.validateBackupPath).toHaveBeenCalledWith('relative/path');
+      expect(result).toEqual({
+        success: false,
+        message: 'مسار النسخ الاحتياطي يجب أن يكون مساراً كاملاً.',
+      });
+      expect(dialog.showSaveDialog).not.toHaveBeenCalled();
+      expect(backupManager.runBackup).not.toHaveBeenCalled();
+    });
   });
 
   describe('backup:getStatus', () => {

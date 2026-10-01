@@ -436,10 +436,15 @@ async function replaceDatabase(importedDbPath, password, backupPassword) {
   try {
     const settings = mainStore.get('settings') || {};
     if (settings.backup_path) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupPath = path.join(settings.backup_path, `pre-import-backup-${timestamp}.qdb`);
-      log(`Creating safeguard backup before import at: ${backupPath}`);
-      await backupManager.runBackup(settings, backupPath);
+      const validation = backupManager.validateBackupPath(settings.backup_path);
+      if (!validation.valid) {
+        logWarn(`Skipping auto-backup before import: ${validation.message}`);
+      } else {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(validation.path, `pre-import-backup-${timestamp}.qdb`);
+        log(`Creating safeguard backup before import at: ${backupPath}`);
+        await backupManager.runBackup(settings, backupPath);
+      }
     } else {
       logWarn('Skipping auto-backup before import: No backup path configured.');
     }

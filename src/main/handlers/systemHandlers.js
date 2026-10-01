@@ -194,8 +194,12 @@ function registerSystemHandlers() {
       let backupFilePath = null;
 
       if (settings.backup_path) {
+        const validation = backupManager.validateBackupPath(settings.backup_path);
+        if (!validation.valid) {
+          return { success: false, message: validation.message };
+        }
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        backupFilePath = path.join(settings.backup_path, `manual-backup-${timestamp}.qdb`);
+        backupFilePath = path.join(validation.path, `manual-backup-${timestamp}.qdb`);
       } else {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const { canceled, filePath } = await dialog.showSaveDialog({

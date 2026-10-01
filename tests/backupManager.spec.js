@@ -1,4 +1,5 @@
 // tests/backupManager.spec.js
+const path = require('path');
 
 // Mock all dependencies at the top level
 jest.mock('fs', () => ({
@@ -6,6 +7,9 @@ jest.mock('fs', () => ({
     writeFile: jest.fn().mockResolvedValue(),
     stat: jest.fn().mockResolvedValue({ size: 123 }),
   },
+  statSync: jest.fn(),
+  accessSync: jest.fn(),
+  constants: { W_OK: 2 },
 }));
 jest.mock('pizzip');
 jest.mock('../src/db/db');
@@ -30,6 +34,9 @@ describe('backupManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    // clearAllMocks keeps implementations; reset the folder checks between tests.
+    require('fs').statSync.mockReset();
+    require('fs').accessSync.mockReset();
 
     backupManager = require('../src/main/backupManager');
     db = require('../src/db/db');
@@ -40,6 +47,60 @@ describe('backupManager', () => {
   afterEach(() => {
     backupManager.stopScheduler();
     jest.useRealTimers();
+  });
+
+  describe('validateBackupPath (SEC-018)', () => {
+    const fsSync = require('fs');
+    const aDirectory = { isDirectory: () => true };
+    const absolute = path.resolve('/backups/branch');
+
+    beforeEach(() => {
+      fsSync.statSync.mockReturnValue(aDirectory);
+      fsSync.accessSync.mockReturnValue(undefined);
+    });
+
+    it('accepts an existing, writable, absolute folder', () => {
+      expect(backupManager.validateBackupPath(absolute)).toEqual({ valid: true, path: absolute });
+      expect(fsSync.accessSync).toHaveBeenCalledWith(absolute, fsSync.constants.W_OK);
+    });
+
+    it.each([
+      ['an empty path', '', 'مسار النسخ الاحتياطي غير محدد.'],
+      ['no path', undefined, 'مسار النسخ الاحتياطي غير محدد.'],
+      ['a NUL character', `${absolute}\0x`, 'مسار النسخ الاحتياطي يحتوي على أحرف غير صالحة.'],
+      ['a relative path', 'backups/branch', 'مسار النسخ الاحتياطي يجب أن يكون مساراً كاملاً.'],
+    ])('rejects %s without touching the disk', (_label, dirPath, message) => {
+      expect(backupManager.validateBackupPath(dirPath)).toEqual({ valid: false, message });
+      expect(fsSync.statSync).not.toHaveBeenCalled();
+    });
+
+    it('rejects a folder that does not exist', () => {
+      fsSync.statSync.mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+      expect(backupManager.validateBackupPath(absolute)).toEqual({
+        valid: false,
+        message: 'مجلد النسخ الاحتياطي غير موجود.',
+      });
+    });
+
+    it('rejects a path that is a file', () => {
+      fsSync.statSync.mockReturnValue({ isDirectory: () => false });
+      expect(backupManager.validateBackupPath(absolute)).toEqual({
+        valid: false,
+        message: 'مجلد النسخ الاحتياطي غير موجود.',
+      });
+    });
+
+    it('rejects a folder it cannot write to', () => {
+      fsSync.accessSync.mockImplementation(() => {
+        throw Object.assign(new Error('EACCES'), { code: 'EACCES' });
+      });
+      expect(backupManager.validateBackupPath(absolute)).toEqual({
+        valid: false,
+        message: 'مجلد النسخ الاحتياطي غير قابل للكتابة.',
+      });
+    });
   });
 
   describe('runBackup', () => {
@@ -113,6 +174,44 @@ describe('backupManager', () => {
     it('should not start when backup is disabled', () => {
       backupManager.startScheduler({ backup_enabled: false });
       expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('does not start with an invalid backup folder, and says why', () => {
+      const { error: logError } = require('../src/main/logger');
+      backupManager.startScheduler({
+        backup_enabled: true,
+        backup_frequency: 'daily',
+        backup_path: 'backups/branch',
+      });
+
+      expect(jest.getTimerCount()).toBe(0);
+      expect(logError).toHaveBeenCalledWith(
+        'Backup scheduler not started: مسار النسخ الاحتياطي يجب أن يكون مساراً كاملاً.',
+      );
+    });
+
+    it('skips a due backup when the folder has become unusable', async () => {
+      const fsSync = require('fs');
+      const { error: logError } = require('../src/main/logger');
+      fsSync.statSync.mockReturnValue({ isDirectory: () => true });
+      mockStore.get.mockReturnValue(null); // never backed up: due
+      backupManager.startScheduler({
+        backup_enabled: true,
+        backup_frequency: 'daily',
+        backup_path: path.resolve('/backups/branch'),
+      });
+      expect(jest.getTimerCount()).toBe(1);
+
+      fsSync.statSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+      await jest.advanceTimersByTimeAsync(1000 * 60 * 60);
+
+      expect(logError).toHaveBeenCalledWith(
+        'Scheduled backup skipped: مجلد النسخ الاحتياطي غير موجود.',
+      );
+      const { promises } = require('fs');
+      expect(promises.writeFile).not.toHaveBeenCalled();
     });
 
     it('should report a due backup that has no backup folder', async () => {

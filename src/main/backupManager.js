@@ -12,6 +12,38 @@ const schema = require('../db/schema');
 const store = new Store();
 
 /**
+ * Validates the backup directory path.
+ * @param {string} dirPath - The directory path to validate.
+ * @returns {{valid: boolean, path?: string, message?: string}} Validation result.
+ */
+function validateBackupPath(dirPath) {
+  if (typeof dirPath !== 'string' || dirPath.length === 0) {
+    return { valid: false, message: 'مسار النسخ الاحتياطي غير محدد.' };
+  }
+  if (dirPath.includes('\0')) {
+    return { valid: false, message: 'مسار النسخ الاحتياطي يحتوي على أحرف غير صالحة.' };
+  }
+  if (!path.isAbsolute(dirPath)) {
+    return { valid: false, message: 'مسار النسخ الاحتياطي يجب أن يكون مساراً كاملاً.' };
+  }
+  let stat;
+  try {
+    stat = fsSync.statSync(dirPath);
+  } catch (err) {
+    return { valid: false, message: 'مجلد النسخ الاحتياطي غير موجود.' };
+  }
+  if (!stat.isDirectory()) {
+    return { valid: false, message: 'مجلد النسخ الاحتياطي غير موجود.' };
+  }
+  try {
+    fsSync.accessSync(dirPath, fsSync.constants.W_OK);
+  } catch (err) {
+    return { valid: false, message: 'مجلد النسخ الاحتياطي غير قابل للكتابة.' };
+  }
+  return { valid: true, path: path.resolve(dirPath) };
+}
+
+/**
  * Encrypts a buffer using AES-256-GCM with PBKDF2 key derivation (100k iterations).
  * Format: salt(16) || iv(12) || authTag(16) || ciphertext
  * @param {Buffer} buffer
@@ -302,6 +334,14 @@ const startScheduler = (settings) => {
     return;
   }
 
+  if (settings.backup_path) {
+    const validation = validateBackupPath(settings.backup_path);
+    if (!validation.valid) {
+      logError(`Backup scheduler not started: ${validation.message}`);
+      return;
+    }
+  }
+
   log(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
 
   schedulerIntervalId = setInterval(
@@ -309,8 +349,13 @@ const startScheduler = (settings) => {
       if (settings.backup_enabled && isBackupDue(settings)) {
         log('Scheduled backup is due. Running now...');
         if (settings.backup_path) {
+          const validation = validateBackupPath(settings.backup_path);
+          if (!validation.valid) {
+            logError(`Scheduled backup skipped: ${validation.message}`);
+            return;
+          }
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const backupFilePath = path.join(settings.backup_path, `auto-backup-${timestamp}.qdb`);
+          const backupFilePath = path.join(validation.path, `auto-backup-${timestamp}.qdb`);
           await runBackup(settings, backupFilePath);
         } else {
           logError('Scheduled backup failed: No backup path configured.');
@@ -341,4 +386,5 @@ module.exports = {
   decryptBackup,
   generateSignature,
   verifySignature,
+  validateBackupPath,
 };
