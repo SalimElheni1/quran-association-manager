@@ -11,7 +11,9 @@ function registerGroupHandlers() {
     try {
       let query = `
         SELECT g.*,
-               (SELECT COUNT(*) FROM student_groups sg WHERE sg.group_id = g.id) AS studentCount
+               (SELECT COUNT(*) FROM student_groups sg
+                JOIN students s ON s.id = sg.student_id
+                WHERE sg.group_id = g.id AND s.deleted_at IS NULL) AS studentCount
         FROM groups g
       `;
       const params = [];
@@ -295,7 +297,9 @@ function registerGroupHandlers() {
 
       const query = `
         SELECT g.*,
-               (SELECT COUNT(*) FROM student_groups sg WHERE sg.group_id = g.id) AS studentCount
+               (SELECT COUNT(*) FROM student_groups sg
+                JOIN students s ON s.id = sg.student_id
+                WHERE sg.group_id = g.id AND s.deleted_at IS NULL) AS studentCount
         FROM groups g ${categoryCondition ? `${categoryCondition} AND` : 'WHERE'} g.deleted_at IS NULL
         ORDER BY g.name ASC
       `;
