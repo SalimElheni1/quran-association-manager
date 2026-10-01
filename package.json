@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "seed:manual": "electron scripts/manual-seeder.js",
     "test": "jest",
+    "test:db": "ELECTRON_RUN_AS_NODE=1 electron node_modules/jest/bin/jest.js --selectProjects db-integration",
     "postinstall": "electron-builder install-app-deps",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:report": "playwright show-report",
