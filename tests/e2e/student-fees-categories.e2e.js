@@ -51,9 +51,16 @@ async function openFeesTab(page) {
   await page.getByRole('tab', { name: 'رسوم الطلاب' }).click();
 }
 
-async function generateCharges(page) {
+async function generateCharges(page, { force = false } = {}) {
   await openFeesTab(page);
   await page.locator('.tab-pane.active').getByRole('button', { name: 'توليد الرسوم' }).click();
+  if (force) {
+    // The checkbox has no id, so its label is not linked to it.
+    await modal(page)
+      .locator('.form-check', { hasText: 'إعادة التوليد حتى لو كانت الرسوم موجودة مسبقاً' })
+      .locator('input[type="checkbox"]')
+      .check();
+  }
   await modal(page).getByRole('button', { name: 'توليد الرسوم' }).click();
   await expectToast(page, 'success', 'تم إنشاء جميع الرسوم بنجاح');
   await expectNoModal(page);
@@ -170,5 +177,40 @@ test.describe('student fee categories', () => {
       status: 'غير مدفوع',
     });
     await expectFeeRow(page, paid, { due: oldFull, paid: oldFull, remaining: 0, status: 'مدفوع' });
+  });
+
+  test("forced regeneration rebills this month's unpaid charge at the current fee", async ({
+    authedPage: page,
+  }) => {
+    const student = 'منى بنت الحبيب الرياحي';
+    await addStudent(page, student);
+    await generateCharges(page);
+    const oldFull = ANNUAL_FEE + MONTHLY_FEE;
+    await expectFeeRow(page, student, {
+      due: oldFull,
+      paid: 0,
+      remaining: oldFull,
+      status: 'غير مدفوع',
+    });
+
+    const newMonthly = 35;
+    await setFees(page, { annual: ANNUAL_FEE, monthly: newMonthly });
+    // Without the option, an existing month is left as it is.
+    await generateCharges(page);
+    await expectFeeRow(page, student, {
+      due: oldFull,
+      paid: 0,
+      remaining: oldFull,
+      status: 'غير مدفوع',
+    });
+
+    await generateCharges(page, { force: true });
+    const newFull = ANNUAL_FEE + newMonthly;
+    await expectFeeRow(page, student, {
+      due: newFull,
+      paid: 0,
+      remaining: newFull,
+      status: 'غير مدفوع',
+    });
   });
 });
