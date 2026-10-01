@@ -417,14 +417,33 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toContain('بيانات غير صالحة');
     });
 
+    it('rejects a new password that contains the account username', async () => {
+      passwordUpdateValidationSchema.validateAsync.mockImplementation(async (data) => data);
+      db.getQuery.mockResolvedValue({ username: 'mourad', password: 'hash' });
+      bcrypt.compare.mockResolvedValue(true);
+
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
+        passwordData: { current_password: 'old', new_password: 'Mourad#Branch2026' },
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: false,
+          message: 'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
+        }),
+      );
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(db.runQuery).not.toHaveBeenCalled();
+    });
+
     it('should handle database errors', async () => {
-      db.getQuery.mockResolvedValue({ password: 'hash' });
+      db.getQuery.mockResolvedValue({ username: 'mourad', password: 'hash' });
       bcrypt.compare.mockResolvedValue(true);
       bcrypt.hash.mockResolvedValue('newhash');
       db.runQuery.mockRejectedValue(new Error('DB error'));
 
       const result = await handlers['auth:updatePassword'](sessionEvent, {
-        passwordData: { current_password: 'old', new_password: 'new' },
+        passwordData: { current_password: 'old', new_password: 'Zitouna#Fes2026' },
       });
 
       expect(result.success).toBe(false);

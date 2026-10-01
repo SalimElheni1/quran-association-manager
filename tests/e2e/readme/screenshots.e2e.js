@@ -12,7 +12,7 @@ const { test, expect, launchApp, login, dismissOnboarding, navigate } = require(
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const DATA = path.join(ROOT, 'e2e-artifacts', 'realworld', '02-continue', 'app-data');
 const OUT = path.join(ROOT, 'docs', 'screenshots');
-const ADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
+const ADMIN = { username: 'e2eadmin', password: 'Zitouna#Test-2026' };
 const SIZE = { width: 1440, height: 900 };
 
 const activePane = (page) => page.locator('.tab-pane.active');

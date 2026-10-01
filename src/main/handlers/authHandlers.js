@@ -9,6 +9,7 @@ const {
   passwordUpdateValidationSchema,
 } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
+const { checkPassword, passwordPolicyValidator, JOI_RULE_MESSAGES } = require('../passwordPolicy');
 const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const { error: logError } = require('../logger');
@@ -47,7 +48,10 @@ const clearLoginLockout = () => {
 const profileUpdateValidationSchema = userUpdateValidationSchema
   .keys({
     current_password: Joi.string().allow(null, ''),
-    new_password: Joi.string().min(6).allow(null, ''),
+    new_password: Joi.string()
+      .custom(passwordPolicyValidator)
+      .allow(null, '')
+      .messages({ ...JOI_RULE_MESSAGES }),
     confirm_new_password: Joi.any()
       .valid(Joi.ref('new_password'))
       .when('new_password', {
@@ -137,13 +141,23 @@ const updateProfileHandler = async (userId, profileData) => {
   // A plain `password` key from the renderer is never stored; only a verified new_password is.
   delete validatedData.password;
   if (validatedData.new_password) {
-    const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+    const currentUser = await db.getQuery('SELECT username, password FROM users WHERE id = ?', [
+      userId,
+    ]);
     if (!currentUser) {
       throw new Error('User not found.');
     }
     const isMatch = await bcrypt.compare(validatedData.current_password, currentUser.password);
     if (!isMatch) {
       throw new Error('كلمة المرور الحالية غير صحيحة.');
+    }
+    // The schema's password rule has no username sibling here; check it against
+    // the account's (possibly just-renamed) username.
+    const policyError = checkPassword(validatedData.new_password, {
+      username: validatedData.username || currentUser.username,
+    });
+    if (policyError) {
+      throw new Error(policyError);
     }
     validatedData.password = await bcrypt.hash(validatedData.new_password, 10);
   }
@@ -184,13 +198,22 @@ const updatePasswordHandler = async (userId, passwordData) => {
     stripUnknown: true,
   });
 
-  const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+  const currentUser = await db.getQuery('SELECT username, password FROM users WHERE id = ?', [
+    userId,
+  ]);
   if (!currentUser) {
     throw new Error('User not found.');
   }
   const isMatch = await bcrypt.compare(validatedData.current_password, currentUser.password);
   if (!isMatch) {
     throw new Error('كلمة المرور الحالية غير صحيحة.');
+  }
+  // The Joi rule covers length/classes/common; the username rule needs the account.
+  const policyError = checkPassword(validatedData.new_password, {
+    username: currentUser.username,
+  });
+  if (policyError) {
+    throw new Error(policyError);
   }
   const hashedPassword = await bcrypt.hash(validatedData.new_password, 10);
 
@@ -211,10 +234,13 @@ const setupSuperadminValidationSchema = Joi.object({
       'string.min': 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل',
       'string.empty': 'اسم المستخدم مطلوب',
     }),
-  password: Joi.string().min(6).required().messages({
-    'string.min': 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
-    'string.empty': 'كلمة المرور مطلوبة',
-  }),
+  password: Joi.string()
+    .custom(passwordPolicyValidator)
+    .required()
+    .messages({
+      ...JOI_RULE_MESSAGES,
+      'string.empty': 'كلمة المرور مطلوبة',
+    }),
   confirm_password: Joi.any().valid(Joi.ref('password')).required().messages({
     'any.only': 'كلمتا المرور غير متطابقتين',
     'any.required': 'يجب تأكيد كلمة المرور',

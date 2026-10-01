@@ -10,7 +10,26 @@ const {
   SUPERADMIN,
 } = require('./fixtures');
 
-const NEW_PASSWORD = 'changed-pass-456';
+const NEW_PASSWORD = 'Qalam#Sousse-2026';
+
+/**
+ * Accounts made before the password policy may still use the legacy default '123456'. The app no
+ * longer lets anyone set it, so the test stores that hash directly in the main process.
+ */
+async function setStoredPassword(electronApp, username, plain) {
+  await electronApp.evaluate(
+    async ({ app }, { user, password }) => {
+      // Same module cache as the app, so this is the app's open database.
+      const { createRequire } = process.getBuiltinModule('module');
+      const load = createRequire(`${app.getAppPath()}/src/main/index.js`);
+      const db = load('../db/db');
+      const bcrypt = load('bcryptjs');
+      const hash = await bcrypt.hash(password, 10);
+      await db.runQuery('UPDATE users SET password = ? WHERE username = ?', [hash, user]);
+    },
+    { user: username, password: plain },
+  );
+}
 
 async function changePassword(page, { current, next, confirm = next }) {
   await navigate(page, 'ملفي الشخصي');
@@ -53,6 +72,25 @@ test.describe('profile password change', () => {
     await expectLoginAccepted(page, SUPERADMIN);
   });
 
+  test('a weak new password is refused with the rule, and the old one still works', async ({
+    authedPage: page,
+  }) => {
+    await changePassword(page, { current: SUPERADMIN.password, next: 'changed-pass-456' });
+    await expectToast(page, 'error', 'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.');
+
+    await logout(page);
+    await expectLoginAccepted(page, SUPERADMIN);
+  });
+
+  test('a common password is refused by the main process', async ({ authedPage: page }) => {
+    await changePassword(page, { current: SUPERADMIN.password, next: 'Password123!' });
+    await expectToast(page, 'error', 'كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.');
+
+    await logout(page);
+    await expectLoginRejected(page, { username: SUPERADMIN.username, password: 'Password123!' });
+    await expectLoginAccepted(page, SUPERADMIN);
+  });
+
   test('a mismatched confirmation is rejected and nothing changes', async ({
     authedPage: page,
   }) => {
@@ -73,8 +111,12 @@ test.describe('forced password change', () => {
   // Accounts still on the legacy default password '123456' must change it at login.
   const LEGACY = { username: 'legacyadmin', password: '123456' };
 
-  test('login with the legacy default password requires a new one', async ({ page }) => {
-    await setupSuperadmin(page, LEGACY);
+  test('login with the legacy default password requires a new one', async ({
+    page,
+    electronApp,
+  }) => {
+    await setupSuperadmin(page, { username: LEGACY.username, password: SUPERADMIN.password });
+    await setStoredPassword(electronApp, LEGACY.username, LEGACY.password);
 
     await login(page, LEGACY);
     await expect(page.getByRole('heading', { name: 'تغيير كلمة المرور' })).toBeVisible();

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { passwordPolicyValidator, JOI_RULE_MESSAGES } = require('./passwordPolicy');
 
 const studentValidationSchema = Joi.object({
   matricule: Joi.string()
@@ -141,11 +142,14 @@ const userValidationSchema = Joi.object({
     'string.empty': 'اسم المستخدم مطلوب',
     'any.required': 'اسم المستخدم مطلوب',
   }),
-  password: Joi.string().min(8).required().messages({
-    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-    'string.empty': 'كلمة المرور مطلوبة',
-    'any.required': 'كلمة المرور مطلوبة',
-  }),
+  password: Joi.string()
+    .custom(passwordPolicyValidator)
+    .required()
+    .messages({
+      ...JOI_RULE_MESSAGES,
+      'string.empty': 'كلمة المرور مطلوبة',
+      'any.required': 'كلمة المرور مطلوبة',
+    }),
   first_name: Joi.string().min(2).max(50).required().messages({
     'string.empty': 'الاسم الأول مطلوب',
     'any.required': 'الاسم الأول مطلوب',
@@ -192,9 +196,13 @@ const userValidationSchema = Joi.object({
 }).unknown(true);
 
 const userUpdateValidationSchema = userValidationSchema.keys({
-  password: Joi.string().min(8).allow(null, '').messages({
-    'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-  }),
+  // An empty password keeps the current one; a non-empty one must pass the policy.
+  password: Joi.string()
+    .custom(passwordPolicyValidator)
+    .allow(null, '')
+    .messages({
+      ...JOI_RULE_MESSAGES,
+    }),
   status: Joi.string().valid('active', 'inactive').required(),
   roles: Joi.array()
     .items(Joi.string().valid('Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'))
@@ -206,11 +214,14 @@ const passwordUpdateValidationSchema = Joi.object({
     'string.empty': 'كلمة المرور الحالية مطلوبة',
     'any.required': 'كلمة المرور الحالية مطلوبة',
   }),
-  new_password: Joi.string().min(6).required().messages({
-    'string.min': 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل',
-    'string.empty': 'كلمة المرور الجديدة مطلوبة',
-    'any.required': 'كلمة المرور الجديدة مطلوبة',
-  }),
+  new_password: Joi.string()
+    .custom(passwordPolicyValidator)
+    .required()
+    .messages({
+      ...JOI_RULE_MESSAGES,
+      'string.empty': 'كلمة المرور الجديدة مطلوبة',
+      'any.required': 'كلمة المرور الجديدة مطلوبة',
+    }),
   confirm_new_password: Joi.any().valid(Joi.ref('new_password')).required().messages({
     'any.only': 'كلمة المرور الجديدة غير متطابقة',
     'any.required': 'يجب تأكيد كلمة المرور الجديدة',

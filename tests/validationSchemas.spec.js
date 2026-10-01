@@ -160,7 +160,7 @@ describe('validationSchemas (real Joi)', () => {
   describe('userValidationSchema', () => {
     const user = {
       username: 'admin2',
-      password: 'longenough',
+      password: 'Zitouna#Fes2026',
       first_name: 'سالم',
       last_name: 'الحاني',
       roles: ['Administrator'],
@@ -185,9 +185,18 @@ describe('validationSchemas (real Joi)', () => {
       expect(userValidationSchema.validate({ ...user, roles: [] }).error).toBeDefined();
     });
 
-    it('requires a password of 8 characters and the national id', () => {
-      expect(messageOf(userValidationSchema, { ...user, password: 'short' })).toBe(
-        'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+    it('applies the password policy (SEC-010) and requires the national id', () => {
+      expect(messageOf(userValidationSchema, { ...user, password: 'Short#1a' })).toBe(
+        'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
+      );
+      expect(messageOf(userValidationSchema, { ...user, password: 'longenoughpassword1' })).toBe(
+        'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.',
+      );
+      expect(messageOf(userValidationSchema, { ...user, password: 'Password123!' })).toBe(
+        'كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.',
+      );
+      expect(messageOf(userValidationSchema, { ...user, password: 'Admin2#Branch99' })).toBe(
+        'يجب ألا تحتوي كلمة المرور على اسم المستخدم.',
       );
       expect(messageOf(userValidationSchema, omit(user, 'national_id'))).toBe(
         'رقم الهوية الوطنية (CIN) مطلوب',
@@ -215,6 +224,15 @@ describe('validationSchemas (real Joi)', () => {
       ).toBeUndefined();
     });
 
+    it('applies the password policy to a new password', () => {
+      expect(messageOf(userUpdateValidationSchema, { ...update, password: 'newpass' })).toBe(
+        'يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.',
+      );
+      expect(
+        userUpdateValidationSchema.validate({ ...update, password: 'Zitouna#Fes2026' }).error,
+      ).toBeUndefined();
+    });
+
     it('requires the account status', () => {
       expect(userUpdateValidationSchema.validate(omit(update, 'status')).error).toBeDefined();
       expect(
@@ -228,27 +246,34 @@ describe('validationSchemas (real Joi)', () => {
       expect(
         messageOf(passwordUpdateValidationSchema, {
           current_password: 'old',
-          new_password: 'newpass',
+          new_password: 'Zitouna#Fes2026',
           confirm_new_password: 'other',
         }),
       ).toBe('كلمة المرور الجديدة غير متطابقة');
       expect(
         passwordUpdateValidationSchema.validate({
           current_password: 'old',
-          new_password: 'newpass',
-          confirm_new_password: 'newpass',
+          new_password: 'Zitouna#Fes2026',
+          confirm_new_password: 'Zitouna#Fes2026',
         }).error,
       ).toBeUndefined();
     });
 
-    it('requires a new password of at least 6 characters', () => {
+    it('applies the password policy to the new password', () => {
       expect(
         messageOf(passwordUpdateValidationSchema, {
           current_password: 'old',
           new_password: '12345',
           confirm_new_password: '12345',
         }),
-      ).toBe('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');
+      ).toBe('يجب أن تتكون كلمة المرور من 12 حرفاً على الأقل.');
+      expect(
+        messageOf(passwordUpdateValidationSchema, {
+          current_password: 'old',
+          new_password: 'Bismillah@123',
+          confirm_new_password: 'Bismillah@123',
+        }),
+      ).toBe('كلمة المرور شائعة جداً، اختر كلمة مرور أخرى.');
     });
   });
 

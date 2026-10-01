@@ -4,6 +4,7 @@ import { useAuth } from '@renderer/contexts/AuthContext';
 import { error as logError } from '@renderer/utils/logger';
 import { Form, Button, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { checkPasswordRules, PASSWORD_RULES_HINT } from '@renderer/utils/passwordPolicy';
 import SuperadminSetupForm from '@renderer/components/SuperadminSetupForm';
 import '@renderer/styles/LoginPage.css';
 
@@ -95,8 +96,9 @@ function LoginPage({ needsSetup, onSetupComplete }) {
       setError('كلمتا المرور غير متطابقتين.');
       return;
     }
-    if (changePasswordData.next.length < 6) {
-      setError('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.');
+    const passwordError = checkPasswordRules(changePasswordData.next, { username });
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     setError('');
@@ -167,8 +169,9 @@ function LoginPage({ needsSetup, onSetupComplete }) {
                     onChange={(e) =>
                       setChangePasswordData((prev) => ({ ...prev, next: e.target.value }))
                     }
-                    placeholder="6 أحرف على الأقل"
+                    placeholder="12 حرفاً على الأقل"
                     label={null}
+                    helpText={PASSWORD_RULES_HINT}
                     required
                   />
                 </Form.Group>

@@ -205,7 +205,7 @@ const CLASSES = [
 const USERS = {
   finance: {
     username: 'amina',
-    password: 'finance-2026',
+    password: 'Amina#Ledger-2026',
     firstName: 'أمينة',
     lastName: 'المالية',
     nationalId: '08123456',
@@ -214,7 +214,7 @@ const USERS = {
   },
   supervisor: {
     username: 'karim',
-    password: 'session-2026',
+    password: 'Karim#Halaqa-2026',
     firstName: 'كريم',
     lastName: 'المشرف',
     nationalId: '08123457',
@@ -223,7 +223,7 @@ const USERS = {
   },
   admin: {
     username: 'hedi',
-    password: 'board-2026',
+    password: 'Hedi#Board-2026x',
     firstName: 'الهادي',
     lastName: 'الإداري',
     nationalId: '08123458',

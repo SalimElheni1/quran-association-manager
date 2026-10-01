@@ -32,7 +32,7 @@ const NEW_STUDENTS = [
 ];
 const EDITED_PHONE = '99123456';
 // The new computer's own first account. The restore must replace it with the branch's users.
-const TEMP_ADMIN = { username: 'newpcadmin', password: 'new-pc-pass-1' };
+const TEMP_ADMIN = { username: 'newpcadmin', password: 'NewPc#Branch-2026' };
 const CLASS_STATUS_LABELS = { pending: 'قيد الانتظار', active: 'نشط', completed: 'منتهي' };
 const NEW_EXPENSE_AMOUNT = 200;
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { checkPasswordRules, PASSWORD_RULES_HINT } from '@renderer/utils/passwordPolicy';
 import { error as logError } from '@renderer/utils/logger';
 import { toDateInputValue } from '@renderer/utils/dates';
 
@@ -76,6 +77,16 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // An empty password on edit keeps the current one.
+    if (formData.password) {
+      const passwordError = checkPasswordRules(formData.password, {
+        username: formData.username,
+      });
+      if (passwordError) {
+        toast.error(passwordError);
+        return;
+      }
+    }
     try {
       // Ensure roles array is not empty
       const dataToSubmit = {
@@ -141,7 +152,7 @@ function UserFormModal({ show, handleClose, onSaveSuccess, user }) {
                   كلمة المرور<span className="text-danger">*</span>
                 </>
               }
-              helpText={!isEditMode ? '(8 أحرف على الأقل)' : ''}
+              helpText={PASSWORD_RULES_HINT}
             />
           </Row>
 

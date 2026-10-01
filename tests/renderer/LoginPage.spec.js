@@ -112,19 +112,19 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
       target: { value: 'branch_admin' },
     });
-    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
-      target: { value: 'securePass123' },
+    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+      target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
-      target: { value: 'securePass123' },
+      target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
     await waitFor(() => {
       expect(mockElectronAPI.setupSuperadmin).toHaveBeenCalledWith({
         username: 'branch_admin',
-        password: 'securePass123',
-        confirm_password: 'securePass123',
+        password: 'Zitouna#Fes2026',
+        confirm_password: 'Zitouna#Fes2026',
       });
     });
 
@@ -142,11 +142,11 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
       target: { value: 'branch_admin' },
     });
-    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
-      target: { value: 'securePass123' },
+    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+      target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
-      target: { value: 'securePass123' },
+      target: { value: 'Zitouna#Fes2026' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
@@ -170,11 +170,11 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByPlaceholderText('أدخل كلمة المرور الحالية'), {
       target: { value: '123456' },
     });
-    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
-      target: { value: 'newSecurePass' },
+    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+      target: { value: 'Qalam#Sousse2026' },
     });
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور الجديدة'), {
-      target: { value: 'newSecurePass' },
+      target: { value: 'Qalam#Sousse2026' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'حفظ كلمة المرور' }));
 
@@ -182,12 +182,32 @@ describe('LoginPage', () => {
       expect(mockElectronAPI.updatePassword).toHaveBeenCalledWith({
         passwordData: {
           current_password: '123456',
-          new_password: 'newSecurePass',
-          confirm_new_password: 'newSecurePass',
+          new_password: 'Qalam#Sousse2026',
+          confirm_new_password: 'Qalam#Sousse2026',
         },
       });
     });
     expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+
+  it('refuses a weak superadmin password before calling the main process (SEC-010)', async () => {
+    renderLoginPage({ needsSetup: true });
+
+    fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
+      target: { value: 'branch_admin' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('12 حرفاً على الأقل'), {
+      target: { value: 'securepass123' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
+      target: { value: 'securepass123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
+
+    expect(
+      await screen.findByText('يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز.'),
+    ).toBeInTheDocument();
+    expect(mockElectronAPI.setupSuperadmin).not.toHaveBeenCalled();
   });
 
   it('should navigate normally when login does not require a password change', async () => {

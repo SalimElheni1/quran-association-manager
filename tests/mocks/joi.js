@@ -25,6 +25,7 @@ const chainable = {
   any: jest.fn().mockReturnThis(),
 
   allow: jest.fn().mockReturnThis(),
+  custom: jest.fn().mockReturnThis(),
   optional: jest.fn().mockReturnThis(),
   unknown: jest.fn().mockReturnThis(),
   valid: jest.fn().mockReturnThis(),

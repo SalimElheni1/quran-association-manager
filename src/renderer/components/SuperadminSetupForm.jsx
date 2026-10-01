@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, Card, Alert } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { checkPasswordRules, PASSWORD_RULES_HINT } from '@renderer/utils/passwordPolicy';
 
 /**
  * First-run superadmin setup form (SEC-04).
@@ -28,8 +29,9 @@ function SuperadminSetupForm({ onSuccess }) {
       setError('كلمتا المرور غير متطابقتين.');
       return;
     }
-    if (password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+    const passwordError = checkPasswordRules(password, { username });
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     setError('');
@@ -80,8 +82,9 @@ function SuperadminSetupForm({ onSuccess }) {
               name="setup-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="6 أحرف على الأقل"
+              placeholder="12 حرفاً على الأقل"
               label={null}
+              helpText={PASSWORD_RULES_HINT}
               required
             />
           </Form.Group>

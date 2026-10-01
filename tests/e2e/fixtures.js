@@ -7,7 +7,8 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_INDEX = path.join(ROOT, 'dist', 'renderer', 'index.html');
 
-const SUPERADMIN = { username: 'e2eadmin', password: 'e2e-pass-123' };
+// Meets the password policy (SEC-010): 12+ characters, upper, lower, digit and symbol.
+const SUPERADMIN = { username: 'e2eadmin', password: 'Zitouna#Test-2026' };
 
 /**
  * Launches the real Electron app against a fresh, throwaway userData directory.

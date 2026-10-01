@@ -291,7 +291,7 @@ test.describe('Dashboard home page', () => {
   }) => {
     const supervisor = {
       username: 'chartsupervisor',
-      password: 'supervisor-pass-1',
+      password: 'Walid#Watch-2026',
       firstName: 'وليد',
       lastName: 'المشرف',
       nationalId: '41234567',

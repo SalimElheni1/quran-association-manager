@@ -241,7 +241,7 @@ test.describe('soft delete', () => {
   test('a deleted user cannot log in until restored', async ({ authedPage: page }) => {
     const user = {
       username: 'softdeleted',
-      password: 'soft-pass-1',
+      password: 'Sami#Gone-2026x',
       firstName: 'سامي',
       lastName: 'المحذوف',
       nationalId: '42345678',

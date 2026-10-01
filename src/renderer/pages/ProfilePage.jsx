@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { checkPasswordRules, PASSWORD_RULES_HINT } from '@renderer/utils/passwordPolicy';
 import { toDateInputValue } from '@renderer/utils/dates';
 
 const ProfilePage = () => {
@@ -88,6 +89,13 @@ const ProfilePage = () => {
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
+    const passwordError = checkPasswordRules(passwordData.new_password, {
+      username: profile?.username,
+    });
+    if (passwordError) {
+      toast.error(passwordError);
+      return;
+    }
     setIsSubmittingPassword(true);
 
     try {
@@ -410,6 +418,7 @@ const ProfilePage = () => {
                           value={passwordData.new_password}
                           onChange={handlePasswordChange}
                           placeholder="أدخل كلمة المرور الجديدة"
+                          helpText={PASSWORD_RULES_HINT}
                           label={
                             <>
                               كلمة المرور الجديدة

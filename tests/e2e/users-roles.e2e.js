@@ -11,7 +11,7 @@ const {
 
 const FINANCE_USER = {
   username: 'financeuser',
-  password: 'finance-pass-1',
+  password: 'Sami#Ledger-2026',
   firstName: 'سامي',
   lastName: 'المالي',
   nationalId: '12345678',

@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const bcrypt = require('bcryptjs');
 const { userValidationSchema, userUpdateValidationSchema } = require('../validationSchemas');
+const { checkPassword } = require('../passwordPolicy');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
 const { requireRoles } = require('../authMiddleware');
@@ -231,6 +232,14 @@ function registerUserHandlers() {
           }
 
           if (validatedData.password) {
+            // The schema rule covers length/classes/common; the username rule needs
+            // the target account's username, which the payload may not carry (the
+            // edit form's username field is read-only).
+            const target = await db.getQuery('SELECT username FROM users WHERE id = ?', [id]);
+            const policyError = checkPassword(validatedData.password, {
+              username: target && target.username,
+            });
+            if (policyError) throw new Error(policyError);
             validatedData.password = bcrypt.hashSync(validatedData.password, 10);
           } else {
             // If password is empty (e.g. from frontend edit form), don't update it

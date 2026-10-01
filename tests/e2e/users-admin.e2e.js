@@ -16,7 +16,7 @@ const {
 
 const ADMIN_USER = {
   username: 'boardmember',
-  password: 'board-pass-1',
+  password: 'Hala#Board-2026',
   firstName: 'هالة',
   lastName: 'الإدارية',
   nationalId: '22345678',
@@ -25,7 +25,7 @@ const ADMIN_USER = {
 
 const SUPERVISOR_USER = {
   username: 'supervisor',
-  password: 'super-pass-1',
+  password: 'Nizar#Watch-2026',
   firstName: 'نزار',
   lastName: 'المشرف',
   nationalId: '32345678',
