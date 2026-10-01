@@ -4,7 +4,16 @@ const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const crypto = require('crypto');
 const schema = require('./schema');
-const { getDbKey, getDbSalt, validateHexKey } = require('../main/keyManager');
+const {
+  getDbKey,
+  getDbSalt,
+  validateHexKey,
+  generateDbKey,
+  getPendingDbKey,
+  setPendingDbKey,
+  promotePendingDbKey,
+  clearPendingDbKey,
+} = require('../main/keyManager');
 const { log, error: logError, warn: logWarn } = require('../main/logger');
 
 // --- Refactor: `db` is now a better-sqlite3 instance ---
@@ -136,6 +145,56 @@ function isDbEncrypted(filePath) {
 function applyKeyPragma(database, pragmaName, key) {
   validateHexKey(key);
   database.pragma(`${pragmaName} = '${key}'`);
+}
+
+/**
+ * Whether `key` opens the database file at `dbPath` (a separate, short-lived connection).
+ * @returns {boolean}
+ */
+function openWithKey(dbPath, key) {
+  let probe;
+  try {
+    probe = new Database(dbPath, { fileMustExist: true });
+    applyKeyPragma(probe, 'key', key);
+    probe.prepare('SELECT count(*) FROM sqlite_master').get();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (probe) probe.close();
+  }
+}
+
+/**
+ * SEC-017: re-encrypts the open database with a new random key.
+ * Crash-safe order: the new key is stored as pending, the file is re-keyed (SQLite3MultipleCiphers
+ * cannot re-key in WAL mode, so the journal is switched to DELETE for the duration), the new key
+ * is verified with a second connection, and only then becomes the live key. initializeDatabase
+ * finishes or discards a rotation that was interrupted.
+ * Callers must make sure backups do not depend on the old key (the association transfer key is
+ * set) and must re-derive the JWT secret and end every session afterwards.
+ * @returns {Promise<void>}
+ */
+async function rotateDatabaseKey() {
+  if (!db || !db.open) throw new Error('Database is not open.');
+  const dbPath = getDatabasePath();
+  const newKey = generateDbKey();
+  setPendingDbKey(newKey);
+  try {
+    db.pragma('journal_mode = DELETE');
+    applyKeyPragma(db, 'rekey', newKey);
+  } catch (rekeyError) {
+    clearPendingDbKey();
+    db.pragma('journal_mode = WAL');
+    throw rekeyError;
+  }
+  if (!openWithKey(dbPath, newKey)) {
+    // The file may already use the new key: keep it pending so the next start can recover.
+    throw new Error('The database could not be opened with the new key after re-keying.');
+  }
+  promotePendingDbKey();
+  db.pragma('journal_mode = WAL');
+  log('[DB_LOG] Database encryption key rotated.');
 }
 
 /**
@@ -292,8 +351,17 @@ async function initializeDatabase() {
     try {
       db.prepare('SELECT count(*) FROM sqlite_master').get();
     } catch (keyErr) {
-      // If this fails, it might be incorrect password or corrupt.
-      if (keyErr.code === 'SQLITE_NOTADB') {
+      // A key rotation that stopped after re-keying the file but before promoting the new
+      // key (SEC-017): the pending key opens the database; make it the live key.
+      const pendingKey = keyErr.code === 'SQLITE_NOTADB' ? getPendingDbKey() : null;
+      if (pendingKey && openWithKey(dbPath, pendingKey)) {
+        log('[DB_LOG] Opened with the pending rotated key; finishing the key rotation.');
+        db.close();
+        db = new Database(dbPath, { verbose: null });
+        applyKeyPragma(db, 'key', pendingKey);
+        promotePendingDbKey();
+      } else if (keyErr.code === 'SQLITE_NOTADB') {
+        // If this fails, it might be incorrect password or corrupt.
         log('[DB_LOG] Standard open failed (NOTADB). Attempting legacy compatibility mode (v3)...');
         try {
           db.close();
@@ -327,6 +395,10 @@ async function initializeDatabase() {
     }
 
     log('[DB_LOG] Database connection object created and key verified.');
+    // A pending key left by a rotation that stopped before re-keying was never applied.
+    if (getPendingDbKey() && !openWithKey(dbPath, getPendingDbKey())) {
+      clearPendingDbKey();
+    }
 
     // PRAGMAs
     db.pragma('journal_mode = WAL');
@@ -509,4 +581,5 @@ module.exports = {
   withTransaction,
   hasSuperadmin,
   createSuperadminUser,
+  rotateDatabaseKey,
 };

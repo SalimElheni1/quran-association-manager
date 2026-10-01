@@ -35,6 +35,8 @@ const SettingsPage = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showRotateKeyModal, setShowRotateKeyModal] = useState(false);
+  const [isRotatingKey, setIsRotatingKey] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
   useEffect(() => {
@@ -172,6 +174,26 @@ const SettingsPage = () => {
       toast.error(`حدث خطأ فادح: ${err.message}`);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  // SEC-017: re-encrypt the database with a new key. On success the main process ends every
+  // session and sends force-logout, so the user logs in again.
+  const handleRotateKeyConfirm = async (password) => {
+    setShowRotateKeyModal(false);
+    if (!password) return;
+    setIsRotatingKey(true);
+    try {
+      const result = await window.electronAPI.rotateDbKey({ password });
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error(`تعذر تغيير مفتاح التشفير: ${err.message}`);
+    } finally {
+      setIsRotatingKey(false);
     }
   };
 
@@ -582,6 +604,22 @@ const SettingsPage = () => {
                                 </span>
                               </div>
                             )}
+                            <div className="mt-3 border-top pt-3" data-section="db-key">
+                              <h6 className="mb-1">مفتاح تشفير قاعدة البيانات</h6>
+                              <p className="small text-muted mb-2">
+                                يعيد تشفير قاعدة البيانات بمفتاح جديد ويُنهي جميع الجلسات. يتطلب حفظ
+                                رمز النقل الموحد أولاً؛ النسخ الاحتياطية القديمة التي أُنشئت دون رمز
+                                النقل لن تعود قابلة للاسترجاع بعد التغيير.
+                              </p>
+                              <Button
+                                variant="outline-warning"
+                                size="sm"
+                                onClick={() => setShowRotateKeyModal(true)}
+                                disabled={isRotatingKey || isImporting || isBackingUp}
+                              >
+                                {isRotatingKey ? <Spinner size="sm" /> : 'تغيير مفتاح التشفير'}
+                              </Button>
+                            </div>
                           </Card.Body>
                         </Card>
                       </Col>
@@ -600,6 +638,13 @@ const SettingsPage = () => {
         </Col>
       </Row>
 
+      <PasswordPromptModal
+        show={showRotateKeyModal}
+        onHide={() => setShowRotateKeyModal(false)}
+        onConfirm={handleRotateKeyConfirm}
+        title="تأكيد تغيير مفتاح التشفير"
+        body="أدخل كلمة المرور الخاصة بك لإعادة تشفير قاعدة البيانات بمفتاح جديد. سيتم تسجيل خروج جميع المستخدمين."
+      />
       <PasswordPromptModal
         show={!!showPasswordModal}
         onHide={() => setShowPasswordModal(false)}

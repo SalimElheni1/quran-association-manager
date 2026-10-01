@@ -10,7 +10,9 @@ const backupManager = require('../backupManager');
 const { internalGetSettingsHandler } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
-const { getUserIdForEvent } = require('../sessionManager');
+const { getUserIdForEvent, revokeAllSessions } = require('../sessionManager');
+const { getJwtSecret } = require('../keyManager');
+const { requireRoles } = require('../authMiddleware');
 
 async function handleGetBackupReminderStatus() {
   try {
@@ -286,6 +288,51 @@ function registerSystemHandlers() {
       };
     }
   });
+
+  // SEC-017: re-encrypt the database with a new key. Backups made without the association
+  // transfer key are encrypted with the database key, so rotation is refused until that key is
+  // set (older machine-key backups will no longer restore after a rotation).
+  // Checked here as well as by the IPC guard's role matrix: this ends every session.
+  ipcMain.handle(
+    'db:rotate-key',
+    requireRoles(['Superadmin'])(async (event, { password } = {}) => {
+      const userId = getUserIdForEvent(event);
+      if (!password || !userId) {
+        return { success: false, message: 'بيانات المصادقة غير كاملة.' };
+      }
+      try {
+        const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+        if (!currentUser || !(await bcrypt.compare(password, currentUser.password))) {
+          return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
+        }
+        const { settings } = await internalGetSettingsHandler();
+        if (!settings?.association_transfer_key?.trim()) {
+          return {
+            success: false,
+            message:
+              'يجب تعيين رمز النقل الموحد للمؤسسة وحفظه قبل تغيير مفتاح التشفير، حتى تبقى النسخ الاحتياطية الجديدة قابلة للاسترجاع.',
+          };
+        }
+
+        await db.rotateDatabaseKey();
+        // The session secret is derived from the database key: re-derive it and end every
+        // session, so everyone logs in again with tokens signed by the new secret.
+        process.env.JWT_SECRET = getJwtSecret();
+        revokeAllSessions();
+        if (typeof event.sender?.send === 'function' && !event.sender.isDestroyed?.()) {
+          event.sender.send('force-logout');
+        }
+        log('Database encryption key rotated; all sessions ended.');
+        return {
+          success: true,
+          message: 'تم تغيير مفتاح تشفير قاعدة البيانات. يرجى تسجيل الدخول من جديد.',
+        };
+      } catch (error) {
+        logError('Database key rotation failed:', error);
+        return { success: false, message: `تعذر تغيير مفتاح التشفير: ${error.message}` };
+      }
+    }),
+  );
 
   ipcMain.handle('backup:get-reminder-status', handleGetBackupReminderStatus);
 

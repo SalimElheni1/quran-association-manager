@@ -248,6 +248,59 @@ function getSaltConfigPath() {
 }
 
 const HEX_KEY_PATTERN = /^[0-9a-f]{64}$/i;
+const PENDING_DB_KEY_NAME = 'db-encryption-key-pending';
+
+/**
+ * Generates a new database key: 32 random bytes as 64 hex characters.
+ * @returns {string}
+ */
+function generateDbKey() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Stores a key the same way getDbKey keeps the live one: encrypted with safeStorage when the
+// OS offers it, otherwise in plaintext in a file only this user can read.
+function storeKeyValue(name, keyHex) {
+  const store = getKeyStore();
+  if (isSecureStorageAvailable()) {
+    store.set(name, encryptKeyBlob(keyHex));
+  } else {
+    store.set(name, keyHex);
+    restrictKeyStorePermissions(store.path);
+  }
+}
+
+/**
+ * SEC-017: the key a rotation is moving the database to. It is stored before the database is
+ * re-keyed and promoted to the live key once the new key is verified, so a crash in between
+ * never leaves the app without the key that opens its database.
+ * @returns {string|null}
+ */
+function getPendingDbKey() {
+  const stored = getKeyStore().get(PENDING_DB_KEY_NAME);
+  if (!stored || typeof stored !== 'string') return null;
+  return stored.startsWith(BLOB_PREFIX) ? decryptKeyBlob(stored) : stored;
+}
+
+/** Stores the key a rotation is about to apply (see getPendingDbKey). */
+function setPendingDbKey(keyHex) {
+  storeKeyValue(PENDING_DB_KEY_NAME, validateHexKey(keyHex));
+}
+
+/** Makes the pending key the live database key and forgets the old one. */
+function promotePendingDbKey() {
+  const pending = getPendingDbKey();
+  if (!pending) return false;
+  storeKeyValue(DB_KEY_NAME, validateHexKey(pending));
+  getKeyStore().delete(PENDING_DB_KEY_NAME);
+  log('The rotated database key is now the live key.');
+  return true;
+}
+
+/** Drops a pending key that was never applied to the database. */
+function clearPendingDbKey() {
+  getKeyStore().delete(PENDING_DB_KEY_NAME);
+}
 
 /**
  * Checks that a database key is the 64-character hex string this app generates (32 random
@@ -284,4 +337,9 @@ module.exports = {
   getSaltConfigPath,
   getJwtSecret,
   validateHexKey,
+  generateDbKey,
+  getPendingDbKey,
+  setPendingDbKey,
+  promotePendingDbKey,
+  clearPendingDbKey,
 };
