@@ -16,7 +16,7 @@
  * @requires electron-store - Persistent settings storage
  */
 
-const { app, BrowserWindow, ipcMain, Menu, protocol, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, dialog, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -75,6 +75,7 @@ if (app.isPackaged) {
 // =================================================================================
 const Store = require('electron-store');
 const { log, error: logError, initializeLogFile } = require('./logger');
+const { installNavigationGuard } = require('./navigationGuard');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
@@ -150,6 +151,7 @@ const createWindow = () => {
       preload: path.join(__dirname, 'preload.js'), // Secure IPC bridge
       nodeIntegration: false, // CRITICAL: Security - no Node.js in renderer
       contextIsolation: true, // CRITICAL: Security - isolate contexts
+      webviewTag: false, // CRITICAL: Security - disable webview tag
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
@@ -158,6 +160,13 @@ const createWindow = () => {
   const windowWebContentsId = mainWindow.webContents.id;
   mainWindow.on('closed', () => {
     sessionManager.revokeSession(windowWebContentsId);
+  });
+
+  installNavigationGuard(mainWindow.webContents, {
+    shell,
+    isPackaged: app.isPackaged,
+    isE2E,
+    log,
   });
 
   mainWindow.once('ready-to-show', () => {

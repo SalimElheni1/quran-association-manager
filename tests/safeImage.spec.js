@@ -46,6 +46,7 @@ const mockBrowserWindowInstance = {
     openDevTools: jest.fn(),
     send: jest.fn(),
     on: jest.fn(),
+    setWindowOpenHandler: jest.fn(),
   },
 };
 const mockBrowserWindow = jest.fn(() => mockBrowserWindowInstance);

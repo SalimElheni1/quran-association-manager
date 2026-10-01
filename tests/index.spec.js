@@ -89,7 +89,13 @@ const mockWindow = {
   loadFile: jest.fn(),
   on: jest.fn(),
   once: jest.fn(),
-  webContents: { id: 11, openDevTools: jest.fn(), send: jest.fn(), on: jest.fn() },
+  webContents: {
+    id: 11,
+    openDevTools: jest.fn(),
+    send: jest.fn(),
+    on: jest.fn(),
+    setWindowOpenHandler: jest.fn(),
+  },
 };
 const mockBrowserWindow = jest.fn(() => mockWindow);
 mockBrowserWindow.getAllWindows = jest.fn(() => []);
@@ -200,10 +206,13 @@ describe('Main Process (index.js)', () => {
           webPreferences: expect.objectContaining({
             nodeIntegration: false,
             contextIsolation: true,
+            webviewTag: false,
           }),
         }),
       );
       expect(mockWindow.loadURL).toHaveBeenCalledWith('http://localhost:3000');
+      expect(mockWindow.webContents.setWindowOpenHandler).toHaveBeenCalled();
+      expect(mockWindow.webContents.on).toHaveBeenCalledWith('will-navigate', expect.any(Function));
       expect(handler('get-is-packaged')).toBeDefined();
       expect(mockApp.quit).not.toHaveBeenCalled();
     });

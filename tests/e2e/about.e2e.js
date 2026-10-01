@@ -43,4 +43,26 @@ test.describe('About page (حول التطبيق)', () => {
     await expect(page.getByText('تواصل مع المطور')).toBeVisible();
     await expect(page.getByText('سليم الهاني')).toBeVisible();
   });
+
+  test('external support links open in the system browser, never inside Electron', async ({
+    authedPage: page,
+    electronApp,
+  }) => {
+    await electronApp.evaluate(({ shell }) => {
+      global.__opened = [];
+      shell.openExternal = async (u) => {
+        global.__opened.push(u);
+      };
+    });
+
+    await navigate(page, 'حول التطبيق');
+    await page.getByRole('tab', { name: 'الدعم والمساهمة' }).click();
+    await page.getByRole('link', { name: 'GitHub' }).click();
+
+    // openExternal is called from the main process's window-open handler, after the click.
+    await expect
+      .poll(() => electronApp.evaluate(() => global.__opened))
+      .toContain('https://github.com/SalimElheni1');
+    expect(electronApp.windows()).toHaveLength(1);
+  });
 });
