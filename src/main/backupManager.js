@@ -228,6 +228,8 @@ const runBackup = async (settings, backupFilePath, userPassword) => {
       success: true,
       message,
       timestamp: new Date().toISOString(),
+      // Shown on the backup tab so staff know where the file went.
+      filePath: backupFilePath,
     });
     log(message, `Path: ${backupFilePath}`);
 

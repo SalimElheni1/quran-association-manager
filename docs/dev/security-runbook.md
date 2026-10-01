@@ -29,10 +29,10 @@ Scenario: the original office computer is lost, stolen, or broken. You have a `.
 2. Launch the app. Complete the first-run setup with a **temporary** superadmin account (any strong password).
 3. Log in as that temporary superadmin.
 4. Open **الإعدادات** → tab **النسخ الاحتياطي**.
-5. Click **استيراد قاعدة بيانات محلية** (Import Local Database) and select the `.qdb` backup file.
+5. In the section **استرجاع نسخة احتياطية**, click **استرجاع من نسخة احتياطية...** (Restore from a backup) and select the `.qdb` backup file.
 6. A dialog **الخطوة الأخيرة: تأكيد الهوية** appears:
    - Password field («أدخل كلمة المرور الخاصة بك»): enter the password of the account you are **logged in with now** — the temporary superadmin. It confirms your identity on this computer.
-   - Backup code field («رمز النسخة الاحتياطية (اتركه فارغاً إذا كان غير مطلوب)»): enter the **association transfer key** that was set when the backup was made.
+   - Backup key field («رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)»): enter the **association transfer key** that was set when the backup was made.
    - Click **تأكيد** (Confirm).
 7. On success, a toast reads: «تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.» and the app restarts.
 8. The restored database replaces everything, including the user accounts: the temporary superadmin no longer exists. Log in with an account from the backup.

@@ -54,7 +54,7 @@ refused on restore.
 
 1. On the old computer, make sure the transfer key is set, then make a backup.
 2. Install the app on the new computer and create a superadmin.
-3. In **النسخ الاحتياطي**, use **«استيراد قاعدة بيانات محلية»**, choose the backup file, and
+3. In **النسخ الاحتياطي**, use **«استرجاع من نسخة احتياطية...»**, choose the backup file, and
    enter your password and the transfer key («رمز النسخة الاحتياطية») when asked. The app
    restarts on the restored data, which brings its own users, so log in with an account from
    the old computer afterwards.

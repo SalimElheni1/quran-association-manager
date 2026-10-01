@@ -243,14 +243,14 @@ async function restoreHandoff() {
 
   await navigate(page, 'الإعدادات');
   await openTab(page, 'النسخ الاحتياطي');
-  await activePane(page).getByRole('button', { name: 'استيراد قاعدة بيانات محلية' }).click();
+  await activePane(page).getByRole('button', { name: 'استرجاع من نسخة احتياطية...' }).click();
 
   await expect(modal(page).locator('.modal-title')).toHaveText('الخطوة الأخيرة: تأكيد الهوية');
   await modal(page)
     .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
     .fill(TEMP_ADMIN.password);
   await modal(page)
-    .locator('input[placeholder="رمز النسخة الاحتياطية (اتركه فارغاً إذا كان غير مطلوب)"]')
+    .locator('input[placeholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)"]')
     .fill(manifest.transferKey);
   await modal(page).getByRole('button', { name: 'تأكيد' }).click();
 

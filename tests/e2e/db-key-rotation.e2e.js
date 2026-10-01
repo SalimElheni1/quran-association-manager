@@ -42,6 +42,8 @@ async function addStudent(page, name) {
 async function rotateKey(page, password) {
   await navigate(page, 'الإعدادات');
   await openTab(page, 'النسخ الاحتياطي');
+  // Key rotation sits in the collapsed «إعدادات متقدمة» section.
+  await activePane(page).getByRole('button', { name: 'إعدادات متقدمة' }).click();
   await activePane(page).getByRole('button', { name: 'تغيير مفتاح التشفير' }).click();
   await expect(modal(page).locator('.modal-title')).toHaveText('تأكيد تغيير مفتاح التشفير');
   await modal(page).locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]').fill(password);

@@ -9,6 +9,7 @@ const PasswordPromptModal = ({
   title,
   body,
   showBackupKeyField = false,
+  backupKeyPlaceholder = 'رمز النسخة الاحتياطية (اتركه فارغاً إذا كان غير مطلوب)',
 }) => {
   const [password, setPassword] = useState('');
   const [backupKey, setBackupKey] = useState('');
@@ -46,7 +47,7 @@ const PasswordPromptModal = ({
               type="password"
               value={backupKey}
               onChange={(e) => setBackupKey(e.target.value)}
-              placeholder="رمز النسخة الاحتياطية (اتركه فارغاً إذا كان غير مطلوب)"
+              placeholder={backupKeyPlaceholder}
             />
           )}
         </Form>

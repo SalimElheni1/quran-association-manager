@@ -14,14 +14,19 @@ import {
   Tab,
   InputGroup,
   Image,
+  Accordion,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
+import PasswordInput from '@renderer/components/PasswordInput';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 
 const MISSING_TRANSFER_KEY_WARNING =
-  'لم يتم تعيين رمز النقل: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز. أدخل رمز النقل واضغط «حفظ جميع التغييرات» قبل إنشاء النسخة الاحتياطية.';
+  'لم يتم تعيين رمز النقل: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز. أدخل الرمز واضغط «حفظ الرمز» قبل إنشاء النسخة الاحتياطية.';
+
+// The association transfer key, named for what it does for the user.
+const BACKUP_KEY_LABEL = 'رمز حماية النسخ الاحتياطية (رمز النقل)';
 
 const SettingsPage = () => {
   const { state } = useLocation();
@@ -90,18 +95,12 @@ const SettingsPage = () => {
     }
   };
 
-  const handleDirectorySelect = async (fieldName) => {
-    const response = await window.electronAPI.openDirectoryDialog();
-    if (response.success) {
-      setSettings({ ...settings, [fieldName]: response.path });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Saves the settings now (all tabs). The backup tab's own buttons use it so staff do not have
+  // to find «حفظ جميع التغييرات» at the bottom of the page.
+  const saveSettings = async (nextSettings = settings) => {
     setIsSubmitting(true);
     try {
-      const filteredSettings = { ...settings };
+      const filteredSettings = { ...nextSettings };
       delete filteredSettings.adultAgeThreshold;
       delete filteredSettings.adult_age_threshold;
       const response = await window.electronAPI.updateSettings(filteredSettings);
@@ -115,6 +114,21 @@ const SettingsPage = () => {
       toast.error(err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await saveSettings();
+  };
+
+  // Choosing the backup folder saves it right away.
+  const handleDirectorySelect = async (fieldName) => {
+    const response = await window.electronAPI.openDirectoryDialog();
+    if (response.success) {
+      const nextSettings = { ...settings, [fieldName]: response.path };
+      setSettings(nextSettings);
+      await saveSettings(nextSettings);
     }
   };
 
@@ -485,145 +499,219 @@ const SettingsPage = () => {
                   </Tab>
 
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
-                    <Row className="g-4">
-                      {/* Local Backup Section */}
-                      <Col md={12}>
-                        <Card className="shadow-sm border">
-                          <Card.Body>
-                            <div className="d-flex align-items-center mb-3 text-primary border-bottom pb-2">
-                              <h5 className="mb-0">النسخ الاحتياطي المحلي</h5>
-                            </div>
-                            <Form.Group className="mb-3">
-                              <Form.Label className="small text-muted">
-                                مسار حفظ النسخ الاحتياطي
-                              </Form.Label>
-                              <InputGroup size="sm">
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => handleDirectorySelect('backup_path')}
-                                >
-                                  اختيار...
-                                </Button>
-                                <Form.Control
-                                  type="text"
-                                  value={settings.backup_path || ''}
-                                  readOnly
-                                />
-                              </InputGroup>
-                            </Form.Group>
-                            <Form.Group className="mb-3">
-                              <Form.Label className="small">
-                                رمز النقل الموحد للمؤسسة (Association Transfer Key)
-                              </Form.Label>
-                              <Form.Control
-                                size="sm"
-                                type="text"
-                                name="association_transfer_key"
-                                placeholder="أدخل رمز النقل المشترك لتبادل قواعد البيانات بين أجهزة الجمعية"
-                                value={settings.association_transfer_key || ''}
-                                onChange={handleChange}
-                              />
-                              <Form.Text className="text-muted small">
-                                يُستخدم هذا الرمز لفك تشفير وتأمين النسخ الاحتياطية المتبادلة بين
-                                أجهزة الجمعية.
-                              </Form.Text>
-                              {/* Without a transfer key, backups are encrypted with this machine's own
-                                  database key and cannot be restored anywhere else. */}
-                              {!settings.association_transfer_key?.trim() && (
-                                <Alert variant="warning" className="small mt-2 mb-0">
-                                  {MISSING_TRANSFER_KEY_WARNING}
-                                </Alert>
-                              )}
-                            </Form.Group>
-                            <Form.Check
-                              type="switch"
-                              label="تفعيل النسخ التلقائي"
-                              name="backup_enabled"
-                              checked={settings.backup_enabled || false}
-                              onChange={handleChange}
-                              disabled={!settings.backup_path}
-                              className="mb-3"
+                    {/* 1. The association transfer key: set it before the first backup */}
+                    <Card className="shadow-sm border mb-4" data-section="backup-key">
+                      <Card.Body>
+                        <h5 className="text-primary border-bottom pb-2 mb-2">{BACKUP_KEY_LABEL}</h5>
+                        <p className="small text-muted">
+                          رمز سرّي مشترك بين أجهزة الجمعية. تُشفَّر به النسخ الاحتياطية، فيمكن
+                          استرجاعها على أي جهاز يعرف الرمز — مثلاً عند تعطّل هذا الجهاز. اكتبه
+                          واحفظه في مكان آمن: بدونه لا يمكن استرجاع النسخ على جهاز آخر.
+                        </p>
+                        <PasswordInput
+                          name="association_transfer_key"
+                          value={settings.association_transfer_key || ''}
+                          onChange={handleChange}
+                          placeholder="أدخل نفس الرمز المستعمل في أجهزة الجمعية الأخرى"
+                          label={null}
+                          className="mb-2"
+                          autoComplete="off"
+                        />
+                        {!settings.association_transfer_key?.trim() && (
+                          <Alert variant="warning" className="small mb-2">
+                            {MISSING_TRANSFER_KEY_WARNING}
+                          </Alert>
+                        )}
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => saveSettings()}
+                          disabled={isSubmitting}
+                        >
+                          حفظ الرمز
+                        </Button>
+                      </Card.Body>
+                    </Card>
+
+                    {/* 2. Making backups */}
+                    <Card className="shadow-sm border mb-4" data-section="make-backup">
+                      <Card.Body>
+                        <h5 className="text-primary border-bottom pb-2 mb-2">حفظ نسخة احتياطية</h5>
+                        <p className="small text-muted">
+                          النسخة الاحتياطية ملف واحد (<bdi dir="ltr">.qdb</bdi>) يحتوي كل بيانات
+                          الفرع، مشفّر ومحمي من التعديل. احفظها في مجلد على قرص آخر أو مفتاح USB، لا
+                          على نفس القرص فقط.
+                        </p>
+                        <Form.Group className="mb-3">
+                          <Form.Label className="small fw-bold">
+                            مجلد حفظ النسخ الاحتياطية
+                          </Form.Label>
+                          <InputGroup size="sm">
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleDirectorySelect('backup_path')}
+                            >
+                              اختيار...
+                            </Button>
+                            <Form.Control
+                              type="text"
+                              value={settings.backup_path || ''}
+                              placeholder="لم يتم اختيار مجلد بعد"
+                              readOnly
                             />
-                            <Row>
-                              <Col md={6}>
-                                <Form.Group className="mb-4">
-                                  <Form.Label className="small">تكرار النسخ</Form.Label>
-                                  <Form.Select
-                                    size="sm"
-                                    name="backup_frequency"
-                                    value={settings.backup_frequency || 'daily'}
-                                    onChange={handleChange}
-                                    disabled={!settings.backup_enabled}
-                                  >
-                                    <option value="daily">يوميًا</option>
-                                    <option value="weekly">أسبوعيًا</option>
-                                    <option value="monthly">شهريًا</option>
-                                  </Form.Select>
-                                </Form.Group>
-                              </Col>
-                              <Col md={6}>
-                                <Form.Group className="mb-4">
-                                  <Form.Label className="small">توقيت النسخ</Form.Label>
-                                  <Form.Control
-                                    size="sm"
-                                    type="time"
-                                    name="backup_time"
-                                    value={settings.backup_time || '02:00'}
-                                    onChange={handleChange}
-                                    disabled={!settings.backup_enabled}
-                                  />
-                                </Form.Group>
-                              </Col>
-                            </Row>
-                            <div className="d-flex gap-2">
-                              <Button
-                                variant="outline-success"
-                                size="sm"
-                                onClick={handleRunBackup}
-                                disabled={isBackingUp || !settings.backup_path}
-                              >
-                                {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
-                              </Button>
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                onClick={() => handleImportDb()}
-                                disabled={isImporting || isBackingUp}
-                              >
-                                استيراد قاعدة بيانات محلية
-                              </Button>
-                            </div>
-                            {backupStatus && (
-                              <div className="mt-3 small text-center text-muted border-top pt-2">
-                                آخر نسخة: {new Date(backupStatus.timestamp).toLocaleString()}
-                                <br />
+                          </InputGroup>
+                          <Form.Text className="text-muted small">
+                            يُحفظ المجلد فور اختياره.
+                          </Form.Text>
+                        </Form.Group>
+
+                        <Button
+                          variant="success"
+                          onClick={handleRunBackup}
+                          disabled={isBackingUp || !settings.backup_path}
+                        >
+                          {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
+                        </Button>
+                        {!settings.backup_path && (
+                          <span className="small text-muted ms-2">اختر مجلداً أولاً.</span>
+                        )}
+
+                        <div
+                          className="mt-3 p-2 rounded border bg-light small"
+                          data-section="last-backup"
+                        >
+                          {backupStatus ? (
+                            <>
+                              <div>
+                                <strong>آخر نسخة احتياطية:</strong>{' '}
+                                {new Date(backupStatus.timestamp).toLocaleString()} —{' '}
                                 <span
                                   className={backupStatus.success ? 'text-success' : 'text-danger'}
                                 >
-                                  الحالة: {backupStatus.success ? 'ناجحة' : 'فاشلة'}
+                                  {backupStatus.success ? 'ناجحة' : 'فاشلة'}
                                 </span>
                               </div>
-                            )}
-                            <div className="mt-3 border-top pt-3" data-section="db-key">
-                              <h6 className="mb-1">مفتاح تشفير قاعدة البيانات</h6>
-                              <p className="small text-muted mb-2">
-                                يعيد تشفير قاعدة البيانات بمفتاح جديد ويُنهي جميع الجلسات. يتطلب حفظ
-                                رمز النقل الموحد أولاً؛ النسخ الاحتياطية القديمة التي أُنشئت دون رمز
-                                النقل لن تعود قابلة للاسترجاع بعد التغيير.
-                              </p>
-                              <Button
-                                variant="outline-warning"
+                              {backupStatus.success && backupStatus.filePath && (
+                                <div className="text-muted text-break" dir="ltr">
+                                  {backupStatus.filePath}
+                                </div>
+                              )}
+                              {!backupStatus.success && backupStatus.message && (
+                                <div className="text-danger">{backupStatus.message}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted">لم تُنشأ أي نسخة احتياطية بعد.</span>
+                          )}
+                        </div>
+
+                        <hr />
+                        <h6 className="mb-2">النسخ التلقائي</h6>
+                        <Form.Check
+                          type="switch"
+                          id="backup-enabled-switch"
+                          name="backup_enabled"
+                          label="تفعيل النسخ التلقائي"
+                          checked={settings.backup_enabled || false}
+                          onChange={handleChange}
+                          disabled={!settings.backup_path}
+                          className="mb-2"
+                        />
+                        <p className="small text-muted mb-3">
+                          {settings.backup_path
+                            ? 'يعمل النسخ التلقائي فقط عندما يكون التطبيق مفتوحاً؛ إن كان مغلقاً وقت النسخ فسيُنفَّذ خلال ساعة من فتحه.'
+                            : 'اختر مجلد الحفظ أولاً لتفعيل النسخ التلقائي.'}
+                        </p>
+                        <Row>
+                          <Col md={6}>
+                            <Form.Group className="mb-3">
+                              <Form.Label className="small">تكرار النسخ</Form.Label>
+                              <Form.Select
                                 size="sm"
-                                onClick={() => setShowRotateKeyModal(true)}
-                                disabled={isRotatingKey || isImporting || isBackingUp}
+                                name="backup_frequency"
+                                value={settings.backup_frequency || 'daily'}
+                                onChange={handleChange}
+                                disabled={!settings.backup_enabled}
                               >
-                                {isRotatingKey ? <Spinner size="sm" /> : 'تغيير مفتاح التشفير'}
-                              </Button>
-                            </div>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                    </Row>
+                                <option value="daily">يوميًا</option>
+                                <option value="weekly">أسبوعيًا</option>
+                                <option value="monthly">شهريًا</option>
+                              </Form.Select>
+                            </Form.Group>
+                          </Col>
+                          <Col md={6}>
+                            <Form.Group className="mb-3">
+                              <Form.Label className="small">توقيت النسخ</Form.Label>
+                              <Form.Control
+                                size="sm"
+                                type="time"
+                                name="backup_time"
+                                value={settings.backup_time || '02:00'}
+                                onChange={handleChange}
+                                disabled={!settings.backup_enabled}
+                              />
+                            </Form.Group>
+                          </Col>
+                        </Row>
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => saveSettings()}
+                          disabled={isSubmitting || !settings.backup_path}
+                        >
+                          حفظ إعدادات النسخ التلقائي
+                        </Button>
+                      </Card.Body>
+                    </Card>
+
+                    {/* 3. Restoring */}
+                    <Card className="shadow-sm border border-danger mb-4" data-section="restore">
+                      <Card.Body>
+                        <h5 className="text-danger border-bottom pb-2 mb-2">
+                          استرجاع نسخة احتياطية
+                        </h5>
+                        <Alert variant="danger" className="small">
+                          الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
+                          (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
+                          تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
+                          محدداً.
+                        </Alert>
+                        <p className="small text-muted">
+                          ستُطلب منك كلمة مرورك الحالية، و«{BACKUP_KEY_LABEL}» إذا كانت النسخة من
+                          جهاز آخر.
+                        </p>
+                        <Button
+                          variant="outline-danger"
+                          onClick={() => handleImportDb()}
+                          disabled={isImporting || isBackingUp}
+                        >
+                          استرجاع من نسخة احتياطية...
+                        </Button>
+                      </Card.Body>
+                    </Card>
+
+                    {/* 4. Advanced: database key rotation */}
+                    <Accordion>
+                      <Accordion.Item eventKey="advanced">
+                        <Accordion.Header>إعدادات متقدمة</Accordion.Header>
+                        <Accordion.Body data-section="db-key">
+                          <h6 className="mb-1">مفتاح تشفير قاعدة البيانات</h6>
+                          <p className="small text-muted mb-2">
+                            يعيد تشفير قاعدة البيانات بمفتاح جديد ويُنهي جميع الجلسات. استعمله فقط
+                            إذا اشتبهت في نسخ بيانات هذا الجهاز. يتطلب حفظ «{BACKUP_KEY_LABEL}»
+                            أولاً؛ النسخ القديمة التي أُنشئت دون هذا الرمز لن تعود قابلة للاسترجاع.
+                          </p>
+                          <Button
+                            variant="outline-warning"
+                            size="sm"
+                            onClick={() => setShowRotateKeyModal(true)}
+                            disabled={isRotatingKey || isImporting || isBackingUp}
+                          >
+                            {isRotatingKey ? <Spinner size="sm" /> : 'تغيير مفتاح التشفير'}
+                          </Button>
+                        </Accordion.Body>
+                      </Accordion.Item>
+                    </Accordion>
                   </Tab>
                 </Tabs>
 
@@ -650,8 +738,9 @@ const SettingsPage = () => {
         onHide={() => setShowPasswordModal(false)}
         onConfirm={handlePasswordConfirm}
         title="الخطوة الأخيرة: تأكيد الهوية"
-        body="يرجى إدخال كلمة المرور الخاصة بك لتأكيد استبدال قاعدة البيانات وإعادة تشغيل التطبيق."
+        body="أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع."
         showBackupKeyField
+        backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)"
       />
     </Container>
   );
