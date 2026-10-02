@@ -5,6 +5,9 @@
  * - chapter(title, subtitle): a full-screen title card that opens a chapter.
  * - say(text): explains the action that follows.
  * - click / type / select: highlight the target, then act on it slowly.
+ * - show(target, text): highlight and explain something the video does not do (a step that
+ *   needs a file, a printer, or would undo the demo). A blue dashed ring and a «للاطلاع فقط»
+ *   badge tell it apart from the steps actually performed.
  *
  * How say() explains, set by the `mode` option (QBM_GUIDE_MODE):
  * - 'captions' (default): a caption bar at the bottom of the window, drawn in the page, so it is
@@ -21,6 +24,8 @@ const path = require('path');
 const { writeNarrationTrack } = require('./narrator');
 
 const MODES = ['captions', 'audio', 'both'];
+// The badge of a step that is only shown, not done (show()).
+const INFO_LABEL = 'للاطلاع فقط';
 
 const OVERLAY_ID = 'qbm-guide-overlay';
 const CAPTION_ID = 'qbm-guide-caption';
@@ -125,6 +130,11 @@ class Guide {
             box-shadow: 0 0 0 9999px rgba(0,0,0,.18), 0 0 18px 4px rgba(212,167,44,.8);
             opacity: 0; transition: all .3s ease; }
           #${RING_ID}.visible { opacity: 1; }
+          #${RING_ID}.info { border: 4px dashed #3b82f6;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,.18), 0 0 18px 4px rgba(59,130,246,.7); }
+          #${CAPTION_ID} .info { display: inline-block; margin-inline-end: 12px; padding: 0 12px;
+            border-radius: 999px; background: #3b82f6; color: #fff; font-size: 17px;
+            font-weight: 700; vertical-align: middle; }
           #${CARD_ID} { position: absolute; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 18px; color: #fff; opacity: 0;
             background: linear-gradient(135deg, rgba(16,48,43,.97), rgba(28,86,74,.97));
@@ -198,18 +208,19 @@ class Guide {
    * Shows a caption and leaves time to read it. The caption stays until the next one, so it
    * explains the action that follows.
    * @param {string} text
-   * @param {{ hold?: number }} [options] hold: extra milliseconds to keep it before moving on.
+   * @param {{ hold?: number, info?: boolean }} [options] hold: extra milliseconds to keep it
+   *   before moving on. info: the step is only shown, not done (see show()).
    */
-  async say(text, { hold = 0 } = {}) {
+  async say(text, { hold = 0, info = false } = {}) {
     await this.ensureOverlay();
     this.stepNumber += 1;
     const chapter = this.chapters[this.chapters.length - 1];
     const stepInChapter = chapter ? chapter.steps.length + 1 : this.stepNumber;
-    const entry = { text, step: stepInChapter, start: this.now(), end: null };
+    const entry = { text, step: stepInChapter, info, start: this.now(), end: null };
     const last = this.captions[this.captions.length - 1];
     if (last && last.end === null) last.end = entry.start;
     this.captions.push(entry);
-    if (chapter) chapter.steps.push(text);
+    if (chapter) chapter.steps.push(info ? `${text} (${INFO_LABEL})` : text);
 
     const spokenMs = this.speak(text);
     if (!this.showCaptions) {
@@ -217,7 +228,7 @@ class Guide {
       return;
     }
     await this.page.evaluate(
-      async ({ CAPTION_ID, text, step }) => {
+      async ({ CAPTION_ID, text, step, info, infoLabel }) => {
         const caption = document.getElementById(CAPTION_ID);
         if (caption.classList.contains('visible')) {
           caption.classList.remove('visible');
@@ -227,10 +238,17 @@ class Guide {
         const badge = document.createElement('span');
         badge.className = 'step';
         badge.textContent = `الخطوة ${step}`;
-        caption.append(badge, document.createTextNode(text));
+        caption.append(badge);
+        if (info) {
+          const infoBadge = document.createElement('span');
+          infoBadge.className = 'info';
+          infoBadge.textContent = infoLabel;
+          caption.append(infoBadge);
+        }
+        caption.append(document.createTextNode(text));
         caption.classList.add('visible');
       },
-      { CAPTION_ID, text, step: stepInChapter },
+      { CAPTION_ID, text, step: stepInChapter, info, infoLabel: INFO_LABEL },
     );
     await this.page.waitForTimeout(Math.round(this.holdTime(text, spokenMs, hold)));
   }
@@ -248,13 +266,37 @@ class Guide {
 
   /** Draws a highlight ring around an element for a moment. */
   async point(locator, ms = 900) {
+    if (!(await this.drawRing(locator))) return;
+    await this.pause(ms);
+    await this.hideRing();
+  }
+
+  /**
+   * Highlights an element and explains it without acting on it: for steps the video does not
+   * do (they need a file or a printer, or would undo the demo). The ring stays while the
+   * caption is read.
+   * @param {import('@playwright/test').Locator} locator
+   * @param {string} text
+   * @param {{ hold?: number }} [options]
+   */
+  async show(locator, text, { hold = 800 } = {}) {
+    await locator.waitFor({ state: 'visible' });
+    await this.drawRing(locator, { info: true });
+    await this.say(text, { hold, info: true });
+    await this.hideRing();
+    await this.pause(300);
+  }
+
+  /** Puts the ring around an element (blue and dashed for show()); false when it has no box. */
+  async drawRing(locator, { info = false } = {}) {
     await this.ensureOverlay();
     await locator.scrollIntoViewIfNeeded();
     const box = await locator.boundingBox();
-    if (!box) return;
+    if (!box) return false;
     await this.page.evaluate(
-      ({ RING_ID, CAPTION_ID, box }) => {
+      ({ RING_ID, CAPTION_ID, box, info }) => {
         const ring = document.getElementById(RING_ID);
+        ring.classList.toggle('info', info);
         // Keep the caption clear of the target: move it to the top when the target is low.
         const caption = document.getElementById(CAPTION_ID);
         caption.classList.toggle('top', box.y + box.height > window.innerHeight - 200);
@@ -267,9 +309,12 @@ class Guide {
         });
         ring.classList.add('visible');
       },
-      { RING_ID, CAPTION_ID, box },
+      { RING_ID, CAPTION_ID, box, info },
     );
-    await this.pause(ms);
+    return true;
+  }
+
+  async hideRing() {
     await this.page.evaluate(
       (id) => document.getElementById(id).classList.remove('visible'),
       RING_ID,
@@ -332,7 +377,7 @@ class Guide {
     this.captions.forEach((c, i) => {
       vtt.push(String(i + 1));
       vtt.push(`${formatVttTime(shift(c.start))} --> ${formatVttTime(shift(c.end ?? this.end))}`);
-      vtt.push(`الخطوة ${c.step}: ${c.text}`, '');
+      vtt.push(`الخطوة ${c.step}: ${c.info ? `(${INFO_LABEL}) ` : ''}${c.text}`, '');
     });
     fs.writeFileSync(path.join(dir, 'captions.vtt'), vtt.join('\n'), 'utf8');
 

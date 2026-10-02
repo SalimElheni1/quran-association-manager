@@ -19,8 +19,7 @@
   bottom: 0;
   inset-inline-start: 18px;
   width: 2px;
-  background:
-    linear-gradient(
+  background: linear-gradient(
       180deg,
       transparent 0 45%,
       rgba(197, 160, 89, 0.75) 45% 55%,
@@ -32,7 +31,7 @@
 
 .signin-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 50%;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 1rem;
   background: var(--surface-paper);

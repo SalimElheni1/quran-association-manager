@@ -245,6 +245,39 @@ describe('importManager - Extended Tests', () => {
         expect(app.relaunch).not.toHaveBeenCalled();
       });
 
+      it('makes a safety copy of the current data in its backup folder before replacing it', async () => {
+        const backupManager = require('../src/main/backupManager');
+        const validate = jest
+          .spyOn(backupManager, 'validateBackupPath')
+          .mockReturnValue({ valid: true, path: '/backups' });
+        const runBackup = jest
+          .spyOn(backupManager, 'runBackup')
+          .mockResolvedValue({ success: true });
+        PizZip.mockImplementation(() => backupZip('SELECT 1;'));
+        const currentSettings = {
+          backup_path: '/backups',
+          association_transfer_key: 'saved-transfer-key',
+        };
+
+        try {
+          await replaceDatabase('good.qdb', 'pw', undefined, currentSettings);
+
+          expect(validate).toHaveBeenCalledWith('/backups');
+          // With the current settings, so the copy is encrypted with the saved transfer key.
+          expect(runBackup).toHaveBeenCalledWith(
+            currentSettings,
+            expect.stringMatching(/^\/backups\/pre-import-backup-.+\.qdb$/),
+          );
+          // Taken while the current database is still there.
+          expect(runBackup.mock.invocationCallOrder[0]).toBeLessThan(
+            fs.unlink.mock.invocationCallOrder[0],
+          );
+        } finally {
+          validate.mockRestore();
+          runBackup.mockRestore();
+        }
+      });
+
       it('drops columns the current schema no longer has', async () => {
         PizZip.mockImplementation(() =>
           backupZip(`REPLACE INTO "students" ("id", "name", "old_col") VALUES (1, 'Ali', 'x');`),

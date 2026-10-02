@@ -234,7 +234,8 @@ function writeNarrationTrack(clips, totalMs, out) {
 
 /**
  * Finds the sentences a guide script will narrate: the literal strings passed to
- * guide.say(...) and guide.chapter(...), so they can be synthesized before recording.
+ * guide.say(...) and guide.chapter(...), so they can be synthesized before recording. The
+ * texts of guide.show(locator, text) are synthesized when the guide reaches them.
  * @param {string} source The guide script.
  * @param {(n: number, title: string, subtitle: string) => string} chapterText
  * @returns {string[]}

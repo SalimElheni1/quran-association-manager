@@ -57,6 +57,10 @@ describe('systemHandlers', () => {
       get: jest.fn(),
     };
     Store.mockImplementation(() => mockStore);
+    internalGetSettingsHandler.mockResolvedValue({
+      success: true,
+      settings: { association_transfer_key: 'saved-transfer-key' },
+    });
 
     registerSystemHandlers();
   });
@@ -431,11 +435,24 @@ describe('systemHandlers', () => {
         ],
       });
       expect(backupManager.runBackup).toHaveBeenCalledWith(
-        settings,
+        { association_transfer_key: 'saved-transfer-key' },
         '/path/to/backup.qdb',
         undefined,
       );
       expect(result).toBe(mockResult);
+    });
+
+    it('should back up with the saved transfer key, not one sent by the window', async () => {
+      dialog.showSaveDialog.mockResolvedValue({ canceled: false, filePath: '/path/to/b.qdb' });
+      backupManager.runBackup.mockResolvedValue({ success: true });
+
+      await handlers['backup:run'](null, { association_transfer_key: 'from-the-window' });
+
+      expect(backupManager.runBackup).toHaveBeenCalledWith(
+        { association_transfer_key: 'saved-transfer-key' },
+        '/path/to/b.qdb',
+        undefined,
+      );
     });
 
     it('should handle user cancellation', async () => {
@@ -550,14 +567,17 @@ describe('systemHandlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [userId]);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, 'hashed-password');
+      // The saved key is read before the restore closes the database.
       expect(importManager.validateDatabaseFile).toHaveBeenCalledWith(
         '/path/to/backup.qdb',
         undefined,
+        'saved-transfer-key',
       );
       expect(importManager.replaceDatabase).toHaveBeenCalledWith(
         '/path/to/backup.qdb',
         password,
         undefined,
+        { association_transfer_key: 'saved-transfer-key' },
       );
       expect(result).toBe(mockImportResult);
     });
@@ -657,6 +677,148 @@ describe('systemHandlers', () => {
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [4]);
       sessionManager.revokeAllSessions();
+    });
+  });
+
+  describe('backup transfer key', () => {
+    const sessionManager = require('../src/main/sessionManager');
+    const superadminEvent = { sender: { id: 51 } };
+    const adminEvent = { sender: { id: 52 } };
+
+    beforeEach(() => {
+      sessionManager.createSession(superadminEvent.sender, {
+        id: 4,
+        username: 'super',
+        roles: ['Superadmin'],
+      });
+      sessionManager.createSession(adminEvent.sender, {
+        id: 5,
+        username: 'admin',
+        roles: ['Administrator'],
+      });
+      db.getQuery.mockResolvedValue({ password: 'hashed-password' });
+    });
+
+    afterEach(() => sessionManager.revokeAllSessions());
+
+    describe('backup:reveal-transfer-key', () => {
+      it('returns the saved key after checking the Superadmin password', async () => {
+        bcrypt.compare.mockResolvedValue(true);
+
+        const result = await handlers['backup:reveal-transfer-key'](superadminEvent, {
+          password: 'my-password',
+        });
+
+        expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [4]);
+        expect(bcrypt.compare).toHaveBeenCalledWith('my-password', 'hashed-password');
+        expect(result).toEqual({ success: true, key: 'saved-transfer-key' });
+      });
+
+      it('refuses a wrong password without returning the key', async () => {
+        bcrypt.compare.mockResolvedValue(false);
+
+        const result = await handlers['backup:reveal-transfer-key'](superadminEvent, {
+          password: 'wrong',
+        });
+
+        expect(result).toEqual({
+          success: false,
+          message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.',
+        });
+      });
+
+      it('refuses when no password is given', async () => {
+        const result = await handlers['backup:reveal-transfer-key'](superadminEvent, {});
+
+        expect(result.success).toBe(false);
+        expect(bcrypt.compare).not.toHaveBeenCalled();
+      });
+
+      it('is denied to an Administrator', async () => {
+        bcrypt.compare.mockResolvedValue(true);
+
+        await expect(
+          handlers['backup:reveal-transfer-key'](adminEvent, { password: 'my-password' }),
+        ).rejects.toThrow('غير مسموح به.');
+      });
+
+      it('says so when no key is set', async () => {
+        bcrypt.compare.mockResolvedValue(true);
+        internalGetSettingsHandler.mockResolvedValue({
+          success: true,
+          settings: { association_transfer_key: '' },
+        });
+
+        const result = await handlers['backup:reveal-transfer-key'](superadminEvent, {
+          password: 'my-password',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.key).toBeUndefined();
+      });
+    });
+
+    describe('backup:set-transfer-key', () => {
+      const { internalSetTransferKey } = require('../src/main/handlers/settingsHandlers');
+
+      it('saves a valid key and restarts scheduled backups on it', async () => {
+        bcrypt.compare.mockResolvedValue(true);
+
+        const result = await handlers['backup:set-transfer-key'](superadminEvent, {
+          password: 'my-password',
+          key: 'new-branch-key',
+          confirmKey: 'new-branch-key',
+        });
+
+        expect(result.success).toBe(true);
+        expect(internalSetTransferKey).toHaveBeenCalledWith('new-branch-key');
+        expect(backupManager.startScheduler).toHaveBeenCalled();
+      });
+
+      it('refuses a wrong password', async () => {
+        bcrypt.compare.mockResolvedValue(false);
+
+        const result = await handlers['backup:set-transfer-key'](superadminEvent, {
+          password: 'wrong',
+          key: 'new-branch-key',
+          confirmKey: 'new-branch-key',
+        });
+
+        expect(result.success).toBe(false);
+        expect(internalSetTransferKey).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ['too short', 'short', 'short', 'أحرف على الأقل'],
+        ['not confirmed', 'new-branch-key', 'other-branch-key', 'غير متطابقين'],
+        ['the same as the password', 'my-password', 'my-password', 'يختلف'],
+      ])('refuses a key that is %s', async (_label, key, confirmKey, message) => {
+        bcrypt.compare.mockResolvedValue(true);
+
+        const result = await handlers['backup:set-transfer-key'](superadminEvent, {
+          password: 'my-password',
+          key,
+          confirmKey,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain(message);
+        expect(internalSetTransferKey).not.toHaveBeenCalled();
+      });
+
+      it('is denied to an Administrator', async () => {
+        await expect(
+          handlers['backup:set-transfer-key'](adminEvent, {
+            password: 'my-password',
+            key: 'new-branch-key',
+            confirmKey: 'new-branch-key',
+          }),
+        ).rejects.toThrow('غير مسموح به.');
+      });
+    });
+
+    it('no longer offers database key rotation', () => {
+      expect(handlers['db:rotate-key']).toBeUndefined();
     });
   });
 

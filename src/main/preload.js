@@ -225,7 +225,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBackupStatus: () => ipcRenderer.invoke('backup:getStatus'),
   getBackupReminderStatus: () => ipcRenderer.invoke('backup:get-reminder-status'),
   importDatabase: (data) => ipcRenderer.invoke('db:import', data),
-  rotateDbKey: (data) => ipcRenderer.invoke('db:rotate-key', data),
+  // The transfer key is not part of getSettings(): a Superadmin reveals or changes it with
+  // their password ({ password } / { password, key, confirmKey }).
+  revealTransferKey: (data) => ipcRenderer.invoke('backup:reveal-transfer-key', data),
+  setTransferKey: (data) => ipcRenderer.invoke('backup:set-transfer-key', data),
 
   // User Management API (for Superadmin)
   getUsers: (filters) => ipcRenderer.invoke('users:get', filters),

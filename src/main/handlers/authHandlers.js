@@ -11,7 +11,8 @@ const {
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
 const { checkPassword, passwordPolicyValidator, JOI_RULE_MESSAGES } = require('../passwordPolicy');
 const { refreshSettings } = require('../settingsManager');
-const { internalGetSettingsHandler } = require('./settingsHandlers');
+const { internalGetSettingsHandler, internalSetTransferKey } = require('./settingsHandlers');
+const { checkTransferKey } = require('../transferKeyPolicy');
 const { error: logError } = require('../logger');
 
 let authStore = null;
@@ -245,6 +246,9 @@ const setupSuperadminValidationSchema = Joi.object({
     'any.only': 'كلمتا المرور غير متطابقتين',
     'any.required': 'يجب تأكيد كلمة المرور',
   }),
+  // Checked by checkTransferKey (transferKeyPolicy.js), which also compares it to the password.
+  transfer_key: Joi.string().allow(''),
+  confirm_transfer_key: Joi.string().allow(''),
 });
 
 function registerAuthHandlers() {
@@ -374,8 +378,21 @@ function registerAuthHandlers() {
         stripUnknown: true,
       });
 
+      // The backup protection key is chosen with the first account, so no backup is ever
+      // locked to this machine's own database key.
+      const transferKey = validatedData.transfer_key;
+      const keyError = checkTransferKey(transferKey, {
+        confirmKey: validatedData.confirm_transfer_key ?? '',
+        password: validatedData.password,
+      });
+      if (keyError) {
+        return { success: false, message: keyError };
+      }
+
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
       const created = await db.createSuperadminUser(validatedData.username, hashedPassword);
+      await internalSetTransferKey(transferKey);
+      await refreshSettings();
 
       return {
         success: true,

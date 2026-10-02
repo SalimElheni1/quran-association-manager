@@ -8,6 +8,8 @@ const {
   expectToast,
   expectNoModal,
   confirmDialog,
+  changeTransferKey,
+  SUPERADMIN,
 } = require('./fixtures');
 
 function activePane(page) {
@@ -150,27 +152,63 @@ test.describe('الإعدادات المتقدمة - advanced settings', () => {
     await expect(activePane(page).locator('tbody tr', { hasText: groupToEdit })).toBeVisible();
   });
 
-  test('backup tab warns while no association transfer key is set', async ({
+  test('the backup key set at setup stays hidden until the Superadmin types their password', async ({
     authedPage: page,
   }) => {
     await openTab(page, 'النسخ الاحتياطي');
-    const warning = activePane(page).locator('.alert-warning', {
-      hasText: 'لم يتم تعيين رمز النقل',
-    });
-    await expect(warning).toBeVisible();
+    const card = page.locator('[data-section="backup-key"]');
+    await expect(card.getByTestId('transfer-key-status')).toHaveText('تم تعيين الرمز');
+    // Nowhere on the page, not even in a hidden field.
+    await expect(page.locator('input[name="association_transfer_key"]')).toHaveCount(0);
+    await expect(page.getByTestId('transfer-key-value')).toHaveCount(0);
 
-    await activePane(page).locator('input[name="association_transfer_key"]').fill('branch-key-1');
-    await expect(warning).toHaveCount(0);
-    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
-    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+    // A wrong password shows nothing.
+    await card.getByRole('button', { name: 'عرض الرمز' }).click();
+    await modal(page).locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]').fill('wrong-pass');
+    await modal(page).getByRole('button', { name: 'تأكيد' }).click();
+    await expectToast(page, 'error', 'كلمة المرور الحالية التي أدخلتها غير صحيحة.');
+    await expect(page.getByTestId('transfer-key-value')).toHaveCount(0);
 
+    await card.getByRole('button', { name: 'عرض الرمز' }).click();
+    await modal(page)
+      .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
+      .fill(SUPERADMIN.password);
+    await modal(page).getByRole('button', { name: 'تأكيد' }).click();
+    await expect(page.getByTestId('transfer-key-value')).toHaveText(SUPERADMIN.transferKey);
+    await card.getByRole('button', { name: 'إخفاء' }).click();
+    await expect(page.getByTestId('transfer-key-value')).toHaveCount(0);
+
+    // Changing it: the new key is the one revealed afterwards, also after reopening the page.
+    await changeTransferKey(page, { key: 'branch-key-renewed' });
     await navigate(page, 'الرئيسية');
     await navigate(page, 'الإعدادات');
     await openTab(page, 'النسخ الاحتياطي');
-    await expect(activePane(page).locator('input[name="association_transfer_key"]')).toHaveValue(
-      'branch-key-1',
-    );
-    await expect(warning).toHaveCount(0);
+    await card.getByRole('button', { name: 'عرض الرمز' }).click();
+    await modal(page)
+      .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
+      .fill(SUPERADMIN.password);
+    await modal(page).getByRole('button', { name: 'تأكيد' }).click();
+    await expect(page.getByTestId('transfer-key-value')).toHaveText('branch-key-renewed');
+  });
+
+  test('saving the other settings keeps the backup key', async ({ authedPage: page }) => {
+    await openTab(page, 'النسخ الاحتياطي');
+    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+
+    const card = page.locator('[data-section="backup-key"]');
+    await card.getByRole('button', { name: 'عرض الرمز' }).click();
+    await modal(page)
+      .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
+      .fill(SUPERADMIN.password);
+    await modal(page).getByRole('button', { name: 'تأكيد' }).click();
+    await expect(page.getByTestId('transfer-key-value')).toHaveText(SUPERADMIN.transferKey);
+  });
+
+  test('database key rotation is no longer offered', async ({ authedPage: page }) => {
+    await openTab(page, 'النسخ الاحتياطي');
+    await expect(page.getByRole('button', { name: 'تغيير مفتاح التشفير' })).toHaveCount(0);
+    await expect(page.locator('[data-section="db-key"]')).toHaveCount(0);
   });
 
   test('manual backup writes a non-empty backup file', async ({

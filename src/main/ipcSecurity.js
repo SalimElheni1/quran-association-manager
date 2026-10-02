@@ -54,7 +54,8 @@ const CHANNEL_ROLES = {
   'logs:clear': ROLES.SUPERADMIN,
   'logs:get-file-path': ROLES.SUPERADMIN,
   'db:import': ROLES.SUPERADMIN,
-  'db:rotate-key': ROLES.SUPERADMIN,
+  'backup:reveal-transfer-key': ROLES.SUPERADMIN,
+  'backup:set-transfer-key': ROLES.SUPERADMIN,
   'export:generate-dev-template': ROLES.SUPERADMIN,
 
   // ---- Superadmin / Administrator (settings, backups, educational data) ----

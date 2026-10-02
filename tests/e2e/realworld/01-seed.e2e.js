@@ -295,7 +295,8 @@ test('real-world seed: run a branch at scale and leave a backup for phase 2', as
   const fees = { full: [], partial: [], byFinanceUser: [] };
 
   await test.step('first run: superadmin and association settings', async () => {
-    await setupSuperadmin(page);
+    // The association's backup key is chosen with the first account.
+    await setupSuperadmin(page, { ...SUPERADMIN, transferKey: TRANSFER_KEY });
     await login(page);
     await dismissOnboarding(page);
     await navigate(page, 'الإعدادات');
@@ -533,9 +534,6 @@ test('real-world seed: run a branch at scale and leave a backup for phase 2', as
     await stubDialogs(electronApp, { openDir: backupDir });
     await navigate(page, 'الإعدادات');
     await openTab(page, 'النسخ الاحتياطي');
-    await activePane(page).locator('input[name="association_transfer_key"]').fill(TRANSFER_KEY);
-    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
-    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
     await activePane(page).getByRole('button', { name: 'اختيار...' }).click();
     await activePane(page).getByRole('button', { name: 'نسخ احتياطي الآن' }).click();
     await expectToast(page, 'success', /تم إنشاء النسخة الاحتياطية بنجاح/);

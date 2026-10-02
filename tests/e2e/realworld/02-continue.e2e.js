@@ -233,7 +233,9 @@ async function restoreHandoff() {
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
 
-  await setupSuperadmin(page, TEMP_ADMIN);
+  // A new device of the same association: its setup takes the association's backup key, so
+  // the restore needs no key typed in.
+  await setupSuperadmin(page, { ...TEMP_ADMIN, transferKey: manifest.transferKey });
   await login(page, TEMP_ADMIN);
   await dismissOnboarding(page);
   await expect(page.locator('.topbar')).toBeVisible();
@@ -249,9 +251,6 @@ async function restoreHandoff() {
   await modal(page)
     .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
     .fill(TEMP_ADMIN.password);
-  await modal(page)
-    .locator('input[placeholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)"]')
-    .fill(manifest.transferKey);
   await modal(page).getByRole('button', { name: 'تأكيد' }).click();
 
   await expect(
@@ -658,9 +657,6 @@ test('real-world continuation: restore, verify and keep working', async ({}, tes
       await navigate(page, 'الإعدادات');
       await openTab(page, 'النسخ الاحتياطي');
       await activePane(page).getByRole('button', { name: 'اختيار...' }).click();
-      await activePane(page)
-        .locator('input[name="association_transfer_key"]')
-        .fill(manifest.transferKey);
       await activePane(page).getByRole('button', { name: 'نسخ احتياطي الآن' }).click();
       await expectToast(page, 'success', /تم إنشاء النسخة الاحتياطية بنجاح/);
 

@@ -7,12 +7,33 @@ const fs = require('fs');
 const exportManager = require('../exportManager');
 const importManager = require('../importManager');
 const backupManager = require('../backupManager');
-const { internalGetSettingsHandler } = require('./settingsHandlers');
+const { internalGetSettingsHandler, internalSetTransferKey } = require('./settingsHandlers');
 const Store = require('electron-store');
 const bcrypt = require('bcryptjs');
-const { getUserIdForEvent, revokeAllSessions } = require('../sessionManager');
-const { getJwtSecret } = require('../keyManager');
+const { getUserIdForEvent } = require('../sessionManager');
 const { requireRoles } = require('../authMiddleware');
+const { refreshSettings } = require('../settingsManager');
+const { checkTransferKey } = require('../transferKeyPolicy');
+
+const WRONG_PASSWORD_MESSAGE = 'كلمة المرور الحالية التي أدخلتها غير صحيحة.';
+
+/** The saved association transfer key, or '' when none is set. */
+async function getSavedTransferKey() {
+  const { settings } = await internalGetSettingsHandler();
+  const key = settings?.association_transfer_key;
+  return typeof key === 'string' ? key : '';
+}
+
+/**
+ * Checks the password of the user logged in on this window.
+ * @returns {Promise<boolean>}
+ */
+async function isCurrentUserPassword(event, password) {
+  const userId = getUserIdForEvent(event);
+  if (!password || !userId) return false;
+  const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
+  return !!currentUser && (await bcrypt.compare(password, currentUser.password));
+}
 
 async function handleGetBackupReminderStatus() {
   try {
@@ -219,8 +240,10 @@ function registerSystemHandlers() {
         backupFilePath = filePath;
       }
 
+      // The window never holds the transfer key: back up with the one saved in the database.
+      const backupSettings = { ...settings, association_transfer_key: await getSavedTransferKey() };
       log(`Starting manual backup to: ${backupFilePath}`);
-      return await backupManager.runBackup(settings, backupFilePath, pass);
+      return await backupManager.runBackup(backupSettings, backupFilePath, pass);
     } catch (error) {
       logError('Error in backup:run IPC wrapper:', error);
       return { success: false, message: error.message };
@@ -272,14 +295,24 @@ function registerSystemHandlers() {
         importedDbPath = filePaths[0];
       }
 
+      // Read while the database is still open: restoring closes it before decrypting the file.
+      // The backup folder (for the safety copy) and the transfer key come from these settings.
+      const { settings: currentSettings } = await internalGetSettingsHandler();
+      const savedTransferKey = currentSettings?.association_transfer_key || '';
       const validationResult = await importManager.validateDatabaseFile(
         importedDbPath,
         backupPassword,
+        savedTransferKey,
       );
       if (!validationResult.isValid) {
         return { success: false, message: validationResult.message };
       }
-      return await importManager.replaceDatabase(importedDbPath, password, backupPassword);
+      return await importManager.replaceDatabase(
+        importedDbPath,
+        password,
+        backupPassword,
+        currentSettings,
+      );
     } catch (error) {
       logError('Error during database import process:', error);
       return {
@@ -289,47 +322,50 @@ function registerSystemHandlers() {
     }
   });
 
-  // SEC-017: re-encrypt the database with a new key. Backups made without the association
-  // transfer key are encrypted with the database key, so rotation is refused until that key is
-  // set (older machine-key backups will no longer restore after a rotation).
-  // Checked here as well as by the IPC guard's role matrix: this ends every session.
+  // The association transfer key never goes to the window with the settings. A Superadmin sees
+  // it, or changes it, only after typing their password again, so a session left open does not
+  // expose it.
   ipcMain.handle(
-    'db:rotate-key',
+    'backup:reveal-transfer-key',
     requireRoles(['Superadmin'])(async (event, { password } = {}) => {
-      const userId = getUserIdForEvent(event);
-      if (!password || !userId) {
-        return { success: false, message: 'بيانات المصادقة غير كاملة.' };
-      }
       try {
-        const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [userId]);
-        if (!currentUser || !(await bcrypt.compare(password, currentUser.password))) {
-          return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
+        if (!(await isCurrentUserPassword(event, password))) {
+          return { success: false, message: WRONG_PASSWORD_MESSAGE };
         }
-        const { settings } = await internalGetSettingsHandler();
-        if (!settings?.association_transfer_key?.trim()) {
-          return {
-            success: false,
-            message:
-              'يجب تعيين رمز النقل الموحد للمؤسسة وحفظه قبل تغيير مفتاح التشفير، حتى تبقى النسخ الاحتياطية الجديدة قابلة للاسترجاع.',
-          };
+        const key = await getSavedTransferKey();
+        if (!key) {
+          return { success: false, message: 'لم يتم تعيين رمز حماية النسخ الاحتياطية بعد.' };
         }
-
-        await db.rotateDatabaseKey();
-        // The session secret is derived from the database key: re-derive it and end every
-        // session, so everyone logs in again with tokens signed by the new secret.
-        process.env.JWT_SECRET = getJwtSecret();
-        revokeAllSessions();
-        if (typeof event.sender?.send === 'function' && !event.sender.isDestroyed?.()) {
-          event.sender.send('force-logout');
-        }
-        log('Database encryption key rotated; all sessions ended.');
-        return {
-          success: true,
-          message: 'تم تغيير مفتاح تشفير قاعدة البيانات. يرجى تسجيل الدخول من جديد.',
-        };
+        log('The backup transfer key was revealed to the Superadmin.');
+        return { success: true, key };
       } catch (error) {
-        logError('Database key rotation failed:', error);
-        return { success: false, message: `تعذر تغيير مفتاح التشفير: ${error.message}` };
+        logError('Revealing the backup transfer key failed:', error);
+        return { success: false, message: 'تعذر عرض رمز حماية النسخ الاحتياطية.' };
+      }
+    }),
+  );
+
+  ipcMain.handle(
+    'backup:set-transfer-key',
+    requireRoles(['Superadmin'])(async (event, { password, key, confirmKey } = {}) => {
+      try {
+        if (!(await isCurrentUserPassword(event, password))) {
+          return { success: false, message: WRONG_PASSWORD_MESSAGE };
+        }
+        const keyError = checkTransferKey(key, { confirmKey: confirmKey ?? '', password });
+        if (keyError) {
+          return { success: false, message: keyError };
+        }
+        await internalSetTransferKey(key);
+        await refreshSettings();
+        // Scheduled backups hold the settings they were started with: restart them on the new key.
+        const { settings } = await internalGetSettingsHandler();
+        backupManager.startScheduler(settings);
+        log('The backup transfer key was changed.');
+        return { success: true, message: 'تم حفظ رمز حماية النسخ الاحتياطية.' };
+      } catch (error) {
+        logError('Saving the backup transfer key failed:', error);
+        return { success: false, message: 'تعذر حفظ رمز حماية النسخ الاحتياطية.' };
       }
     }),
   );

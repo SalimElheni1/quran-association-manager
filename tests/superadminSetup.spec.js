@@ -53,12 +53,55 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         username: 'branch_admin',
         password: 'securePass123',
         confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
       });
 
       expect(result.success).toBe(true);
       expect(result.username).toBe('branch_admin');
       expect(bcrypt.hash).toHaveBeenCalledWith('securePass123', 10);
       expect(db.createSuperadminUser).toHaveBeenCalledWith('branch_admin', 'hashed-password');
+    });
+
+    it('should save the backup transfer key chosen with the account', async () => {
+      db.hasSuperadmin.mockResolvedValue(false);
+      bcrypt.hash.mockResolvedValue('hashed-password');
+      db.createSuperadminUser.mockResolvedValue({ id: 1, username: 'branch_admin' });
+
+      const result = await handlers['auth:setup-superadmin'](null, {
+        username: 'branch_admin',
+        password: 'securePass123',
+        confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
+      });
+
+      expect(result.success).toBe(true);
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        ['association_transfer_key', 'branch-transfer-key'],
+      );
+    });
+
+    it.each([
+      ['missing', undefined, undefined, 'مطلوب'],
+      ['too short', 'short', 'short', 'أحرف على الأقل'],
+      ['not confirmed', 'branch-transfer-key', 'other-transfer-key', 'غير متطابقين'],
+      ['the same as the password', 'securePass123', 'securePass123', 'يختلف'],
+    ])('should refuse a transfer key that is %s', async (_label, key, confirmKey, message) => {
+      db.hasSuperadmin.mockResolvedValue(false);
+
+      const result = await handlers['auth:setup-superadmin'](null, {
+        username: 'branch_admin',
+        password: 'securePass123',
+        confirm_password: 'securePass123',
+        transfer_key: key,
+        confirm_transfer_key: confirmKey,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain(message);
+      expect(db.createSuperadminUser).not.toHaveBeenCalled();
     });
 
     it('should hard-deny when a superadmin already exists', async () => {
@@ -68,6 +111,8 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         username: 'branch_admin',
         password: 'securePass123',
         confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
       });
 
       expect(result.success).toBe(false);
@@ -82,6 +127,8 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         username: 'imported_admin',
         password: 'securePass123',
         confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
       });
 
       expect(result.success).toBe(false);
@@ -150,6 +197,8 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         username: 'مستخدم',
         password: 'securePass123',
         confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
       });
 
       expect(result.success).toBe(false);
@@ -167,6 +216,8 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         username: 'taken_admin',
         password: 'securePass123',
         confirm_password: 'securePass123',
+        transfer_key: 'branch-transfer-key',
+        confirm_transfer_key: 'branch-transfer-key',
       });
 
       expect(result.success).toBe(false);
@@ -184,6 +235,8 @@ describe('Superadmin first-run setup (SEC-04)', () => {
           username: 'branch_admin',
           password: 'securePass123',
           confirm_password: 'securePass123',
+          transfer_key: 'branch-transfer-key',
+          confirm_transfer_key: 'branch-transfer-key',
         },
       );
 

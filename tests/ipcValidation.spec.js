@@ -84,7 +84,11 @@ describe('validateChannelArgs: the calls the renderer really makes are accepted'
     ['logs:get-recent', [{ lines: 100 }]],
     ['logs:get-filtered', [{ keyword: 'backup', lines: 200 }]],
     ['ui:show-error-toast', ['حدث خطأ']],
-    ['db:rotate-key', [{ password: 'secret' }]],
+    ['backup:reveal-transfer-key', [{ password: 'secret' }]],
+    [
+      'backup:set-transfer-key',
+      [{ password: 'secret', key: 'branch-key', confirmKey: 'branch-key' }],
+    ],
     ['logout', []],
   ])('%s %j', (channel, args) => {
     expect(validateChannelArgs(channel, args)).toBeNull();

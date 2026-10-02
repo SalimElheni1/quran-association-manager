@@ -34,17 +34,21 @@ Regenerate them with `npm run docs:screenshots` after running the scenario.
 
 ## 🎬 Video guide (Arabic)
 
-A recorded tour of the app from a fresh install: first login, fees, teachers, students,
-classes, attendance, student fees, income and expenses, and backup. Every step is explained in
-Arabic before it happens. It is an e2e test, so each step is also checked against the app.
+A recorded tour of the app from a fresh install: first login, then every setting (association
+details, branding, fees and age groups, backup), users and roles, teachers, students, classes,
+attendance, student fees, income, expenses and inventory, the financial dashboard and reports,
+the profile, About and logout. Every step is explained in Arabic before it happens. Steps the
+video does not perform (they need a file or a printer, or would undo the demo) are only
+highlighted, with a blue dashed ring and a «للاطلاع فقط» badge. It is an e2e test, so each step
+is also checked against the app.
 
 - `npm run docs:guide` records it with **Arabic captions on screen**.
 - `npm run docs:guide:audio` records it with a **spoken Arabic narration** instead
   (`QBM_GUIDE_MODE=both` gives captions and narration).
 - `npm run docs:guide:mp4` then makes `guide.mp4` and one MP4 per chapter in
   `guide-output/chapters/`, with the narration as sound (and, in audio mode, the captions as
-  subtitles that can be turned on). Needs ffmpeg with libx264; set `FFMPEG_PATH` if it is not on
-  the PATH.
+  subtitles that can be turned on). `npm run docs:guide:mp4 -- --single` makes only
+  `guide.mp4`. Needs ffmpeg with libx264; set `FFMPEG_PATH` if it is not on the PATH.
 
 Output goes to `guide-output/`: `guide.webm`, Arabic subtitles (`captions.vtt`), chapter timings,
 `narration.wav` and the written steps (`guide.md`). `QBM_GUIDE_PACE=0.3` records a quick version.

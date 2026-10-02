@@ -136,7 +136,8 @@ const CHANNEL_ARG_SCHEMAS = {
   'backup:getStatus': [],
   'backup:get-reminder-status': [],
   'db:import': [requiredPayload],
-  'db:rotate-key': [requiredPayload],
+  'backup:reveal-transfer-key': [requiredPayload],
+  'backup:set-transfer-key': [requiredPayload],
 
   // ---- Dashboard and attendance ----
   'get-dashboard-stats': [],

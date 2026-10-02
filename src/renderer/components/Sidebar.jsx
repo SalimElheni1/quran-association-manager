@@ -16,11 +16,13 @@ import ProfileIcon from './icons/ProfileIcon';
 import InfoIcon from './icons/InfoIcon';
 import LogOutIcon from './icons/LogOutIcon';
 
+const DEFAULT_NATIONAL_NAME = 'الرابطة الوطنية للقرآن الكريم';
+
 function Sidebar({ collapsed = false }) {
   const { user, logout } = useAuth();
   const { canAccessModule } = usePermissions();
   const navigate = useNavigate();
-  const [nationalName, setNationalName] = useState('الرابطة الوطنية للقرآن الكريم');
+  const [nationalName, setNationalName] = useState(DEFAULT_NATIONAL_NAME);
   const [regionalName, setRegionalName] = useState('');
   const [branchName, setBranchName] = useState('');
   const [logoPath, setLogoPath] = useState(null);
@@ -32,12 +34,10 @@ function Sidebar({ collapsed = false }) {
         if (response.success && response.settings) {
           const { national_association_name, regional_association_name, local_branch_name } =
             response.settings;
-          const national = national_association_name?.trim() || '';
-          const regional = regional_association_name?.trim() || '';
-          const branch = local_branch_name?.trim() || '';
-          if (national) setNationalName(national);
-          if (regional) setRegionalName(regional);
-          if (branch) setBranchName(branch);
+          // A name cleared in the settings disappears here too.
+          setNationalName(national_association_name?.trim() || DEFAULT_NATIONAL_NAME);
+          setRegionalName(regional_association_name?.trim() || '');
+          setBranchName(local_branch_name?.trim() || '');
         }
       } catch (err) {
         logError('Failed to fetch settings for sidebar:', err);
@@ -48,16 +48,20 @@ function Sidebar({ collapsed = false }) {
       try {
         // Prefer the local branch logo, else the national logo, else nothing.
         const response = await window.electronAPI.getLogo();
-        if (response.success && response.path) {
-          setLogoPath(response.path);
-        }
+        if (response.success) setLogoPath(response.path || null);
       } catch (err) {
         logError('Failed to fetch logo for sidebar:', err);
       }
     };
 
-    fetchAssociationName();
-    fetchLogo();
+    const refresh = () => {
+      fetchAssociationName();
+      fetchLogo();
+    };
+    refresh();
+    // The settings page announces each save: show the new names and logo right away.
+    window.addEventListener('settings-updated', refresh);
+    return () => window.removeEventListener('settings-updated', refresh);
   }, []);
 
   const handleLogout = () => {
@@ -82,10 +86,11 @@ function Sidebar({ collapsed = false }) {
                 ق
               </span>
             )}
+            {/* From the national association down to this branch. */}
             <div className="brand-titles">
-              {branchName && <span className="branch-name">{branchName}</span>}
               <span className="national-name">{nationalName}</span>
               {regionalName && <span className="regional-name">{regionalName}</span>}
+              {branchName && <span className="branch-name">{branchName}</span>}
             </div>
           </div>
         </div>

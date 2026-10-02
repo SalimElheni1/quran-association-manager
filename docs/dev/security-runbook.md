@@ -9,12 +9,12 @@ Operational procedures for branch staff and maintainers. UI labels are quoted ex
 3. Create the first superadmin account:
    - Username: choose a unique identifier.
    - Password: at least 6 characters and not a common password. The form shows the rule «6 أحرف على الأقل؛ يمكنك استخدام الحروف أو الأرقام فقط أو اختيار كلمة مرور أكثر تعقيداً. تجنب كلمات المرور الشائعة.» A longer password is safer.
+   - **رمز حماية النسخ الاحتياطية** (backup protection key, also called the association transfer key), typed twice: the shared secret that encrypts backups so any computer of the association can restore them. At least 8 characters and different from the password. If the association already uses a key on another computer, enter **the same key**. Save it securely (password manager, printed copy in a safe).
    - Click «إنشاء مدير النظام» (Create system administrator).
 4. Log in with the new superadmin account.
 5. Open **الإعدادات** in the sidebar (page «إعدادات النظام والنسخ الاحتياطي»), tab «النسخ الاحتياطي»:
    - **مسار حفظ النسخ الاحتياطي**: click «اختيار...» and pick an absolute, existing, writable folder (e.g. `D:\Backups\QuranBranch`). The scheduler will not start without a valid path.
-   - **رمز النقل الموحد للمؤسسة (Association Transfer Key)**: enter a shared secret used to encrypt backups so they can be restored on another branch computer. Save it securely (password manager, printed copy in a safe). Without it, backups are encrypted with this computer's database key and cannot be restored elsewhere.
-   - Click **حفظ جميع التغييرات** (Save All Changes) at the bottom of the page.
+   - The card **رمز حماية النسخ الاحتياطية (رمز النقل)** shows «تم تعيين الرمز»: the key chosen at setup. It is never shown on screen unless the Superadmin clicks «عرض الرمز» and types their password (it hides again after 30 seconds).
    - Enable **تفعيل النسخ التلقائي** (Enable Automatic Backup), choose **تكرار النسخ** (Frequency: يوميًا / أسبوعيًا / شهريًا) and **توقيت النسخ** (Time, e.g. 02:00).
    - Click **حفظ جميع التغييرات** again.
 6. Run a manual backup to verify: click **نسخ احتياطي الآن** (Backup Now). A success toast confirms it, and the backup tab shows the time and status of the last backup.
@@ -26,56 +26,38 @@ Operational procedures for branch staff and maintainers. UI labels are quoted ex
 Scenario: the original office computer is lost, stolen, or broken. You have a `.qdb` backup file and the association transfer key.
 
 1. Install the application on the new computer.
-2. Launch the app. Complete the first-run setup with a **temporary** superadmin account (any strong password).
+2. Launch the app. Complete the first-run setup with a **temporary** superadmin account (any strong password) and, as backup protection key, **the association transfer key**.
 3. Log in as that temporary superadmin.
 4. Open **الإعدادات** → tab **النسخ الاحتياطي**.
 5. In the section **استرجاع نسخة احتياطية**, click **استرجاع من نسخة احتياطية...** (Restore from a backup) and select the `.qdb` backup file.
 6. A dialog **الخطوة الأخيرة: تأكيد الهوية** appears:
    - Password field («أدخل كلمة المرور الخاصة بك»): enter the password of the account you are **logged in with now** — the temporary superadmin. It confirms your identity on this computer.
-   - Backup key field («رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)»): enter the **association transfer key** that was set when the backup was made.
+   - Backup key field («رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)»): leave it empty when the backup was made with the key entered at setup. Type a key only for a backup made with a different one (for example the key used before it was changed).
    - Click **تأكيد** (Confirm).
 7. On success, a toast reads: «تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.» and the app restarts.
 8. The restored database replaces everything, including the user accounts: the temporary superadmin no longer exists. Log in with an account from the backup.
-9. Set the association transfer key and a backup folder again on this computer if they are not already shown in the backup tab, and make a fresh backup.
+9. The restored database brings its own backup protection key. Check the backup tab shows «تم تعيين الرمز», set a backup folder, and make a fresh backup.
 
 ### What Is Lost Without the Transfer Key
 
-- Backups created **without** an association transfer key are encrypted with the source computer's database key (stored in the OS keychain / key file).
-- If that computer is gone, the key is gone. The `.qdb` files cannot be decrypted on any other machine.
-- Only backups made **after** the transfer key was set and saved can be restored on a different computer.
+- New installs choose the transfer key at setup, so their backups never depend on one computer. An older install without a key asks its Superadmin for one after login; that prompt cannot be skipped.
+- Backups made by an older install **before** it had a transfer key are encrypted with that computer's database key (stored in the OS keychain / key file).
+- If that computer is gone, the key is gone. Those `.qdb` files cannot be decrypted on any other machine.
 
-## 3. Rotating the Database Key
+## 3. Showing or Changing the Backup Protection Key
 
-### When to Rotate
+Only the **Superadmin** can do this; other roles see only whether a key is set. The database
+encryption key itself is automatic and never shown or changed by staff.
 
-- You suspect the computer or its OS keychain / key file was copied (e.g. device left unattended, disk imaged).
-- A staff member with Superadmin or Administrator access leaves the association.
-- As a periodic hygiene measure (e.g. annually).
+1. Open **إعدادات النظام والنسخ الاحتياطي** → tab **النسخ الاحتياطي**, card **رمز حماية النسخ الاحتياطية (رمز النقل)**.
+2. To see the key: click **عرض الرمز**, type your password and click **تأكيد**. The key is shown for 30 seconds, or until you click **إخفاء**.
+3. To change it: click **تغيير الرمز**, type your password, then the new key twice, and click **حفظ الرمز**.
 
-### Prerequisites
+When you change it:
 
-- You are logged in as **Superadmin**.
-- The **رمز النقل الموحد للمؤسسة** (Association Transfer Key) is already set and saved in Settings → النسخ الاحتياطي. The rotation is refused until this is done, because backups made without it depend on the old database key and would become unrestorable.
-- You know the current superadmin password.
-
-### Steps
-
-1. Open **إعدادات النظام والنسخ الاحتياطي** → tab **النسخ الاحتياطي**.
-2. Scroll to the section **مفتاح تشفير قاعدة البيانات**.
-3. Click **تغيير مفتاح التشفير** (Rotate Encryption Key).
-4. A modal **تأكيد تغيير مفتاح التشفير** appears with the body: «أدخل كلمة المرور الخاصة بك لإعادة تشفير قاعدة البيانات بمفتاح جديد. سيتم تسجيل خروج جميع المستخدمين.»
-5. Enter your superadmin password and click **تأكيد** (Confirm).
-6. The app re-keys the database (crash-safe: if the app crashes mid-operation, the next start finishes or discards the rotation).
-7. All sessions are ended immediately. A toast reads: «تم تغيير مفتاح تشفير قاعدة البيانات. يرجى تسجيل الدخول من جديد.»
-8. Every user must log in again. The new session tokens are signed with a secret derived from the new database key.
-
-### Consequences
-
-- The database file is re-encrypted with a fresh 32-byte key.
-- The session-signing secret (JWT secret) is re-derived from the new key via HKDF-SHA256.
-- All active sessions are revoked (force-logout).
-- Backups made **after** rotation use the new key. Backups made **before** rotation (and encrypted with the association transfer key) remain restorable because the transfer key is independent of the database key.
-- Backups made before rotation **without** the transfer key are now useless (they were encrypted with the old database key, which no longer exists).
+- New backups (manual and automatic) use the new key at once.
+- Older backups stay encrypted with the old key: to restore one, type the old key in the restore dialog. Keep the old key as long as you keep those backups.
+- Give the new key to the other computers of the association, so they can still restore each other's backups.
 
 ## 4. Incident Response Checklist
 
@@ -84,9 +66,9 @@ Scenario: the original office computer is lost, stolen, or broken. You have a `.
 1. **Contain**
    - Change the affected user's password in **إدارة المستخدمين** → select user → **تعديل** → set a new strong password.
    - Deactivate compromised accounts: in **إدارة المستخدمين**, set status to **غير نشط** (Inactive). Inactive users cannot log in.
-   - If the database file or the key store may have been copied, change the association transfer
-     key (and make a fresh backup) and rotate the database key (Section 3). Rotation protects the
-     database from now on; it cannot make an already copied file plus its copied key unreadable.
+   - If backups or the key may have been copied, change the association transfer key (Section 3)
+     and make a fresh backup. This protects new backups; it cannot make already copied backups
+     unreadable to someone who has the old key.
 
 2. **Preserve Evidence**
    - Copy the log file `app-logs.txt` from the app's user-data folder (on Windows usually
@@ -112,8 +94,8 @@ users' passwords.
 
 1. Set up a replacement computer and restore the latest backup (Section 2).
 2. On the replacement, change the passwords of every account (they may be guessed offline on the
-   stolen copy), then choose a **new association transfer key**, save it, rotate the database key
-   (Section 3) and make a fresh backup. Backups made with the old transfer key should be treated as
+   stolen copy), then choose a **new association transfer key** (Section 3) and make a fresh
+   backup. Backups made with the old transfer key should be treated as
    readable by whoever has the stolen computer.
 3. Tell the other branch computers that share the old transfer key to change it as well.
 4. Notify the association's leadership.

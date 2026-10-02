@@ -9,6 +9,7 @@ const {
   runManualCheck: runManualFeeChargeCheck,
 } = require('../feeChargeScheduler');
 const { log, warn: logWarn, error: logError } = require('../logger');
+const { findImageFile } = require('../imagePaths');
 
 /**
  * Safely attempt to rollback a transaction if one is active.
@@ -94,11 +95,11 @@ const internalCopyLogoAsset = async (tempPath) => {
   return path.join('assets', 'logos', fileName).replace(/\\/g, '/');
 };
 
+// A logo is valid when it is a file the user added or an image bundled with the app (the
+// default national logo, g247.png, is bundled).
 const validateLogoPath = (logoPath) => {
   if (!logoPath) return true;
-  const userDataPath = app.getPath('userData');
-  const fullPath = path.join(userDataPath, logoPath);
-  return fs.existsSync(fullPath);
+  return findImageFile(logoPath) !== null;
 };
 
 const internalUpdateSettingsHandler = async (settingsData) => {
@@ -152,13 +153,41 @@ function redactSettings(settings) {
   return copy;
 }
 
+/**
+ * Copy of settings safe to send to the window: the association transfer key never leaves the
+ * main process (a Superadmin reveals it with their password, see backup:reveal-transfer-key);
+ * the window only learns whether one is set.
+ * @param {object} settings
+ * @returns {object}
+ */
+function toRendererSettings(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const transferKey = settings.association_transfer_key;
+  const copy = { ...settings };
+  delete copy.association_transfer_key;
+  copy.has_transfer_key = typeof transferKey === 'string' && transferKey.trim() !== '';
+  return copy;
+}
+
+/**
+ * Stores the association transfer key. Callers check the key's rules and who is asking.
+ * @param {string} key
+ */
+async function internalSetTransferKey(key) {
+  await db.runQuery('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
+    'association_transfer_key',
+    key,
+  ]);
+}
+
 function registerSettingsHandlers(refreshSettings) {
   ipcMain.handle('settings:get', async () => {
     try {
       if (!db.isDbOpen()) {
         return { success: true, settings: {} };
       }
-      return await internalGetSettingsHandler();
+      const result = await internalGetSettingsHandler();
+      return { ...result, settings: toRendererSettings(result.settings) };
     } catch (error) {
       logError('Error in settings:get IPC wrapper:', error);
       return { success: false, message: error.message };
@@ -179,7 +208,10 @@ function registerSettingsHandlers(refreshSettings) {
 
       log('[DEBUG] settings:update - oldFees:', { oldAnnualFee, oldMonthlyFee, feesWereNotSet });
 
-      const result = await internalUpdateSettingsHandler(settingsData);
+      // The transfer key has its own password-checked channel (backup:set-transfer-key).
+      const updatableSettings = { ...settingsData };
+      delete updatableSettings.association_transfer_key;
+      const result = await internalUpdateSettingsHandler(updatableSettings);
 
       log(`[Settings] Update result: ${JSON.stringify(result)}`);
 
@@ -253,32 +285,22 @@ function registerSettingsHandlers(refreshSettings) {
     }
   });
 
+  // The logo for the sidebar and login screen: the local branch logo, else the national one
+  // (the bundled default g247.png counts), else none.
   ipcMain.handle('settings:getLogo', async () => {
     try {
-      const userDataPath = app.getPath('userData');
-
       if (db.isDbOpen()) {
         const { settings } = await internalGetSettingsHandler();
-        if (settings.regional_local_logo_path) {
-          const logoPath = path.join(userDataPath, settings.regional_local_logo_path);
-          if (fs.existsSync(logoPath)) {
-            return { success: true, path: `safe-image://${settings.regional_local_logo_path}` };
-          }
-        }
-        if (settings.national_logo_path) {
-          const logoPath = path.join(userDataPath, settings.national_logo_path);
-          if (fs.existsSync(logoPath)) {
-            return { success: true, path: `safe-image://${settings.national_logo_path}` };
+        for (const logo of [settings.regional_local_logo_path, settings.national_logo_path]) {
+          if (logo && findImageFile(logo)) {
+            return { success: true, path: `safe-image://${logo}` };
           }
         }
       } else {
         const store = new Store();
         const cachedLogoPath = store.get('cached_logo_path');
-        if (cachedLogoPath) {
-          const logoPath = path.join(userDataPath, cachedLogoPath);
-          if (fs.existsSync(logoPath)) {
-            return { success: true, path: `safe-image://${cachedLogoPath}` };
-          }
+        if (cachedLogoPath && findImageFile(cachedLogoPath)) {
+          return { success: true, path: `safe-image://${cachedLogoPath}` };
         }
       }
 
@@ -566,4 +588,6 @@ module.exports = {
   registerSettingsHandlers,
   internalGetSettingsHandler,
   internalUpdateSettingsHandler,
+  internalSetTransferKey,
+  toRendererSettings,
 };

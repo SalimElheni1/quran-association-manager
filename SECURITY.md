@@ -20,5 +20,5 @@ You will receive an acknowledgment within **7 days**. We follow coordinated disc
 ## Security Model
 
 The developer-facing security model, threat assumptions, and implementation details are in [docs/dev/specs/security.md](docs/dev/specs/security.md). Operational procedures (setup,
-backup and recovery, key rotation, incident response) are in
+backup and recovery, the backup protection key, incident response) are in
 [docs/dev/security-runbook.md](docs/dev/security-runbook.md).

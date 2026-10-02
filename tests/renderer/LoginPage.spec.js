@@ -38,6 +38,16 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const TRANSFER_KEY = 'branch-transfer-key';
+
+// Fills the backup protection key of the first-run setup form (both fields).
+function fillTransferKey(key = TRANSFER_KEY, confirmKey = key) {
+  fireEvent.change(screen.getByPlaceholderText('8 أحرف على الأقل'), { target: { value: key } });
+  fireEvent.change(screen.getByPlaceholderText('أعد إدخال الرمز'), {
+    target: { value: confirmKey },
+  });
+}
+
 describe('LoginPage', () => {
   let mockElectronAPI;
 
@@ -118,6 +128,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
       target: { value: 'Zitouna#Fes2026' },
     });
+    fillTransferKey();
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
     await waitFor(() => {
@@ -125,6 +136,8 @@ describe('LoginPage', () => {
         username: 'branch_admin',
         password: 'Zitouna#Fes2026',
         confirm_password: 'Zitouna#Fes2026',
+        transfer_key: TRANSFER_KEY,
+        confirm_transfer_key: TRANSFER_KEY,
       });
     });
 
@@ -148,6 +161,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
       target: { value: 'Zitouna#Fes2026' },
     });
+    fillTransferKey();
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
     await waitFor(() => {
@@ -190,6 +204,32 @@ describe('LoginPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
+  it('refuses a backup key that is short or not confirmed before calling the main process', async () => {
+    renderLoginPage({ needsSetup: true });
+
+    fireEvent.change(screen.getByLabelText('اسم المستخدم'), {
+      target: { value: 'branch_admin' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('6 أحرف على الأقل'), {
+      target: { value: 'Zitouna#Fes2026' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
+      target: { value: 'Zitouna#Fes2026' },
+    });
+    fillTransferKey('short', 'short');
+    fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
+    expect(
+      await screen.findByText('يجب أن يتكون رمز حماية النسخ الاحتياطية من 8 أحرف على الأقل.'),
+    ).toBeInTheDocument();
+
+    fillTransferKey(TRANSFER_KEY, 'another-transfer-key');
+    fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
+    expect(
+      await screen.findByText('رمزا حماية النسخ الاحتياطية غير متطابقين.'),
+    ).toBeInTheDocument();
+    expect(mockElectronAPI.setupSuperadmin).not.toHaveBeenCalled();
+  });
+
   it('refuses a superadmin password shorter than 6 characters before calling the main process', async () => {
     renderLoginPage({ needsSetup: true });
 
@@ -202,6 +242,7 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByPlaceholderText('أعد إدخال كلمة المرور'), {
       target: { value: 'abc12' },
     });
+    fillTransferKey();
     fireEvent.click(screen.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
     expect(

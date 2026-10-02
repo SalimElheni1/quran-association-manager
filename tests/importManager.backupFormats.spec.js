@@ -70,6 +70,23 @@ describe('Backup format auto-detection (legacy vs encrypted)', () => {
     expect(result.equals(originalZip)).toBe(true);
   });
 
+  it('should decrypt an encrypted backup with the transfer key saved in the settings table', () => {
+    const originalZip = Buffer.from('payload');
+    const encrypted = backupManager.encryptBackup(originalZip, 'saved-transfer-key');
+
+    // No key typed in the restore dialog: the saved key (passed by db:import) opens it.
+    const result = extractZipFromBuffer(encrypted, undefined, 'saved-transfer-key');
+    expect(result.equals(originalZip)).toBe(true);
+  });
+
+  it('should still try a typed key before the saved one (e.g. an older key)', () => {
+    const originalZip = Buffer.from('payload');
+    const encrypted = backupManager.encryptBackup(originalZip, 'previous-transfer-key');
+
+    const result = extractZipFromBuffer(encrypted, 'previous-transfer-key', 'saved-transfer-key');
+    expect(result.equals(originalZip)).toBe(true);
+  });
+
   it('should decrypt an encrypted backup using the local DB key as last resort', () => {
     const originalZip = Buffer.from('payload');
     const encrypted = backupManager.encryptBackup(originalZip, 'local-db-key');

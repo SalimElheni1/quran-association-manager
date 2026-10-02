@@ -106,6 +106,35 @@ describe('settingsHandlers', () => {
       );
     });
 
+    it('should keep the bundled national logo, which is not in userData', async () => {
+      app.isPackaged = false; // a development run: bundled images are in public/
+      Joi.object().validateAsync.mockImplementation((data) => Promise.resolve(data));
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      const bundledLogo = path.resolve(__dirname, '..', 'public', 'g247.png');
+      fs.existsSync.mockImplementation((p) => p === bundledLogo);
+
+      await internalUpdateSettingsHandler({ national_logo_path: 'g247.png' });
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        ['national_logo_path', 'g247.png'],
+      );
+    });
+
+    it('should fall back to the default logo when the logo file is missing', async () => {
+      app.isPackaged = false; // a development run: bundled images are in public/
+      Joi.object().validateAsync.mockImplementation((data) => Promise.resolve(data));
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      fs.existsSync.mockReturnValue(false);
+
+      await internalUpdateSettingsHandler({ national_logo_path: 'assets/logos/gone.png' });
+
+      expect(db.runQuery).toHaveBeenCalledWith(
+        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        ['national_logo_path', 'assets/logos/icon.png'],
+      );
+    });
+
     it('should store values as strings and empty values as an empty string', async () => {
       const settingsData = { backup_enabled: false, charge_generation_day: 20, backup_path: null };
       Joi.object().validateAsync.mockResolvedValue(settingsData);
@@ -150,6 +179,65 @@ describe('settingsHandlers', () => {
       expect(db.allQuery).toHaveBeenCalled();
       expect(result.success).toBe(true);
     });
+
+    it('should never send the association transfer key to the window', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.allQuery.mockResolvedValue([{ key: 'association_transfer_key', value: 'SECRET-KEY-123' }]);
+
+      const result = await handlers['settings:get']();
+
+      expect(result.settings).not.toHaveProperty('association_transfer_key');
+      expect(JSON.stringify(result)).not.toContain('SECRET-KEY-123');
+      expect(result.settings.has_transfer_key).toBe(true);
+    });
+
+    it('should tell the window when no transfer key is set', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.allQuery.mockResolvedValue([{ key: 'association_transfer_key', value: '' }]);
+
+      const result = await handlers['settings:get']();
+
+      expect(result.settings.has_transfer_key).toBe(false);
+    });
+  });
+
+  describe('settings:getLogo', () => {
+    it('should return the bundled default national logo', async () => {
+      app.isPackaged = false; // a development run: bundled images are in public/
+      db.isDbOpen.mockReturnValue(true);
+      db.allQuery.mockResolvedValue([{ key: 'national_logo_path', value: 'g247.png' }]);
+      const bundledLogo = path.resolve(__dirname, '..', 'public', 'g247.png');
+      fs.existsSync.mockImplementation((p) => p === bundledLogo);
+
+      const result = await handlers['settings:getLogo']();
+
+      expect(result).toEqual({ success: true, path: 'safe-image://g247.png' });
+    });
+
+    it('should prefer the local branch logo', async () => {
+      app.isPackaged = false;
+      db.isDbOpen.mockReturnValue(true);
+      db.allQuery.mockResolvedValue([
+        { key: 'national_logo_path', value: 'g247.png' },
+        { key: 'regional_local_logo_path', value: 'assets/logos/branch.png' },
+      ]);
+      fs.existsSync.mockReturnValue(true);
+
+      const result = await handlers['settings:getLogo']();
+
+      expect(result.path).toBe('safe-image://assets/logos/branch.png');
+    });
+
+    it('should return no logo when none of the files exists', async () => {
+      app.isPackaged = false;
+      db.isDbOpen.mockReturnValue(true);
+      db.allQuery.mockResolvedValue([{ key: 'national_logo_path', value: 'gone.png' }]);
+      fs.existsSync.mockReturnValue(false);
+
+      const result = await handlers['settings:getLogo']();
+
+      expect(result).toEqual({ success: true, path: null });
+    });
   });
 
   describe('settings:update', () => {
@@ -173,6 +261,21 @@ describe('settingsHandlers', () => {
         expect.objectContaining(mockNewSettings),
       );
       expect(mockRefreshSettings).toHaveBeenCalled();
+    });
+
+    it('should not change the transfer key (it has its own password-checked channel)', async () => {
+      Joi.object().validateAsync.mockImplementation((data) => Promise.resolve(data));
+      db.runQuery.mockResolvedValue({ changes: 1 });
+      db.allQuery.mockResolvedValue([]);
+
+      await handlers['settings:update'](null, {
+        local_branch_name: 'فرع ساقية الزيت',
+        association_transfer_key: 'typed-in-the-window',
+      });
+
+      const writtenKeys = db.runQuery.mock.calls.map(([, params]) => params && params[0]);
+      expect(writtenKeys).toContain('local_branch_name');
+      expect(writtenKeys).not.toContain('association_transfer_key');
     });
 
     it('should never write the association transfer key to the log', async () => {

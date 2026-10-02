@@ -81,21 +81,25 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   or key file.
 - **Backups:** `.qdb` files encrypted with AES-256-GCM (PBKDF2, 100k iterations), whose
   authentication tag makes a modified file fail to restore. The key is the association transfer key
-  when set (so another branch computer can restore it), otherwise this computer's database key.
+  (so another branch computer can restore it), otherwise this computer's database key.
   Older SQL-script backups carry an HMAC-SHA256 signature that is checked on import.
-- **Key rotation (SEC-017):** Settings > النسخ الاحتياطي > «تغيير مفتاح التشفير», Superadmin only,
-  password confirmation (IPC `db:rotate-key`, `src/main/handlers/systemHandlers.js`;
-  `db.rotateDatabaseKey`). Refused until the association transfer key is saved, because backups
-  made without it are encrypted with the database key and would no longer restore. Crash-safe: the
-  new key is stored as pending, the file is re-keyed (journal switched from WAL to DELETE for the
-  duration — SQLite3MultipleCiphers cannot re-key in WAL mode), verified with a second connection,
-  then promoted; at startup an interrupted rotation is finished or discarded. The session secret is
-  re-derived and every session ends (force-logout). No old key is kept.
+- **Association transfer key («رمز حماية النسخ الاحتياطية»):** chosen at first-run setup
+  (`auth:setup-superadmin`, required: 8+ characters, confirmed, different from the password —
+  `src/main/transferKeyPolicy.js`). An install without one asks its Superadmin after login, with a
+  prompt that cannot be dismissed. The key never reaches the window: `settings:get` returns only
+  `has_transfer_key`, `settings:update` ignores the key, and manual backups and restores read it
+  from the settings table in the main process. The Superadmin reveals it
+  (`backup:reveal-transfer-key`, shown for 30 seconds) or changes it (`backup:set-transfer-key`)
+  only after typing their password again; other roles see only whether it is set.
+- **Database key rotation (SEC-017):** no longer offered in the UI (removed 2026-10-02: the
+  database key is automatic and never handled by staff, and a rotation logged everyone out).
+  `db.rotateDatabaseKey` and the startup recovery of an interrupted rotation (pending key finished
+  or discarded) are kept.
 - **Backup folder (SEC-018, `backupManager.validateBackupPath`):** only an absolute, existing,
   writable folder without NUL characters; the scheduler does not start otherwise, a manual backup
   returns the Arabic reason, the safety copy before a restore is skipped with a warning.
-- **Restore** needs the logged-in user's password, and the transfer key for backups from another
-  computer.
+- **Restore** needs the logged-in user's password. The saved transfer key is tried
+  automatically; a key is typed only for a backup made with another key (e.g. before a change).
 
 ## Input Handling
 

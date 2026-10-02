@@ -44,7 +44,7 @@ from the plan (noted in the table).
 | SEC-014 CSP | Done | `Content-Security-Policy` meta tag in `index.html`. |
 | SEC-015 Log redaction | Done | `logger.js` `sanitizeForLog`. |
 | SEC-016 Token rotation / in-memory storage | Done (differently) | Main-process sessions with expiry (`sessionManager.js`). |
-| SEC-017 DB key rotation | Done | Settings > النسخ الاحتياطي > «تغيير مفتاح التشفير» (Superadmin, password): `db.rotateDatabaseKey` stages the new key, re-keys (WAL off for the duration), verifies, promotes; startup finishes or discards an interrupted rotation. Refused until the association transfer key is saved (backups made without it use the DB key). Every session ends. |
+| SEC-017 DB key rotation | Removed from the UI (2026-10-02) | `db.rotateDatabaseKey` (stage, re-key with WAL off, verify, promote) and the startup recovery of an interrupted rotation are kept, but no screen or IPC channel offers it: the database key stays automatic and invisible. The association transfer key is now chosen at setup and revealed or changed only with the Superadmin's password. |
 | SEC-018 Backup path check on startup | Done | `backupManager.validateBackupPath` (absolute, existing, writable, no NUL): the scheduler does not start otherwise and re-checks before each run; manual backup returns the reason; the pre-restore copy is skipped with a warning. |
 | SEC-019 External navigation | Done | `navigationGuard.js`: window.open always denied; navigation only to the app's own page; an exact-host allowlist (mailto:, GitHub, LinkedIn, WhatsApp) opens in the system browser; anything else blocked and logged; `webviewTag: false`. |
 | SEC-020 `electron-reloader` in production | Done | Loaded only when `!app.isPackaged`, and never in e2e runs. |

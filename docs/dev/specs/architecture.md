@@ -106,8 +106,9 @@ Component → window.electronAPI.addStudent(data)
   and `services/*Export*.js`.
 - **Imports:** an Excel import wizard (`importManager.js`, matricule-aware upsert). Column
   mapping: [import-export-map.md](../reference/import-export-map.md).
-- **Backups:** `.qdb` files, AES-256-GCM encrypted with the association transfer key (or this
-  computer's key when none is set), made on demand or by the scheduler. Restoring replaces the
+- **Backups:** `.qdb` files, AES-256-GCM encrypted with the association transfer key (chosen at
+  first-run setup; this computer's key only on older installs that never set one), made on demand
+  or by the scheduler. Restoring replaces the
   database and restarts the app.
 
 ## Errors

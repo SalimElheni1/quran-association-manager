@@ -36,6 +36,44 @@ test.describe('الإعدادات - settings', () => {
     await expect(presidentNameInput).toHaveValue(uniquePresident);
   });
 
+  test('sidebar shows the regional and local names as soon as they are saved', async ({
+    authedPage: page,
+  }) => {
+    await navigate(page, 'الإعدادات');
+    const regional = `الفرع الجهوي ${Date.now()}`;
+    const local = `فرع فوري ${Date.now()}`;
+    await page.locator('input[name="regional_association_name"]').fill(regional);
+    await page.locator('input[name="local_branch_name"]').fill(local);
+    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+    await expectToast(page, 'success', 'تم تحديث الإعدادات بنجاح.');
+
+    // No logout, no navigation.
+    await expect(page.locator('.sidebar .regional-name')).toHaveText(regional);
+    await expect(page.locator('.sidebar .branch-name')).toHaveText(local);
+    // From the national association down to the branch.
+    await expect(page.locator('.sidebar .brand-titles > span')).toHaveText([
+      'الرابطة الوطنية للقرآن الكريم',
+      regional,
+      local,
+    ]);
+
+    // Clearing a name removes it from the sidebar.
+    await page.locator('input[name="regional_association_name"]').fill('');
+    await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
+    await expect(page.locator('.sidebar .regional-name')).toHaveCount(0);
+    await expect(page.locator('.sidebar .branch-name')).toHaveText(local);
+  });
+
+  test('a fresh install shows the bundled national logo in the sidebar', async ({
+    authedPage: page,
+  }) => {
+    const logo = page.locator('.sidebar .brand-logo');
+    await expect(logo).toHaveAttribute('src', 'safe-image://g247.png');
+    // The image really loads (a broken image has no natural width).
+    await expect.poll(() => logo.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+    await expect(page.locator('.sidebar .brand-glyph')).toHaveCount(0);
+  });
+
   test('sidebar branch-name updates after logout/login cycle', async ({ authedPage }) => {
     const page = authedPage;
     await navigate(page, 'الإعدادات');

@@ -129,6 +129,22 @@ describe('safe-image protocol (SEC-009 hardening)', () => {
     expect(result).toEqual({ path: publicPath });
   });
 
+  it('serves the bundled images from the build inside the packaged app', async () => {
+    mockApp.isPackaged = true;
+    const bundled = path.join(path.resolve('/mock/app/path'), 'dist', 'renderer', 'g247.png');
+    fs.existsSync.mockImplementation((p) => p === bundled);
+    const result = await invoke('safe-image://g247.png');
+    expect(result).toEqual({ path: bundled });
+  });
+
+  it('prefers a logo the user added over a bundled one', async () => {
+    const own = path.resolve('/mock/path/userData', 'g247.png');
+    const publicPath = path.resolve(__dirname, '..', 'public', 'g247.png');
+    fs.existsSync.mockImplementation((p) => p === own || p === publicPath);
+    const result = await invoke('safe-image://g247.png');
+    expect(result).toEqual({ path: own });
+  });
+
   it('returns file-not-found when nothing matches', async () => {
     const result = await invoke('safe-image://assets/logos/missing.png');
     expect(result).toEqual({ error: -6 });

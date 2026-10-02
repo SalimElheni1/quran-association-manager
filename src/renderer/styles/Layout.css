@@ -77,8 +77,9 @@
 }
 
 .sidebar-header .brand-logo {
-  width: 38px;
-  height: 38px;
+  /* Large enough for the detailed association logo to read; the collapsed rail shrinks it. */
+  width: 64px;
+  height: 64px;
   border-radius: 0.625rem;
   object-fit: contain;
   background: rgba(255, 255, 255, 0.92);
@@ -96,21 +97,21 @@
   line-height: 1.35;
 }
 
-.sidebar-header .branch-name {
+.sidebar-header .national-name {
   font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
 }
 
-.sidebar-header .national-name {
-  font-size: 0.8rem;
+.sidebar-header .regional-name {
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-on-sage-muted);
 }
 
-.sidebar-header .regional-name {
-  font-size: 0.8rem;
-  font-weight: 400;
+.sidebar-header .branch-name {
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--text-on-sage-muted);
 }
 
@@ -118,6 +119,10 @@
 .sidebar.collapsed .brand-mark {
   justify-content: center;
   gap: 0;
+}
+.sidebar.collapsed .brand-logo {
+  width: 38px;
+  height: 38px;
 }
 .sidebar.collapsed .brand-titles,
 .sidebar.collapsed .nav-link span,

@@ -83,7 +83,9 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 |---|---|---|---|
 | `backup:get-reminder-status` | `getBackupReminderStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
 | `backup:getStatus` | `getBackupStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+| `backup:reveal-transfer-key` | `revealTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
 | `backup:run` | `runBackup` | Superadmin, Administrator | `handlers/systemHandlers.js` |
+| `backup:set-transfer-key` | `setTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
 
 ### categories
 

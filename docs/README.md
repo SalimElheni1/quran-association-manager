@@ -35,7 +35,7 @@ This project keeps the active documentation close to the work it describes. The 
 
 ### Security operations
 
-- [dev/security-runbook.md](dev/security-runbook.md) — operational runbook for branch staff and maintainers (setup, backup/recovery, key rotation, incident response)
+- [dev/security-runbook.md](dev/security-runbook.md) — operational runbook for branch staff and maintainers (setup, backup/recovery, backup protection key, incident response)
 
 ### Reference and troubleshooting
 

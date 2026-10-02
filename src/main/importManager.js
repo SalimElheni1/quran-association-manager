@@ -58,7 +58,19 @@ function isZipBuffer(buffer) {
   );
 }
 
-function extractZipFromBuffer(fileBuffer, userPassword) {
+/**
+ * The transfer keys to try on a backup: the one passed by the caller (read from the settings
+ * table before the database is closed), else the legacy store entry.
+ * @param {string} [savedTransferKey]
+ * @returns {string|undefined}
+ */
+function resolveTransferKey(savedTransferKey) {
+  if (savedTransferKey) return savedTransferKey;
+  const settings = mainStore.get('settings') || {};
+  return settings.association_transfer_key;
+}
+
+function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
   if (!Buffer.isBuffer(fileBuffer)) {
     return fileBuffer;
   }
@@ -75,8 +87,7 @@ function extractZipFromBuffer(fileBuffer, userPassword) {
   }
 
   // Encrypted format: Candidate keys for decryption
-  const settings = mainStore.get('settings') || {};
-  const associationKey = settings.association_transfer_key;
+  const associationKey = resolveTransferKey(savedTransferKey);
   const { getDbKey } = require('./keyManager');
 
   const candidateKeys = [userPassword, associationKey, getDbKey()].filter(Boolean);
@@ -374,10 +385,10 @@ function fixStatementColumns(statement, columns, invalidColumns) {
   }
 }
 
-async function validateDatabaseFile(filePath, backupPassword) {
+async function validateDatabaseFile(filePath, backupPassword, savedTransferKey) {
   try {
     const rawBuffer = await fs.readFile(filePath);
-    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
     // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
     // returns the encrypted bytes unchanged).
     if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
@@ -400,11 +411,12 @@ async function validateDatabaseFile(filePath, backupPassword) {
     const signatureFile = zip.file('signature.txt');
     if (signatureFile) {
       const sqlScript = sqlFile.asText();
-      const settings = mainStore.get('settings') || {};
       const { getDbKey } = require('./keyManager');
-      const candidateKeys = [backupPassword, settings.association_transfer_key, getDbKey()].filter(
-        Boolean,
-      );
+      const candidateKeys = [
+        backupPassword,
+        resolveTransferKey(savedTransferKey),
+        getDbKey(),
+      ].filter(Boolean);
 
       let isValidSig = false;
       for (const key of candidateKeys) {
@@ -449,12 +461,21 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
   }
 }
 
-async function replaceDatabase(importedDbPath, password, backupPassword) {
+/**
+ * Replaces the database with a backup, after a safety copy of the current data.
+ * @param {string} importedDbPath The backup file.
+ * @param {string} password The logged-in user's password (opens the new database).
+ * @param {string} [backupPassword] A key typed in the restore dialog.
+ * @param {object} [currentSettings] The settings of the current database, read by the caller
+ *   while it is still open: the backup folder for the safety copy, and the transfer key.
+ */
+async function replaceDatabase(importedDbPath, password, backupPassword, currentSettings) {
   const currentDbPath = getDatabasePath();
+  const settings = currentSettings || mainStore.get('settings') || {};
+  const savedTransferKey = settings.association_transfer_key;
 
   // Auto-backup safeguard
   try {
-    const settings = mainStore.get('settings') || {};
     if (settings.backup_path) {
       const validation = backupManager.validateBackupPath(settings.backup_path);
       if (!validation.valid) {
@@ -478,7 +499,7 @@ async function replaceDatabase(importedDbPath, password, backupPassword) {
       await closeDatabase();
     }
     const rawBuffer = await fs.readFile(importedDbPath);
-    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword);
+    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
     // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
     // returns the encrypted bytes unchanged).
     if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {

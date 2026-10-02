@@ -5,6 +5,7 @@ const {
   expect,
   launchApp,
   setupSuperadmin,
+  changeTransferKey,
   login,
   dismissOnboarding,
   navigate,
@@ -14,7 +15,10 @@ const {
   SUPERADMIN,
 } = require('./fixtures');
 
-const TRANSFER_KEY = 'branch-transfer-key-2026';
+// Chosen at first-run setup; the backup is encrypted with it.
+const TRANSFER_KEY = SUPERADMIN.transferKey;
+const RESTORE_KEY_PLACEHOLDER =
+  'رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)';
 
 function activePane(page) {
   return page.locator('.tab-pane.active');
@@ -59,14 +63,11 @@ async function addStudent(page, name) {
   await expectNoModal(page);
 }
 
-/** Saves the transfer key and writes one backup into `backupDir`; returns the backup's path. */
+/** Writes one backup into `backupDir` (encrypted with the saved key); returns its path. */
 async function backUp(page, electronApp, backupDir) {
   fs.mkdirSync(backupDir, { recursive: true });
   await navigate(page, 'الإعدادات');
   await openTab(page, 'النسخ الاحتياطي');
-  await activePane(page).locator('input[name="association_transfer_key"]').fill(TRANSFER_KEY);
-  await page.getByRole('button', { name: 'حفظ جميع التغييرات' }).click();
-  await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
 
   await electronApp.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -87,9 +88,7 @@ async function startRestore(page, { password, key }) {
   await activePane(page).getByRole('button', { name: 'استرجاع من نسخة احتياطية...' }).click();
   await expect(modal(page).locator('.modal-title')).toHaveText('الخطوة الأخيرة: تأكيد الهوية');
   await modal(page).locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]').fill(password);
-  await modal(page)
-    .locator('input[placeholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)"]')
-    .fill(key);
+  await modal(page).locator(`input[placeholder="${RESTORE_KEY_PLACEHOLDER}"]`).fill(key);
   await modal(page).getByRole('button', { name: 'تأكيد' }).click();
   await expectNoModal(page);
 }
@@ -109,6 +108,10 @@ test.describe('database restore', () => {
     const backupPath = await backUp(page, electronApp, testInfo.outputPath('backups'));
     // Not in the backup: a restore that went through would remove it.
     await addStudent(page, afterBackup);
+    // A new key: the saved key no longer opens the backup, only the old one typed in would.
+    await navigate(page, 'الإعدادات');
+    await openTab(page, 'النسخ الاحتياطي');
+    await changeTransferKey(page, { key: 'branch-key-after-backup' });
     await stubDialogAndRelaunch(electronApp, backupPath);
 
     await startRestore(page, { password: 'not-my-password', key: TRANSFER_KEY });
@@ -125,6 +128,20 @@ test.describe('database restore', () => {
     await navigate(page, 'شؤون الطلاب');
     await expect(studentRow(page, kept)).toBeVisible();
     await expect(studentRow(page, afterBackup)).toBeVisible();
+  });
+
+  test('a backup made before a key change restores with the previous key typed in', async ({
+    authedPage: page,
+    electronApp,
+  }, testInfo) => {
+    await addStudent(page, 'سلمى بنت رضا الشابي');
+    const backupPath = await backUp(page, electronApp, testInfo.outputPath('backups'));
+    await changeTransferKey(page, { key: 'branch-key-after-backup' });
+    await stubDialogAndRelaunch(electronApp, backupPath);
+
+    await startRestore(page, { password: SUPERADMIN.password, key: TRANSFER_KEY });
+    await expectToast(page, 'success', 'تم استيراد قاعدة البيانات بنجاح!');
+    await expect.poll(() => electronApp.evaluate(() => global.__e2eRelaunches)).toBe(1);
   });
 
   // Manages its own launches: a restore only shows after the app starts again on the same data.
@@ -147,7 +164,8 @@ test.describe('database restore', () => {
       await addStudent(page, afterBackup);
       await stubDialogAndRelaunch(app, backupPath);
 
-      await startRestore(page, { password: SUPERADMIN.password, key: TRANSFER_KEY });
+      // No key typed: the key saved on this install opens its own backups.
+      await startRestore(page, { password: SUPERADMIN.password, key: '' });
       await expectToast(page, 'success', 'تم استيراد قاعدة البيانات بنجاح!');
       await expect.poll(() => app.evaluate(() => global.__e2eRelaunches)).toBe(1);
       await app.close();

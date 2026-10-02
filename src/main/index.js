@@ -82,6 +82,7 @@ const { requireRoles } = require('./authMiddleware');
 const sessionManager = require('./sessionManager');
 const { installIpcGuard } = require('./ipcSecurity');
 const { getJwtSecret } = require('./keyManager');
+const { IMAGE_EXTENSIONS, isSafeRelativePath, findImageFile } = require('./imagePaths');
 const {
   registerFinancialHandlers,
   recomputeAccountBalances,
@@ -305,37 +306,23 @@ const initializeApp = async () => {
         const decodedUrl = decodeURIComponent(rawUrl).replace(/\\/g, '/');
 
         // Reject traversal sequences, null bytes, and absolute paths (the
-        // protocol may only serve relative files under userData/public).
-        if (decodedUrl.includes('..') || decodedUrl.includes('\0') || path.isAbsolute(decodedUrl)) {
+        // protocol may only serve relative files under userData or the bundled images).
+        if (!isSafeRelativePath(decodedUrl)) {
           logError(`[safe-image] Traversal attempt blocked: ${decodedUrl}`);
           return callback({ error: -6 });
         }
 
-        const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
-
-        const userDataPath = app.getPath('userData');
-        const targetPath = path.resolve(userDataPath, decodedUrl);
-
-        const ext = path.extname(targetPath).toLowerCase();
-        if (!allowedExts.includes(ext)) {
+        const ext = path.extname(decodedUrl).toLowerCase();
+        if (!IMAGE_EXTENSIONS.includes(ext)) {
           logError(`[safe-image] Non-image file type rejected: ${ext}`);
           return callback({ error: -6 });
         }
 
-        if (fs.existsSync(targetPath)) {
-          return callback({ path: targetPath });
-        }
-
-        // Check public assets folder
-        let publicPath;
-        if (app.isPackaged) {
-          publicPath = path.resolve(process.resourcesPath, 'public', decodedUrl);
-        } else {
-          publicPath = path.resolve(__dirname, '..', '..', 'public', decodedUrl);
-        }
-
-        if (fs.existsSync(publicPath)) {
-          return callback({ path: publicPath });
+        // userData first, then the images bundled with the app (public/ in development,
+        // dist/renderer inside the packaged app).
+        const found = findImageFile(decodedUrl);
+        if (found) {
+          return callback({ path: found });
         }
 
         logError(`[safe-image] File not found (checked userData, public): ${decodedUrl}`);

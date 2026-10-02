@@ -7,7 +7,12 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_INDEX = path.join(ROOT, 'dist', 'renderer', 'index.html');
 
-const SUPERADMIN = { username: 'e2eadmin', password: 'Zitouna#Test-2026' };
+const SUPERADMIN = {
+  username: 'e2eadmin',
+  password: 'Zitouna#Test-2026',
+  // The backup protection key chosen at first-run setup.
+  transferKey: 'e2e-branch-transfer-key',
+};
 
 /**
  * Launches the real Electron app against a fresh, throwaway userData directory.
@@ -74,12 +79,17 @@ const test = base.extend({
   },
 });
 
-/** Completes the first-run superadmin setup form. */
-async function setupSuperadmin(page, { username, password } = SUPERADMIN) {
+/** Completes the first-run superadmin setup form, backup protection key included. */
+async function setupSuperadmin(
+  page,
+  { username, password, transferKey = SUPERADMIN.transferKey } = SUPERADMIN,
+) {
   await expect(page.getByRole('heading', { name: 'إنشاء مدير النظام' })).toBeVisible();
   await page.locator('#setup-username').fill(username);
   await page.locator('input[name="setup-password"]').fill(password);
   await page.locator('input[name="setup-confirm-password"]').fill(password);
+  await page.locator('input[name="setup-transfer-key"]').fill(transferKey);
+  await page.locator('input[name="setup-confirm-transfer-key"]').fill(transferKey);
   await page.getByRole('button', { name: 'إنشاء مدير النظام' }).click();
 }
 
@@ -147,6 +157,22 @@ async function expectNoModal(page) {
   await expect(page.locator('body')).not.toHaveClass(/modal-open/);
 }
 
+/**
+ * Sets a new backup protection key through the backup tab's key card (the settings page must
+ * be open on the backup tab).
+ */
+async function changeTransferKey(page, { key, password = SUPERADMIN.password }) {
+  const card = page.locator('[data-section="backup-key"]');
+  await card.getByRole('button', { name: /^(تغيير|تعيين) الرمز$/ }).click();
+  const dialog = modal(page);
+  await dialog.locator('input[name="transfer-key-password"]').fill(password);
+  await dialog.locator('input[name="transfer-key-new"]').fill(key);
+  await dialog.locator('input[name="transfer-key-confirm"]').fill(key);
+  await dialog.getByRole('button', { name: 'حفظ الرمز' }).click();
+  await expectToast(page, 'success', 'تم حفظ رمز حماية النسخ الاحتياطية.');
+  await expectNoModal(page);
+}
+
 /** Confirms the shared ConfirmationModal. */
 async function confirmDialog(page, confirmText = 'نعم، حذف') {
   await modal(page).getByRole('button', { name: confirmText }).click();
@@ -198,6 +224,7 @@ module.exports = {
   launchApp,
   setAppDate,
   setupSuperadmin,
+  changeTransferKey,
   login,
   dismissOnboarding,
   navigate,

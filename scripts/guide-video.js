@@ -7,14 +7,19 @@
  * subtitles viewers can turn on; in both mode, the narration is added to the captioned picture.
  *
  * Needs ffmpeg with H.264 (libx264): set FFMPEG_PATH, or have `ffmpeg` on the PATH.
- * Usage: npm run docs:guide:mp4 [-- <guide-output dir>]
+ * Usage: npm run docs:guide:mp4 [-- [--single] <guide-output dir>]
+ *   --single: only the full guide.mp4, no clip per chapter.
  */
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT_DIR = path.resolve(process.argv[2] || path.join(ROOT, 'guide-output'));
+const args = process.argv.slice(2);
+const SINGLE = args.includes('--single');
+const OUT_DIR = path.resolve(
+  args.find((a) => !a.startsWith('--')) || path.join(ROOT, 'guide-output'),
+);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 
 function run(args) {
@@ -93,6 +98,10 @@ function encode(output, start = 0, duration = null) {
 console.log(`Mode: ${mode}${hasNarration ? ' (with narration)' : ''}`);
 console.log('Full guide -> guide.mp4');
 run(encode(path.join(OUT_DIR, 'guide.mp4')));
+if (SINGLE) {
+  console.log(`Done: ${OUT_DIR}`);
+  process.exit(0);
+}
 
 const chaptersDir = path.join(OUT_DIR, 'chapters');
 fs.mkdirSync(chaptersDir, { recursive: true });

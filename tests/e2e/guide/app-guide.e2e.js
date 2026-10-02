@@ -2,9 +2,12 @@
  * Video guide: a guided tour of the app, recorded as a video with Arabic explanations on screen.
  *
  * It sets up a branch from a fresh install, the way a new administrator would: first login,
- * fees, teachers, students, classes, attendance, student fees, income and expenses, backup.
- * Each step is explained before it happens, and every step is still checked like any other
- * e2e test, so the guide can't silently drift from the app.
+ * then every setting (association details, branding, fees and age groups, backup), users and
+ * roles, teachers, students, classes, attendance, student fees, income, expenses and inventory,
+ * the financial dashboard and reports, the profile, About and logout. Each step is explained
+ * before it happens, and every step is still checked like any other e2e test, so the guide
+ * can't silently drift from the app. Steps the video does not do (they need a file or a printer,
+ * or would undo the demo) are only highlighted, with a «للاطلاع فقط» badge (guide.show).
  *
  * How steps are explained (QBM_GUIDE_MODE):
  * - captions (default): Arabic captions on screen.
@@ -14,7 +17,8 @@
  * Run it with `npm run docs:guide` (or docs:guide:audio); the video, Arabic subtitles
  * (captions.vtt), chapter timings, the narration track and the written guide (guide.md) go to
  * guide-output/. `npm run docs:guide:mp4` then makes MP4 files (the full guide and one per
- * chapter, with the narration) when ffmpeg is available.
+ * chapter, with the narration) when ffmpeg is available; `npm run docs:guide:mp4 -- --single`
+ * makes only the full guide.
  */
 const fs = require('fs');
 const os = require('os');
@@ -57,6 +61,25 @@ const STUDENTS = [
   { name: 'عمر بن خالد', age: 8, gender: 'ذكر' },
 ];
 const CLASS_NAME = 'فصل الحفظ - الأطفال';
+const ASSOCIATION = {
+  regional: 'الرابطة الجهوية بصفاقس',
+  local: 'فرع ساقية الزيت',
+  president: 'محمد بن علي الشريف',
+};
+const FINANCE_USER = {
+  username: 'amina',
+  password: 'Amina#Ledger-2026',
+  firstName: 'أمينة',
+  lastName: 'بن صالح',
+  nationalId: '08123456',
+  phone: '55100001',
+};
+const INVENTORY_ITEM = {
+  name: 'مصحف مجلد',
+  category: 'كتب ومراجع',
+  quantity: '20',
+  unitValue: '15',
+};
 
 function yearsAgo(years) {
   const d = new Date();
@@ -88,7 +111,7 @@ async function openTab(guide, title) {
   await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
 
-test.setTimeout(20 * 60 * 1000);
+test.setTimeout(40 * 60 * 1000);
 
 test('video guide: set up and run a branch from a fresh install', async () => {
   const narrator = prepareNarrator();
@@ -110,7 +133,13 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     guide = new Guide(page, { pace: PACE, mode: MODE, narrator });
     guide.windowAt = windowAt;
 
-    // ------------------------------------------------------------------ 1. First run
+    // ------------------------------------------------------------------ 1. Welcome
+    await guide.chapter(
+      'دليل استخدام برنامج إدارة الفرع',
+      'نبدأ بإعداد البرنامج كاملاً، ثم المستخدمين والمعلمين والطلاب والفصول، ثم الحضور والشؤون المالية.',
+    );
+
+    // ------------------------------------------------------------------ 2. First run
     await guide.chapter(
       'البداية: إنشاء حساب المدير وتسجيل الدخول',
       'أول ما تقوم به بعد تثبيت البرنامج على جهاز الفرع.',
@@ -124,6 +153,14 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await guide.say('اختر كلمة مرور قوية، ثم أعد كتابتها للتأكيد. احتفظ بها في مكان آمن.');
     await guide.type(page.locator('input[name="setup-password"]'), SUPERADMIN.password);
     await guide.type(page.locator('input[name="setup-confirm-password"]'), SUPERADMIN.password);
+    await guide.say(
+      'اختر «رمز حماية النسخ الاحتياطية»: تُشفَّر به النسخ الاحتياطية فتُسترجع على أي جهاز من أجهزة الجمعية. إن كانت جمعيتك تستعمل رمزاً على جهاز آخر فأدخل نفس الرمز.',
+    );
+    await guide.type(page.locator('input[name="setup-transfer-key"]'), SUPERADMIN.transferKey);
+    await guide.type(
+      page.locator('input[name="setup-confirm-transfer-key"]'),
+      SUPERADMIN.transferKey,
+    );
     await guide.say('اضغط «إنشاء مدير النظام» لحفظ الحساب.');
     await guide.click(page.getByRole('button', { name: 'إنشاء مدير النظام' }));
 
@@ -147,14 +184,52 @@ test('video guide: set up and run a branch from a fresh install', async () => {
       'القائمة الجانبية تنقلك بين أقسام البرنامج: الطلاب، المعلمون، الفصول، الحضور، الشؤون المالية والإعدادات.',
     );
     await guide.point(page.locator('.sidebar, nav').first(), 1800);
+    await guide.say('قبل تسجيل أي بيانات، نبدأ بإعداد البرنامج من صفحة «الإعدادات».');
 
-    // ------------------------------------------------------------------ 2. Fee settings
-    await guide.chapter('إعداد الرسوم', 'حدد مبلغ الرسوم السنوية والشهرية قبل تسجيل الطلاب.');
+    // ------------------------------------------------------------------ 3. Association details
+    await guide.chapter(
+      'الإعدادات: بيانات الجمعية والفرع',
+      'تظهر هذه البيانات في الوصولات والتقارير المطبوعة.',
+    );
     await guide.say('افتح «الإعدادات» من القائمة الجانبية.');
     await guide.click(sidebar(page, 'الإعدادات'));
     await expect(
       page.getByRole('heading', { name: 'إعدادات النظام والنسخ الاحتياطي' }),
     ).toBeVisible();
+    await openTab(guide, 'بيانات الجمعية/الفرع');
+    await guide.say('اسم الجمعية الوطنية مكتوب مسبقاً. أكمل اسم الفرع الجهوي والفرع المحلي.');
+    await guide.type(
+      activePane(page).locator('input[name="regional_association_name"]'),
+      ASSOCIATION.regional,
+    );
+    await guide.type(
+      activePane(page).locator('input[name="local_branch_name"]'),
+      ASSOCIATION.local,
+    );
+    await guide.say('اكتب الاسم الكامل لرئيس الفرع: يظهر في الوثائق التي تتطلب إمضاءه.');
+    await guide.type(
+      activePane(page).locator('input[name="president_full_name"]'),
+      ASSOCIATION.president,
+    );
+    await guide.say('اضغط «حفظ جميع التغييرات» أسفل الصفحة.');
+    await guide.click(page.getByRole('button', { name: 'حفظ جميع التغييرات' }));
+    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+
+    // ------------------------------------------------------------------ 4. Branding
+    await guide.chapter('الإعدادات: الهوية البصرية', 'شعار الجمعية وشعار الفرع على الوثائق.');
+    await guide.say('اختر تبويب «الهوية البصرية».');
+    await openTab(guide, 'الهوية البصرية');
+    await guide.show(
+      activePane(page).getByRole('button', { name: 'تحميل...' }).first(),
+      'زر «تحميل...» يفتح نافذة لاختيار صورة الشعار من جهازك. شعار الجمعية الوطنية موجود مسبقاً.',
+    );
+    await guide.show(
+      activePane(page).getByRole('button', { name: 'تحميل...' }).nth(1),
+      'وبنفس الطريقة تضيف شعار الفرع المحلي، ثم تضغط «حفظ جميع التغييرات».',
+    );
+
+    // ------------------------------------------------------------------ 5. Fees & age groups
+    await guide.chapter('الإعدادات: الرسوم والفئات العمرية', 'حدد الرسوم قبل تسجيل الطلاب.');
     await guide.say('اختر تبويب «إعدادات الرسوم».');
     await openTab(guide, 'إعدادات الرسوم');
     await guide.say('الرسوم السنوية (معلوم الترسيم) تُطلب مرة واحدة في كل سنة دراسية.');
@@ -169,9 +244,93 @@ test('video guide: set up and run a branch from a fresh install', async () => {
       'في تبويب «فئات عمرية» تجد فئات الفرع. لكل فئة نظام دفع (شهري أو سنوي) ويمكن أن تكون لها رسوم خاصة بها.',
     );
     await openTab(guide, 'فئات عمرية');
-    await guide.pause(2500);
+    await expect(activePane(page).locator('tbody tr').first()).toBeVisible();
+    await guide.point(activePane(page).locator('table'), 1800);
+    await guide.show(
+      activePane(page).getByRole('button', { name: 'إضافة فئة جديدة' }),
+      'زر «إضافة فئة جديدة» يضيف فئة بنطاقها العمري وجنسها ونظام دفعها.',
+    );
+    await guide.show(
+      activePane(page).locator('tbody tr').first().getByRole('button', { name: 'تعديل' }),
+      'زر «تعديل» يغيّر فئة موجودة، مثلاً لتحديد رسوم خاصة بها.',
+    );
 
-    // ------------------------------------------------------------------ 3. Teachers
+    // ------------------------------------------------------------------ 6. Backup
+    await guide.chapter('الإعدادات: النسخ الاحتياطي', 'احمِ بيانات الفرع بنسخة احتياطية منتظمة.');
+    const backupDir = path.join(videoDir, 'backups');
+    fs.mkdirSync(backupDir, { recursive: true });
+    await app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, backupDir);
+    await guide.say('اختر تبويب «النسخ الاحتياطي».');
+    await openTab(guide, 'النسخ الاحتياطي');
+    const keyCard = page.locator('[data-section="backup-key"]');
+    await guide.say(
+      '«رمز حماية النسخ الاحتياطية» اخترته عند إنشاء مدير النظام. يبقى مخفياً حتى لا يراه أحد إن تُرك البرنامج مفتوحاً.',
+    );
+    await guide.point(keyCard, 1500);
+    await guide.show(
+      keyCard.getByRole('button', { name: 'عرض الرمز' }),
+      'زر «عرض الرمز» يعرضه لمدة 30 ثانية بعد إدخال كلمة مرورك.',
+    );
+    await guide.show(
+      keyCard.getByRole('button', { name: 'تغيير الرمز' }),
+      'زر «تغيير الرمز» يغيّره بعد إدخال كلمة مرورك. أعطِ الرمز الجديد لكل أجهزة الجمعية.',
+    );
+    await guide.say('اختر المجلد الذي تُحفظ فيه النسخ، ويفضل أن يكون على قرص خارجي أو مفتاح USB.');
+    await guide.click(activePane(page).getByRole('button', { name: 'اختيار...' }));
+    await guide.say('اضغط «نسخ احتياطي الآن» لإنشاء نسخة فوراً.');
+    await guide.click(activePane(page).getByRole('button', { name: 'نسخ احتياطي الآن' }));
+    await expectToast(page, 'success', /تم إنشاء النسخة الاحتياطية بنجاح/);
+    expect(fs.readdirSync(backupDir).filter((f) => f.endsWith('.qdb'))).toHaveLength(1);
+
+    await guide.say(
+      'ليتم النسخ تلقائياً، فعّل «النسخ التلقائي» واختر التكرار والتوقيت. يعمل النسخ عندما يكون البرنامج مفتوحاً.',
+    );
+    await guide.click(activePane(page).locator('#backup-enabled-switch'));
+    await guide.select(activePane(page).locator('select[name="backup_frequency"]'), 'weekly');
+    await guide.fill(activePane(page).locator('input[name="backup_time"]'), '18:00');
+    await guide.click(activePane(page).getByRole('button', { name: 'حفظ إعدادات النسخ التلقائي' }));
+    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
+    await guide.show(
+      activePane(page).getByRole('button', { name: 'استرجاع من نسخة احتياطية...' }),
+      'عند تعطّل الجهاز، يسترجع زر «استرجاع من نسخة احتياطية...» كل البيانات من ملف النسخة، على هذا الجهاز أو على جهاز جديد.',
+    );
+
+    // ------------------------------------------------------------------ 7. Users
+    await guide.chapter('المستخدمون والصلاحيات', 'أنشئ حساباً لكل عضو يعمل على البرنامج.');
+    await guide.say('افتح «إدارة المستخدمين».');
+    await guide.click(sidebar(page, 'إدارة المستخدمين'));
+    await guide.say(
+      'لكل مستخدم دور: «الهيئة المديرة» تدير الفرع كاملاً، «مسؤول مالي» للشؤون المالية، و«مشرف حصص» للحضور.',
+    );
+    await guide.say('اضغط «إضافة مستخدم جديد». سننشئ حساباً لأمينة المال.');
+    await guide.click(page.getByRole('button', { name: 'إضافة مستخدم جديد' }));
+    await expect(modal(page).locator('.modal-title')).toHaveText('إضافة مستخدم جديد');
+    await guide.say('أدخل اسم المستخدم وكلمة المرور التي سيدخل بها.');
+    await guide.type(modal(page).locator('input[name="username"]'), FINANCE_USER.username);
+    await guide.type(modal(page).locator('input[name="password"]'), FINANCE_USER.password);
+    await guide.say('ثم الاسم واللقب، ورقم بطاقة التعريف، ورقم الهاتف.');
+    await guide.type(modal(page).locator('input[name="first_name"]'), FINANCE_USER.firstName);
+    await guide.type(modal(page).locator('input[name="last_name"]'), FINANCE_USER.lastName);
+    await guide.type(modal(page).locator('input[name="national_id"]'), FINANCE_USER.nationalId);
+    await guide.type(modal(page).locator('input[name="phone_number"]'), FINANCE_USER.phone);
+    await guide.say('اختر الدور «مسؤول مالي» وألغِ «الهيئة المديرة».');
+    await guide.click(modal(page).locator('#role-Administrator'));
+    await guide.click(modal(page).locator('#role-FinanceManager'));
+    await expect(modal(page).locator('#role-FinanceManager')).toBeChecked();
+    await expect(modal(page).locator('#role-Administrator')).not.toBeChecked();
+    await guide.say('اضغط «إضافة المستخدم».');
+    await guide.click(modal(page).getByRole('button', { name: 'إضافة المستخدم' }));
+    await expectNoModal(page);
+    const userRow = page.locator('tbody tr', { hasText: FINANCE_USER.username });
+    await expect(userRow).toBeVisible();
+    await guide.show(
+      userRow.getByRole('button', { name: 'تعديل' }),
+      'زر «تعديل» يغيّر بيانات المستخدم أو دوره أو كلمة مروره، أو يوقف حسابه.',
+    );
+
+    // ------------------------------------------------------------------ 8. Teachers
     await guide.chapter('إضافة معلم', 'سجّل معلمي الفرع لتسند إليهم الفصول.');
     await guide.say('افتح «شؤون المعلمين».');
     await guide.click(sidebar(page, 'شؤون المعلمين'));
@@ -187,8 +346,12 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expectToast(page, 'success', `تمت إضافة المعلم "${TEACHER.name}" بنجاح!`);
     await expectNoModal(page);
     await guide.say('يظهر المعلم في الجدول، ويمكن تعديل بياناته أو حذفه من أزرار السطر.');
+    await guide.show(
+      page.getByRole('button', { name: 'استيراد البيانات' }),
+      'إن كانت قائمة المعلمين في ملف Excel، استوردها كاملة بزر «استيراد البيانات»، وصدّرها بزر «تصدير البيانات».',
+    );
 
-    // ------------------------------------------------------------------ 4. Students
+    // ------------------------------------------------------------------ 9. Students
     await guide.chapter('تسجيل الطلاب', 'أضف طلاب الفرع مع تاريخ الميلاد والجنس.');
     await guide.say('افتح «شؤون الطلاب».');
     await guide.click(sidebar(page, 'شؤون الطلاب'));
@@ -223,9 +386,22 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await guide.pause(1200);
     await search.clear();
     await expect(page.locator('table.students-table tbody tr')).toHaveCount(STUDENTS.length);
-    await guide.say('يمكنك أيضاً استيراد قائمة طلاب كاملة من ملف Excel بزر «استيراد البيانات».');
+    await guide.say('زر «عرض التفاصيل» في سطر الطالب يعرض كل بياناته في نافذة واحدة.');
+    await guide.click(
+      page
+        .locator('table.students-table tbody tr', { hasText: STUDENTS[0].name })
+        .getByRole('button', { name: 'عرض تفاصيل الطالب' }),
+    );
+    await expect(modal(page).locator('.modal-title')).toContainText('تفاصيل الطالب');
+    await guide.pause(2500);
+    await guide.click(modal(page).getByRole('button', { name: 'إغلاق', exact: true }));
+    await expectNoModal(page);
+    await guide.show(
+      page.getByRole('button', { name: 'استيراد البيانات' }),
+      'لتسجيل قائمة طلاب كاملة دفعة واحدة، استوردها من ملف Excel بزر «استيراد البيانات».',
+    );
 
-    // ------------------------------------------------------------------ 5. Classes
+    // ------------------------------------------------------------------ 10. Classes
     await guide.chapter(
       'إنشاء فصل وتسجيل الطلاب فيه',
       'الفصل يجمع الطلاب مع معلمهم ومواعيد الحصص.',
@@ -282,7 +458,7 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expectToast(page, 'success', 'تم تحديث قائمة الطلاب بنجاح!');
     await expectNoModal(page);
 
-    // ------------------------------------------------------------------ 6. Attendance
+    // ------------------------------------------------------------------ 11. Attendance
     await guide.chapter('تسجيل الحضور والغياب', 'سجّل حضور طلاب كل حصة في دقيقة.');
     await guide.say('افتح «الحضور والغياب».');
     await guide.click(sidebar(page, 'الحضور والغياب'));
@@ -301,7 +477,7 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expect(page.locator('.alert-info')).toContainText('هذا السجل محفوظ ومغلق للتعديل');
     await guide.say('تظهر الحصص المسجلة في قائمة جانبية، ويمكن فتحها للمراجعة.');
 
-    // ------------------------------------------------------------------ 7. Student fees
+    // ------------------------------------------------------------------ 12. Student fees
     await guide.chapter('رسوم الطلاب', 'متابعة ما على كل طالب وتسجيل الدفعات وطباعة الوصل.');
     await guide.say('افتح «الشؤون المالية» ثم تبويب «رسوم الطلاب».');
     await guide.click(sidebar(page, 'الشؤون المالية'));
@@ -336,10 +512,10 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     );
     await guide.point(payerRow, 1800);
 
-    // ------------------------------------------------------------------ 8. Income & expenses
+    // ------------------------------------------------------------------ 13. Income, expenses, inventory
     await guide.chapter(
-      'المداخيل والمصاريف',
-      'سجّل كل عملية مالية بوصلها، وتابع وضع الفرع في لوحة التحكم.',
+      'المداخيل والمصاريف والجرد',
+      'سجّل كل عملية مالية بوصلها، وكل ما يملكه الفرع من معدات.',
     );
     await guide.say('في تبويب «المداخيل» اضغط «إضافة مدخول» لتسجيل تبرع أو أي مدخول آخر.');
     await openTab(guide, 'المداخيل');
@@ -374,6 +550,31 @@ test('video guide: set up and run a branch from a fresh install', async () => {
     await expectNoModal(page);
 
     await guide.say(
+      'تبويب «إدارة الفئات» يحتوي أصناف المعدات المستعملة في الجرد والتبرعات العينية.',
+    );
+    await openTab(guide, 'إدارة الفئات');
+    await guide.show(
+      page.getByRole('button', { name: '+ إضافة فئة' }),
+      'زر «إضافة فئة» يضيف صنفاً جديداً، مثلاً «أثاث».',
+    );
+
+    await guide.say('في تبويب «الجرد» تسجّل ما يملكه الفرع. اضغط «إضافة صنف جديد».');
+    await openTab(guide, 'الجرد');
+    await guide.click(activePane(page).getByRole('button', { name: 'إضافة صنف جديد' }));
+    await expect(modal(page).locator('.modal-title')).toHaveText('إضافة صنف جديد');
+    await guide.say('أدخل اسم الصنف وفئته والكمية وقيمة الوحدة، ثم اضغط «إضافة الصنف».');
+    await guide.type(modal(page).locator('input[name="item_name"]'), INVENTORY_ITEM.name);
+    await guide.select(modal(page).locator('select[name="category"]'), INVENTORY_ITEM.category);
+    await guide.type(modal(page).locator('input[name="quantity"]'), INVENTORY_ITEM.quantity);
+    await guide.type(modal(page).locator('input[name="unit_value"]'), INVENTORY_ITEM.unitValue);
+    await guide.click(modal(page).getByRole('button', { name: 'إضافة الصنف' }));
+    await expectToast(page, 'success', 'تمت إضافة الصنف بنجاح.');
+    await expectNoModal(page);
+    await guide.point(activePane(page).locator('tbody tr', { hasText: INVENTORY_ITEM.name }), 1500);
+
+    // ------------------------------------------------------------------ 14. Dashboard & reports
+    await guide.chapter('لوحة التحكم المالية والتقارير', 'تابع وضع الفرع وصدّر تقاريره.');
+    await guide.say(
       'في «لوحة التحكم» ترى مجموع المداخيل والمصاريف والرصيد للفترة المختارة، مع التوزيع حسب الأصناف.',
     );
     await openTab(guide, 'لوحة التحكم');
@@ -381,49 +582,42 @@ test('video guide: set up and run a branch from a fresh install', async () => {
       activePane(page).locator('.card-body', { hasText: 'إجمالي المداخيل' }),
     ).toBeVisible();
     await guide.pause(2500);
-    await guide.say(
-      'من تبويب «التقارير المالية» يمكنك تصدير التقرير المالي (Word) وسجل المحاسبة (Excel).',
-    );
+    await guide.say('في تبويب «التقارير المالية» اختر الفترة، ثم صدّر التقرير المالي بصيغة Word.');
     await openTab(guide, 'التقارير المالية');
+    const reportPath = path.join(videoDir, 'financial-report.docx');
+    await app.evaluate(({ dialog }, target) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: target });
+    }, reportPath);
+    await guide.click(
+      activePane(page).getByRole('button', { name: 'تصدير التقرير المالي (Word)' }),
+    );
+    await expect(activePane(page).locator('.alert-success').first()).toContainText(
+      'تم تصدير التقرير المالي بنجاح!',
+    );
+    expect(fs.existsSync(reportPath)).toBe(true);
+    await guide.show(
+      activePane(page).getByRole('button', { name: 'تصدير سجل المحاسبة (Excel)' }),
+      'وبنفس الطريقة تصدّر سجل المحاسبة الشهري وسجل الجرد بصيغة Excel.',
+    );
+
+    // ------------------------------------------------------------------ 15. Profile, about, logout
+    await guide.chapter('حسابي، حول التطبيق، والخروج', 'إدارة حسابك الشخصي وإنهاء العمل.');
+    await guide.say('في «ملفي الشخصي» تعدّل بياناتك الشخصية.');
+    await guide.click(sidebar(page, 'ملفي الشخصي'));
+    await guide.show(
+      page.getByRole('button', { name: 'تغيير كلمة المرور' }),
+      'ومن هنا تغيّر كلمة مرورك: اكتب كلمة المرور الحالية ثم الجديدة مرتين.',
+    );
+    await guide.say('صفحة «حول التطبيق» تعرض نسخة البرنامج وطرق الحصول على الدعم.');
+    await guide.click(sidebar(page, 'حول التطبيق'));
+    await expect(page.getByRole('heading', { name: 'حول التطبيق' })).toBeVisible();
     await guide.pause(2000);
-
-    // ------------------------------------------------------------------ 9. Backup
-    await guide.chapter('النسخ الاحتياطي', 'احمِ بيانات الفرع بنسخة احتياطية منتظمة.');
-    const backupDir = path.join(videoDir, 'backups');
-    fs.mkdirSync(backupDir, { recursive: true });
-    await app.evaluate(({ dialog }, dir) => {
-      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
-    }, backupDir);
-    await guide.say('افتح «الإعدادات» ثم تبويب «النسخ الاحتياطي».');
-    await guide.click(sidebar(page, 'الإعدادات'));
-    await openTab(guide, 'النسخ الاحتياطي');
     await guide.say(
-      '«مفتاح نقل الجمعية» يسمح بفتح النسخة الاحتياطية على جهاز آخر. استعمل نفس المفتاح في كل أجهزة الجمعية.',
+      'في نهاية العمل، أنشئ نسخة احتياطية إن لم يكن النسخ التلقائي مفعّلاً، ثم اضغط «خروج» حتى لا يبقى البرنامج مفتوحاً.',
     );
-    await guide.type(
-      activePane(page).locator('input[name="association_transfer_key"]'),
-      'my-branch-key-2026',
-    );
-    await guide.click(page.getByRole('button', { name: 'حفظ جميع التغييرات' }));
-    await expectToast(page, 'success', /تم تحديث الإعدادات بنجاح/);
-    await guide.say('اختر المجلد الذي تُحفظ فيه النسخ، ويفضل أن يكون على قرص خارجي أو مفتاح USB.');
-    await guide.click(activePane(page).getByRole('button', { name: 'اختيار...' }));
-    await guide.say(
-      'اضغط «نسخ احتياطي الآن». يمكنك أيضاً تفعيل النسخ التلقائي اليومي أو الأسبوعي.',
-    );
-    await guide.click(activePane(page).getByRole('button', { name: 'نسخ احتياطي الآن' }));
-    await expectToast(page, 'success', /تم إنشاء النسخة الاحتياطية بنجاح/);
-    expect(fs.readdirSync(backupDir).filter((f) => f.endsWith('.qdb'))).toHaveLength(1);
-
-    await guide.say(
-      'تم إعداد الفرع بنجاح. الصفحة الرئيسية تعرض الآن طلاب الفرع وفصوله وحصص اليوم.',
-      {
-        hold: 500,
-      },
-    );
-    await guide.click(sidebar(page, 'الرئيسية'));
-    await expect(page.locator('h1', { hasText: 'لوحة التحكم الرئيسية' })).toBeVisible();
-    await guide.pause(3000);
+    await guide.click(page.locator('button.logout-btn'));
+    await expect(page.getByRole('heading', { name: 'تسجيل الدخول' })).toBeVisible();
+    await guide.say('تم إعداد الفرع بنجاح. شكراً لمتابعتك هذا الدليل.', { hold: 1500 });
     await guide.finish();
   } finally {
     const video = (await app.windows())[0]?.video();

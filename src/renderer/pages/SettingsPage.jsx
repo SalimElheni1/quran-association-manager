@@ -14,16 +14,12 @@ import {
   Tab,
   InputGroup,
   Image,
-  Accordion,
 } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
-import PasswordInput from '@renderer/components/PasswordInput';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
-
-const MISSING_TRANSFER_KEY_WARNING =
-  'لم يتم تعيين رمز النقل: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز. أدخل الرمز واضغط «حفظ الرمز» قبل إنشاء النسخة الاحتياطية.';
+import TransferKeyCard from '@renderer/components/settings/TransferKeyCard';
 
 // The association transfer key, named for what it does for the user.
 const BACKUP_KEY_LABEL = 'رمز حماية النسخ الاحتياطية (رمز النقل)';
@@ -40,8 +36,6 @@ const SettingsPage = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showRotateKeyModal, setShowRotateKeyModal] = useState(false);
-  const [isRotatingKey, setIsRotatingKey] = useState(false);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
   useEffect(() => {
@@ -188,26 +182,6 @@ const SettingsPage = () => {
       toast.error(`حدث خطأ فادح: ${err.message}`);
     } finally {
       setIsImporting(false);
-    }
-  };
-
-  // SEC-017: re-encrypt the database with a new key. On success the main process ends every
-  // session and sends force-logout, so the user logs in again.
-  const handleRotateKeyConfirm = async (password) => {
-    setShowRotateKeyModal(false);
-    if (!password) return;
-    setIsRotatingKey(true);
-    try {
-      const result = await window.electronAPI.rotateDbKey({ password });
-      if (result.success) {
-        toast.success(result.message);
-      } else {
-        toast.error(result.message);
-      }
-    } catch (err) {
-      toast.error(`تعذر تغيير مفتاح التشفير: ${err.message}`);
-    } finally {
-      setIsRotatingKey(false);
     }
   };
 
@@ -499,39 +473,14 @@ const SettingsPage = () => {
                   </Tab>
 
                   <Tab eventKey="backup" title="النسخ الاحتياطي">
-                    {/* 1. The association transfer key: set it before the first backup */}
-                    <Card className="shadow-sm border mb-4" data-section="backup-key">
-                      <Card.Body>
-                        <h5 className="text-primary border-bottom pb-2 mb-2">{BACKUP_KEY_LABEL}</h5>
-                        <p className="small text-muted">
-                          رمز سرّي مشترك بين أجهزة الجمعية. تُشفَّر به النسخ الاحتياطية، فيمكن
-                          استرجاعها على أي جهاز يعرف الرمز — مثلاً عند تعطّل هذا الجهاز. اكتبه
-                          واحفظه في مكان آمن: بدونه لا يمكن استرجاع النسخ على جهاز آخر.
-                        </p>
-                        <PasswordInput
-                          name="association_transfer_key"
-                          value={settings.association_transfer_key || ''}
-                          onChange={handleChange}
-                          placeholder="أدخل نفس الرمز المستعمل في أجهزة الجمعية الأخرى"
-                          label={null}
-                          className="mb-2"
-                          autoComplete="off"
-                        />
-                        {!settings.association_transfer_key?.trim() && (
-                          <Alert variant="warning" className="small mb-2">
-                            {MISSING_TRANSFER_KEY_WARNING}
-                          </Alert>
-                        )}
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => saveSettings()}
-                          disabled={isSubmitting}
-                        >
-                          حفظ الرمز
-                        </Button>
-                      </Card.Body>
-                    </Card>
+                    {/* 1. The association transfer key: set at first setup, shown and changed
+                        by the Superadmin with their password */}
+                    <TransferKeyCard
+                      label={BACKUP_KEY_LABEL}
+                      hasKey={!!settings.has_transfer_key}
+                      canManage={!!user?.roles?.includes('Superadmin')}
+                      onChanged={() => setSettings((prev) => ({ ...prev, has_transfer_key: true }))}
+                    />
 
                     {/* 2. Making backups */}
                     <Card className="shadow-sm border mb-4" data-section="make-backup">
@@ -677,8 +626,9 @@ const SettingsPage = () => {
                           محدداً.
                         </Alert>
                         <p className="small text-muted">
-                          ستُطلب منك كلمة مرورك الحالية، و«{BACKUP_KEY_LABEL}» إذا كانت النسخة من
-                          جهاز آخر.
+                          ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا الجهاز
+                          تُفتح مباشرة؛ اكتب «{BACKUP_KEY_LABEL}» فقط إذا كانت النسخة مشفّرة برمز
+                          آخر (مثلاً رمز سابق).
                         </p>
                         <Button
                           variant="outline-danger"
@@ -689,29 +639,6 @@ const SettingsPage = () => {
                         </Button>
                       </Card.Body>
                     </Card>
-
-                    {/* 4. Advanced: database key rotation */}
-                    <Accordion>
-                      <Accordion.Item eventKey="advanced">
-                        <Accordion.Header>إعدادات متقدمة</Accordion.Header>
-                        <Accordion.Body data-section="db-key">
-                          <h6 className="mb-1">مفتاح تشفير قاعدة البيانات</h6>
-                          <p className="small text-muted mb-2">
-                            يعيد تشفير قاعدة البيانات بمفتاح جديد ويُنهي جميع الجلسات. استعمله فقط
-                            إذا اشتبهت في نسخ بيانات هذا الجهاز. يتطلب حفظ «{BACKUP_KEY_LABEL}»
-                            أولاً؛ النسخ القديمة التي أُنشئت دون هذا الرمز لن تعود قابلة للاسترجاع.
-                          </p>
-                          <Button
-                            variant="outline-warning"
-                            size="sm"
-                            onClick={() => setShowRotateKeyModal(true)}
-                            disabled={isRotatingKey || isImporting || isBackingUp}
-                          >
-                            {isRotatingKey ? <Spinner size="sm" /> : 'تغيير مفتاح التشفير'}
-                          </Button>
-                        </Accordion.Body>
-                      </Accordion.Item>
-                    </Accordion>
                   </Tab>
                 </Tabs>
 
@@ -727,20 +654,13 @@ const SettingsPage = () => {
       </Row>
 
       <PasswordPromptModal
-        show={showRotateKeyModal}
-        onHide={() => setShowRotateKeyModal(false)}
-        onConfirm={handleRotateKeyConfirm}
-        title="تأكيد تغيير مفتاح التشفير"
-        body="أدخل كلمة المرور الخاصة بك لإعادة تشفير قاعدة البيانات بمفتاح جديد. سيتم تسجيل خروج جميع المستخدمين."
-      />
-      <PasswordPromptModal
         show={!!showPasswordModal}
         onHide={() => setShowPasswordModal(false)}
         onConfirm={handlePasswordConfirm}
         title="الخطوة الأخيرة: تأكيد الهوية"
         body="أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع."
         showBackupKeyField
-        backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة من هذا الجهاز)"
+        backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)"
       />
     </Container>
   );

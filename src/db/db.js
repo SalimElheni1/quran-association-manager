@@ -173,6 +173,8 @@ function openWithKey(dbPath, key) {
  * finishes or discards a rotation that was interrupted.
  * Callers must make sure backups do not depend on the old key (the association transfer key is
  * set) and must re-derive the JWT secret and end every session afterwards.
+ * No screen offers this any more (the database key stays automatic and invisible); it is kept,
+ * with its tests, together with the recovery of interrupted rotations in initializeDatabase.
  * @returns {Promise<void>}
  */
 async function rotateDatabaseKey() {

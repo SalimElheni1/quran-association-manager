@@ -4,6 +4,7 @@ import Sidebar from '@renderer/components/Sidebar';
 import MenuIcon from '@renderer/components/icons/MenuIcon';
 import '@renderer/styles/Layout.css';
 import OnboardingGuide from '@renderer/components/OnboardingGuide';
+import TransferKeyRequiredPrompt from '@renderer/components/settings/TransferKeyRequiredPrompt';
 
 function MainLayout() {
   const [collapsed, setCollapsed] = useState(
@@ -50,6 +51,7 @@ function MainLayout() {
         <main className="content-area">
           <Outlet />
           <OnboardingGuide />
+          <TransferKeyRequiredPrompt />
         </main>
       </div>
     </div>
