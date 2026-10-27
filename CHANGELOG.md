@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.0] - YYYY-MM-DD
+## [1.4.0] - 2026-10-27
 
 First stable release of 1.4.0: it is 1.4.0-beta.2 promoted to stable, with no code changes. The
 entries below are the changes since 1.4.0-beta.1; the 1.4.0-beta.1 entries further down are part
