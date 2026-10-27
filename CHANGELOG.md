@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - YYYY-MM-DD
+
+First stable release of 1.4.0: it is 1.4.0-beta.2 promoted to stable, with no code changes. The
+entries below are the changes since 1.4.0-beta.1; the 1.4.0-beta.1 entries further down are part
+of this release too.
+
 ### Changed
 
 - **Nothing is deleted any more (migration 061).** Deleting a student, teacher, class, user,
@@ -20,9 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is taken back out of the account balance and no longer counts in totals, balances or reports.
   Its receipt number can be used again for the corrected entry.
 
-- The license is stated consistently as CC BY-NC-SA 4.0 (it said MIT in `package.json`): open
-  source, no commercial use, credit the project. A `NOTICE` file explains how to credit it and
-  ships with the app, and the About page shows the license.
+- The license is stated consistently as CC BY-NC-SA 4.0 (it said MIT in `package.json`):
+  source-available, no commercial use, credit the project. A `NOTICE` file explains how to credit
+  it and ships with the app, and the About page shows the license.
 - Documentation reviewed against the code. The Arabic user guides are rewritten for the current
   screens (first-run setup, roles, age groups, student fees, arrears, backups and the transfer
   key); the developer guides, architecture, security and financial specs describe what is
@@ -186,11 +192,11 @@ Pre-release for testing on Windows. Entries for 1.1.0 to 1.3.1 were not recorded
 - Enrollment warned about gender for every student in male-only or female-only classes.
 - Class statuses "pending" and "completed" were shown in English.
 
-## [1.0.0] - 2025-09-01
+## [1.0.0] - 2025-08-27
 
 ### Added
 
-- Initial release of the Quran Branch Manager application.
+- Initial release of the Quran Association Manager application.
 - Core features include student, teacher, and class management.
 - Attendance tracking and reporting.
 - Financial management for payments, salaries, donations, and expenses.

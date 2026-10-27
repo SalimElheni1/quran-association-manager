@@ -26,18 +26,16 @@ quran-association-manager/
 
 ```
 docs/
-├── user/                   # 🟢 Arabic User Documentation
+├── user/                   # Arabic user documentation
 │   ├── manual.md           # User Guide
 │   ├── financial.md        # Financial Guide
 │   └── troubleshooting.md  # User Troubleshooting
-├── dev/                    # 🔵 English Developer Documentation
+├── dev/                    # English developer documentation
 │   ├── setup/              # Setup, Building, Testing, Deployment
 │   ├── specs/              # Architecture, API, Security, Specs
-│   ├── reference/          # Project Structure, Agents, Maps
-│   ├── reports/            # Audits
-│   ├── sprints/            # Sprint notes
+│   ├── reference/          # Project Structure, Import/Export Map
 │   └── troubleshooting.md  # Developer Troubleshooting
-├── archive/                # Superseded migrations and the 2024 financial redesign plan
+├── archive/                # Superseded migration scripts
 └── screenshots/            # README screenshots (npm run docs:screenshots)
 ```
 
@@ -195,12 +193,9 @@ tests/
 - `README.md` - Main project documentation
 - `CHANGELOG.md` - Version history
 - `CONTRIBUTING.md` - Contribution guidelines
-- `CODE_OF_CONDUCT.md` - Community standards
 - `LICENSE` - CC BY-NC-SA 4.0 license text
 - `NOTICE` - Copyright, license summary and how to credit the project (shipped with the app)
-- `AGENTS.md` - Working rules for AI agents
-- `PRODUCT.md` - Product overview
-- `SECURITY_REMEDIATION_PLAN.md` - Security work plan
+- `SECURITY.md` - How to report a vulnerability
 
 ### Ignored Files (`.gitignore`)
 

@@ -35,7 +35,7 @@ One row per movement of money.
 | `type` | `INCOME` or `EXPENSE` |
 | `category` | A category name (`categories`, per type). Defaults: income «التبرعات النقدية», «التبرعات العينية», «مداخيل أخرى»; expenses «منح ومرتبات», «كراء وفواتير», «الفعاليات والتكوين والتنقلات», «المسابقات والجوائز», «لوازم مكتبية وصيانة», «نفقات متنوعة». |
 | `payment_method` | `CASH`, `CHECK` (`check_number`) or `TRANSFER` |
-| `voucher_number` | Unique, typed by the user (required, except for in-kind donations); can be corrected when editing. Excel imports without one get `R-YYYY-NNNN` (income) / `P-YYYY-NNNN` (expense) from `voucherService.js`. |
+| `voucher_number` | Unique among transactions that are not voided, typed by the user (required, except for in-kind donations); can be corrected when editing. Excel imports without one get `R-YYYY-NNNN` (income) / `P-YYYY-NNNN` (expense) from `voucherService.js`. |
 | `receipt_number`, `receipt_type` | Receipt from a receipt book, when one is used |
 | `account_id` | The account the money goes into or out of |
 | `related_entity_type` / `related_entity_id` / `related_person_name` | Who it concerns (student, teacher, donor…) |
@@ -51,6 +51,10 @@ Rules:
   inventory item (`acquisition_source` «تبرع»). These are two separate calls, not one
   transaction. Recorded from the income page, only the transaction is saved. A clashing voucher
   number on an in-kind donation is made unique (`INK-…`) instead of rejected.
+- **Void, not delete (migration 061):** deleting a transaction voids it (`voided_at` /
+  `voided_by`). It stays in history marked «ملغاة» («عرض الملغاة» on the income and expense
+  lists), its amount is taken back out of the account balance, and it no longer counts in totals,
+  balances or reports. Its voucher number can be used again for the corrected entry.
 - **Accounts:** each transaction moves the account's `current_balance`. On startup every
   balance is recomputed from `initial_balance` and the transactions, so a drift cannot persist.
   A fresh database has one cash account, «الخزينة».
@@ -105,8 +109,11 @@ Recording a payment (`recordStudentPayment`), in one transaction:
 Earlier years' unpaid charges are **arrears**: they are shown per year in the fee details and paid
 from there, never taken by a current-year payment.
 
-- **Delete** reverses a payment as if it never happened: charges, breakdown rows, the credit it
-  created, its transaction and the account balance.
+- **Delete** voids the payment: it reverses what the payment paid on its charges, removes its
+  breakdown rows and the credit it created, voids its `INCOME` transaction and takes the amount
+  back out of the account. The payment stays in history marked voided (`voided_at`) and no longer
+  counts; its receipt number can be used again. A refunded payment, or one whose credit was
+  already used, cannot be deleted.
 - **Refund** reverses the same way but keeps the payment, marked `refunded`, and records an
   `EXPENSE` transaction for the money returned.
 

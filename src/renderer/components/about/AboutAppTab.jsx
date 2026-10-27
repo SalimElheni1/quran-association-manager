@@ -99,7 +99,7 @@ const AboutAppTab = () => {
             المعدّلة بنفس الرخصة.
           </Card.Text>
           <Card.Text className="text-muted small mb-0" dir="ltr">
-            Based on Quran Branch Manager by Salim Elheni —
+            Based on Quran Association Manager by Salim Elhani —
             github.com/SalimElheni1/quran-association-manager
           </Card.Text>
         </Card.Body>

@@ -1,6 +1,6 @@
 # Architecture
 
-How the Quran Branch Manager is put together. For the file layout see
+How the Quran Association Manager is put together. For the file layout see
 [project-structure.md](../reference/project-structure.md); for the IPC channels see
 [api.md](api.md); for security details see [security.md](security.md).
 
@@ -93,9 +93,21 @@ Component → window.electronAPI.addStudent(data)
 - **Schema changes:** numbered SQL migrations, recorded by filename in the `migrations` table.
 - **Identifiers:** integer primary keys, plus readable matricules (`S-0001`, `T-0001`, …) used by
   imports and search.
-- **Deletes are real deletes**, with foreign keys (`ON DELETE CASCADE` where children belong to
-  the parent). Students and users also have a `status` (active/inactive) to keep records of people
-  who left.
+- **Deleting keeps the record (migration 061).** Deleting a student, teacher, class, user, group,
+  inventory item, in-kind category or receipt book sets `deleted_at` / `deleted_by` instead of
+  removing the row (`src/main/softDelete.js`), so the payments, transactions, charges and
+  attendance that point at it stay in reports and history. Deleted rows are left out of lists,
+  pickers and counts (`notDeleted()` in the query). Students, teachers, classes, users, inventory
+  items and in-kind categories are listed with «عرض المحذوفات» and brought back with «استعادة»;
+  groups and receipt books have a restore channel but no deleted list on screen. A deleted
+  student's unpaid charges are cancelled (`cancelled_at`) and come back on restore. Usernames and
+  matricules of deleted records stay taken. Students and users also have a `status`
+  (active/inactive) for people who left.
+- **Money is voided, never deleted.** Deleting a transaction or a student payment sets
+  `voided_at` / `voided_by`: the row stays in history marked «ملغاة» («عرض الملغاة» on the income
+  and expense lists), its amount is taken back out of the account balance, and it no longer
+  counts in totals, balances or reports. A void is not undone; its voucher or receipt number can
+  be used again for the corrected entry. See [financial-spec.md](financial-spec.md).
 - **Money:** a unified `transactions` table with `accounts` for income and expenses; student
   fees use `student_fee_charges`, `student_payments` and `student_payment_breakdown`. See
   [financial-spec.md](financial-spec.md).

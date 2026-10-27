@@ -56,3 +56,8 @@ e2e-artifacts/
 
 # Video guide output (npm run docs:guide)
 guide-output/
+
+# Local notes for AI coding agents and design tools (kept on disk, not published)
+AGENTS.md
+PRODUCT.md
+docs/dev/reference/agents.md

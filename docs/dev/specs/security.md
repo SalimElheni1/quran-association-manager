@@ -1,8 +1,8 @@
 # Security
 
 How the app protects its data, as implemented. Procedures for staff (recovery, key rotation,
-incidents) are in [security-runbook.md](../security-runbook.md). Open items and their status are tracked in
-[SECURITY_REMEDIATION_PLAN.md](../../../SECURITY_REMEDIATION_PLAN.md).
+incidents) are in [security-runbook.md](../security-runbook.md). There is no auto-updater: new
+versions are installed by hand from the GitHub Releases page.
 
 ## Threat Model
 
@@ -91,11 +91,11 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   from the settings table in the main process. The Superadmin reveals it
   (`backup:reveal-transfer-key`, shown for 30 seconds) or changes it (`backup:set-transfer-key`)
   only after typing their password again; other roles see only whether it is set.
-- **Database key rotation (SEC-017):** no longer offered in the UI (removed 2026-10-02: the
+- **Database key rotation:** no longer offered in the UI (removed 2026-10-02: the
   database key is automatic and never handled by staff, and a rotation logged everyone out).
   `db.rotateDatabaseKey` and the startup recovery of an interrupted rotation (pending key finished
   or discarded) are kept.
-- **Backup folder (SEC-018, `backupManager.validateBackupPath`):** only an absolute, existing,
+- **Backup folder (`backupManager.validateBackupPath`):** only an absolute, existing,
   writable folder without NUL characters; the scheduler does not start otherwise, a manual backup
   returns the Arabic reason, the safety copy before a restore is skipped with a warning.
 - **Restore** needs the logged-in user's password. The saved transfer key is tried

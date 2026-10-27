@@ -52,10 +52,14 @@ jest.mock('../src/main/authMiddleware', () => ({
 
 beforeAll(() => registerStudentHandlers());
 
-it('deletes a student', async () => {
+it('soft deletes a student', async () => {
   db.runQuery.mockResolvedValue({ changes: 1 });
   await ipcMain.invoke('students:delete', 1);
-  expect(db.runQuery).toHaveBeenCalledWith('DELETE FROM students WHERE id = ?', [1]);
+  const [sql, params] = db.runQuery.mock.calls[0];
+  expect(sql).toBe(
+    'UPDATE students SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+  );
+  expect(params[2]).toBe(1);
 });
 ```
 

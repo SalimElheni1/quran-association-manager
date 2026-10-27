@@ -1,6 +1,6 @@
 # Development Guide
 
-How to set up, run and change the Quran Branch Manager. For where files live see
+How to set up, run and change the Quran Association Manager. For where files live see
 [project-structure.md](../reference/project-structure.md); for how the pieces fit together see
 [architecture.md](../specs/architecture.md).
 
