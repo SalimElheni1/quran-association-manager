@@ -1885,6 +1885,9 @@ const exported = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
+  // The web server reads desktop backups with the same parsing (web/server/services/desktopImport.js).
+  splitSqlList,
+  fixStatementColumns,
 };
 
 // Conditionally export internal functions for testing
