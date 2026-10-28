@@ -179,3 +179,30 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- sqlite_master: the handlers check that a table exists before using it.
+CREATE OR REPLACE VIEW compat.sqlite_master AS
+  SELECT 'table'::text AS type, t.table_name::text AS name, t.table_name::text AS tbl_name,
+         0 AS rootpage, NULL::text AS sql
+    FROM information_schema.tables t
+   WHERE t.table_schema = current_schema() AND t.table_type = 'BASE TABLE';
+
+-- PRAGMA table_info(<table>), which sql.js rewrites to SELECT * FROM compat.table_info('<table>').
+CREATE OR REPLACE FUNCTION compat.table_info(tbl text)
+  RETURNS TABLE (cid integer, name text, type text, notnull integer, dflt_value text, pk integer)
+  LANGUAGE sql STABLE AS $$
+  SELECT (c.ordinal_position - 1)::integer,
+         c.column_name::text,
+         upper(c.data_type)::text,
+         CASE WHEN c.is_nullable = 'NO' THEN 1 ELSE 0 END,
+         c.column_default::text,
+         COALESCE((SELECT k.ordinal_position::integer
+                     FROM information_schema.table_constraints tc
+                     JOIN information_schema.key_column_usage k
+                       ON k.constraint_name = tc.constraint_name AND k.table_schema = tc.table_schema
+                    WHERE tc.table_schema = c.table_schema AND tc.table_name = c.table_name
+                      AND tc.constraint_type = 'PRIMARY KEY' AND k.column_name = c.column_name), 0)
+    FROM information_schema.columns c
+   WHERE c.table_schema = current_schema() AND c.table_name = tbl
+   ORDER BY c.ordinal_position
+$$;

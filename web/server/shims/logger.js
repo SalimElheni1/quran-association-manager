@@ -43,13 +43,13 @@ function format(level, args) {
 }
 
 const log = (...args) => {
-  if (!quiet) process.stdout.write(`${format('INFO', args)}\n`);
+  if (!quiet) console.log(format('INFO', args));
 };
 const warn = (...args) => {
-  if (!errorsOnly) process.stderr.write(`${format('WARN', args)}\n`);
+  if (!errorsOnly) console.warn(format('WARN', args));
 };
 const error = (...args) => {
-  process.stderr.write(`${format('ERROR', args)}\n`);
+  console.error(format('ERROR', args));
 };
 
 module.exports = {

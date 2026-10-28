@@ -93,6 +93,20 @@ function translate(sql) {
   const cached = cache.get(sql);
   if (cached) return cached;
 
+  // PRAGMA table_info(t) → the compat function with the same columns.
+  const pragma = /^\s*PRAGMA\s+table_info\s*\(\s*["'`]?(\w+)["'`]?\s*\)\s*;?\s*$/i.exec(sql);
+  if (pragma) {
+    const result = { parts: [`SELECT * FROM compat.table_info('${pragma[1]}')`], paramCount: 0, isInsert: false };
+    cache.set(sql, result);
+    return result;
+  }
+  if (/^\s*PRAGMA\b/i.test(sql)) {
+    // foreign_keys, journal_mode...: SQLite settings with no meaning here.
+    const result = { parts: ['SELECT NULL AS pragma WHERE false'], paramCount: 0, isInsert: false };
+    cache.set(sql, result);
+    return result;
+  }
+
   const tokens = tokenize(sql);
   const codeTokens = tokens.filter((t) => t.type === 'code');
 
