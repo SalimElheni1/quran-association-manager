@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Alert, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
+import { IS_WEB } from '@renderer/utils/platform';
 import TransferKeyModal from '@renderer/components/settings/TransferKeyModal';
 
 // How long a revealed key stays on screen before it is hidden again.
@@ -68,9 +69,11 @@ function TransferKeyCard({ label, hasKey, canManage, onChanged }) {
       <Card.Body>
         <h5 className="text-primary border-bottom pb-2 mb-2">{label}</h5>
         <p className="small text-muted">
-          رمز سرّي مشترك بين أجهزة الجمعية. تُشفَّر به النسخ الاحتياطية، فيمكن استرجاعها على أي جهاز
+          {IS_WEB
+            ? 'رمز سرّي تُشفَّر به النسخ الاحتياطية التي تنزّلها، فلا يفتحها إلا من يعرفه — هنا أو في تطبيق سطح المكتب. احفظه في مكان آمن: بدونه لا يمكن استرجاع النسخ.'
+            : `رمز سرّي مشترك بين أجهزة الجمعية. تُشفَّر به النسخ الاحتياطية، فيمكن استرجاعها على أي جهاز
           يعرف الرمز — مثلاً عند تعطّل هذا الجهاز. احفظه في مكان آمن: بدونه لا يمكن استرجاع النسخ
-          على جهاز آخر.
+          على جهاز آخر.`}
         </p>
 
         <p className="mb-2">
@@ -88,8 +91,10 @@ function TransferKeyCard({ label, hasKey, canManage, onChanged }) {
 
         {!hasKey && (
           <Alert variant="warning" className="small mb-2">
-            لم يتم تعيين الرمز: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن
-            استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز.
+            {IS_WEB
+              ? 'لم يتم تعيين الرمز: لا يمكن تنزيل نسخة احتياطية قبل تعيينه.'
+              : `لم يتم تعيين الرمز: النسخ الاحتياطية ستكون مشفّرة بمفتاح هذا الجهاز فقط، ولن يمكن
+            استرجاعها على جهاز آخر إذا تعطّل هذا الجهاز.`}
             {!canManage && ' اطلب من مدير النظام تعيينه.'}
           </Alert>
         )}

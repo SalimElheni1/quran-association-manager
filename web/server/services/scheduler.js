@@ -19,10 +19,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 async function runFeeChecks(log = console.log) {
   const { onAppStartup } = require(path.join(ROOT, 'src', 'main', 'feeChargeScheduler.js'));
-  const { internalGetSettingsHandler } = require(path.join(ROOT, 'src', 'main', 'handlers', 'settingsHandlers.js'));
+  const { internalGetSettingsHandler } = require(
+    path.join(ROOT, 'src', 'main', 'handlers', 'settingsHandlers.js'),
+  );
   const Store = require('electron-store');
 
-  const { rows } = await pool.query("SELECT id FROM platform.branches WHERE status = 'active' ORDER BY id");
+  const { rows } = await pool.query(
+    "SELECT id FROM platform.branches WHERE status = 'active' ORDER BY id",
+  );
   for (const { id } of rows) {
     try {
       const branch = await branches.findById(id);

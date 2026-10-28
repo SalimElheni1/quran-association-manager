@@ -79,7 +79,9 @@ async function create({ branch, role, email, name, createdBy, meta = {} }) {
         invitedBy: createdBy.name,
       });
       if (emailed) {
-        await pool.query('UPDATE platform.invitations SET email_sent_at = now() WHERE id = $1', [invitation.id]);
+        await pool.query('UPDATE platform.invitations SET email_sent_at = now() WHERE id = $1', [
+          invitation.id,
+        ]);
       }
     } catch (error) {
       console.error('[invitations] email failed:', error.message);
@@ -132,7 +134,10 @@ async function revoke({ branchId, invitationId, by, meta = {} }) {
       ip: meta.ip,
     });
   }
-  return { success: rowCount > 0, message: rowCount ? 'تم إلغاء الدعوة.' : 'لا يمكن إلغاء هذه الدعوة.' };
+  return {
+    success: rowCount > 0,
+    message: rowCount ? 'تم إلغاء الدعوة.' : 'لا يمكن إلغاء هذه الدعوة.',
+  };
 }
 
 /** What the invitation page shows before the account is created. */
@@ -165,7 +170,9 @@ async function describe(token) {
  */
 async function accept(token, form, meta = {}) {
   const { userValidationSchema } = require(path.join(ROOT, 'src', 'main', 'validationSchemas.js'));
-  const { generateMatricule } = require(path.join(ROOT, 'src', 'main', 'services', 'matriculeService.js'));
+  const { generateMatricule } = require(
+    path.join(ROOT, 'src', 'main', 'services', 'matriculeService.js'),
+  );
   const db = require(path.join(ROOT, 'src', 'db', 'db.js'));
   const branches = require('./branches');
 
@@ -184,7 +191,8 @@ async function accept(token, form, meta = {}) {
     [hash(token)],
   );
   const invitation = rows[0];
-  if (!invitation) throw new InvitationError('رابط الدعوة غير صالح أو منتهي الصلاحية أو مستعمل.', 410);
+  if (!invitation)
+    throw new InvitationError('رابط الدعوة غير صالح أو منتهي الصلاحية أو مستعمل.', 410);
 
   const release = () =>
     pool.query('UPDATE platform.invitations SET accepted_at = NULL WHERE id = $1', [invitation.id]);
@@ -215,7 +223,8 @@ async function accept(token, form, meta = {}) {
           { abortEarly: false, stripUnknown: true },
         );
         const taken = await db.getQuery('SELECT id FROM users WHERE username = ?', [data.username]);
-        if (taken) throw new InvitationError('اسم المستخدم هذا موجود مسبقاً. الرجاء اختيار اسم آخر.');
+        if (taken)
+          throw new InvitationError('اسم المستخدم هذا موجود مسبقاً. الرجاء اختيار اسم آخر.');
         const result = await db.runQuery(
           `INSERT INTO users (matricule, username, password, first_name, last_name, national_id, phone_number, email, status, need_guide, current_step)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, 0)`,
@@ -231,7 +240,10 @@ async function accept(token, form, meta = {}) {
           ],
         );
         const role = await db.getQuery('SELECT id FROM roles WHERE name = ?', [invitation.role]);
-        await db.runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [result.id, role.id]);
+        await db.runQuery('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+          result.id,
+          role.id,
+        ]);
         return { id: result.id, username: data.username, roles: [invitation.role] };
       }),
     );
@@ -250,7 +262,10 @@ async function accept(token, form, meta = {}) {
     throw error;
   }
 
-  await pool.query('UPDATE platform.invitations SET accepted_user_id = $1 WHERE id = $2', [user.id, invitation.id]);
+  await pool.query('UPDATE platform.invitations SET accepted_user_id = $1 WHERE id = $2', [
+    user.id,
+    invitation.id,
+  ]);
   await audit.record({
     actorKind: 'branch',
     actorId: user.id,

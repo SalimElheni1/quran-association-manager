@@ -56,7 +56,9 @@ function loadHandlers() {
   main('handlers/userHandlers').registerUserHandlers();
   main('handlers/attendanceHandlers').registerAttendanceHandlers();
   main('handlers/authHandlers').registerAuthHandlers();
-  main('handlers/settingsHandlers').registerSettingsHandlers(main('settingsManager').refreshSettings);
+  main('handlers/settingsHandlers').registerSettingsHandlers(
+    main('settingsManager').refreshSettings,
+  );
   main('handlers/dashboardHandlers').registerDashboardHandlers();
   main('handlers/systemHandlers').registerSystemHandlers();
   main('handlers/importHandlers').registerImportHandlers();

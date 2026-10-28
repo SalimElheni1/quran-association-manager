@@ -20,6 +20,8 @@ const config = {
   mailFrom: env.MAIL_FROM || 'no-reply@localhost',
   // Number of reverse proxies in front of the app (for the client IP in rate limits).
   trustProxy: env.TRUST_PROXY === undefined ? 0 : Number(env.TRUST_PROXY) || env.TRUST_PROXY,
+  // Per-address limits on logins and invitation pages are multiplied by this (tests raise it).
+  rateLimitScale: Number(env.RATE_LIMIT_SCALE) || 1,
   sessionIdleHours: Number(env.SESSION_IDLE_HOURS) || 12,
   sessionMaxHours: Number(env.SESSION_MAX_HOURS) || 72,
   inviteDays: Number(env.INVITE_DAYS) || 7,

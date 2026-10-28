@@ -67,3 +67,4 @@ web/node_modules/
 web/data/
 web/dist/
 web/.env
+web/test-results/

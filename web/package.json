@@ -10,11 +10,15 @@
     "dev": "node --watch server/index.js",
     "migrate": "node server/cli.js migrate",
     "create-admin": "node server/cli.js create-admin",
-    "test": "npm run test:sweep && npm run test:pg",
+    "test": "npm run test:sweep && npm run test:import && npm run test:pg",
     "test:sweep": "node --test test/sweep.test.js",
     "test:pg": "cd .. && npx jest -c web/jest.pg.config.js",
     "generate-schema": "node server/db/generate-branch-schema.js > server/db/branch-schema.sql",
-    "create-branch": "node server/cli.js create-branch"
+    "create-branch": "node server/cli.js create-branch",
+    "build:client": "../node_modules/.bin/vite build --config vite.config.mjs",
+    "dev:client": "../node_modules/.bin/vite --config vite.config.mjs",
+    "test:e2e": "node test/e2e/resetDb.js && ../node_modules/.bin/playwright test -c playwright.config.js",
+    "test:import": "node --test test/desktopImport.test.js"
   },
   "engines": {
     "node": ">=22"

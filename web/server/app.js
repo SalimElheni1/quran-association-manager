@@ -81,10 +81,20 @@ function createApp() {
       }),
     );
     const indexHtml = path.join(CLIENT_DIR, 'index.html');
-    app.get(['/', '/platform', '/platform/*', '/invite/*', '/b/:slug', '/b/:slug/*'], (_req, res) => {
-      res.set('Cache-Control', 'no-cache');
-      res.sendFile(indexHtml);
+    // The branch app links some images relatively (assets/logos/...): serve the same files
+    // under /b/<branch>/ too, and keep the trailing slash those links need.
+    app.get('/b/:slug', (req, res, next) => {
+      if (req.path.endsWith('/')) return next();
+      res.redirect(301, `/b/${encodeURIComponent(req.params.slug)}/`);
     });
+    app.use('/b/:slug', express.static(CLIENT_DIR, { index: false }));
+    app.get(
+      ['/', '/platform', '/platform/*', '/invite/*', '/b/:slug/', '/b/:slug/*'],
+      (_req, res) => {
+        res.set('Cache-Control', 'no-cache');
+        res.sendFile(indexHtml);
+      },
+    );
   } else {
     app.get('/', (_req, res) =>
       res.type('text').send('The browser app is not built. Run `npm run build:client` in web/.'),

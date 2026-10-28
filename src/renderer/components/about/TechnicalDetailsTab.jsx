@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
 import CogsIcon from '../icons/CogsIcon';
+import { IS_WEB } from '@renderer/utils/platform';
 
 const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
   return (
@@ -16,10 +17,11 @@ const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
               <strong>الواجهة الأمامية:</strong> React مع React Bootstrap
             </p>
             <p>
-              <strong>النظام الخلفي:</strong> Electron.js
+              <strong>النظام الخلفي:</strong> {IS_WEB ? 'Node.js (نسخة الويب)' : 'Electron.js'}
             </p>
             <p>
-              <strong>قاعدة البيانات:</strong> SQLite مع تشفير البيانات
+              <strong>قاعدة البيانات:</strong>{' '}
+              {IS_WEB ? 'PostgreSQL، مخطط مستقل لكل فرع' : 'SQLite مع تشفير البيانات'}
             </p>
             <p>
               <strong>لغة البرمجة:</strong> JavaScript

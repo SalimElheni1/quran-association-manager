@@ -12,3 +12,6 @@ docs/
 vite.config.js
 .eslintrc.js
 .prettierrc.js
+# Web build and test output
+web/test-results
+web/data

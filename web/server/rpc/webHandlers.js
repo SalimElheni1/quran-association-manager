@@ -76,7 +76,10 @@ function registerWebHandlers(ipcMain) {
   ipcMain.handle('logs:get-file-path', async () => null);
 
   // A developer tool (test data spreadsheet); no screen uses it.
-  ipcMain.handle('export:generate-dev-template', async () => ({ success: false, message: NOT_ON_WEB }));
+  ipcMain.handle('export:generate-dev-template', async () => ({
+    success: false,
+    message: NOT_ON_WEB,
+  }));
 
   // A backup is a download: the same encrypted .qdb file the desktop makes, so it can also be
   // restored in the desktop app.

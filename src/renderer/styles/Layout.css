@@ -36,8 +36,12 @@
   bottom: 0;
   inset-inline-end: 5px;
   width: 1px;
-  background:
-    linear-gradient(180deg, transparent 0 48%, rgba(197, 160, 89, 0.6) 48% 52%, transparent 52% 100%)
+  background: linear-gradient(
+      180deg,
+      transparent 0 48%,
+      rgba(197, 160, 89, 0.6) 48% 52%,
+      transparent 52% 100%
+    )
     0 0 / 1px 10px repeat-y;
   opacity: 0.45;
 }
@@ -299,7 +303,13 @@
   right: 0;
   bottom: -1px;
   height: 3px;
-  background: linear-gradient(90deg, transparent, var(--gold) 30%, var(--primary-color) 55%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--gold) 30%,
+    var(--primary-color) 55%,
+    transparent 100%
+  );
   opacity: 0.5;
 }
 
@@ -314,7 +324,9 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .collapse-toggle:hover {

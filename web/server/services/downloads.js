@@ -69,7 +69,8 @@ function cleanup() {
       if (entries.has(name)) continue;
       const dir = path.join(root, name);
       fs.stat(dir, (statErr, stat) => {
-        if (!statErr && now - stat.mtimeMs > TTL_MS * 2) fs.rm(dir, { recursive: true, force: true }, () => {});
+        if (!statErr && now - stat.mtimeMs > TTL_MS * 2)
+          fs.rm(dir, { recursive: true, force: true }, () => {});
       });
     }
   });

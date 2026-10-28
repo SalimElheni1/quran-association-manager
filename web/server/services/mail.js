@@ -18,14 +18,29 @@ function getTransport() {
 }
 
 const escapeHtml = (s) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 
 /**
  * @returns {Promise<boolean>} Whether the email was sent.
  */
-async function sendInvitation({ to, inviteeName, branchName, roleLabel, link, expiresAt, invitedBy }) {
+async function sendInvitation({
+  to,
+  inviteeName,
+  branchName,
+  roleLabel,
+  link,
+  expiresAt,
+  invitedBy,
+}) {
   if (!isConfigured() || !to) return false;
-  const date = new Date(expiresAt).toLocaleDateString('ar-TN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const date = new Date(expiresAt).toLocaleDateString('ar-TN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
   const greeting = inviteeName ? `السلام عليكم ${inviteeName}،` : 'السلام عليكم،';
   const text = [
     greeting,

@@ -36,7 +36,9 @@ async function buildSqlDump(schemaName) {
     const columns = Object.keys(rows[0]);
     const columnList = columns.map((c) => `"${c}"`).join(', ');
     for (const row of rows) {
-      parts.push(`REPLACE INTO "${table}" (${columnList}) VALUES (${columns.map((c) => sqlValue(row[c])).join(', ')});`);
+      parts.push(
+        `REPLACE INTO "${table}" (${columnList}) VALUES (${columns.map((c) => sqlValue(row[c])).join(', ')});`,
+      );
     }
   }
   return parts.join('\n');
@@ -89,12 +91,15 @@ async function exportBranchBackup(ctx, { user, meta = {} }) {
   if (!key) {
     return {
       success: false,
-      message: 'حدد أولاً رمز النقل (رمز النسخة الاحتياطية) في الإعدادات: به تُحمى النسخة الاحتياطية وتُفتح.',
+      message:
+        'حدد أولاً رمز النقل (رمز النسخة الاحتياطية) في الإعدادات: به تُحمى النسخة الاحتياطية وتُفتح.',
     };
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const { filePath } = await dialog.showSaveDialog({ defaultPath: `backup-${ctx.branch.slug}-${stamp}.qdb` });
+  const { filePath } = await dialog.showSaveDialog({
+    defaultPath: `backup-${ctx.branch.slug}-${stamp}.qdb`,
+  });
   try {
     const size = await writeBackupFile(ctx, filePath, key);
     store.set('last_backup_status', {

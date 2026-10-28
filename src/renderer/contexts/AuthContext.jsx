@@ -36,9 +36,10 @@ const AuthContext = createContext(null);
  * @param {React.ReactNode} props.children - Child components to wrap with auth context
  * @returns {JSX.Element} AuthContext provider with authentication state
  */
-export function AuthProvider({ children }) {
+export function AuthProvider({ children, initialUser = null }) {
   /** @type {[Object|null, Function]} Current authenticated user object */
-  const [user, setUser] = useState(null);
+  // initialUser: the web app passes the user of an existing browser session (page reload).
+  const [user, setUser] = useState(initialUser);
 
   /** @type {[boolean, Function]} Loading state for async operations */
   const [loading] = useState(false);

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Web version for many branches** (`web/`, documented in `docs/web/README.md`). The desktop app
+  runs in the browser, with its screens and rules unchanged, for any number of branches on one
+  server (PostgreSQL, one schema per branch). A platform console creates and suspends branches and
+  invites each branch's Superadmin; branch Superadmins add users or invite them by a single-use
+  link (email or WhatsApp), see open sessions and an activity log. Backups download as the same
+  `.qdb` files the desktop makes, and a desktop `.qdb` restores into a branch with its users and
+  passwords. Docker Compose setup with nightly database backups and optional HTTPS.
+- The design deliberation behind it and an English version of the "Operations Room" prompt used
+  for it (`docs/web/`).
+
+### Fixed
+
+- PDF generation no longer hangs: pdfmake only reads fonts from its virtual file system, so Roboto
+  was "not found" and no Arabic font was ever loaded. Roboto and the app's Cairo font are now
+  loaded into it. (The PDF export button stays hidden: spacing in mixed Arabic/Latin lines is not
+  right yet.)
+
 ## [1.4.0] - 2026-10-27
 
 First stable release of 1.4.0: it is 1.4.0-beta.2 promoted to stable, with no code changes. The

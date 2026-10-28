@@ -16,7 +16,7 @@ function parseArgs(argv) {
     if (argv[i].startsWith('--')) {
       const key = argv[i].slice(2);
       const next = argv[i + 1];
-      out[key] = next && !next.startsWith('--') ? (i += 1, next) : true;
+      out[key] = next && !next.startsWith('--') ? ((i += 1), next) : true;
     }
   }
   return out;
@@ -24,7 +24,11 @@ function parseArgs(argv) {
 
 function askHidden(question) {
   return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
+    });
     rl.stdoutMuted = true;
     rl._writeToOutput = (s) => {
       if (!rl.stdoutMuted || s.includes(question)) rl.output.write(s);
@@ -43,7 +47,9 @@ async function main() {
 
   if (command === 'migrate') {
     const failures = await migrateAll();
-    console.log(failures.length ? `Done, ${failures.length} branch(es) failed.` : 'Database is up to date.');
+    console.log(
+      failures.length ? `Done, ${failures.length} branch(es) failed.` : 'Database is up to date.',
+    );
     process.exitCode = failures.length ? 1 : 0;
     return;
   }
@@ -51,7 +57,8 @@ async function main() {
   if (command === 'create-admin') {
     await migrateAll();
     const admins = require('./services/platformAdmins');
-    if (!args.email || !args.name) throw new Error('Usage: create-admin --email <email> --name "<name>"');
+    if (!args.email || !args.name)
+      throw new Error('Usage: create-admin --email <email> --name "<name>"');
     let password = process.env.ADMIN_PASSWORD;
     if (!password) {
       password = await askHidden('Password (10+ characters): ');
@@ -59,7 +66,9 @@ async function main() {
       if (password !== again) throw new Error('The passwords do not match.');
     }
     const admin = await admins.create({ email: args.email, name: args.name, password });
-    console.log(`Platform administrator created: ${admin.email} (id ${admin.id}). Sign in at /platform.`);
+    console.log(
+      `Platform administrator created: ${admin.email} (id ${admin.id}). Sign in at /platform.`,
+    );
     return;
   }
 
@@ -67,8 +76,14 @@ async function main() {
     await migrateAll();
     const branches = require('./services/branches');
     const invitations = require('./services/invitations');
-    if (!args.name || !args.slug) throw new Error('Usage: create-branch --name "<name>" --slug <slug> [--invite-email <email>]');
-    const branch = await branches.create({ name: args.name, slug: args.slug, region: args.region }, null);
+    if (!args.name || !args.slug)
+      throw new Error(
+        'Usage: create-branch --name "<name>" --slug <slug> [--invite-email <email>]',
+      );
+    const branch = await branches.create(
+      { name: args.name, slug: args.slug, region: args.region },
+      null,
+    );
     console.log(`Branch created: ${branch.name} → /b/${branch.slug}`);
     const invite = await invitations.create({
       branch,
@@ -77,11 +92,15 @@ async function main() {
       name: null,
       createdBy: { kind: 'platform', name: 'إدارة المنصة' },
     });
-    console.log(`Superadmin invitation link (valid ${require('./config').config.inviteDays} days):\n${invite.link}`);
+    console.log(
+      `Superadmin invitation link (valid ${require('./config').config.inviteDays} days):\n${invite.link}`,
+    );
     return;
   }
 
-  console.log('Commands: migrate | create-admin --email --name | create-branch --name --slug [--invite-email]');
+  console.log(
+    'Commands: migrate | create-admin --email --name | create-branch --name --slug [--invite-email]',
+  );
   process.exitCode = 1;
 }
 

@@ -16,7 +16,9 @@ const sanitizeForLog = (value, seen = new WeakSet()) => {
     seen.add(value);
     const sanitized = {};
     for (const [key, item] of Object.entries(value)) {
-      sanitized[key] = SENSITIVE_FIELD_PATTERN.test(key) ? '[REDACTED]' : sanitizeForLog(item, seen);
+      sanitized[key] = SENSITIVE_FIELD_PATTERN.test(key)
+        ? '[REDACTED]'
+        : sanitizeForLog(item, seen);
     }
     return sanitized;
   }

@@ -139,21 +139,35 @@ function createBranchRouter() {
       }
 
       const found = await runInBranch(branch, {}, () =>
-        db.getQuery('SELECT id, password, deleted_at, status FROM users WHERE username = ?', [username]),
+        db.getQuery('SELECT id, password, deleted_at, status FROM users WHERE username = ?', [
+          username,
+        ]),
       );
       const ok = found && (await bcrypt.compare(password, found.password));
       if (!ok) {
         rateLimit.fail(accountKey);
-        await audit.record({ actorKind: 'anonymous', actorName: username.slice(0, 50), branchId: branch.id, action: 'login.failure', ip: req.ip });
+        await audit.record({
+          actorKind: 'anonymous',
+          actorName: username.slice(0, 50),
+          branchId: branch.id,
+          action: 'login.failure',
+          ip: req.ip,
+        });
         return res.json({ success: false, message: BAD_CREDENTIALS });
       }
       rateLimit.clear(accountKey);
       // Checked after the password, as on the desktop, so the message reveals nothing.
       if (found.deleted_at) {
-        return res.json({ success: false, message: 'هذا الحساب محذوف. يرجى التواصل مع مدير النظام.' });
+        return res.json({
+          success: false,
+          message: 'هذا الحساب محذوف. يرجى التواصل مع مدير النظام.',
+        });
       }
       if (found.status && found.status !== 'active') {
-        return res.json({ success: false, message: 'هذا الحساب غير نشط. يرجى التواصل مع مدير النظام.' });
+        return res.json({
+          success: false,
+          message: 'هذا الحساب غير نشط. يرجى التواصل مع مدير النظام.',
+        });
       }
 
       const user = await loadUser(branch, found.id);
@@ -168,7 +182,14 @@ function createBranchRouter() {
         userAgent: req.get('user-agent'),
       });
       setSessionCookie(res, token, cookiePath(branch));
-      await audit.record({ actorKind: 'branch', actorId: user.id, actorName: user.username, branchId: branch.id, action: 'login.success', ip: req.ip });
+      await audit.record({
+        actorKind: 'branch',
+        actorId: user.id,
+        actorName: user.username,
+        branchId: branch.id,
+        action: 'login.success',
+        ip: req.ip,
+      });
       res.json({ success: true, mustChangePassword, user: publicUser(user) });
     }),
   );
@@ -185,7 +206,11 @@ function createBranchRouter() {
 
   router.get('/auth/me', (req, res) => {
     if (req.branch.status !== 'active') {
-      return res.status(403).json({ user: null, branch: { name: req.branch.name, status: req.branch.status }, message: SUSPENDED_MESSAGE });
+      return res.status(403).json({
+        user: null,
+        branch: { name: req.branch.name, status: req.branch.status },
+        message: SUSPENDED_MESSAGE,
+      });
     }
     res.json({
       user: req.userRow ? publicUser(req.userRow) : null,
@@ -235,7 +260,8 @@ function createBranchRouter() {
     requireUser,
     asyncRoute(async (req, res) => {
       const entry = downloads.take(String(req.params.id), req.session.id);
-      if (!entry || !fs.existsSync(entry.path)) throw new HttpError(404, 'الملف غير موجود أو انتهت صلاحيته.');
+      if (!entry || !fs.existsSync(entry.path))
+        throw new HttpError(404, 'الملف غير موجود أو انتهت صلاحيته.');
       res.download(entry.path, entry.name, () => downloads.remove(entry));
     }),
   );

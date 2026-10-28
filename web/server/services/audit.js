@@ -12,7 +12,15 @@ const { pool } = require('../db/pool');
  * @param {object} [entry.details] - Never passwords, tokens or personal data.
  * @param {string} [entry.ip]
  */
-async function record({ actorKind, actorId = null, actorName = null, branchId = null, action, details = {}, ip = null }) {
+async function record({
+  actorKind,
+  actorId = null,
+  actorName = null,
+  branchId = null,
+  action,
+  details = {},
+  ip = null,
+}) {
   try {
     await pool.query(
       `INSERT INTO platform.audit_log (actor_kind, actor_id, actor_name, branch_id, action, details, ip)

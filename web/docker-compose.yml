@@ -1,0 +1,87 @@
+# The web version with its database and nightly backups:
+#   cp web/.env.example web/.env      # then edit it
+#   docker compose -f web/docker-compose.yml up -d --build
+#   docker compose -f web/docker-compose.yml exec app node web/server/cli.js create-admin --email you@example.org --name "Your name"
+# With HTTPS through Caddy (set DOMAIN in .env and point it at this server):
+#   docker compose -f web/docker-compose.yml --profile https up -d --build
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qam
+      POSTGRES_USER: qam
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in web/.env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qam -d qam']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://qam:${POSTGRES_PASSWORD}@db:5432/qam
+      DATA_DIR: /data
+      PORT: 8080
+    volumes:
+      - app-data:/data
+    ports:
+      - '${APP_PORT:-8080}:8080'
+
+  # Every night: a dump of the whole database (every branch) and an archive of the uploaded
+  # files (logos), kept for BACKUP_KEEP_DAYS days in ./backups.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+      - app-data:/data:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          stamp=$$(date +%F)
+          pg_dump -h db -U qam -d qam -Fc -f /backups/qam-$$stamp.dump \
+            && tar -czf /backups/files-$$stamp.tar.gz -C /data branches 2>/dev/null
+          find /backups -name 'qam-*.dump' -mtime +$$KEEP_DAYS -delete
+          find /backups -name 'files-*.tar.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+
+  caddy:
+    image: caddy:2
+    profiles: ['https']
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    command: caddy reverse-proxy --from ${DOMAIN:-localhost} --to app:8080
+    volumes:
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  app-data:
+  caddy-data:

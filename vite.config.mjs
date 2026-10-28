@@ -6,6 +6,8 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './', // Important for Electron to load assets correctly
+  // The desktop build; web/vite.config.mjs builds the same renderer for the browser with true.
+  define: { __QAM_WEB__: 'false' },
   css: {
     preprocessorOptions: {
       scss: {

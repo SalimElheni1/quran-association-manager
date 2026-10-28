@@ -96,7 +96,11 @@ function translate(sql) {
   // PRAGMA table_info(t) → the compat function with the same columns.
   const pragma = /^\s*PRAGMA\s+table_info\s*\(\s*["'`]?(\w+)["'`]?\s*\)\s*;?\s*$/i.exec(sql);
   if (pragma) {
-    const result = { parts: [`SELECT * FROM compat.table_info('${pragma[1]}')`], paramCount: 0, isInsert: false };
+    const result = {
+      parts: [`SELECT * FROM compat.table_info('${pragma[1]}')`],
+      paramCount: 0,
+      isInsert: false,
+    };
     cache.set(sql, result);
     return result;
   }
@@ -127,7 +131,9 @@ function translate(sql) {
       text = text.replace(/^(\s*)INSERT\s+OR\s+IGNORE\s+INTO\b/i, '$1INSERT INTO');
       insertMode = 'ignore';
     } else if (firstCode && /^\s*(INSERT\s+OR\s+REPLACE|REPLACE)\s+INTO\b/i.test(text)) {
-      const m = text.match(/^\s*(?:INSERT\s+OR\s+REPLACE|REPLACE)\s+INTO\s+"?(\w+)"?\s*\(([^)]*)\)/i);
+      const m = text.match(
+        /^\s*(?:INSERT\s+OR\s+REPLACE|REPLACE)\s+INTO\s+"?(\w+)"?\s*\(([^)]*)\)/i,
+      );
       if (!m || !REPLACE_KEYS[m[1].toLowerCase()]) {
         throw new Error(`INSERT OR REPLACE is not supported for this statement: ${sql}`);
       }
@@ -160,7 +166,9 @@ function translate(sql) {
       const keys = REPLACE_KEYS[insertMode.table];
       const others = insertMode.columns.filter((c) => !keys.includes(c));
       suffix += ` ON CONFLICT (${keys.join(', ')}) DO ${
-        others.length ? `UPDATE SET ${others.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}` : 'NOTHING'
+        others.length
+          ? `UPDATE SET ${others.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}`
+          : 'NOTHING'
       }`;
     }
     // runQuery returns the new row's id, as better-sqlite3's lastInsertRowid.
@@ -213,9 +221,7 @@ function literal(value) {
     if (value.includes('\0')) throw new Error('Text values cannot contain NUL characters.');
     return `'${value.replace(/'/g, "''")}'`;
   }
-  throw new TypeError(
-    'SQLite3 can only bind numbers, strings, bigints, buffers, and null',
-  );
+  throw new TypeError('SQLite3 can only bind numbers, strings, bigints, buffers, and null');
 }
 
 /**
@@ -246,7 +252,12 @@ function toSqliteError(error) {
   const table = error.table || '';
   const keyColumns = () => {
     const m = /Key \(([^)]+)\)/.exec(error.detail || '');
-    return m ? m[1].split(',').map((c) => `${table}.${c.trim()}`).join(', ') : table;
+    return m
+      ? m[1]
+          .split(',')
+          .map((c) => `${table}.${c.trim()}`)
+          .join(', ')
+      : table;
   };
   let mapped = null;
   if (error.code === '23505') {
@@ -258,9 +269,12 @@ function toSqliteError(error) {
       code: 'SQLITE_CONSTRAINT_FOREIGNKEY',
     });
   } else if (error.code === '23502') {
-    mapped = Object.assign(new Error(`NOT NULL constraint failed: ${table}.${error.column || ''}`), {
-      code: 'SQLITE_CONSTRAINT_NOTNULL',
-    });
+    mapped = Object.assign(
+      new Error(`NOT NULL constraint failed: ${table}.${error.column || ''}`),
+      {
+        code: 'SQLITE_CONSTRAINT_NOTNULL',
+      },
+    );
   } else if (error.code === '23514') {
     mapped = Object.assign(new Error(`CHECK constraint failed: ${error.constraint || table}`), {
       code: 'SQLITE_CONSTRAINT_CHECK',

@@ -7,6 +7,7 @@ import PasswordInput from '@renderer/components/PasswordInput';
 import { checkPasswordRules, PASSWORD_RULES_HINT } from '@renderer/utils/passwordPolicy';
 import SuperadminSetupForm from '@renderer/components/SuperadminSetupForm';
 import '@renderer/styles/LoginPage.css';
+import { currentBranch } from '@renderer/utils/platform';
 
 // The default logo is served from the public folder.
 // Vite handles this automatically.
@@ -135,7 +136,9 @@ function LoginPage({ needsSetup, onSetupComplete }) {
               <img src={displayLogo} alt="Logo" className="signin-logo" />
               <h1>{mustChangePassword ? 'تغيير كلمة المرور' : 'تسجيل الدخول'}</h1>
               {!mustChangePassword && (
-                <p className="signin-subtitle">الرابطة الوطنية للقرآن الكريم</p>
+                <p className="signin-subtitle">
+                  {currentBranch() ? currentBranch().name : 'الرابطة الوطنية للقرآن الكريم'}
+                </p>
               )}
               <div className="weave-band" aria-hidden="true" />
             </div>

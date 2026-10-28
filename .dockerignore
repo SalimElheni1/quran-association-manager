@@ -1,0 +1,16 @@
+# Docker build context for the web version (web/Dockerfile, built from the repository root).
+.git
+node_modules
+web/node_modules
+web/dist
+web/data
+web/test-results
+dist
+release
+test-results
+guide-output
+docs
+tests
+*.log
+.env
+web/.env

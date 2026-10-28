@@ -20,6 +20,10 @@ import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 import TransferKeyCard from '@renderer/components/settings/TransferKeyCard';
+import { IS_WEB, imageSrc } from '@renderer/utils/platform';
+
+// On the web, backups are downloads: the folder and schedule settings do not apply.
+const WebBackupCard = IS_WEB ? React.lazy(() => import('@renderer/web/WebBackupCard')) : null;
 
 // The association transfer key, named for what it does for the user.
 const BACKUP_KEY_LABEL = 'رمز حماية النسخ الاحتياطية (رمز النقل)';
@@ -46,7 +50,7 @@ const SettingsPage = () => {
           const loadedSettings = settingsResponse.settings;
           setSettings(loadedSettings);
 
-          if (loadedSettings && loadedSettings.backup_path) {
+          if (loadedSettings && (loadedSettings.backup_path || IS_WEB)) {
             const backupStatusResponse = await window.electronAPI.getBackupStatus();
             if (backupStatusResponse.success) {
               setBackupStatus(backupStatusResponse.status);
@@ -169,7 +173,9 @@ const SettingsPage = () => {
 
       if (result.success) {
         toast.success(
-          'تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.',
+          IS_WEB
+            ? result.message
+            : 'تم استيراد قاعدة البيانات بنجاح! سيتم إعادة تشغيل التطبيق لتطبيق التغييرات.',
           {
             autoClose: 3000,
             onClose: () => window.electronAPI.relaunchApp(),
@@ -302,7 +308,7 @@ const SettingsPage = () => {
                           {settings.national_logo_path && (
                             <div className="mt-3 p-2 border rounded text-center bg-light">
                               <Image
-                                src={`safe-image://${settings.national_logo_path}`}
+                                src={imageSrc(settings.national_logo_path)}
                                 style={{ maxHeight: '120px', maxWidth: '100%' }}
                               />
                             </div>
@@ -333,7 +339,7 @@ const SettingsPage = () => {
                           {settings.regional_local_logo_path && (
                             <div className="mt-3 p-2 border rounded text-center bg-light">
                               <Image
-                                src={`safe-image://${settings.regional_local_logo_path}`}
+                                src={imageSrc(settings.regional_local_logo_path)}
                                 style={{ maxHeight: '120px', maxWidth: '100%' }}
                               />
                             </div>
@@ -483,135 +489,150 @@ const SettingsPage = () => {
                     />
 
                     {/* 2. Making backups */}
-                    <Card className="shadow-sm border mb-4" data-section="make-backup">
-                      <Card.Body>
-                        <h5 className="text-primary border-bottom pb-2 mb-2">حفظ نسخة احتياطية</h5>
-                        <p className="small text-muted">
-                          النسخة الاحتياطية ملف واحد (<bdi dir="ltr">.qdb</bdi>) يحتوي كل بيانات
-                          الفرع، مشفّر ومحمي من التعديل. احفظها في مجلد على قرص آخر أو مفتاح USB، لا
-                          على نفس القرص فقط.
-                        </p>
-                        <Form.Group className="mb-3">
-                          <Form.Label className="small fw-bold">
-                            مجلد حفظ النسخ الاحتياطية
-                          </Form.Label>
-                          <InputGroup size="sm">
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleDirectorySelect('backup_path')}
-                            >
-                              اختيار...
-                            </Button>
-                            <Form.Control
-                              type="text"
-                              value={settings.backup_path || ''}
-                              placeholder="لم يتم اختيار مجلد بعد"
-                              readOnly
-                            />
-                          </InputGroup>
-                          <Form.Text className="text-muted small">
-                            يُحفظ المجلد فور اختياره.
-                          </Form.Text>
-                        </Form.Group>
-
-                        <Button
-                          variant="success"
-                          onClick={handleRunBackup}
-                          disabled={isBackingUp || !settings.backup_path}
-                        >
-                          {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
-                        </Button>
-                        {!settings.backup_path && (
-                          <span className="small text-muted ms-2">اختر مجلداً أولاً.</span>
-                        )}
-
-                        <div
-                          className="mt-3 p-2 rounded border bg-light small"
-                          data-section="last-backup"
-                        >
-                          {backupStatus ? (
-                            <>
-                              <div>
-                                <strong>آخر نسخة احتياطية:</strong>{' '}
-                                {new Date(backupStatus.timestamp).toLocaleString()} —{' '}
-                                <span
-                                  className={backupStatus.success ? 'text-success' : 'text-danger'}
-                                >
-                                  {backupStatus.success ? 'ناجحة' : 'فاشلة'}
-                                </span>
-                              </div>
-                              {backupStatus.success && backupStatus.filePath && (
-                                <div className="text-muted text-break" dir="ltr">
-                                  {backupStatus.filePath}
-                                </div>
-                              )}
-                              {!backupStatus.success && backupStatus.message && (
-                                <div className="text-danger">{backupStatus.message}</div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-muted">لم تُنشأ أي نسخة احتياطية بعد.</span>
-                          )}
-                        </div>
-
-                        <hr />
-                        <h6 className="mb-2">النسخ التلقائي</h6>
-                        <Form.Check
-                          type="switch"
-                          id="backup-enabled-switch"
-                          name="backup_enabled"
-                          label="تفعيل النسخ التلقائي"
-                          checked={settings.backup_enabled || false}
-                          onChange={handleChange}
-                          disabled={!settings.backup_path}
-                          className="mb-2"
+                    {IS_WEB ? (
+                      <React.Suspense fallback={<Spinner size="sm" />}>
+                        <WebBackupCard
+                          hasKey={!!settings.has_transfer_key}
+                          isBackingUp={isBackingUp}
+                          onBackup={handleRunBackup}
+                          backupStatus={backupStatus}
                         />
-                        <p className="small text-muted mb-3">
-                          {settings.backup_path
-                            ? 'يعمل النسخ التلقائي فقط عندما يكون التطبيق مفتوحاً؛ إن كان مغلقاً وقت النسخ فسيُنفَّذ خلال ساعة من فتحه.'
-                            : 'اختر مجلد الحفظ أولاً لتفعيل النسخ التلقائي.'}
-                        </p>
-                        <Row>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                              <Form.Label className="small">تكرار النسخ</Form.Label>
-                              <Form.Select
-                                size="sm"
-                                name="backup_frequency"
-                                value={settings.backup_frequency || 'daily'}
-                                onChange={handleChange}
-                                disabled={!settings.backup_enabled}
+                      </React.Suspense>
+                    ) : (
+                      <Card className="shadow-sm border mb-4" data-section="make-backup">
+                        <Card.Body>
+                          <h5 className="text-primary border-bottom pb-2 mb-2">
+                            حفظ نسخة احتياطية
+                          </h5>
+                          <p className="small text-muted">
+                            النسخة الاحتياطية ملف واحد (<bdi dir="ltr">.qdb</bdi>) يحتوي كل بيانات
+                            الفرع، مشفّر ومحمي من التعديل. احفظها في مجلد على قرص آخر أو مفتاح USB،
+                            لا على نفس القرص فقط.
+                          </p>
+                          <Form.Group className="mb-3">
+                            <Form.Label className="small fw-bold">
+                              مجلد حفظ النسخ الاحتياطية
+                            </Form.Label>
+                            <InputGroup size="sm">
+                              <Button
+                                variant="secondary"
+                                onClick={() => handleDirectorySelect('backup_path')}
                               >
-                                <option value="daily">يوميًا</option>
-                                <option value="weekly">أسبوعيًا</option>
-                                <option value="monthly">شهريًا</option>
-                              </Form.Select>
-                            </Form.Group>
-                          </Col>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                              <Form.Label className="small">توقيت النسخ</Form.Label>
+                                اختيار...
+                              </Button>
                               <Form.Control
-                                size="sm"
-                                type="time"
-                                name="backup_time"
-                                value={settings.backup_time || '02:00'}
-                                onChange={handleChange}
-                                disabled={!settings.backup_enabled}
+                                type="text"
+                                value={settings.backup_path || ''}
+                                placeholder="لم يتم اختيار مجلد بعد"
+                                readOnly
                               />
-                            </Form.Group>
-                          </Col>
-                        </Row>
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => saveSettings()}
-                          disabled={isSubmitting || !settings.backup_path}
-                        >
-                          حفظ إعدادات النسخ التلقائي
-                        </Button>
-                      </Card.Body>
-                    </Card>
+                            </InputGroup>
+                            <Form.Text className="text-muted small">
+                              يُحفظ المجلد فور اختياره.
+                            </Form.Text>
+                          </Form.Group>
+
+                          <Button
+                            variant="success"
+                            onClick={handleRunBackup}
+                            disabled={isBackingUp || !settings.backup_path}
+                          >
+                            {isBackingUp ? <Spinner size="sm" /> : 'نسخ احتياطي الآن'}
+                          </Button>
+                          {!settings.backup_path && (
+                            <span className="small text-muted ms-2">اختر مجلداً أولاً.</span>
+                          )}
+
+                          <div
+                            className="mt-3 p-2 rounded border bg-light small"
+                            data-section="last-backup"
+                          >
+                            {backupStatus ? (
+                              <>
+                                <div>
+                                  <strong>آخر نسخة احتياطية:</strong>{' '}
+                                  {new Date(backupStatus.timestamp).toLocaleString()} —{' '}
+                                  <span
+                                    className={
+                                      backupStatus.success ? 'text-success' : 'text-danger'
+                                    }
+                                  >
+                                    {backupStatus.success ? 'ناجحة' : 'فاشلة'}
+                                  </span>
+                                </div>
+                                {backupStatus.success && backupStatus.filePath && (
+                                  <div className="text-muted text-break" dir="ltr">
+                                    {backupStatus.filePath}
+                                  </div>
+                                )}
+                                {!backupStatus.success && backupStatus.message && (
+                                  <div className="text-danger">{backupStatus.message}</div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-muted">لم تُنشأ أي نسخة احتياطية بعد.</span>
+                            )}
+                          </div>
+
+                          <hr />
+                          <h6 className="mb-2">النسخ التلقائي</h6>
+                          <Form.Check
+                            type="switch"
+                            id="backup-enabled-switch"
+                            name="backup_enabled"
+                            label="تفعيل النسخ التلقائي"
+                            checked={settings.backup_enabled || false}
+                            onChange={handleChange}
+                            disabled={!settings.backup_path}
+                            className="mb-2"
+                          />
+                          <p className="small text-muted mb-3">
+                            {settings.backup_path
+                              ? 'يعمل النسخ التلقائي فقط عندما يكون التطبيق مفتوحاً؛ إن كان مغلقاً وقت النسخ فسيُنفَّذ خلال ساعة من فتحه.'
+                              : 'اختر مجلد الحفظ أولاً لتفعيل النسخ التلقائي.'}
+                          </p>
+                          <Row>
+                            <Col md={6}>
+                              <Form.Group className="mb-3">
+                                <Form.Label className="small">تكرار النسخ</Form.Label>
+                                <Form.Select
+                                  size="sm"
+                                  name="backup_frequency"
+                                  value={settings.backup_frequency || 'daily'}
+                                  onChange={handleChange}
+                                  disabled={!settings.backup_enabled}
+                                >
+                                  <option value="daily">يوميًا</option>
+                                  <option value="weekly">أسبوعيًا</option>
+                                  <option value="monthly">شهريًا</option>
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                              <Form.Group className="mb-3">
+                                <Form.Label className="small">توقيت النسخ</Form.Label>
+                                <Form.Control
+                                  size="sm"
+                                  type="time"
+                                  name="backup_time"
+                                  value={settings.backup_time || '02:00'}
+                                  onChange={handleChange}
+                                  disabled={!settings.backup_enabled}
+                                />
+                              </Form.Group>
+                            </Col>
+                          </Row>
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => saveSettings()}
+                            disabled={isSubmitting || !settings.backup_path}
+                          >
+                            حفظ إعدادات النسخ التلقائي
+                          </Button>
+                        </Card.Body>
+                      </Card>
+                    )}
 
                     {/* 3. Restoring */}
                     <Card className="shadow-sm border border-danger mb-4" data-section="restore">
@@ -620,10 +641,21 @@ const SettingsPage = () => {
                           استرجاع نسخة احتياطية
                         </h5>
                         <Alert variant="danger" className="small">
-                          الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
-                          (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
-                          تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
-                          محدداً.
+                          {IS_WEB ? (
+                            <>
+                              الاسترجاع <strong>يستبدل كل بيانات الفرع الحالية</strong> ببيانات
+                              النسخة (الطلاب، المالية، المستخدمون...)، ثم تُغلق جلسات كل مستخدمي
+                              الفرع. تُقبل نسخ تطبيق سطح المكتب ونسخ نسخة الويب، وتُحفظ على الخادم
+                              نسخة أمان من البيانات الحالية قبل الاستبدال.
+                            </>
+                          ) : (
+                            <>
+                              الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
+                              (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
+                              تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
+                              محدداً.
+                            </>
+                          )}
                         </Alert>
                         <p className="small text-muted">
                           ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا الجهاز
@@ -658,7 +690,11 @@ const SettingsPage = () => {
         onHide={() => setShowPasswordModal(false)}
         onConfirm={handlePasswordConfirm}
         title="الخطوة الأخيرة: تأكيد الهوية"
-        body="أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع."
+        body={
+          IS_WEB
+            ? 'أدخل كلمة مرورك الحالية لتأكيد استبدال كل بيانات الفرع بالنسخة المختارة. ستُطلب منك إعادة تسجيل الدخول بعد الاسترجاع.'
+            : 'أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع.'
+        }
         showBackupKeyField
         backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)"
       />

@@ -30,7 +30,11 @@ function createInviteRouter() {
     asyncRoute(async (req, res) => {
       limit(req);
       try {
-        const { branch, user } = await invitations.accept(String(req.params.token), req.body || {}, { ip: req.ip });
+        const { branch, user } = await invitations.accept(
+          String(req.params.token),
+          req.body || {},
+          { ip: req.ip },
+        );
         const token = await sessions.create({
           kind: 'branch',
           branchId: branch.id,
@@ -41,7 +45,8 @@ function createInviteRouter() {
         setSessionCookie(res, token, `/api/b/${branch.slug}`);
         res.json({ ok: true, branchSlug: branch.slug, username: user.username });
       } catch (error) {
-        if (error instanceof invitations.InvitationError) throw new HttpError(error.status, error.message);
+        if (error instanceof invitations.InvitationError)
+          throw new HttpError(error.status, error.message);
         throw error;
       }
     }),

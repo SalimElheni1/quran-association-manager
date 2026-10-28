@@ -1,0 +1,119 @@
+/* Pages only the web version has: home, invitation, platform console. They reuse the
+   desktop's design tokens (src/renderer/styles/index.css). */
+
+.web-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(197, 160, 89, 0.18), transparent 42%),
+    radial-gradient(circle at 90% 85%, rgba(74, 107, 93, 0.28), transparent 46%),
+    linear-gradient(135deg, #2a4637 0%, #172b20 100%);
+}
+
+.web-auth-card {
+  width: 100%;
+  max-width: 520px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  background: var(--surface-paper, #fcfbf7);
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.55);
+}
+
+.web-auth-card.wide {
+  max-width: 680px;
+}
+
+.web-auth-card .card-body {
+  padding: 2rem 1.75rem;
+}
+
+.web-auth-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.web-auth-header img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  margin-bottom: 0.75rem;
+}
+
+.web-auth-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--sage-navy, #35503f);
+  margin-bottom: 0.25rem;
+}
+
+.web-auth-header p {
+  color: var(--text-secondary, #5a6473);
+  margin: 0;
+}
+
+/* Platform console */
+.platform-shell {
+  min-height: 100vh;
+  background: var(--bg-ivory, #f9f8f3);
+}
+
+.platform-topbar {
+  background: linear-gradient(135deg, #2a4637 0%, #172b20 100%);
+  color: #f2f5f2;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.platform-topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+}
+
+.platform-topbar .brand img {
+  width: 34px;
+  height: 34px;
+}
+
+.platform-topbar .nav-link {
+  color: #c4d0c7;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.platform-topbar .nav-link.active,
+.platform-topbar .nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.platform-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.stat-pill {
+  display: inline-block;
+  min-width: 2.25rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  background: var(--surface-sheet, #f3f1e9);
+  border: 1px solid var(--line, #e5e1d4);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.branch-link {
+  font-family: monospace;
+  direction: ltr;
+  unicode-bidi: embed;
+}

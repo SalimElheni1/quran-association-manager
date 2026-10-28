@@ -66,6 +66,14 @@ The narration uses a text-to-speech engine, chosen with `QBM_GUIDE_TTS`:
 Speech speed: `QBM_GUIDE_TTS_RATE` (e.g. `-5%` for edge, words per minute for espeak). Spoken
 sentences are cached in `guide-output/tts-cache/`, so re-recording doesn't synthesize again.
 
+## Web version (many branches)
+
+The same app also runs in the browser for many branches on one server: a platform console creates
+branches and invites each branch's Superadmin, who invites the branch's users. Data lives in
+PostgreSQL, one schema per branch; desktop backups restore into a branch, and branch backups open
+in the desktop app. Setup with Docker Compose, operation and architecture:
+[docs/web/README.md](docs/web/README.md).
+
 ## Getting started
 
 ### Prerequisites

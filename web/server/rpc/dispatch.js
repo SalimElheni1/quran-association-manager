@@ -18,10 +18,21 @@ const { ERRORS, ROLES } = ipcSecurity;
 
 // Desktop channels the browser never calls through RPC: login and logout have their own HTTP
 // routes, and the toasts are shown in the browser directly.
-const NOT_RPC = new Set(['auth:login', 'auth:setup-superadmin', 'logout', 'ui:show-error-toast', 'ui:show-success-toast']);
+const NOT_RPC = new Set([
+  'auth:login',
+  'auth:setup-superadmin',
+  'logout',
+  'ui:show-error-toast',
+  'ui:show-success-toast',
+]);
 
 // Channels the browser may call before signing in (the login page shows the branch logo).
-const WEB_PUBLIC = new Set(['get-app-version', 'get-is-packaged', 'get-initial-credentials', 'settings:getLogo']);
+const WEB_PUBLIC = new Set([
+  'get-app-version',
+  'get-is-packaged',
+  'get-initial-credentials',
+  'settings:getLogo',
+]);
 
 let senderSeq = 0;
 

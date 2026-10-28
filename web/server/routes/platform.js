@@ -30,7 +30,9 @@ const branchSchema = Joi.object({
   notes: Joi.string().trim().max(2000).allow('', null),
 });
 
-const branchUpdateSchema = branchSchema.fork(['name', 'slug'], (s) => s.optional()).keys({ slug: Joi.forbidden() });
+const branchUpdateSchema = branchSchema
+  .fork(['name', 'slug'], (s) => s.optional())
+  .keys({ slug: Joi.forbidden() });
 
 const inviteSchema = Joi.object({
   email: Joi.string().trim().email().max(200).allow('', null),
@@ -38,7 +40,10 @@ const inviteSchema = Joi.object({
 });
 
 function validate(schema, value) {
-  const { error, value: clean } = schema.validate(value || {}, { abortEarly: true, stripUnknown: true });
+  const { error, value: clean } = schema.validate(value || {}, {
+    abortEarly: true,
+    stripUnknown: true,
+  });
   if (error) throw new HttpError(400, `بيانات غير صالحة: ${error.details[0].message}`);
   return clean;
 }
@@ -73,7 +78,9 @@ function createPlatformRouter() {
   router.post(
     '/auth/login',
     asyncRoute(async (req, res) => {
-      const email = String(req.body?.email || '').trim().toLowerCase();
+      const email = String(req.body?.email || '')
+        .trim()
+        .toLowerCase();
       const password = String(req.body?.password || '');
       const ipLimit = rateLimit.hit(`platform-login-ip:${req.ip}`, 20, 15 * 60 * 1000);
       const key = `platform-login:${email}`;
@@ -83,13 +90,29 @@ function createPlatformRouter() {
       const admin = await admins.authenticate(email, password);
       if (!admin) {
         rateLimit.fail(key);
-        await audit.record({ actorKind: 'anonymous', actorName: email.slice(0, 100), action: 'platform.login.failure', ip: req.ip });
+        await audit.record({
+          actorKind: 'anonymous',
+          actorName: email.slice(0, 100),
+          action: 'platform.login.failure',
+          ip: req.ip,
+        });
         throw new HttpError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
       }
       rateLimit.clear(key);
-      const token = await sessions.create({ kind: 'platform', adminId: admin.id, ip: req.ip, userAgent: req.get('user-agent') });
+      const token = await sessions.create({
+        kind: 'platform',
+        adminId: admin.id,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       setSessionCookie(res, token, COOKIE_PATH);
-      await audit.record({ actorKind: 'platform', actorId: admin.id, actorName: admin.name, action: 'platform.login.success', ip: req.ip });
+      await audit.record({
+        actorKind: 'platform',
+        actorId: admin.id,
+        actorName: admin.name,
+        action: 'platform.login.success',
+        ip: req.ip,
+      });
       res.json({ admin });
     }),
   );
@@ -115,7 +138,13 @@ function createPlatformRouter() {
     asyncRoute(async (req, res) => {
       await admins.changePassword(req.admin.id, req.body?.currentPassword, req.body?.newPassword);
       await sessions.revokeAdmin(req.admin.id, req.platformSession.id);
-      await audit.record({ actorKind: 'platform', actorId: req.admin.id, actorName: req.admin.name, action: 'platform.password.change', ip: req.ip });
+      await audit.record({
+        actorKind: 'platform',
+        actorId: req.admin.id,
+        actorName: req.admin.name,
+        action: 'platform.password.change',
+        ip: req.ip,
+      });
       res.json({ ok: true });
     }),
   );
@@ -181,7 +210,11 @@ function createPlatformRouter() {
         role: 'Superadmin',
         email: data.email || null,
         name: data.name || null,
-        createdBy: { kind: 'platform', adminId: req.admin.id, name: `${req.admin.name} (إدارة المنصة)` },
+        createdBy: {
+          kind: 'platform',
+          adminId: req.admin.id,
+          name: `${req.admin.name} (إدارة المنصة)`,
+        },
         meta: { ip: req.ip },
       });
       res.status(201).json(result);
@@ -214,7 +247,14 @@ function createPlatformRouter() {
     '/admins',
     asyncRoute(async (req, res) => {
       const admin = await admins.create(req.body || {});
-      await audit.record({ actorKind: 'platform', actorId: req.admin.id, actorName: req.admin.name, action: 'platform.admin.create', details: { adminId: admin.id }, ip: req.ip });
+      await audit.record({
+        actorKind: 'platform',
+        actorId: req.admin.id,
+        actorName: req.admin.name,
+        action: 'platform.admin.create',
+        details: { adminId: admin.id },
+        ip: req.ip,
+      });
       res.status(201).json({ admin });
     }),
   );
@@ -223,7 +263,14 @@ function createPlatformRouter() {
     '/admins/:id/status',
     asyncRoute(async (req, res) => {
       await admins.setStatus(Number(req.params.id), req.body?.status, req.admin.id);
-      await audit.record({ actorKind: 'platform', actorId: req.admin.id, actorName: req.admin.name, action: `platform.admin.${req.body?.status}`, details: { adminId: Number(req.params.id) }, ip: req.ip });
+      await audit.record({
+        actorKind: 'platform',
+        actorId: req.admin.id,
+        actorName: req.admin.name,
+        action: `platform.admin.${req.body?.status}`,
+        details: { adminId: Number(req.params.id) },
+        ip: req.ip,
+      });
       res.json({ ok: true });
     }),
   );
@@ -232,7 +279,9 @@ function createPlatformRouter() {
     '/audit',
     asyncRoute(async (req, res) => {
       const branchId = req.query.branchId ? Number(req.query.branchId) : null;
-      res.json({ entries: await audit.listAll({ limit: Number(req.query.limit) || 200, branchId }) });
+      res.json({
+        entries: await audit.listAll({ limit: Number(req.query.limit) || 200, branchId }),
+      });
     }),
   );
 

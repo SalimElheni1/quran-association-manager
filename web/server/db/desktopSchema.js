@@ -32,11 +32,15 @@ function buildDesktopSqlite() {
 /** The tables of a SQLite database, referenced tables first. */
 function tablesInDependencyOrder(db) {
   const tables = db
-    .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+    .prepare(
+      "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
     .all();
   const deps = {};
   for (const t of tables) {
-    deps[t.name] = [...t.sql.matchAll(/REFERENCES\s+"?(\w+)"?/gi)].map((m) => m[1]).filter((n) => n !== t.name);
+    deps[t.name] = [...t.sql.matchAll(/REFERENCES\s+"?(\w+)"?/gi)]
+      .map((m) => m[1])
+      .filter((n) => n !== t.name);
   }
   const ordered = [];
   const seen = new Set();

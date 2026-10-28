@@ -25,7 +25,9 @@ async function main() {
 
   const failures = await migrateAll();
   if (failures.length) {
-    console.error(`[startup] ${failures.length} branch(es) failed to migrate; they may not work until fixed.`);
+    console.error(
+      `[startup] ${failures.length} branch(es) failed to migrate; they may not work until fixed.`,
+    );
   }
   loadHandlers();
 
@@ -37,7 +39,9 @@ async function main() {
 
   const app = createApp();
   const server = app.listen(config.port, () => {
-    console.log(`[startup] Quran Association Manager (web) listening on port ${config.port} — ${config.publicUrl}`);
+    console.log(
+      `[startup] Quran Association Manager (web) listening on port ${config.port} — ${config.publicUrl}`,
+    );
   });
   if (config.schedulerEnabled) scheduler.start();
 

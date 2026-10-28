@@ -17,7 +17,10 @@ class AdminError extends Error {
 let dummyHash = null;
 const getDummyHash = async () => (dummyHash ||= await bcrypt.hash('not-a-real-password', 12));
 
-const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+const normalizeEmail = (email) =>
+  String(email || '')
+    .trim()
+    .toLowerCase();
 
 function checkAdminPassword(password) {
   if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
@@ -28,7 +31,8 @@ function checkAdminPassword(password) {
 
 async function create({ email, name, password }) {
   const normalized = normalizeEmail(email);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new AdminError('بريد إلكتروني غير صالح.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
+    throw new AdminError('بريد إلكتروني غير صالح.');
   if (!name || !String(name).trim()) throw new AdminError('الاسم مطلوب.');
   const problem = checkAdminPassword(password);
   if (problem) throw new AdminError(problem);
@@ -86,15 +90,22 @@ async function setStatus(id, status, byId) {
     );
     if (rows[0].n === 0) throw new AdminError('يجب أن يبقى مدير منصة نشط واحد على الأقل.');
   }
-  const { rowCount } = await pool.query('UPDATE platform.admins SET status = $1 WHERE id = $2', [status, id]);
+  const { rowCount } = await pool.query('UPDATE platform.admins SET status = $1 WHERE id = $2', [
+    status,
+    id,
+  ]);
   if (!rowCount) throw new AdminError('المدير غير موجود.', 404);
   if (status === 'disabled') {
-    await pool.query("DELETE FROM platform.sessions WHERE kind = 'platform' AND admin_id = $1", [id]);
+    await pool.query("DELETE FROM platform.sessions WHERE kind = 'platform' AND admin_id = $1", [
+      id,
+    ]);
   }
 }
 
 async function changePassword(id, currentPassword, newPassword) {
-  const { rows } = await pool.query('SELECT password_hash FROM platform.admins WHERE id = $1', [id]);
+  const { rows } = await pool.query('SELECT password_hash FROM platform.admins WHERE id = $1', [
+    id,
+  ]);
   if (!rows[0] || !(await bcrypt.compare(String(currentPassword || ''), rows[0].password_hash))) {
     throw new AdminError('كلمة المرور الحالية غير صحيحة.');
   }
@@ -111,4 +122,14 @@ async function count() {
   return rows[0].n;
 }
 
-module.exports = { AdminError, create, authenticate, findActive, list, setStatus, changePassword, count, checkAdminPassword };
+module.exports = {
+  AdminError,
+  create,
+  authenticate,
+  findActive,
+  list,
+  setStatus,
+  changePassword,
+  count,
+  checkAdminPassword,
+};

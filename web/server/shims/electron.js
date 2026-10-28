@@ -81,13 +81,15 @@ const app = {
 
 /** A safe file name (no folders, no control characters). */
 function safeFileName(name, fallback = 'file') {
+  // eslint-disable-next-line no-control-regex -- strips control characters from file names
   const base = path.basename(String(name || '')).replace(/[\u0000-\u001f<>:"/\\|?*]+/g, '_');
   return base && base !== '.' && base !== '..' ? base.slice(0, 180) : fallback;
 }
 
 const dialog = {
   async showSaveDialog(...args) {
-    const options = (typeof args[0] === 'object' && !args[0]?.webContents ? args[0] : args[1]) || {};
+    const options =
+      (typeof args[0] === 'object' && !args[0]?.webContents ? args[0] : args[1]) || {};
     const ctx = context.current();
     if (!ctx) return { canceled: true, filePath: undefined };
     const id = crypto.randomUUID();
@@ -99,10 +101,12 @@ const dialog = {
     return { canceled: false, filePath };
   },
   async showOpenDialog(...args) {
-    const options = (typeof args[0] === 'object' && !args[0]?.webContents ? args[0] : args[1]) || {};
+    const options =
+      (typeof args[0] === 'object' && !args[0]?.webContents ? args[0] : args[1]) || {};
     const ctx = context.current();
     if (!ctx || ctx.pendingUploads.length === 0) return { canceled: true, filePaths: [] };
-    const multiple = Array.isArray(options.properties) && options.properties.includes('multiSelections');
+    const multiple =
+      Array.isArray(options.properties) && options.properties.includes('multiSelections');
     const filePaths = multiple ? ctx.pendingUploads.splice(0) : ctx.pendingUploads.splice(0, 1);
     return { canceled: false, filePaths };
   },

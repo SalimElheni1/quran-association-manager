@@ -14,6 +14,7 @@ const uploadsDir = () => path.join(config.dataDir, 'uploads');
 
 /** A safe file name for an uploaded file (its original name, without folders). */
 function safeName(name) {
+  // eslint-disable-next-line no-control-regex -- strips control characters from file names
   const base = path.basename(String(name || '')).replace(/[\u0000-\u001f<>:"/\\|?*]+/g, '_');
   return base && base !== '.' && base !== '..' ? base.slice(0, 180) : 'upload';
 }
@@ -30,7 +31,13 @@ function save(sessionId, file) {
   const filePath = path.join(dir, name);
   fs.writeFileSync(filePath, file.buffer, { mode: 0o600 });
   const id = `upload:${uuid}`;
-  entries.set(id, { path: filePath, sessionId, expiresAt: Date.now() + TTL_MS, name, size: file.size });
+  entries.set(id, {
+    path: filePath,
+    sessionId,
+    expiresAt: Date.now() + TTL_MS,
+    name,
+    size: file.size,
+  });
   return { id, name, size: file.size };
 }
 
@@ -78,7 +85,8 @@ function cleanup() {
     for (const name of names) {
       const dir = path.join(uploadsDir(), name);
       fs.stat(dir, (statErr, stat) => {
-        if (!statErr && now - stat.mtimeMs > TTL_MS * 2) fs.rm(dir, { recursive: true, force: true }, () => {});
+        if (!statErr && now - stat.mtimeMs > TTL_MS * 2)
+          fs.rm(dir, { recursive: true, force: true }, () => {});
       });
     }
   });

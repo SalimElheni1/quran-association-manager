@@ -5,7 +5,9 @@ module.exports = async () => {
   const { pool } = require('../../server/db/pool');
   await migrateAll(() => {});
   // Branch schemas left by an earlier run.
-  const { rows } = await pool.query("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'branch\\_%'");
+  const { rows } = await pool.query(
+    "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'branch\\_%'",
+  );
   for (const { nspname } of rows) await pool.query(`DROP SCHEMA ${nspname} CASCADE`);
   await pool.query('TRUNCATE platform.branches RESTART IDENTITY CASCADE');
   await pool.end();

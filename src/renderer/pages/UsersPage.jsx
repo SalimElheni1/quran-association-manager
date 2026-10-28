@@ -18,6 +18,11 @@ import ImportIcon from '@renderer/components/icons/ImportIcon';
 import PlusIcon from '@renderer/components/icons/PlusIcon';
 import RestoreIcon from '@renderer/components/icons/RestoreIcon';
 import ShowDeletedSwitch from '@renderer/components/common/ShowDeletedSwitch';
+import { useAuth } from '@renderer/contexts/AuthContext';
+import { IS_WEB } from '@renderer/utils/platform';
+
+// The web version: invitations by link, open sessions and the activity log of the branch.
+const WebUsersExtras = IS_WEB ? React.lazy(() => import('@renderer/web/WebUsersExtras')) : null;
 
 const adminsFields = [
   { key: 'matricule', label: 'الرقم التعريفي' },
@@ -31,6 +36,8 @@ const adminsFields = [
 
 function UsersPage() {
   const { hasPermission } = usePermissions();
+  const { user: currentUser } = useAuth();
+  const isSuperadmin = !!currentUser?.roles?.includes('Superadmin');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -400,6 +407,11 @@ function UsersPage() {
         importType="المستخدمين"
         title="استيراد بيانات المستخدمين"
       />
+      {IS_WEB && isSuperadmin && (
+        <React.Suspense fallback={null}>
+          <WebUsersExtras onUserJoined={fetchUsers} />
+        </React.Suspense>
+      )}
     </div>
   );
 }

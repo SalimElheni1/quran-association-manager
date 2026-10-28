@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import PasswordInput from '@renderer/components/PasswordInput';
+import { IS_WEB } from '@renderer/utils/platform';
 import { checkTransferKey, TRANSFER_KEY_HINT } from '@renderer/utils/transferKeyPolicy';
 
 /**
@@ -83,13 +84,17 @@ function TransferKeyModal({ show, onHide, onSaved, required = false, hasKey = fa
         <Modal.Body>
           {required && (
             <Alert variant="warning" className="small">
-              لم يتم تعيين رمز حماية النسخ الاحتياطية على هذا الجهاز. بدونه تُشفَّر النسخ الاحتياطية
-              بمفتاح هذا الجهاز فقط، ولا يمكن استرجاعها على جهاز آخر إذا تعطّل.
+              {IS_WEB
+                ? 'لم يتم بعد تعيين رمز حماية النسخ الاحتياطية لهذا الفرع. به تُشفَّر النسخ التي تنزّلها، ولا تُنزَّل نسخة قبل تعيينه.'
+                : `لم يتم تعيين رمز حماية النسخ الاحتياطية على هذا الجهاز. بدونه تُشفَّر النسخ الاحتياطية
+              بمفتاح هذا الجهاز فقط، ولا يمكن استرجاعها على جهاز آخر إذا تعطّل.`}
             </Alert>
           )}
           <p className="small text-muted">
-            رمز سرّي مشترك بين أجهزة الجمعية تُشفَّر به النسخ الاحتياطية. إذا كانت جمعيتك تستعمل
-            رمزاً على جهاز آخر، أدخل نفس الرمز.
+            {IS_WEB
+              ? 'إذا كان فرعك يستعمل تطبيق سطح المكتب برمز نقل، أدخل نفس الرمز لتفتح نسخه هنا وتُفتح نسخ الويب هناك.'
+              : `رمز سرّي مشترك بين أجهزة الجمعية تُشفَّر به النسخ الاحتياطية. إذا كانت جمعيتك تستعمل
+            رمزاً على جهاز آخر، أدخل نفس الرمز.`}
           </p>
           {hasKey && (
             <Alert variant="info" className="small">

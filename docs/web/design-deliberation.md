@@ -282,9 +282,11 @@ Browser (Arabic RTL)                          Node server (web/server)          
 
 - **One codebase.** Shared handlers and pages in `src/`; web-only code in `web/`; desktop behavior
   unchanged.
-- **Isolation in the database.** One Postgres schema per branch; each request runs in one
-  transaction with `SET LOCAL search_path` to its branch; no global connection; no context means no
-  query.
+- **Isolation in the database.** One Postgres schema per branch; each request gets its own
+  connection, set to its branch's schema when taken from the pool and reset when returned; no
+  global connection; no context means no query. (Built this way rather than one transaction per
+  request: SQLite handlers expect a failed statement not to abort what follows, so statements run
+  in autocommit, and inside the handlers' own transactions each statement gets a savepoint.)
 - **Authorization reused.** The channel → roles table and the argument schemas from the desktop
   are applied by the web server to every RPC call. Channels that only make sense on a desktop
   (choose a folder, relaunch, read the log file) are replaced or refused on the web.
@@ -297,8 +299,8 @@ Browser (Arabic RTL)                          Node server (web/server)          
 | Branch Superadmin  | `/b/<branch>`             | Everything in the branch, including users, invitations, desktop import, branch export. |
 | Administrator, FinanceManager, SessionSupervisor | `/b/<branch>` | Exactly as on the desktop.                         |
 
-The first platform admin is created from the command line (`npm run web:create-admin`); there is
-no default account.
+The first platform admin is created from the command line (`node web/server/cli.js
+create-admin`); there is no default account.
 
 ### 3. Invitations
 
@@ -314,8 +316,9 @@ no default account.
 
 - `web/server/db/branch-schema.sql`: the desktop schema after migration 062, written for Postgres
   (TEXT dates kept as on the desktop so date comparisons behave the same).
-- `compat` schema: `strftime`, `group_concat`, `ifnull`, `max`/`min` with two arguments,
-  `round(double precision, int)`, `nocase` collation.
+- `compat` schema: `strftime`, `date`, `datetime`, `group_concat`, `ifnull`, `max`/`min` with
+  two arguments, `round(double precision, int)`, a `nocase` collation, a `sqlite_master` view and
+  `table_info()` for `PRAGMA table_info`.
 - Versioned migrations per schema, each in its own transaction, recorded in that schema.
 - Reference data (surahs, hizbs, default age groups, categories) seeded per branch at creation,
   using the desktop's own seed functions.
@@ -352,6 +355,8 @@ across, so people log in as before.
 - No offline mode in the browser: a failed save says so and keeps the form; the desktop app stays
   the offline option.
 - No cross-branch (national) reports yet.
+- No branch deletion in the console yet: a branch is suspended (typed confirmation), and its data
+  stays until an operator drops its schema after an export.
 - The platform admin has no access to branch data, by design.
 
 ### 9. Acceptance criteria
@@ -360,7 +365,8 @@ across, so people log in as before.
 2. The invitee becomes Superadmin of Sousse, invites a FinanceManager, who accepts.
 3. Students, teachers, classes, attendance, a fee payment with receipt, income, expenses,
    inventory, settings and logo all work in the browser, in Arabic, with the desktop pages.
-4. Exports (PDF, Excel, Word) download in the browser; the Excel import works by upload.
+4. Exports (Excel, Word) download in the browser; the Excel import works by upload. (PDF stays
+   switched off as on the desktop: see the known limits in [README.md](README.md).)
 5. A second branch cannot see anything of the first, including through direct API calls.
 6. A desktop `.qdb` backup imports into a branch and its users can log in.
 7. Suspending a branch logs its users out.

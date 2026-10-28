@@ -10,7 +10,16 @@ const audit = require('./audit');
 const { ROOT } = require('../bootstrap');
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const RESERVED_SLUGS = new Set(['api', 'platform', 'invite', 'assets', 'static', 'admin', 'login', 'www']);
+const RESERVED_SLUGS = new Set([
+  'api',
+  'platform',
+  'invite',
+  'assets',
+  'static',
+  'admin',
+  'login',
+  'www',
+]);
 
 class BranchError extends Error {}
 
@@ -64,7 +73,16 @@ async function create({ name, slug, region, contactName, contactPhone, contactEm
     const { rows } = await client.query(
       `INSERT INTO platform.branches (slug, name, region, contact_name, contact_phone, contact_email, notes, created_by_admin_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, slug, name, status`,
-      [slug, String(name).trim(), region || null, contactName || null, contactPhone || null, contactEmail || null, notes || null, by?.adminId || null],
+      [
+        slug,
+        String(name).trim(),
+        region || null,
+        contactName || null,
+        contactPhone || null,
+        contactEmail || null,
+        notes || null,
+        by?.adminId || null,
+      ],
     );
     await createBranchSchema(client, rows[0].id);
     return toRef(rows[0]);
@@ -112,7 +130,8 @@ async function update(id, fields, by) {
   const values = [];
   for (const [key, column] of Object.entries(allowed)) {
     if (fields[key] !== undefined) {
-      if (key === 'name' && !String(fields.name || '').trim()) throw new BranchError('اسم الفرع مطلوب.');
+      if (key === 'name' && !String(fields.name || '').trim())
+        throw new BranchError('اسم الفرع مطلوب.');
       values.push(fields[key] === '' ? null : fields[key]);
       sets.push(`${column} = $${values.length}`);
     }
@@ -124,7 +143,15 @@ async function update(id, fields, by) {
     values,
   );
   if (!rowCount) throw new BranchError('الفرع غير موجود.');
-  await audit.record({ actorKind: 'platform', actorId: by.adminId, actorName: by.name, branchId: id, action: 'branch.update', details: { fields: Object.keys(fields) }, ip: by.ip });
+  await audit.record({
+    actorKind: 'platform',
+    actorId: by.adminId,
+    actorName: by.name,
+    branchId: id,
+    action: 'branch.update',
+    details: { fields: Object.keys(fields) },
+    ip: by.ip,
+  });
   return findById(id);
 }
 
@@ -137,7 +164,9 @@ async function setStatus(id, status, by) {
   );
   if (!rowCount) throw new BranchError('الفرع غير موجود.');
   if (status === 'suspended') {
-    await pool.query("DELETE FROM platform.sessions WHERE kind = 'branch' AND branch_id = $1", [id]);
+    await pool.query("DELETE FROM platform.sessions WHERE kind = 'branch' AND branch_id = $1", [
+      id,
+    ]);
   }
   await audit.record({
     actorKind: 'platform',

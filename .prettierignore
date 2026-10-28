@@ -7,3 +7,7 @@ release
 
 # Documentation
 docs/
+# Web build and test output
+web/test-results
+web/data
+web/server/db/branch-schema.sql

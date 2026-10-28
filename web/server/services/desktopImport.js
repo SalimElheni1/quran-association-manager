@@ -22,7 +22,8 @@ const main = (rel) => require(path.join(ROOT, 'src', 'main', rel));
 const INTEGER_TYPES = new Set(['integer', 'bigint', 'smallint']);
 const FLOAT_TYPES = new Set(['double precision', 'real', 'numeric']);
 
-const isZip = (b) => b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+const isZip = (b) =>
+  b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 
 class ImportError extends Error {}
 
@@ -63,7 +64,9 @@ function openBackup(buffer, keys) {
   if (signature) {
     const candidates = usedKey ? [usedKey, ...keys] : keys;
     if (!candidates.some((key) => verifySignature(sql, key, signature.asText()))) {
-      throw new ImportError('توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.');
+      throw new ImportError(
+        'توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.',
+      );
     }
   }
   let salt = null;
@@ -87,15 +90,27 @@ function loadIntoSqlite(sqlScript) {
 
   const columnsOf = new Map();
   for (const { name } of tablesInDependencyOrder(sqlite)) {
-    columnsOf.set(name, new Set(sqlite.prepare(`PRAGMA table_info("${name}")`).all().map((c) => c.name)));
+    columnsOf.set(
+      name,
+      new Set(
+        sqlite
+          .prepare(`PRAGMA table_info("${name}")`)
+          .all()
+          .map((c) => c.name),
+      ),
+    );
   }
 
   let applied = 0;
   let failed = 0;
   const skippedTables = new Set();
   const insert = sqlite.transaction((statements) => {
-    for (const statement of statements) {
-      const match = statement.match(/^\s*(?:REPLACE|INSERT)\s+(?:OR\s+\w+\s+)?INTO\s+["']?([^\s"'(]+)["']?\s*\(/i);
+    for (const raw of statements) {
+      // A statement can start with comment lines ("-- Database Data" before the first row).
+      const statement = raw.replace(/^(\s*--[^\n]*\n)+/, '');
+      const match = statement.match(
+        /^\s*(?:REPLACE|INSERT)\s+(?:OR\s+\w+\s+)?INTO\s+["']?([^\s"'(]+)["']?\s*\(/i,
+      );
       if (!match) continue; // schema statements: the database already has the current schema
       const table = match[1];
       if (table === 'migrations' || table === 'sqlite_sequence') continue;
@@ -106,7 +121,9 @@ function loadIntoSqlite(sqlScript) {
       let finalStatement = statement;
       const columnsMatch = statement.match(/\(([^)]+)\)\s*VALUES/i);
       if (columnsMatch) {
-        const columns = splitSqlList(columnsMatch[1], ',').map((c) => c.trim().replace(/^"|"$/g, ''));
+        const columns = splitSqlList(columnsMatch[1], ',').map((c) =>
+          c.trim().replace(/^"|"$/g, ''),
+        );
         const invalid = columns.filter((c) => !columnsOf.get(table).has(c));
         if (invalid.length) {
           finalStatement = fixStatementColumns(statement, columns, invalid);
@@ -142,7 +159,9 @@ function loadIntoSqlite(sqlScript) {
     for (const row of rows) {
       const [prefix, num] = row.matricule.split('-');
       if (num !== undefined && /^\d+$/.test(num)) {
-        sqlite.prepare(`UPDATE ${table} SET matricule = ? WHERE id = ?`).run(`${prefix}-${String(parseInt(num, 10)).padStart(4, '0')}`, row.id);
+        sqlite
+          .prepare(`UPDATE ${table} SET matricule = ? WHERE id = ?`)
+          .run(`${prefix}-${String(parseInt(num, 10)).padStart(4, '0')}`, row.id);
       }
     }
   }
@@ -154,11 +173,21 @@ function loadIntoSqlite(sqlScript) {
     const violations = sqlite.prepare('PRAGMA foreign_key_check').all();
     if (!violations.length) break;
     for (const v of violations) {
-      const fk = sqlite.prepare(`PRAGMA foreign_key_list("${v.table}")`).all().filter((f) => f.id === v.fkid);
+      const fk = sqlite
+        .prepare(`PRAGMA foreign_key_list("${v.table}")`)
+        .all()
+        .filter((f) => f.id === v.fkid);
       const info = sqlite.prepare(`PRAGMA table_info("${v.table}")`).all();
-      const nullable = fk.every((f) => !info.find((c) => c.name === f.from)?.notnull && !info.find((c) => c.name === f.from)?.pk);
+      const nullable = fk.every(
+        (f) =>
+          !info.find((c) => c.name === f.from)?.notnull && !info.find((c) => c.name === f.from)?.pk,
+      );
       if (nullable && fk.length) {
-        sqlite.prepare(`UPDATE "${v.table}" SET ${fk.map((f) => `"${f.from}" = NULL`).join(', ')} WHERE rowid = ?`).run(v.rowid);
+        sqlite
+          .prepare(
+            `UPDATE "${v.table}" SET ${fk.map((f) => `"${f.from}" = NULL`).join(', ')} WHERE rowid = ?`,
+          )
+          .run(v.rowid);
       } else {
         sqlite.prepare(`DELETE FROM "${v.table}" WHERE rowid = ?`).run(v.rowid);
       }
@@ -206,7 +235,9 @@ async function copyToBranch(sqlite, schemaName) {
       .map((t) => t.name)
       .filter((name) => name !== 'migrations' && pgColumns.has(name));
 
-    await client.query(`TRUNCATE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`);
+    await client.query(
+      `TRUNCATE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`,
+    );
 
     for (const table of tables) {
       const rows = sqlite.prepare(`SELECT * FROM "${table}"`).all();
@@ -220,7 +251,9 @@ async function copyToBranch(sqlite, schemaName) {
           .map((row) => `(${cols.map((c) => literal(coerce(row[c], types.get(c)))).join(', ')})`)
           .join(',\n');
         try {
-          await client.query(`INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES ${values}`);
+          await client.query(
+            `INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES ${values}`,
+          );
         } catch (error) {
           throw new ImportError(`تعذر نسخ بيانات الجدول «${table}»: ${error.message}`);
         }

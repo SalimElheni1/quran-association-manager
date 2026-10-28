@@ -31,8 +31,12 @@ try {
 
   try {
     const fontDir = path.join(__dirname, 'assets', 'fonts');
-    vfs['Cairo-Regular.ttf'] = fs.readFileSync(path.join(fontDir, 'Cairo-Regular.ttf')).toString('base64');
-    vfs['Cairo-Bold.ttf'] = fs.readFileSync(path.join(fontDir, 'Cairo-Bold.ttf')).toString('base64');
+    vfs['Cairo-Regular.ttf'] = fs
+      .readFileSync(path.join(fontDir, 'Cairo-Regular.ttf'))
+      .toString('base64');
+    vfs['Cairo-Bold.ttf'] = fs
+      .readFileSync(path.join(fontDir, 'Cairo-Bold.ttf'))
+      .toString('base64');
     fonts.Arabic = {
       normal: 'Cairo-Regular.ttf',
       bold: 'Cairo-Bold.ttf',

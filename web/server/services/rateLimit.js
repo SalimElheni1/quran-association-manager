@@ -1,5 +1,7 @@
 // In-memory rate limits for logins and invitation links (one server process).
 
+const { config } = require('../config');
+
 const buckets = new Map(); // key -> { count, resetAt, lockedUntil }
 
 /**
@@ -18,7 +20,7 @@ function hit(key, limit, windowMs) {
   }
   bucket.count += 1;
   return {
-    allowed: bucket.count <= limit,
+    allowed: bucket.count <= limit * config.rateLimitScale,
     retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000),
   };
 }

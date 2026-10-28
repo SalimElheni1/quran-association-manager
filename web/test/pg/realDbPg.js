@@ -57,14 +57,25 @@ function useRealDb(options = {}) {
   const psql = (text) =>
     execFileSync(
       'psql',
-      [process.env.DATABASE_URL, '-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-c',
-        `SET search_path TO ${branch.schema}, compat; ${text}`],
+      [
+        process.env.DATABASE_URL,
+        '-X',
+        '-q',
+        '-A',
+        '-t',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-c',
+        `SET search_path TO ${branch.schema}, compat; ${text}`,
+      ],
       { encoding: 'utf8' },
     ).trim();
 
   const rowsOf = (sql, params) => {
     const { text } = render(sql, params);
-    return JSON.parse(psql(`SELECT COALESCE(json_agg(t), '[]') FROM (${text.replace(/;\s*$/, '')}) t`) || '[]');
+    return JSON.parse(
+      psql(`SELECT COALESCE(json_agg(t), '[]') FROM (${text.replace(/;\s*$/, '')}) t`) || '[]',
+    );
   };
 
   ctx.get = (sql, params = []) => rowsOf(sql, params)[0];
@@ -123,7 +134,11 @@ function useRealDb(options = {}) {
       [rows[0].id],
     );
     ctx.user = rows[0];
-    sessionManager.createSession(ctx.event.sender, { id: ctx.user.id, username: ctx.user.username, roles: ALL_ROLES }, null);
+    sessionManager.createSession(
+      ctx.event.sender,
+      { id: ctx.user.id, username: ctx.user.username, roles: ALL_ROLES },
+      null,
+    );
   }
 
   ctx.resetDatabase = () => openFreshDatabase();

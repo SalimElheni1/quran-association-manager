@@ -10,12 +10,28 @@ const { branchSchemaName } = require('../db/migrate');
 const hash = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const newToken = () => crypto.randomBytes(32).toString('base64url');
 
-async function create({ kind, branchId = null, userId = null, adminId = null, ip = null, userAgent = null }) {
+async function create({
+  kind,
+  branchId = null,
+  userId = null,
+  adminId = null,
+  ip = null,
+  userAgent = null,
+}) {
   const token = newToken();
   await pool.query(
     `INSERT INTO platform.sessions (id, kind, branch_id, user_id, admin_id, expires_at, ip, user_agent)
      VALUES ($1, $2, $3, $4, $5, now() + make_interval(hours => $6), $7, $8)`,
-    [hash(token), kind, branchId, userId, adminId, config.sessionIdleHours, ip, (userAgent || '').slice(0, 300)],
+    [
+      hash(token),
+      kind,
+      branchId,
+      userId,
+      adminId,
+      config.sessionIdleHours,
+      ip,
+      (userAgent || '').slice(0, 300),
+    ],
   );
   return token;
 }
@@ -54,7 +70,9 @@ async function revokeBranchUser(branchId, userId, exceptId = null) {
 }
 
 async function revokeBranch(branchId) {
-  await pool.query("DELETE FROM platform.sessions WHERE kind = 'branch' AND branch_id = $1", [branchId]);
+  await pool.query("DELETE FROM platform.sessions WHERE kind = 'branch' AND branch_id = $1", [
+    branchId,
+  ]);
 }
 
 async function revokeAdmin(adminId, exceptId = null) {
