@@ -21,9 +21,7 @@
   text-align: right;
   font: inherit;
   color: inherit;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dropdown-label:hover {
@@ -71,10 +69,7 @@
   transform: scaleY(0);
   transform-origin: 50% 0;
   visibility: hidden;
-  transition:
-    transform 0.15s ease-in-out,
-    opacity 0.15s ease-in-out,
-    visibility 0.15s;
+  transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out, visibility 0.15s;
 }
 
 .checkbox-dropdown.on .dropdown-list {
