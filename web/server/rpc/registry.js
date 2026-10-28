@@ -33,16 +33,8 @@ function loadHandlers() {
   const { registerFinancialExportHandlers } = main('services/financialExportService');
   const { generateCashLedgerReport } = main('services/cashLedgerExport');
   const { generateInventoryLedger } = main('services/inventoryLedgerExport');
-  const { generateDevExcelTemplate } = main('exportManager');
 
   ipcMain.handle('get-is-packaged', () => true);
-  ipcMain.handle('export:generate-dev-template', async () => {
-    const { filePath } = await dialog.showSaveDialog({
-      defaultPath: `quran-assoc-dev-template-${Date.now()}.xlsx`,
-    });
-    await generateDevExcelTemplate(filePath);
-    return { success: true, path: path.basename(filePath) };
-  });
   ipcMain.handle('dialog:openFile', async (_event, options) => dialog.showOpenDialog(options));
 
   registerFinancialHandlers();

@@ -10,7 +10,11 @@
     "dev": "node --watch server/index.js",
     "migrate": "node server/cli.js migrate",
     "create-admin": "node server/cli.js create-admin",
-    "test": "node --test test/"
+    "test": "npm run test:sweep && npm run test:pg",
+    "test:sweep": "node --test test/sweep.test.js",
+    "test:pg": "cd .. && npx jest -c web/jest.pg.config.js",
+    "generate-schema": "node server/db/generate-branch-schema.js > server/db/branch-schema.sql",
+    "create-branch": "node server/cli.js create-branch"
   },
   "engines": {
     "node": ">=22"

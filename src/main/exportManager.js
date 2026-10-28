@@ -16,6 +16,10 @@ try {
   pdfMake = require('pdfmake/build/pdfmake');
   if (!pdfMake.fonts) pdfMake.fonts = {};
 
+  // pdfmake's Node build reads fonts only from its virtual file system, never from disk paths:
+  // Roboto comes with pdfmake, and the Arabic font (Cairo, the app's font, as TTF; woff2 does
+  // not render) is added to it from src/main/assets/fonts.
+  const vfs = { ...require('pdfmake/build/vfs_fonts') };
   const fonts = {
     Roboto: {
       normal: 'Roboto-Regular.ttf',
@@ -25,62 +29,27 @@ try {
     },
   };
 
-  // Try to load Arabic fonts with fallback chain
-  let arabicFontLoaded = false;
-
-  // Try Cairo fonts first
   try {
-    const cairoRegularPath =
-      require.resolve('@fontsource/cairo-play/files/cairo-play-arabic-400-normal.woff2');
-    const cairoBoldPath =
-      require.resolve('@fontsource/cairo-play/files/cairo-play-arabic-700-normal.woff2');
+    const fontDir = path.join(__dirname, 'assets', 'fonts');
+    vfs['Cairo-Regular.ttf'] = fs.readFileSync(path.join(fontDir, 'Cairo-Regular.ttf')).toString('base64');
+    vfs['Cairo-Bold.ttf'] = fs.readFileSync(path.join(fontDir, 'Cairo-Bold.ttf')).toString('base64');
     fonts.Arabic = {
-      normal: cairoRegularPath,
-      bold: cairoBoldPath,
-      italics: cairoRegularPath,
-      bolditalics: cairoBoldPath,
+      normal: 'Cairo-Regular.ttf',
+      bold: 'Cairo-Bold.ttf',
+      italics: 'Cairo-Regular.ttf',
+      bolditalics: 'Cairo-Bold.ttf',
     };
-    arabicFontLoaded = true;
+    arabicFontAvailable = true;
     console.log('✓ Cairo Arabic fonts configured');
-  } catch (cairoError) {
-    // Fallback to Amiri
-    try {
-      const amiriRegularPath =
-        require.resolve('@fontsource/amiri/files/amiri-latin-400-normal.woff2');
-      const amiriBoldPath = require.resolve('@fontsource/amiri/files/amiri-latin-700-normal.woff2');
-      fonts.Arabic = {
-        normal: amiriRegularPath,
-        bold: amiriBoldPath,
-        italics: amiriRegularPath,
-        bolditalics: amiriBoldPath,
-      };
-      arabicFontLoaded = true;
-      console.log('✓ Amiri fonts configured (fallback)');
-    } catch (amiriError) {
-      // Fallback to Noto Sans Arabic
-      try {
-        const notoRegularPath =
-          require.resolve('@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2');
-        const notoBoldPath =
-          require.resolve('@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-700-normal.woff2');
-        fonts.Arabic = {
-          normal: notoRegularPath,
-          bold: notoBoldPath,
-          italics: notoRegularPath,
-          bolditalics: notoBoldPath,
-        };
-        arabicFontLoaded = true;
-        console.log('✓ Noto Sans Arabic fonts configured (fallback)');
-      } catch (notoError) {
-        console.warn('✗ No Arabic fonts available, using Roboto only');
-        arabicFontAvailable = false;
-      }
-    }
+  } catch (fontError) {
+    console.warn('✗ No Arabic fonts available, using Roboto only:', fontError.message);
+    arabicFontAvailable = false;
   }
 
-  // Use pdfMake.setFonts() with filesystem paths (correct approach for Node.js/Electron)
+  pdfMake.addVirtualFileSystem(vfs);
   pdfMake.setFonts(fonts);
-  arabicFontAvailable = arabicFontLoaded;
+  // generatePdf picks the Arabic font from here (setFonts keeps its own copy).
+  pdfMake.fonts = fonts;
 
   console.log(`PDF font initialization complete. Arabic fonts available: ${arabicFontAvailable}`);
 } catch (error) {
