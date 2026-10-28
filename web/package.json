@@ -1,0 +1,26 @@
+{
+  "name": "quran-association-manager-web",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Web (multi-branch) server for Quran Association Manager.",
+  "license": "CC-BY-NC-SA-4.0",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "migrate": "node server/cli.js migrate",
+    "create-admin": "node server/cli.js create-admin",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^12.11.1",
+    "express": "^4.22.3",
+    "helmet": "^8.3.0",
+    "multer": "^2.5.0",
+    "nodemailer": "^7.0.13",
+    "pg": "^8.23.1"
+  }
+}

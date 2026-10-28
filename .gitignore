@@ -61,3 +61,9 @@ guide-output/
 AGENTS.md
 PRODUCT.md
 docs/dev/reference/agents.md
+
+# Web server
+web/node_modules/
+web/data/
+web/dist/
+web/.env
