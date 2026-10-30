@@ -232,6 +232,38 @@ async function migrateToEncrypted(dbPath, key) {
   }
 }
 
+// An "ALTER TABLE t ADD [COLUMN] c ..." statement of a migration file.
+const ADD_COLUMN_STATEMENT =
+  /ALTER\s+TABLE\s+["`]?(\w+)["`]?\s+ADD\s+(?:COLUMN\s+)?["`]?(\w+)["`]?[^;]*;?/gi;
+
+/**
+ * The migration's SQL without the ADD COLUMN statements whose column the table already has (a
+ * column added by an earlier migration too, or by hand), so the rest of the file still runs. Any
+ * other error fails the migration: a migration is only recorded once all of it ran.
+ * @param {string} migrationSql
+ * @returns {string}
+ */
+function withoutExistingColumns(migrationSql) {
+  return migrationSql.replace(ADD_COLUMN_STATEMENT, (statement, table, column) => {
+    const columns = db.prepare(`PRAGMA table_info("${table}")`).all();
+    if (!columns.some((c) => c.name === column)) return statement;
+    logWarn(`Migration: ${table}.${column} already exists; its ADD COLUMN is skipped.`);
+    return `-- ${table}.${column} already exists\n`;
+  });
+}
+
+/** Logs the rows whose foreign keys point nowhere (migrations run with the checks off). */
+function reportForeignKeyProblems() {
+  const problems = db.pragma('foreign_key_check');
+  if (problems.length === 0) return;
+  const byTable = {};
+  problems.forEach(({ table, parent }) => {
+    const key = `${table} -> ${parent}`;
+    byTable[key] = (byTable[key] || 0) + 1;
+  });
+  logWarn('[DB_LOG] Rows with a broken foreign key after the migrations:', byTable);
+}
+
 async function runMigrations() {
   log('Checking for pending migrations...');
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -243,48 +275,35 @@ async function runMigrations() {
   const migrationFiles = fs.readdirSync(migrationsDir).sort();
   const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
 
-  // We need to use synchronous exec inside the loop, but we wrap it in our async logic.
-  // Actually, since this function is async, we can just call our promisified helpers.
-  // But for better-sqlite3 transaction logic, we can use the synchronous transaction feature.
-
+  // better-sqlite3 transactions are synchronous: a migration file runs, and is recorded, whole.
   const applyMigration = db.transaction((file, migrationSql) => {
-    db.exec(migrationSql);
+    db.exec(withoutExistingColumns(migrationSql));
     db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
   });
 
+  let appliedNow = 0;
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
       log(`Applying migration: ${file}`);
+      const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      // PRAGMA foreign_keys cannot be changed inside a transaction, and some
+      // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
+      // child tables reference. Disable FK enforcement around the migration so
+      // the rebuild succeeds; child references are by name and survive the rename.
+      db.pragma('foreign_keys = OFF');
       try {
-        const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        // better-sqlite3 transactions are synchronous.
-        // PRAGMA foreign_keys cannot be changed inside a transaction, and some
-        // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
-        // child tables reference. Disable FK enforcement around the migration so
-        // the rebuild succeeds; child references are by name and survive the rename.
-        db.pragma('foreign_keys = OFF');
         applyMigration(file, migrationSql);
-        db.pragma('foreign_keys = ON');
+        appliedNow++;
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
+        logError(`Failed to apply migration ${file}:`, err);
+        throw err;
+      } finally {
         db.pragma('foreign_keys = ON');
-        // If the error is "duplicate column name", it means the migration was likely
-        // already applied manually or in a previous failed run. We can safely ignore it.
-        if (err.message.includes('duplicate column name')) {
-          logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
-          // Manually insert into migrations table so it doesn't run again
-          try {
-            db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
-          } catch (e) {
-            logError('Failed to mark migration as ignored', e);
-          }
-        } else {
-          logError(`Failed to apply migration ${file}:`, err);
-          throw err;
-        }
       }
     }
   }
+  if (appliedNow > 0) reportForeignKeyProblems();
   log('All migrations are up to date.');
 }
 
@@ -581,4 +600,5 @@ module.exports = {
   hasSuperadmin,
   createSuperadminUser,
   rotateDatabaseKey,
+  withoutExistingColumns,
 };
