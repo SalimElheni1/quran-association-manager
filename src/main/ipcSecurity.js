@@ -15,6 +15,7 @@ const ERRORS = {
   FORBIDDEN: 'غير مسموح به.',
   SENDER_REJECTED: 'الوصول مرفوض.',
   INVALID_INPUT: 'بيانات غير صالحة.',
+  PASSWORD_CHANGE_REQUIRED: 'يجب تغيير كلمة المرور قبل المتابعة.',
 };
 
 const ALLOWED_DEV_URL_ORIGIN = 'http://localhost:3000';
@@ -38,6 +39,10 @@ const PUBLIC_CHANNELS = new Set([
   'ui:show-error-toast',
   'ui:show-success-toast',
 ]);
+
+// What a session may still do while its user must replace the legacy default password: change
+// it, read the profile, log out. Everything else waits until the password is changed.
+const PASSWORD_CHANGE_CHANNELS = new Set(['auth:updatePassword', 'auth:getProfile', 'logout']);
 
 // Role matrix for every protected channel. Any channel registered in the
 // application that is missing from here is treated as "any authenticated
@@ -228,11 +233,15 @@ function getPolicy(channel) {
   return { public: false, roles: null, unknown: true };
 }
 
-function sessionRoles(event) {
+function senderSession(event) {
   const senderId = event && event.sender ? event.sender.id : null;
   if (typeof senderId !== 'number') return null;
-  const session = sessionManager.getSession(senderId);
-  return session ? session.roles : null;
+  return sessionManager.getSession(senderId);
+}
+
+/** True while the session may only change its password and the channel is something else. */
+function blockedUntilPasswordChange(session, channel) {
+  return !!session.mustChangePassword && !PASSWORD_CHANGE_CHANNELS.has(channel);
 }
 
 /**
@@ -260,10 +269,14 @@ function wrapHandle(channel, handler, policy) {
       return handler(event, ...args);
     }
 
-    const roles = sessionRoles(event);
-    if (!roles) throw new Error(ERRORS.AUTH_REQUIRED);
+    const session = senderSession(event);
+    if (!session) throw new Error(ERRORS.AUTH_REQUIRED);
+    const { roles } = session;
     if (policy.roles && !policy.roles.some((role) => roles.includes(role))) {
       throw new Error(ERRORS.FORBIDDEN);
+    }
+    if (blockedUntilPasswordChange(session, channel)) {
+      throw new Error(ERRORS.PASSWORD_CHANGE_REQUIRED);
     }
     if (policy.unknown) {
       logWarn(
@@ -283,9 +296,10 @@ function wrapOn(channel, handler, policy) {
   return (event, ...args) => {
     if (!isAllowedSender(event && event.sender)) return;
     if (!policy.public) {
-      const roles = sessionRoles(event);
-      if (!roles) return;
-      if (policy.roles && !policy.roles.some((role) => roles.includes(role))) return;
+      const session = senderSession(event);
+      if (!session) return;
+      if (policy.roles && !policy.roles.some((role) => session.roles.includes(role))) return;
+      if (blockedUntilPasswordChange(session, channel)) return;
     }
     if (!argsAreValid(channel, args)) return;
     return handler(event, ...args);
@@ -325,6 +339,7 @@ function installIpcGuard(ipcMain) {
 module.exports = {
   ERRORS,
   PUBLIC_CHANNELS,
+  PASSWORD_CHANGE_CHANNELS,
   CHANNEL_ROLES,
   ROLES,
   installIpcGuard,

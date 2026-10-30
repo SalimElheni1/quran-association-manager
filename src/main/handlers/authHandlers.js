@@ -336,6 +336,7 @@ function registerAuthHandlers() {
           event.sender,
           { id: user.id, username: user.username, roles: userRoles },
           decoded && decoded.exp ? decoded.exp * 1000 : null,
+          { mustChangePassword },
         );
       }
 
@@ -420,7 +421,11 @@ function registerAuthHandlers() {
 
   ipcMain.handle('auth:updateProfile', async (event, { profileData }) => {
     try {
-      return await updateProfileHandler(getUserIdFromSession(event), profileData);
+      const result = await updateProfileHandler(getUserIdFromSession(event), profileData);
+      if (result.success && profileData && profileData.new_password) {
+        sessionManager.clearMustChangePassword(event.sender.id);
+      }
+      return result;
     } catch (error) {
       logError('Error in auth:updateProfile IPC wrapper:', error);
       if (error.isJoi) {
@@ -433,7 +438,10 @@ function registerAuthHandlers() {
 
   ipcMain.handle('auth:updatePassword', async (event, { passwordData }) => {
     try {
-      return await updatePasswordHandler(getUserIdFromSession(event), passwordData);
+      const result = await updatePasswordHandler(getUserIdFromSession(event), passwordData);
+      // The legacy default password is gone: the session may do everything its roles allow.
+      if (result.success) sessionManager.clearMustChangePassword(event.sender.id);
+      return result;
     } catch (error) {
       logError('Error in auth:updatePassword IPC wrapper:', error);
       if (error.isJoi) {

@@ -11,9 +11,11 @@ const sessions = new Map();
  * @param {{ id: number }} sender - The IPC sender (event.sender).
  * @param {{ id: number, username: string, roles?: string[] }} user - The authenticated user.
  * @param {number|null} expiresAt - Session expiry as epoch milliseconds (null = no expiry).
+ * @param {{ mustChangePassword?: boolean }} [options] - mustChangePassword: the user logged in
+ *   with the legacy default password; until it is changed the session may only change it.
  * @returns {object|null} The created session, or null when no valid sender is provided.
  */
-function createSession(sender, user, expiresAt) {
+function createSession(sender, user, expiresAt, options = {}) {
   if (!sender || typeof sender.id !== 'number' || !user || !user.id) {
     return null;
   }
@@ -23,6 +25,7 @@ function createSession(sender, user, expiresAt) {
     roles: user.roles || [],
     createdAt: Date.now(),
     expiresAt: expiresAt || null,
+    mustChangePassword: !!options.mustChangePassword,
   };
   sessions.set(sender.id, session);
   return session;
@@ -50,6 +53,15 @@ function getSession(webContentsId) {
  */
 function revokeSession(webContentsId) {
   sessions.delete(webContentsId);
+}
+
+/**
+ * Ends the password-change-only state of a session once the user chose a new password.
+ * @param {number} webContentsId
+ */
+function clearMustChangePassword(webContentsId) {
+  const session = getSession(webContentsId);
+  if (session) session.mustChangePassword = false;
 }
 
 /**
@@ -82,6 +94,7 @@ function getUserIdForEvent(event) {
 
 module.exports = {
   createSession,
+  clearMustChangePassword,
   getUserIdForEvent,
   getSession,
   revokeSession,

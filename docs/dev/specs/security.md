@@ -40,7 +40,9 @@ accounts. The main risks are:
 - **Lockout:** 5 failed logins lock login for 5 minutes (state kept in the main process store).
 - **Inactive users** («غير نشط») cannot log in; their records are kept.
 - **Sessions:** a successful login creates a session in the main process (`sessionManager.js`),
-  tied to that window and expiring after 8 hours. It ends on logout, when the window closes, or
+  tied to that window and expiring after 8 hours. A login with the legacy default password
+  `123456` gives a session that can only change the password, read the profile and log out
+  (`PASSWORD_CHANGE_CHANNELS` in `ipcSecurity.js`) until the new password is saved. It ends on logout, when the window closes, or
   when the app quits. The renderer holds the user's name and roles for display only.
 
 ## Authorization

@@ -1,6 +1,7 @@
 const {
   ERRORS,
   PUBLIC_CHANNELS,
+  PASSWORD_CHANGE_CHANNELS,
   CHANNEL_ROLES,
   ROLES,
   installIpcGuard,
@@ -338,6 +339,61 @@ describe('ipcSecurity', () => {
       expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('"brand-new:channel" has no argument schema'),
       );
+    });
+  });
+
+  describe('a session that must change its legacy password first', () => {
+    const legacyLogin = (senderId) =>
+      sessionManager.createSession(
+        { id: senderId },
+        { id: 10, username: 'legacy', roles: ['Superadmin'] },
+        null,
+        { mustChangePassword: true },
+      );
+
+    it('can only change the password, read the profile and log out', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn().mockResolvedValue({ success: true });
+      ['students:get', 'users:add', 'auth:updatePassword', 'auth:getProfile'].forEach((c) =>
+        ipcMain.handle(c, handler),
+      );
+      const logout = jest.fn();
+      ipcMain.on('logout', logout);
+      legacyLogin(1);
+
+      await expect(ipcMain.handlers.get('students:get')(makeEvent(1))).rejects.toThrow(
+        ERRORS.PASSWORD_CHANGE_REQUIRED,
+      );
+      await expect(ipcMain.handlers.get('users:add')(makeEvent(1), {})).rejects.toThrow(
+        ERRORS.PASSWORD_CHANGE_REQUIRED,
+      );
+      expect(handler).not.toHaveBeenCalled();
+
+      await ipcMain.handlers.get('auth:getProfile')(makeEvent(1));
+      await ipcMain.handlers.get('auth:updatePassword')(makeEvent(1), { passwordData: {} });
+      ipcMain.ons.get('logout')(makeEvent(1));
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(logout).toHaveBeenCalled();
+    });
+
+    it('gets its roles back once the password is changed', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn().mockResolvedValue([]);
+      ipcMain.handle('students:get', handler);
+      legacyLogin(1);
+
+      sessionManager.clearMustChangePassword(1);
+
+      await ipcMain.handlers.get('students:get')(makeEvent(1));
+      expect(handler).toHaveBeenCalled();
+    });
+
+    it('keeps the allowed list to what the change screen needs', () => {
+      expect([...PASSWORD_CHANGE_CHANNELS].sort()).toEqual([
+        'auth:getProfile',
+        'auth:updatePassword',
+        'logout',
+      ]);
     });
   });
 
