@@ -450,6 +450,21 @@ describe('ipcSecurity', () => {
       );
     });
 
+    it('are recognised by their text when a handler re-threw them without the code', async () => {
+      const ipcMain = makeGuard();
+      ipcMain.handle(
+        'inventory:add',
+        jest
+          .fn()
+          .mockRejectedValue(new Error('NOT NULL constraint failed: inventory_items.category')),
+      );
+      loggedIn();
+
+      await expect(ipcMain.handlers.get('inventory:add')(makeEvent(1), {})).rejects.toThrow(
+        ERRORS.DATABASE,
+      );
+    });
+
     it('leave the messages handlers write themselves as they are', async () => {
       const ipcMain = makeGuard();
       ipcMain.handle(

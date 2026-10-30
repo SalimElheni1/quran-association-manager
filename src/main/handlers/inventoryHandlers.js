@@ -1,10 +1,11 @@
 const { ipcMain } = require('electron');
-const { allQuery, runQuery, getQuery } = require('../../db/db');
+const { allQuery, runQuery, getQuery, withTransaction } = require('../../db/db');
 const { error: logError } = require('../logger');
 const { generateMatricule } = require('../services/matriculeService');
 const { requireRoles } = require('../authMiddleware');
 const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
 const { getUserIdForEvent } = require('../sessionManager');
+const { handleAddTransaction } = require('./financialHandlers');
 
 // --- Generic Error Handler ---
 function createHandler(handler) {
@@ -166,6 +167,20 @@ async function handleRestoreInventoryItem(_, itemId) {
   return { id: itemId };
 }
 
+/**
+ * An in-kind donation: the income and the item that came in, both or neither.
+ * @param {object} donation
+ * @param {object} donation.transaction The income (transactions:add's payload, type INCOME).
+ * @param {object} donation.item The inventory item (inventory:add's payload).
+ */
+async function handleAddInKindDonation(event, { transaction, item }) {
+  return withTransaction(async () => {
+    const income = await handleAddTransaction(event, { ...transaction, type: 'INCOME' });
+    const inventoryItem = await handleAddInventoryItem(event, item);
+    return { transaction: income, item: inventoryItem };
+  });
+}
+
 function registerInventoryHandlers() {
   ipcMain.handle('inventory:get', createHandler(handleGetInventoryItems));
   ipcMain.handle('inventory:check-uniqueness', createHandler(handleCheckItemUniqueness));
@@ -184,6 +199,10 @@ function registerInventoryHandlers() {
   ipcMain.handle(
     'inventory:restore',
     requireRoles(['Superadmin', 'Administrator'])(createHandler(handleRestoreInventoryItem)),
+  );
+  ipcMain.handle(
+    'inventory:add-in-kind',
+    requireRoles(['Superadmin', 'Administrator'])(createHandler(handleAddInKindDonation)),
   );
 }
 

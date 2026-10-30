@@ -54,6 +54,9 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
   session supervisor reads teachers. Buttons the main process would refuse (Excel export and
   import for the session supervisor, inventory changes for the financial officer, which only
   Superadmin/Administrator may make) are no longer shown.
+- An in-kind donation is saved whole: the income and the inventory item together, or neither
+  (when the item failed, the income used to stay without it). Database errors that some screens
+  passed on as raw SQL text now also show the Arabic message.
 - An age group used by a class can no longer be deactivated: the class's enrolment dialog then
   stopped filtering students by age and gender without saying so.
 - A migration that met a column already present was recorded as applied although the rest of it

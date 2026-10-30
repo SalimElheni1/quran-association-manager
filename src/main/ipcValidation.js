@@ -204,6 +204,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'inventory:get': [options],
   'inventory:check-uniqueness': [options],
   'inventory:add': [requiredPayload],
+  'inventory:add-in-kind': [
+    Joi.object({ transaction: requiredPayload, item: requiredPayload }).required(),
+  ],
   'inventory:update': [requiredPayload],
   'inventory:delete': [requiredId],
   'inventory:restore': [requiredId],

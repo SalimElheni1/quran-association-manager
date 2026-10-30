@@ -84,6 +84,7 @@ const CHANNEL_ROLES = {
   'inventory:update': ROLES.ADMIN,
   'inventory:delete': ROLES.ADMIN,
   'inventory:restore': ROLES.ADMIN,
+  'inventory:add-in-kind': ROLES.ADMIN,
   'accounts:add': ROLES.ADMIN,
   'in-kind-categories:add': ROLES.ADMIN,
   'in-kind-categories:update': ROLES.ADMIN,
@@ -251,6 +252,11 @@ function argsAreValid(channel, args) {
   return false;
 }
 
+// SQLite's own wording, for errors a handler re-threw as `new Error(err.message)` (the code is
+// lost then, not the text).
+const SQLITE_MESSAGE =
+  /\b(?:UNIQUE|NOT NULL|CHECK|FOREIGN KEY|PRIMARY KEY) constraint failed\b|\bno such (?:table|column)\b|\bnear ".*": syntax error\b|\bSQLITE_[A-Z_]+\b/;
+
 /**
  * Runs a handler. A failure inside SQLite reaches the window as an Arabic message; the SQL error
  * itself (table and column names, constraint text) only goes to the log.
@@ -259,7 +265,9 @@ async function runHandler(channel, handler, event, args) {
   try {
     return await handler(event, ...args);
   } catch (error) {
-    const fromSqlite = typeof error?.code === 'string' && error.code.startsWith('SQLITE_');
+    const fromSqlite =
+      (typeof error?.code === 'string' && error.code.startsWith('SQLITE_')) ||
+      SQLITE_MESSAGE.test(String(error?.message));
     if (!fromSqlite) throw error;
     logError(`[ipcSecurity] "${channel}" failed in the database:`, error);
     throw new Error(ERRORS.DATABASE);

@@ -152,8 +152,6 @@ function InventoryTab() {
 
   const handleInKindSave = async (data) => {
     try {
-      await window.electronAPI.addTransaction({ ...data, type: 'INCOME' });
-
       const inKindDetails = JSON.parse(data.description);
       const inventoryData = {
         item_name: inKindDetails.item_name,
@@ -166,7 +164,8 @@ function InventoryTab() {
         acquisition_source: 'تبرع',
         condition_status: inKindDetails.condition,
       };
-      await window.electronAPI.addInventoryItem(inventoryData);
+      // The income and the item together: both are saved, or neither.
+      await window.electronAPI.addInKindDonation({ transaction: data, item: inventoryData });
 
       toast.success('تم إضافة التبرع العيني بنجاح');
       window.dispatchEvent(new Event('financial-data-changed'));
@@ -174,7 +173,7 @@ function InventoryTab() {
       fetchItems();
     } catch (err) {
       logError('Error saving in-kind donation:', err);
-      toast.error('فشل في حفظ التبرع العيني');
+      toast.error(err.message || 'فشل في حفظ التبرع العيني');
     }
   };
 
