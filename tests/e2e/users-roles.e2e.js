@@ -44,7 +44,7 @@ test.describe('users and roles', () => {
     }
   });
 
-  test('FinanceManager only gets financials and read-only students', async ({
+  test('FinanceManager gets finances and attendance, and reads students, teachers and classes', async ({
     authedPage: page,
   }) => {
     await createUser(page, FINANCE_USER, 'FinanceManager');
@@ -53,16 +53,18 @@ test.describe('users and roles', () => {
     await dismissOnboarding(page);
     await expect(page.locator('.topbar')).toBeVisible();
 
-    for (const label of ['الرئيسية', 'شؤون الطلاب', 'الشؤون المالية', 'ملفي الشخصي']) {
-      await expect(sidebarLink(page, label)).toBeVisible();
-    }
     for (const label of [
+      'الرئيسية',
+      'شؤون الطلاب',
       'شؤون المعلمين',
       'الفصول الدراسية',
       'الحضور والغياب',
-      'إدارة المستخدمين',
-      'الإعدادات',
+      'الشؤون المالية',
+      'ملفي الشخصي',
     ]) {
+      await expect(sidebarLink(page, label)).toBeVisible();
+    }
+    for (const label of ['إدارة المستخدمين', 'الإعدادات']) {
       await expect(sidebarLink(page, label)).toHaveCount(0);
     }
 
@@ -75,6 +77,17 @@ test.describe('users and roles', () => {
     await navigate(page, 'شؤون الطلاب');
     await expect(page.getByPlaceholder('البحث بالاسم أو الرقم التعريفي...')).toBeVisible();
     await expect(page.getByRole('button', { name: 'إضافة طالب' })).toHaveCount(0);
+
+    await navigate(page, 'شؤون المعلمين');
+    await expect(page.getByRole('heading', { name: 'شؤون المعلمين' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'إضافة معلم' })).toHaveCount(0);
+
+    await navigate(page, 'الفصول الدراسية');
+    await expect(page.getByPlaceholder('البحث باسم الفصل...')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'إضافة فصل' })).toHaveCount(0);
+
+    await navigate(page, 'الحضور والغياب');
+    await expect(page.getByRole('heading', { name: 'تسجيل الحضور والغياب' })).toBeVisible();
   });
 
   test('FinanceManager is blocked from routes outside their role', async ({ authedPage: page }) => {
@@ -83,7 +96,7 @@ test.describe('users and roles', () => {
     await login(page, FINANCE_USER);
     await dismissOnboarding(page);
 
-    for (const route of ['/users', '/settings', '/teachers']) {
+    for (const route of ['/users', '/settings']) {
       await page.evaluate((hash) => {
         window.location.hash = hash;
       }, route);

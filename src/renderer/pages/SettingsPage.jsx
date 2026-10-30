@@ -28,6 +28,7 @@ const BACKUP_KEY_LABEL = 'رمز حماية النسخ الاحتياطية (ر�
 const SettingsPage = () => {
   const { state } = useLocation();
   const { user } = useAuth();
+  const isSuperadmin = !!user?.roles?.includes('Superadmin');
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -497,7 +498,7 @@ const SettingsPage = () => {
                     <TransferKeyCard
                       label={BACKUP_KEY_LABEL}
                       hasKey={!!settings.has_transfer_key}
-                      canManage={!!user?.roles?.includes('Superadmin')}
+                      canManage={isSuperadmin}
                       onChanged={() => setSettings((prev) => ({ ...prev, has_transfer_key: true }))}
                     />
 
@@ -632,32 +633,34 @@ const SettingsPage = () => {
                       </Card.Body>
                     </Card>
 
-                    {/* 3. Restoring */}
-                    <Card className="shadow-sm border border-danger mb-4" data-section="restore">
-                      <Card.Body>
-                        <h5 className="text-danger border-bottom pb-2 mb-2">
-                          استرجاع نسخة احتياطية
-                        </h5>
-                        <Alert variant="danger" className="small">
-                          الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
-                          (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
-                          تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
-                          محدداً.
-                        </Alert>
-                        <p className="small text-muted">
-                          ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا الجهاز
-                          تُفتح مباشرة؛ اكتب «{BACKUP_KEY_LABEL}» فقط إذا كانت النسخة مشفّرة برمز
-                          آخر (مثلاً رمز سابق).
-                        </p>
-                        <Button
-                          variant="outline-danger"
-                          onClick={() => handleImportDb()}
-                          disabled={isImporting || isBackingUp}
-                        >
-                          استرجاع من نسخة احتياطية...
-                        </Button>
-                      </Card.Body>
-                    </Card>
+                    {/* 3. Restoring: replaces every record, so only the Superadmin (db:import) */}
+                    {isSuperadmin && (
+                      <Card className="shadow-sm border border-danger mb-4" data-section="restore">
+                        <Card.Body>
+                          <h5 className="text-danger border-bottom pb-2 mb-2">
+                            استرجاع نسخة احتياطية
+                          </h5>
+                          <Alert variant="danger" className="small">
+                            الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
+                            (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
+                            تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
+                            محدداً.
+                          </Alert>
+                          <p className="small text-muted">
+                            ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا
+                            الجهاز تُفتح مباشرة؛ اكتب «{BACKUP_KEY_LABEL}» فقط إذا كانت النسخة
+                            مشفّرة برمز آخر (مثلاً رمز سابق).
+                          </p>
+                          <Button
+                            variant="outline-danger"
+                            onClick={() => handleImportDb()}
+                            disabled={isImporting || isBackingUp}
+                          >
+                            استرجاع من نسخة احتياطية...
+                          </Button>
+                        </Card.Body>
+                      </Card>
+                    )}
                   </Tab>
                 </Tabs>
 

@@ -36,7 +36,15 @@ export const PERMISSIONS = {
   // Settings
   SETTINGS_VIEW: 'settings:view',
   SETTINGS_EDIT: 'settings:edit',
+
+  // Excel export and import (export:generate, import:excel); each import sheet also needs the
+  // rights of the screen that writes it.
+  DATA_EXPORT: 'data:export',
+  DATA_IMPORT: 'data:import',
 };
+
+// What each role does, as the user manual and docs/dev/specs/security.md describe it, and as the
+// main process allows it (ipcSecurity.CHANNEL_ROLES).
 
 export const ROLE_PERMISSIONS = {
   Superadmin: [
@@ -67,27 +75,45 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.ATTENDANCE_VIEW,
     PERMISSIONS.ATTENDANCE_MANAGE,
 
-    // Limited user access
+    // Finances and settings (not users' accounts, logs or restoring a backup)
+    PERMISSIONS.FINANCIALS_VIEW,
+    PERMISSIONS.FINANCIALS_MANAGE,
+    PERMISSIONS.FINANCIALS_REPORTS,
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.SETTINGS_EDIT,
+    PERMISSIONS.DATA_EXPORT,
+    PERMISSIONS.DATA_IMPORT,
+
+    // The users list, read-only
     PERMISSIONS.USERS_VIEW,
   ],
 
   FinanceManager: [
-    // Financial module only
+    // Finances, student fees, inventory and financial reports
     PERMISSIONS.FINANCIALS_VIEW,
     PERMISSIONS.FINANCIALS_MANAGE,
     PERMISSIONS.FINANCIALS_REPORTS,
+    PERMISSIONS.DATA_EXPORT,
+    PERMISSIONS.DATA_IMPORT,
 
-    // View students for payment purposes only
-    PERMISSIONS.STUDENTS_VIEW,
-  ],
-
-  SessionSupervisor: [
-    // Attendance only
+    // Attendance
     PERMISSIONS.ATTENDANCE_VIEW,
     PERMISSIONS.ATTENDANCE_MANAGE,
 
-    // View students and classes for attendance purposes
+    // Read access to students, teachers and classes
     PERMISSIONS.STUDENTS_VIEW,
+    PERMISSIONS.TEACHERS_VIEW,
+    PERMISSIONS.CLASSES_VIEW,
+  ],
+
+  SessionSupervisor: [
+    // Attendance
+    PERMISSIONS.ATTENDANCE_VIEW,
+    PERMISSIONS.ATTENDANCE_MANAGE,
+
+    // Read access to students, teachers and classes
+    PERMISSIONS.STUDENTS_VIEW,
+    PERMISSIONS.TEACHERS_VIEW,
     PERMISSIONS.CLASSES_VIEW,
   ],
 };

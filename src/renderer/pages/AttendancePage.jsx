@@ -186,16 +186,17 @@ function AttendancePage() {
       <div className="page-header">
         <h1>تسجيل الحضور والغياب</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.ATTENDANCE_VIEW) && (
+          {hasPermission(PERMISSIONS.DATA_EXPORT) && (
             <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
           )}
-          {hasPermission(PERMISSIONS.ATTENDANCE_MANAGE) && (
-            <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
-              <ImportIcon className="ms-2" /> استيراد البيانات
-            </Button>
-          )}
+          {hasPermission(PERMISSIONS.ATTENDANCE_MANAGE) &&
+            hasPermission(PERMISSIONS.DATA_IMPORT) && (
+              <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+                <ImportIcon className="ms-2" /> استيراد البيانات
+              </Button>
+            )}
         </div>
       </div>
 

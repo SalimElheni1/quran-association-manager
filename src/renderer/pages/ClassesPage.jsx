@@ -275,7 +275,7 @@ function ClassesPage() {
       <div className="page-header">
         <h1>الفصول الدراسية</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.CLASSES_VIEW) && (
+          {hasPermission(PERMISSIONS.DATA_EXPORT) && (
             <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>
