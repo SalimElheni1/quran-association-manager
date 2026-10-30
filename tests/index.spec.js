@@ -207,6 +207,7 @@ describe('Main Process (index.js)', () => {
             nodeIntegration: false,
             contextIsolation: true,
             webviewTag: false,
+            devTools: true, // development only
           }),
         }),
       );
@@ -239,6 +240,10 @@ describe('Main Process (index.js)', () => {
       expect(Store.store.set).not.toHaveBeenCalledWith('jwt_secret', expect.anything());
       expect(mockWindow.loadFile).toHaveBeenCalledWith(
         expect.stringContaining(path.join('dist', 'renderer', 'index.html')),
+      );
+      // No DevTools in the installed app.
+      expect(mockBrowserWindow).toHaveBeenCalledWith(
+        expect.objectContaining({ webPreferences: expect.objectContaining({ devTools: false }) }),
       );
     });
 

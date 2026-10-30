@@ -24,7 +24,12 @@ accounts. The main risks are:
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: safe-image:; font-src 'self' data:`.
 - The `safe-image://` protocol (branch logos) rejects `..`, NUL bytes and absolute paths and only
   serves files under the app's user-data and bundled `public` folders.
-- `webviewTag` is disabled.
+- `webviewTag` is disabled, and DevTools are off in the installed app (`devTools: !app.isPackaged`).
+- The installed app has its Electron fuses set at packaging (`build/afterPack.js`): it cannot run
+  as plain Node (`ELECTRON_RUN_AS_NODE`), read `NODE_OPTIONS` or take `--inspect`, and only loads
+  its code from `app.asar`. It refuses to start with Chromium's `--remote-debugging-port`/`-pipe`
+  (`startupGuard.js`). Without these, anyone at the computer could run code in the main process
+  and skip every role check.
 
 ## Authentication
 

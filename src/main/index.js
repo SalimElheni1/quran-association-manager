@@ -28,6 +28,15 @@ const path = require('path');
 // (logger, keyManager, electron-store).
 // Never in a packaged build: the test clock and data directory are for the unpacked app only.
 const isE2E = process.env.QBM_E2E === '1' && !app.isPackaged;
+
+// The installed app never runs with a debugger attached (see startupGuard.js).
+if (app.isPackaged) {
+  const debugSwitches = require('./startupGuard').debugSwitchesIn(app.commandLine, process.argv);
+  if (debugSwitches.length > 0) {
+    console.error(`Refusing to start with debugging switches: ${debugSwitches.join(', ')}`);
+    app.exit(1);
+  }
+}
 if (isE2E) {
   if (!process.env.QBM_E2E_USER_DATA) {
     throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');
@@ -153,6 +162,7 @@ const createWindow = () => {
       nodeIntegration: false, // CRITICAL: Security - no Node.js in renderer
       contextIsolation: true, // CRITICAL: Security - isolate contexts
       webviewTag: false, // CRITICAL: Security - disable webview tag
+      devTools: !app.isPackaged, // No DevTools in the installed app (no menu opens them anyway)
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });

@@ -22,11 +22,13 @@ extraFiles:
 directories:
   output: release
   buildResources: build
+# Sets the Electron fuses of the packaged executable (no Node mode, no --inspect).
+afterPack: build/afterPack.js
 asar:
   smartUnpack: true
 asarUnpack:
-  - "**/*.node"
-  - "**/node_modules/better-sqlite3-multiple-ciphers/**"
+  - '**/*.node'
+  - '**/node_modules/better-sqlite3-multiple-ciphers/**'
 compression: maximum
 win:
   target:
