@@ -30,6 +30,25 @@ const period = Joi.alternatives()
   .try(payload, Joi.number().integer(), Joi.string().max(40))
   .allow(null);
 const gender = Joi.string().max(20).allow(null, '');
+// export:generate — the columns are keys from the export screens (exportManager.EXPORT_COLUMNS).
+const exportRequest = Joi.object({
+  exportType: Joi.string().max(40).required(),
+  format: Joi.string().valid('pdf', 'xlsx', 'docx').required(),
+  columns: Joi.array()
+    .items(
+      Joi.object({
+        key: Joi.string()
+          .pattern(/^[a-z][a-z_]*$/)
+          .max(64)
+          .required(),
+        header: Joi.string().max(200).allow(''),
+      }),
+    )
+    .max(100),
+  options: options,
+})
+  .unknown(true)
+  .required();
 const age = Joi.number().min(0).max(150).allow(null);
 
 /** channel -> array of per-argument Joi schemas (the IPC event is not included). */
@@ -219,7 +238,7 @@ const CHANNEL_ARG_SCHEMAS = {
   'receipt-books:check-exists': [requiredPayload],
 
   // ---- Exports and imports ----
-  'export:generate': [requiredPayload],
+  'export:generate': [exportRequest],
   'export:generate-dev-template': [],
   'financial-export:cash-ledger': [requiredPayload],
   'financial-export:inventory-ledger': [],

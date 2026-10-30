@@ -148,182 +148,200 @@ async function fetchFinancialData(period) {
   return { summary, payments, salaries, donations, expenses, inventory };
 }
 
+// Column keys each export accepts, and what each one selects. A key the window sends that is not
+// listed here is ignored: only these strings ever reach the SQL, so no key can inject any.
+const EXPORT_COLUMNS = {
+  students: {
+    matricule: 'matricule',
+    name: 'name',
+    date_of_birth: 'date_of_birth',
+    gender: 'gender',
+    address: 'address',
+    contact_info: 'contact_info',
+    email: 'email',
+    enrollment_date: 'enrollment_date',
+    status: 'status',
+    // The memorised surahs and hizbs (the old memorization_level column was replaced by them).
+    memorization_level: `NULLIF(TRIM(
+      COALESCE((SELECT group_concat(su.name_ar, '، ') FROM student_surahs ss
+                JOIN surahs su ON su.id = ss.surah_id WHERE ss.student_id = s.id), '')
+      || ' ' ||
+      COALESCE((SELECT group_concat('الحزب ' || h.hizb_number, '، ') FROM student_hizbs sh
+                JOIN hizbs h ON h.id = sh.hizb_id WHERE sh.student_id = s.id), '')
+    ), '') as memorization_level`,
+    notes: 'notes',
+    parent_name: 'parent_name',
+    guardian_relation: 'guardian_relation',
+    parent_contact: 'parent_contact',
+    guardian_email: 'guardian_email',
+    emergency_contact_name: 'emergency_contact_name',
+    emergency_contact_phone: 'emergency_contact_phone',
+    health_conditions: 'health_conditions',
+    national_id: 'national_id',
+    school_name: 'school_name',
+    grade_level: 'grade_level',
+    educational_level: 'educational_level',
+    occupation: 'occupation',
+    civil_status: 'civil_status',
+    related_family_members: 'related_family_members',
+    fee_category: 'fee_category',
+    sponsor_name: 'sponsor_name',
+    sponsor_phone: 'sponsor_phone',
+    sponsor_cin: 'sponsor_cin',
+    financial_assistance_notes: 'financial_assistance_notes',
+  },
+  teachers: {
+    matricule: 'matricule',
+    name: 'name',
+    national_id: 'national_id',
+    contact_info: 'contact_info',
+    email: 'email',
+    address: 'address',
+    date_of_birth: 'date_of_birth',
+    gender: 'gender',
+    educational_level: 'educational_level',
+    specialization: 'specialization',
+    years_of_experience: 'years_of_experience',
+    availability: 'availability',
+    notes: 'notes',
+    // Keys older screens used.
+    date_of_joining: 'created_at as date_of_joining',
+    qualifications: 'educational_level as qualifications',
+  },
+  admins: {
+    matricule: 'matricule',
+    username: 'username',
+    first_name: 'first_name',
+    last_name: 'last_name',
+    email: 'email',
+    phone_number: 'phone_number',
+    role: 'r.name as role',
+    status: 'status',
+    notes: 'notes',
+  },
+  classes: {
+    name: 'c.name',
+    teacher_name: 't.name as teacher_name',
+    schedule: 'c.schedule',
+    gender: 'c.gender',
+    status: 'c.status',
+    age_group_name: 'ag.name as age_group_name',
+  },
+  inventory: {
+    matricule: 'matricule',
+    item_name: 'item_name',
+    category: 'category',
+    quantity: 'quantity',
+    unit_value: 'unit_value',
+    total_value: 'total_value',
+    acquisition_date: 'acquisition_date',
+    acquisition_source: 'acquisition_source',
+    condition_status: 'condition_status',
+    location: 'location',
+    notes: 'notes',
+  },
+  attendance: {
+    student_name: 's.name as student_name',
+    class_name: 'c.name as class_name',
+    date: 'a.date',
+    status: 'a.status',
+  },
+  'student-fees': {
+    student_matricule: 's.matricule as student_matricule',
+    student_name: 's.name as student_name',
+    amount: 'sp.amount',
+    payment_date: 'sp.payment_date',
+    payment_method: 'sp.payment_method',
+    payment_type: 'sp.payment_type',
+    // Classes have no matricule: the column shows the class id.
+    class_matricule: 'sp.class_id as class_matricule',
+    academic_year: 'sp.academic_year',
+    receipt_number: 'sp.receipt_number',
+    check_number: 'sp.check_number',
+    notes: 'sp.notes',
+    sponsor_name: 'sp.sponsor_name',
+    sponsor_phone: 'sp.sponsor_phone',
+  },
+  expenses: {
+    date: 'transaction_date as date',
+    description: 'description',
+    amount: 'amount',
+    category: 'category',
+    category_name: 'category as category_name',
+    payment_method: 'payment_method',
+  },
+  income: {
+    date: 'transaction_date as date',
+    description: 'description',
+    amount: 'amount',
+    category: 'category',
+    category_name: 'category as category_name',
+    payment_method: 'payment_method',
+    type: 'type',
+    receipt_type: 'receipt_type',
+    check_number: 'check_number',
+    voucher_number: 'voucher_number',
+    related_person_name: 'related_person_name',
+  },
+};
+
+/**
+ * The SQL selected for the export's column keys, in the order asked. Unknown keys are dropped.
+ * @param {string} type
+ * @param {string[]} fields
+ * @returns {string[]}
+ */
+function selectExportColumns(type, fields) {
+  const columns = EXPORT_COLUMNS[type];
+  if (!columns) throw new Error(`Invalid export type: ${type}`);
+  const known = fields.filter((key) => typeof key === 'string' && Object.hasOwn(columns, key));
+  const ignored = fields.filter((key) => !known.includes(key));
+  if (ignored.length > 0) {
+    console.warn(`Export (${type}): ignored unknown column keys:`, ignored.length);
+  }
+  return [...new Set(known)].map((key) => columns[key]);
+}
+
+async function getTableColumns(tableName) {
+  try {
+    const cols = await allQuery(`PRAGMA table_info(${tableName})`, []);
+    return new Set((cols || []).map((c) => c.name));
+  } catch (err) {
+    return new Set();
+  }
+}
+
+/**
+ * Keeps the selected plain columns that exist in the table (an older database may lack one);
+ * selections that are expressions from EXPORT_COLUMNS are kept as they are.
+ */
+async function keepExistingColumns(selections, tableName, label) {
+  const tableColumns = await getTableColumns(tableName);
+  const kept = selections.filter((sql) => !/^\w+$/.test(sql) || tableColumns.has(sql));
+  if (kept.length < selections.length) {
+    console.warn(`Export: omitted ${selections.length - kept.length} missing ${label} column(s).`);
+  }
+  return kept;
+}
+
 async function fetchExportData({ type, fields, options = {} }) {
   if (!fields || fields.length === 0) {
     throw new Error('No fields selected for export.');
   }
-  // Map logical field keys (from UI) to actual DB columns or expressions per export type
-  function buildFieldSelectionFor(type, fields) {
-    // Comprehensive mapping from UI logical keys to DB columns or SQL expressions.
-    // Keep aliases consistent with the SELECT FROM clauses used in fetchExportData.
-    const maps = {
-      students: {
-        matricule: 'matricule',
-        name: 'name',
-        date_of_birth: 'date_of_birth',
-        gender: 'gender',
-        address: 'address',
-        contact_info: 'contact_info',
-        email: 'email',
-        status: 'status',
-        memorization_level: 'memorization_level',
-        notes: 'notes',
-        parent_name: 'parent_name',
-        guardian_relation: 'guardian_relation',
-        parent_contact: 'parent_contact',
-        guardian_email: 'guardian_email',
-        emergency_contact_name: 'emergency_contact_name',
-        emergency_contact_phone: 'emergency_contact_phone',
-        health_conditions: 'health_conditions',
-        national_id: 'national_id',
-        school_name: 'school_name',
-        grade_level: 'grade_level',
-        educational_level: 'educational_level',
-        occupation: 'occupation',
-        civil_status: 'civil_status',
-        related_family_members: 'related_family_members',
-        fee_category: 'fee_category',
-        sponsor_name: 'sponsor_name',
-        sponsor_phone: 'sponsor_phone',
-        sponsor_cin: 'sponsor_cin',
-        financial_assistance_notes: 'financial_assistance_notes',
-      },
-      teachers: {
-        matricule: 'matricule',
-        name: 'name',
-        national_id: 'national_id',
-        contact_info: 'contact_info',
-        email: 'email',
-        address: 'address',
-        date_of_birth: 'date_of_birth',
-        gender: 'gender',
-        educational_level: 'educational_level',
-        specialization: 'specialization',
-        years_of_experience: 'years_of_experience',
-        availability: 'availability',
-        notes: 'notes',
-        // Legacy / alternate keys
-        date_of_joining: 'created_at',
-        qualifications: 'educational_level',
-      },
-      admins: {
-        matricule: 'matricule',
-        username: 'username',
-        first_name: 'first_name',
-        last_name: 'last_name',
-        email: 'email',
-        phone_number: 'phone_number',
-        role: 'role', // role aggregation handled at query-time if needed
-        status: 'status',
-        notes: 'notes',
-      },
-      users: {
-        matricule: 'matricule',
-        username: 'username',
-        first_name: 'first_name',
-        last_name: 'last_name',
-        date_of_birth: 'date_of_birth',
-        national_id: 'national_id',
-        email: 'email',
-        phone_number: 'phone_number',
-        occupation: 'occupation',
-        civil_status: 'civil_status',
-        employment_type: 'employment_type',
-        start_date: 'start_date',
-        end_date: 'end_date',
-        role: 'role',
-        status: 'status',
-        notes: 'notes',
-      },
-      classes: {
-        name: 'c.name',
-        teacher_name: 't.name as teacher_name',
-        schedule: 'c.schedule',
-        gender: 'c.gender',
-        status: 'c.status',
-        matricule: 'c.matricule',
-      },
-      inventory: {
-        matricule: 'matricule',
-        item_name: 'item_name',
-        category: 'category',
-        quantity: 'quantity',
-        unit_value: 'unit_value',
-        acquisition_date: 'acquisition_date',
-        acquisition_source: 'acquisition_source',
-        condition_status: 'condition_status',
-        location: 'location',
-        notes: 'notes',
-      },
-      attendance: {
-        student_name: 's.name as student_name',
-        class_name: 'c.name as class_name',
-        date: 'a.date',
-        status: 'a.status',
-      },
-    };
-
-    const map = maps[type] || {};
-    return fields
-      .map((f) => {
-        if (map[f]) return map[f];
-        // default: use as-is (assume it's a valid column or aliased column key)
-        return f;
-      })
-      .join(', ');
-  }
-
-  // Build mapped field list (not yet joined) so we can validate against table columns
-  const mappedFields = buildFieldSelectionFor(type, fields)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  let query = '';
-  let params = [];
-
-  // Helper to get table columns (returns Set)
-  async function getTableColumns(tableName) {
-    try {
-      const cols = await allQuery(`PRAGMA table_info(${tableName})`, []);
-      return new Set((cols || []).map((c) => c.name));
-    } catch (err) {
-      return new Set();
-    }
-  }
+  const selections = selectExportColumns(type, fields);
+  const params = [];
 
   switch (type) {
     case 'students': {
-      // Apply fast SQL filters (group membership and basic gender)
-      // Validate selected columns against the `students` table
-      const studentCols = await getTableColumns('students');
-      const allowed = [];
-      const omitted = [];
-      for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowed.push(mf);
-          continue;
-        }
-        if (studentCols.has(mf)) {
-          allowed.push(mf);
-        } else {
-          omitted.push(mf);
-        }
-      }
-
-      if (omitted.length > 0) {
-        console.warn('Export: omitted non-existing student columns:', omitted.join(', '));
-      }
-
+      const allowed = await keepExistingColumns(selections, 'students', 'student');
       if (allowed.length === 0) {
         throw new Error(
           'No valid student fields available for export after validating against DB columns.',
         );
       }
-
       const fieldSelection = allowed.join(', ');
 
+      let query;
       if (options.groupId) {
         query = `SELECT ${fieldSelection} FROM students s JOIN student_groups sg ON s.id = sg.student_id WHERE sg.group_id = ? AND s.deleted_at IS NULL ORDER BY s.name`;
         params.push(options.groupId);
@@ -341,74 +359,30 @@ async function fetchExportData({ type, fields, options = {} }) {
       });
     }
     case 'teachers': {
-      // Validate teacher fields against teachers table
-      const teacherCols = await getTableColumns('teachers');
-      const allowedT = [];
-      const omittedT = [];
-      for (const mf of mappedFields) {
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowedT.push(mf);
-          continue;
-        }
-        if (teacherCols.has(mf)) {
-          allowedT.push(mf);
-        } else {
-          omittedT.push(mf);
-        }
-      }
-      if (omittedT.length > 0)
-        console.warn('Export: omitted non-existing teacher columns:', omittedT.join(', '));
-      if (allowedT.length === 0) throw new Error('No valid teacher fields available for export.');
-      const fieldSelectionT = allowedT.join(', ');
-      query = `SELECT ${fieldSelectionT} FROM teachers`;
+      const allowed = await keepExistingColumns(selections, 'teachers', 'teacher');
+      if (allowed.length === 0) throw new Error('No valid teacher fields available for export.');
+      let query = `SELECT ${allowed.join(', ')} FROM teachers`;
       // Deleted teachers are not exported (they stay in the database for history).
-      let teacherWhereClauses = ['deleted_at IS NULL'];
+      const whereClauses = ['deleted_at IS NULL'];
       if (options.gender && options.gender !== 'all') {
         if (options.gender === 'men' || options.gender === 'Male') {
-          teacherWhereClauses.push('gender = ? AND gender IS NOT NULL');
+          whereClauses.push('gender = ? AND gender IS NOT NULL');
           params.push('Male');
         } else if (options.gender === 'women' || options.gender === 'Female') {
-          teacherWhereClauses.push('gender = ? AND gender IS NOT NULL');
+          whereClauses.push('gender = ? AND gender IS NOT NULL');
           params.push('Female');
         }
       }
-      if (teacherWhereClauses.length > 0) {
-        query += ` WHERE ${teacherWhereClauses.join(' AND ')}`;
-      }
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
       query += ' ORDER BY name';
       return allQuery(query, params);
     }
     case 'admins': {
-      // For admins export: join with user_roles and roles tables to get role names
-      const userCols = await getTableColumns('users');
-      const allowedU = [];
-      const omittedU = [];
-
-      for (const mf of mappedFields) {
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowedU.push(mf);
-          continue;
-        }
-        if (mf === 'role') {
-          // Role comes from roles table, add alias
-          allowedU.push('r.name as role');
-        } else if (userCols.has(mf)) {
-          allowedU.push(mf);
-        } else {
-          omittedU.push(mf);
-        }
-      }
-
-      if (omittedU.length > 0) {
-        console.warn('Export: omitted non-existing user columns:', omittedU.join(', '));
-      }
-
-      if (allowedU.length === 0) {
+      const allowed = await keepExistingColumns(selections, 'users', 'user');
+      if (allowed.length === 0) {
         throw new Error('No valid user/admin fields available for export.');
       }
-
-      const fieldSelectionU = allowedU.join(', ');
-      query = `SELECT ${fieldSelectionU}
+      const query = `SELECT ${allowed.join(', ')}
                FROM users u
                JOIN user_roles ur ON u.id = ur.user_id
                JOIN roles r ON ur.role_id = r.id
@@ -418,25 +392,15 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'attendance': {
-      const attendanceFieldMap = {
-        student_name: 's.name as student_name',
-        class_name: 'c.name as class_name',
-        date: 'a.date',
-        status: 'a.status',
-      };
-      const selectedFields = fields
-        .map((f) => attendanceFieldMap[f])
-        .filter(Boolean)
-        .join(', ');
-      if (!selectedFields) {
+      if (selections.length === 0) {
         throw new Error('No valid attendance fields selected.');
       }
-      query = `SELECT ${selectedFields}
+      let query = `SELECT ${selections.join(', ')}
                FROM attendance a
                JOIN students s ON s.id = a.student_id
                LEFT JOIN classes c ON c.id = a.class_id`;
       const whereClauses = ['a.date BETWEEN ? AND ?'];
-      const params = [options.startDate, options.endDate];
+      params.push(options.startDate, options.endDate);
 
       if (options.classId && options.classId !== 'all') {
         whereClauses.push('c.id = ?');
@@ -447,38 +411,16 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'classes': {
-      // Export classes: validate selected columns against the classes table
-      // Note: teacher_name is joined from teachers table
-      const classCols = await getTableColumns('classes');
-      const allowed = [];
-      const omitted = [];
-      for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowed.push(mf);
-          continue;
-        }
-        if (classCols.has(mf)) {
-          allowed.push(mf);
-        } else {
-          omitted.push(mf);
-        }
-      }
-
-      if (omitted.length > 0) {
-        console.warn('Export: omitted non-existing class columns:', omitted.join(', '));
-      }
-
-      if (allowed.length === 0) {
+      if (selections.length === 0) {
         throw new Error(
           'No valid class fields available for export after validating against DB columns.',
         );
       }
-
-      const fieldSelection = allowed.join(', ');
-
-      query = `SELECT ${fieldSelection} FROM classes c LEFT JOIN teachers t ON c.teacher_id = t.id WHERE c.deleted_at IS NULL`;
-      // Optional filtering by class id
+      let query = `SELECT ${selections.join(', ')}
+               FROM classes c
+               LEFT JOIN teachers t ON c.teacher_id = t.id
+               LEFT JOIN age_groups ag ON c.age_group_id = ag.id
+               WHERE c.deleted_at IS NULL`;
       if (options.classId && options.classId !== 'all') {
         query += ' AND c.id = ?';
         params.push(options.classId);
@@ -487,36 +429,13 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'inventory': {
-      // Inventory export: validate selected columns against the inventory_items table
-      const inventoryCols = await getTableColumns('inventory_items');
-      const allowed = [];
-      const omitted = [];
-      for (const mf of mappedFields) {
-        // keep expressions (contain space 'as' or a dot for joined aliases) unfiltered
-        if (/\s+as\s+/i.test(mf) || mf.includes('.') || mf.includes('(')) {
-          allowed.push(mf);
-          continue;
-        }
-        if (inventoryCols.has(mf)) {
-          allowed.push(mf);
-        } else {
-          omitted.push(mf);
-        }
-      }
-
-      if (omitted.length > 0) {
-        console.warn('Export: omitted non-existing inventory columns:', omitted.join(', '));
-      }
-
+      const allowed = await keepExistingColumns(selections, 'inventory_items', 'inventory');
       if (allowed.length === 0) {
         throw new Error(
           'No valid inventory fields available for export after validating against DB columns.',
         );
       }
-
-      const fieldSelection = allowed.join(', ');
-
-      query = `SELECT ${fieldSelection} FROM inventory_items i WHERE i.deleted_at IS NULL`;
+      let query = `SELECT ${allowed.join(', ')} FROM inventory_items i WHERE i.deleted_at IS NULL`;
       if (options.category) {
         query += ' AND i.category = ?';
         params.push(options.category);
@@ -525,44 +444,10 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'student-fees': {
-      // Student fees export: join student_payments with students table
-      // Check if class_id column exists (for backward compatibility)
-      let hasClassIdColumn = false;
-      try {
-        const columns = await allQuery(`PRAGMA table_info(student_payments)`, []);
-        hasClassIdColumn = columns.some((col) => col.name === 'class_id');
-      } catch (e) {
-        // If we can't check, assume it doesn't exist
-        hasClassIdColumn = false;
-      }
-
-      // Map logical keys to actual DB columns
-      const studentFeesMaps = {
-        student_matricule: 's.matricule as student_matricule',
-        student_name: 's.name as student_name',
-        amount: 'sp.amount',
-        payment_date: 'sp.payment_date',
-        payment_method: 'sp.payment_method',
-        payment_type: 'sp.payment_type',
-        class_matricule: hasClassIdColumn
-          ? 'sp.class_id as class_matricule'
-          : 'NULL as class_matricule',
-        academic_year: 'sp.academic_year',
-        receipt_number: 'sp.receipt_number',
-        check_number: 'sp.check_number',
-        notes: 'sp.notes',
-      };
-
-      const selectedFields = fields
-        .map((f) => studentFeesMaps[f])
-        .filter(Boolean)
-        .join(', ');
-
-      if (!selectedFields) {
+      if (selections.length === 0) {
         throw new Error('No valid student fees fields selected.');
       }
-
-      query = `SELECT ${selectedFields}
+      const query = `SELECT ${selections.join(', ')}
                FROM student_payments sp
                JOIN students s ON sp.student_id = s.id
                WHERE sp.voided_at IS NULL
@@ -570,55 +455,20 @@ async function fetchExportData({ type, fields, options = {} }) {
       return allQuery(query, params);
     }
     case 'expenses': {
-      // Expenses export: query transactions table with type = 'EXPENSE'
-      // Map logical keys to actual DB columns
-      const expenseFieldMaps = {
-        date: 'transaction_date as date',
-        description: 'description',
-        amount: 'amount',
-        category: 'category as category_name',
-        payment_method: 'payment_method',
-      };
-
-      const selectedFields = fields
-        .map((f) => expenseFieldMaps[f])
-        .filter(Boolean)
-        .join(', ');
-
-      if (!selectedFields) {
+      if (selections.length === 0) {
         throw new Error('No valid expense fields selected.');
       }
-
-      query = `SELECT ${selectedFields}
+      const query = `SELECT ${selections.join(', ')}
                FROM transactions
                WHERE type = 'EXPENSE' AND voided_at IS NULL
                ORDER BY transaction_date DESC`;
       return allQuery(query, params);
     }
     case 'income': {
-      const incomeFieldMaps = {
-        date: 'transaction_date as date',
-        description: 'description',
-        amount: 'amount',
-        category: 'category',
-        payment_method: 'payment_method',
-        type: 'type',
-        receipt_type: 'receipt_type',
-        check_number: 'check_number',
-        voucher_number: 'voucher_number',
-        related_person_name: 'related_person_name',
-      };
-
-      const incomeSelectedFields = fields
-        .map((f) => incomeFieldMaps[f])
-        .filter(Boolean)
-        .join(', ');
-
-      if (!incomeSelectedFields) {
+      if (selections.length === 0) {
         throw new Error('No valid income fields selected.');
       }
-
-      query = `SELECT ${incomeSelectedFields}
+      const query = `SELECT ${selections.join(', ')}
                FROM transactions
                WHERE type = 'INCOME' AND voided_at IS NULL
                ORDER BY transaction_date DESC`;

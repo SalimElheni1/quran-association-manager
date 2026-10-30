@@ -200,6 +200,114 @@ describe('exportManager', () => {
       expect(sql).not.toContain('Branch Admin');
     });
 
+    describe('column keys are a whitelist (SQL injection)', () => {
+      const injected =
+        "(SELECT value FROM settings WHERE key='association_transfer_key') AS leaked";
+
+      it.each([
+        ['students', 'name'],
+        ['teachers', 'name'],
+        ['admins', 'username'],
+        ['classes', 'name'],
+        ['inventory', 'item_name'],
+        ['attendance', 'date'],
+        ['student-fees', 'amount'],
+        ['expenses', 'amount'],
+        ['income', 'amount'],
+      ])(
+        '%s: an expression, a dotted name or an unknown key never reaches the SQL',
+        async (type, key) => {
+          mockTable([key, 'password', 'secret']);
+
+          await fetchExportData({
+            type,
+            fields: [key, injected, 'u.password', 'secret', 'password'],
+            options: { startDate: '2026-01-01', endDate: '2026-12-31' },
+          });
+
+          const [sql] = dataQuery();
+          expect(sql).not.toContain('settings');
+          expect(sql).not.toContain('leaked');
+          expect(sql).not.toContain('password');
+          expect(sql).not.toContain('secret');
+        },
+      );
+
+      it('refuses an export whose keys are all unknown', async () => {
+        mockTable(['name']);
+
+        await expect(fetchExportData({ type: 'students', fields: [injected] })).rejects.toThrow(
+          'No valid student fields available for export after validating against DB columns.',
+        );
+        expect(dataQuery()).toBeUndefined();
+      });
+
+      it('does not treat inherited object keys as columns', async () => {
+        mockTable(['name']);
+
+        await expect(
+          fetchExportData({ type: 'expenses', fields: ['constructor', 'toString'] }),
+        ).rejects.toThrow('No valid expense fields selected.');
+      });
+    });
+
+    describe('every column the export screens offer is exported', () => {
+      it('expenses and income export the category the screens ask for as category_name', async () => {
+        mockTable([]);
+
+        await fetchExportData({ type: 'expenses', fields: ['date', 'category_name'] });
+        expect(dataQuery()[0]).toMatch(
+          /^SELECT transaction_date as date, category as category_name\s/,
+        );
+
+        allQuery.mockClear();
+        await fetchExportData({ type: 'income', fields: ['category_name'] });
+        expect(dataQuery()[0]).toMatch(/^SELECT category as category_name\s/);
+      });
+
+      it("classes export their age group's name", async () => {
+        mockTable([]);
+
+        await fetchExportData({ type: 'classes', fields: ['name', 'age_group_name'] });
+
+        const [sql] = dataQuery();
+        expect(sql).toMatch(/^SELECT c\.name, ag\.name as age_group_name\s/);
+        expect(sql).toContain('LEFT JOIN age_groups ag ON c.age_group_id = ag.id');
+      });
+
+      it('fee payments export the sponsor and the class', async () => {
+        mockTable([]);
+
+        await fetchExportData({
+          type: 'student-fees',
+          fields: ['class_matricule', 'sponsor_name', 'sponsor_phone'],
+        });
+
+        const [sql] = dataQuery();
+        expect(sql).toMatch(
+          /^SELECT sp\.class_id as class_matricule, sp\.sponsor_name, sp\.sponsor_phone\s/,
+        );
+      });
+
+      it("teachers' legacy keys come back under the key that was asked for", async () => {
+        mockTable(['name']);
+
+        await fetchExportData({ type: 'teachers', fields: ['date_of_joining', 'qualifications'] });
+
+        expect(dataQuery()[0]).toMatch(
+          /^SELECT created_at as date_of_joining, educational_level as qualifications FROM teachers/,
+        );
+      });
+
+      it('students export their enrolment date', async () => {
+        mockTable(['name', 'enrollment_date']);
+
+        await fetchExportData({ type: 'students', fields: ['name', 'enrollment_date'] });
+
+        expect(dataQuery()[0]).toMatch(/^SELECT name, enrollment_date FROM students/);
+      });
+    });
+
     it('should throw error for invalid export type', async () => {
       await expect(
         fetchExportData({

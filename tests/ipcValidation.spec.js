@@ -90,6 +90,20 @@ describe('validateChannelArgs: the calls the renderer really makes are accepted'
       [{ password: 'secret', key: 'branch-key', confirmKey: 'branch-key' }],
     ],
     ['logout', []],
+    [
+      'export:generate',
+      [
+        {
+          exportType: 'students',
+          format: 'xlsx',
+          columns: [
+            { header: 'الاسم واللقب', key: 'name' },
+            { header: 'تاريخ التسجيل', key: 'enrollment_date' },
+          ],
+          options: { groupId: null },
+        },
+      ],
+    ],
   ])('%s %j', (channel, args) => {
     expect(validateChannelArgs(channel, args)).toBeNull();
   });
@@ -111,6 +125,22 @@ describe('validateChannelArgs: bad input is rejected', () => {
     ['a non-boolean flag', 'fee-charges:runManualCheck', ['yes']],
     ['an oversized log request', 'logs:get-recent', [{ lines: 1e9 }]],
     ['an argument to a channel that takes none', 'logs:clear', ['now']],
+    [
+      'an SQL expression as an export column',
+      'export:generate',
+      [
+        {
+          exportType: 'students',
+          format: 'xlsx',
+          columns: [{ header: 'x', key: '(SELECT value FROM settings) AS leaked' }],
+        },
+      ],
+    ],
+    [
+      'an unknown export format',
+      'export:generate',
+      [{ exportType: 'students', format: 'html', columns: [{ header: 'x', key: 'name' }] }],
+    ],
     [
       'an object as an attendance status',
       'attendance:save',
