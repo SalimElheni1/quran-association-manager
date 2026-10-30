@@ -43,9 +43,13 @@ in `electron-builder.yml`).
   (SQLite3 Multiple Ciphers). Inspect data through the app, a backup export, or a script that uses
   `src/db/db.js` (run with Electron's Node, see above).
 - **A migration failed**: the app stops starting and the log names the file. The file was rolled
-  back and not recorded, so it runs again on the next start once fixed. A "duplicate column
-  name" error is treated as already applied and skips the **whole file**; see
+  back and not recorded, so it runs again on the next start once fixed. Only an `ADD COLUMN`
+  of a column that already exists is skipped (logged as a warning); see
   [development.md](setup/development.md#a-database-change).
+- **"uq_fee_charges_monthly (or _annual) not created" in the log**: the database still holds a
+  student charged twice for one month (or one academic year), from before the unique indexes.
+  The app works without them; they are created at the first start after the duplicates are gone
+  («إعادة ضبط الرسوم» removes the unpaid ones; paid ones have to be settled by hand).
 - **Account balances look wrong**: they are recomputed from the transactions on every start
   (`recomputeAccountBalances`), so restart the app before investigating.
 

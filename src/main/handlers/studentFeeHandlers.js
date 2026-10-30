@@ -330,12 +330,12 @@ async function generateAnnualFeeCharges(academicYear) {
         // The annual fee of the student's age group (or the branch fee).
         const { annualFee } = await resolveStudentFeeGroup(student.id, branchFees);
         if (!(annualFee > 0)) continue;
-        await db.runQuery(
+        const { changes } = await db.runQuery(
           `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-         VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
+         VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING`,
           [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
         );
-        createdCount++;
+        createdCount += changes;
       }
     }
     log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
@@ -442,9 +442,9 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
 
           const relatedClassId = enrolledClasses.length === 1 ? enrolledClasses[0].id : null;
 
-          await db.runQuery(
+          const { changes } = await db.runQuery(
             `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
-           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)`,
+           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?) ON CONFLICT DO NOTHING`,
             [
               student.id,
               chargeDate,
@@ -456,7 +456,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
               relatedClassId,
             ],
           );
-          createdCount++;
+          createdCount += changes;
         }
       }
       log(`[FeeGen] Generated ${createdCount} monthly charges for ${academicYear}-${month}`);
@@ -805,10 +805,10 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
         const { annualFee } = await resolveStudentFeeGroup(studentId);
         if (annualFee > 0) {
           const chargeDate = toLocalISODate();
-          await db.runQuery(
+          const { changes } = await db.runQuery(
             `
           INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-          VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')
+          VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING
         `,
             [
               studentId,
@@ -818,8 +818,9 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
               currentAcademicYear,
             ],
           );
-          chargesGenerated++;
-          log(`[refreshStudentCharges] Generated annual charge for student ${studentId}`);
+          chargesGenerated += changes;
+          if (changes)
+            log(`[refreshStudentCharges] Generated annual charge for student ${studentId}`);
         }
       }
 
@@ -1178,8 +1179,8 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
           ? { annualFee: 0 }
           : await resolveStudentFeeGroup(student.id, branchFees);
         if (!existingAnnual && annualFee > 0) {
-          await db.runQuery(
-            "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')",
+          const { changes } = await db.runQuery(
+            "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING",
             [
               student.id,
               chargeDate,
@@ -1188,7 +1189,7 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
               currentAcademicYear,
             ],
           );
-          studentChargesGenerated++;
+          studentChargesGenerated += changes;
         }
 
         totalChargesGenerated += studentChargesGenerated;

@@ -179,3 +179,52 @@ describe('roles of restored users', () => {
     expect(rolesOf('no_role')).toEqual([]);
   });
 });
+
+describe('fee charges of a backup', () => {
+  const MONTHLY_CHARGE = `INSERT INTO student_fee_charges
+    (student_id, charge_date, fee_type, amount, amount_paid, status, academic_year, billing_month)
+    VALUES (?, '2026-10-01', 'MONTHLY', 30, ?, ?, '2026-2027', '2026-2027-10')`;
+  const charges = () => ctx.all('SELECT amount_paid, status FROM student_fee_charges ORDER BY id');
+  const uniqueIndexes = () =>
+    ctx
+      .all(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'uq_fee_charges_%' ORDER BY name",
+      )
+      .map((row) => row.name);
+
+  const backUpAndRestore = async () => {
+    const backupFile = path.join(ctx.dir, 'backup.qdb');
+    expect((await runBackup({ association_transfer_key: TRANSFER_KEY }, backupFile)).success).toBe(
+      true,
+    );
+    return replaceDatabase(backupFile, 'pw', undefined, {
+      association_transfer_key: TRANSFER_KEY,
+    });
+  };
+
+  test('duplicate charges from before the unique index all come back, paid one included', async () => {
+    const studentId = await addStudent(ctx);
+    ctx.run('DROP INDEX uq_fee_charges_monthly');
+    ctx.run(MONTHLY_CHARGE, [studentId, 30, 'PAID']);
+    ctx.run(MONTHLY_CHARGE, [studentId, 0, 'UNPAID']);
+
+    const result = await backUpAndRestore();
+
+    expect(result.success).toBe(true);
+    expect(charges()).toEqual([
+      { amount_paid: 30, status: 'PAID' },
+      { amount_paid: 0, status: 'UNPAID' },
+    ]);
+    // The index waits until the duplicates are gone.
+    expect(uniqueIndexes()).toEqual(['uq_fee_charges_annual']);
+  });
+
+  test('a backup without duplicates gets the unique indexes back', async () => {
+    const studentId = await addStudent(ctx);
+    ctx.run(MONTHLY_CHARGE, [studentId, 30, 'PAID']);
+
+    expect((await backUpAndRestore()).success).toBe(true);
+    expect(charges()).toEqual([{ amount_paid: 30, status: 'PAID' }]);
+    expect(uniqueIndexes()).toEqual(['uq_fee_charges_annual', 'uq_fee_charges_monthly']);
+  });
+});

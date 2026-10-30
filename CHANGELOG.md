@@ -62,6 +62,10 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 - Two saves at the same moment could undo each other: the database had one transaction for the
   whole app, so a save that failed could roll back another one's changes, or let it read data
   that was then cancelled. Each save now has its own transaction, one at a time.
+- A student can no longer get the same month, or the same academic year's annual fee, billed
+  twice: the database refuses the second charge. A database that still holds such duplicates
+  from before keeps working, and gets the check at the first start after they are removed (with
+  «إعادة ضبط الرسوم» for unpaid ones).
 - Exports now include the expense/income category, the class age group, the fee payment's
   sponsor, the student's enrolment date and memorised surahs/hizbs, which were silently left out.
 

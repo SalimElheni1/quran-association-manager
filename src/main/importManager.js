@@ -17,6 +17,8 @@ const {
   runQuery,
   getQuery,
   allQuery,
+  ensureFeeChargeUniqueness,
+  dropFeeChargeUniqueness,
 } = require('../db/db');
 const crypto = require('crypto');
 const { generateMatricule } = require('./services/matriculeService');
@@ -674,12 +676,16 @@ async function importBackupRows(sqlScript) {
   // they are off while loading, and always turned back on.
   log('Disabling foreign key constraints for import...');
   await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
+  // A backup can hold duplicate fee charges from before the unique indexes: with the indexes in
+  // place, its REPLACE rows would silently drop one of each pair (maybe the paid one).
+  dropFeeChargeUniqueness();
   try {
     await withTransaction(async () => {
       const imported = await executeSqlScriptSafely(sqlScript);
       await giveLegacyUsersTheirRole(imported);
       await convertLegacyMatricules();
     });
+    ensureFeeChargeUniqueness();
     log('Data import completed successfully.');
   } finally {
     log('Re-enabling foreign key constraints...');

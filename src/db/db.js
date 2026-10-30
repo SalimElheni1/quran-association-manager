@@ -265,6 +265,39 @@ function reportForeignKeyProblems() {
   logWarn('[DB_LOG] Rows with a broken foreign key after the migrations:', byTable);
 }
 
+// One monthly charge per student and billing month, one annual charge per student and academic
+// year. Cancelled charges count too: the charge generators treat them as there, and restoring
+// the student brings them back.
+const FEE_CHARGE_UNIQUE_INDEXES = {
+  uq_fee_charges_monthly:
+    "ON student_fee_charges(student_id, billing_month) WHERE fee_type = 'MONTHLY'",
+  uq_fee_charges_annual:
+    "ON student_fee_charges(student_id, academic_year) WHERE fee_type = 'ANNUAL'",
+};
+
+/**
+ * Creates the fee charge unique indexes the data allows. A database that still holds duplicate
+ * charges from before them keeps working without the index; it is created at the first start
+ * after the duplicates are gone. Never throws: start-up must not depend on it.
+ */
+function ensureFeeChargeUniqueness() {
+  Object.entries(FEE_CHARGE_UNIQUE_INDEXES).forEach(([name, target]) => {
+    try {
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ${name} ${target}`);
+    } catch (error) {
+      logWarn(
+        `[DB_LOG] ${name} not created: the database holds duplicate fee charges.`,
+        error.message,
+      );
+    }
+  });
+}
+
+/** Removes the fee charge unique indexes, for rows that may come from before them (restore). */
+function dropFeeChargeUniqueness() {
+  Object.keys(FEE_CHARGE_UNIQUE_INDEXES).forEach((name) => db.exec(`DROP INDEX IF EXISTS ${name}`));
+}
+
 async function runMigrations() {
   log('Checking for pending migrations...');
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -437,6 +470,7 @@ async function initializeDatabase() {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
+    ensureFeeChargeUniqueness();
 
     // Ensure the Quran reference data (surahs/hizbs) exists so the
     // memorization pickers are usable on fresh installs. Both seed
@@ -620,4 +654,6 @@ module.exports = {
   createSuperadminUser,
   rotateDatabaseKey,
   withoutExistingColumns,
+  ensureFeeChargeUniqueness,
+  dropFeeChargeUniqueness,
 };

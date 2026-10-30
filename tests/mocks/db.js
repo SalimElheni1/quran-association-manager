@@ -79,5 +79,7 @@ module.exports = {
   dbClose: jest.fn(() => Promise.resolve()),
   hasSuperadmin: jest.fn(() => Promise.resolve(false)),
   createSuperadminUser: jest.fn((username) => Promise.resolve({ id: 1, username })),
+  ensureFeeChargeUniqueness: jest.fn(),
+  dropFeeChargeUniqueness: jest.fn(),
   resetMocks,
 };
