@@ -216,13 +216,13 @@ function registerUserHandlers() {
   ipcMain.handle(
     'users:update',
     requireRoles(['Superadmin'])(async (_event, { id, userData }) => {
-      const { roles, ...restOfUserData } = userData;
       try {
         const transactionResult = await db.withTransaction(async () => {
-          const validatedData = await userUpdateValidationSchema.validateAsync(restOfUserData, {
-            abortEarly: false,
-            stripUnknown: true,
-          });
+          // The roles are validated with the rest (known names, at least one when given).
+          const { roles, ...validatedData } = await userUpdateValidationSchema.validateAsync(
+            userData,
+            { abortEarly: false, stripUnknown: true },
+          );
 
           const losesSuperadmin =
             validatedData.status === 'inactive' ||
