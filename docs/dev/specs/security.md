@@ -100,6 +100,13 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   returns the Arabic reason, the safety copy before a restore is skipped with a warning.
 - **Restore** needs the logged-in user's password. The saved transfer key is tried
   automatically; a key is typed only for a backup made with another key (e.g. before a change).
+  The whole file is read and checked before anything changes. A backup from before 1.3.0 (a plain
+  ZIP, neither encrypted nor signed) is restored only after the user accepts a warning. Only
+  `INSERT`/`REPLACE INTO` rows of tables the app already has are run (never schema changes,
+  `ATTACH`, triggers, `PRAGMA`, `INSERT ... SELECT` or the `migrations` table). The current
+  database is moved to `quran_assoc_manager.sqlite.pre-restore`, the rows are imported in one
+  transaction, and if anything fails the previous database is put back and opened again; after a
+  successful restore it stays there until the next one.
 
 ## Input Handling
 

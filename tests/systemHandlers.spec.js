@@ -431,6 +431,14 @@ describe('systemHandlers', () => {
   });
 
   describe('db:import', () => {
+    const sessionManager = require('../src/main/sessionManager');
+    // The window of the logged-in user (id 1) who confirms the restore with their password.
+    const importEvent = { sender: { id: 30 } };
+    beforeEach(() =>
+      sessionManager.createSession(importEvent.sender, { id: 1, username: 'admin' }, null),
+    );
+    afterEach(() => sessionManager.revokeAllSessions());
+
     it('should import database successfully', async () => {
       const password = 'correct-password';
       const userId = 1;
@@ -447,7 +455,7 @@ describe('systemHandlers', () => {
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
       importManager.replaceDatabase.mockResolvedValue(mockImportResult);
 
-      const result = await handlers['db:import'](null, { password, userId });
+      const result = await handlers['db:import'](importEvent, { password });
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [userId]);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, 'hashed-password');
@@ -467,7 +475,7 @@ describe('systemHandlers', () => {
     });
 
     it('should handle missing authentication data', async () => {
-      const result = await handlers['db:import'](null, { password: null, userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: null });
 
       expect(result).toEqual({
         success: false,
@@ -478,7 +486,7 @@ describe('systemHandlers', () => {
     it('should handle user not found', async () => {
       db.getQuery.mockResolvedValue(null);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -491,7 +499,7 @@ describe('systemHandlers', () => {
       db.getQuery.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(false);
 
-      const result = await handlers['db:import'](null, { password: 'wrong-password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'wrong-password' });
 
       expect(result).toEqual({
         success: false,
@@ -505,7 +513,7 @@ describe('systemHandlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       dialog.showOpenDialog.mockResolvedValue({ canceled: true });
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -525,7 +533,7 @@ describe('systemHandlers', () => {
       });
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -545,7 +553,7 @@ describe('systemHandlers', () => {
       });
       importManager.validateDatabaseFile.mockRejectedValue(error);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(logError).toHaveBeenCalledWith('Error during database import process:', error);
       expect(result.success).toBe(false);
@@ -557,13 +565,60 @@ describe('systemHandlers', () => {
       sessionManager.createSession({ id: 31 }, { id: 4, username: 'admin' }, null);
       db.getQuery.mockResolvedValue(undefined);
 
-      await handlers['db:import']({ sender: { id: 31 } }, { password: 'password', userId: 1 });
+      await handlers['db:import']({ sender: { id: 31 } }, { password: 'password' });
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [4]);
       sessionManager.revokeAllSessions();
     });
-  });
 
+    it('never takes the user to re-authenticate from the window', async () => {
+      sessionManager.revokeAllSessions();
+
+      const result = await handlers['db:import'](importEvent, { password: 'password', userId: 1 });
+
+      expect(result).toEqual({ success: false, message: 'بيانات المصادقة غير كاملة.' });
+      expect(db.getQuery).not.toHaveBeenCalled();
+    });
+
+    describe('an unsigned backup from before 1.3.0', () => {
+      beforeEach(() => {
+        db.getQuery.mockResolvedValue({ password: 'hashed-password' });
+        bcrypt.compare.mockResolvedValue(true);
+        importManager.validateDatabaseFile.mockResolvedValue({ isValid: true, unsigned: true });
+        importManager.replaceDatabase.mockResolvedValue({ success: true });
+      });
+
+      it('is not restored before the user accepts the warning', async () => {
+        const result = await handlers['db:import'](importEvent, {
+          password: 'password',
+          filePath: '/old.qdb',
+        });
+
+        expect(result).toEqual({
+          success: false,
+          needsUnsignedConfirmation: true,
+          message: expect.stringContaining('غير موقّعة'),
+        });
+        expect(importManager.replaceDatabase).not.toHaveBeenCalled();
+      });
+
+      it('is restored once the user accepted it', async () => {
+        const result = await handlers['db:import'](importEvent, {
+          password: 'password',
+          filePath: '/old.qdb',
+          allowUnsigned: true,
+        });
+
+        expect(result).toEqual({ success: true });
+        expect(importManager.replaceDatabase).toHaveBeenCalledWith(
+          '/old.qdb',
+          'password',
+          undefined,
+          expect.any(Object),
+        );
+      });
+    });
+  });
   describe('backup transfer key', () => {
     const sessionManager = require('../src/main/sessionManager');
     const superadminEvent = { sender: { id: 51 } };

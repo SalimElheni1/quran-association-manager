@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const PizZip = require('pizzip');
 const {
   test,
   expect,
@@ -93,6 +94,19 @@ async function startRestore(page, { password, key }) {
   await expectNoModal(page);
 }
 
+/** Writes a backup the way versions before 1.3.0 did: a plain ZIP, not encrypted or signed. */
+function writeUnsignedBackup(file, studentName) {
+  const zip = new PizZip();
+  zip.file(
+    'backup.sql',
+    `REPLACE INTO "students" ("id", "matricule", "name", "status") VALUES (1, 'S-0001', '${studentName}', 'active');`,
+  );
+  zip.file('salt.json', JSON.stringify({ 'db-salt': 'a1b2c3d4e5f60718293a4b5c6d7e8f90' }));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, zip.generate({ type: 'nodebuffer' }));
+  return file;
+}
+
 function studentRow(page, name) {
   return page.locator('tbody tr', { hasText: name });
 }
@@ -184,5 +198,46 @@ test.describe('database restore', () => {
       if (app2) await app2.close().catch(() => {});
       fs.rmSync(userDataDir, { recursive: true, force: true });
     }
+  });
+
+  test('an unsigned backup from before 1.3.0 is restored only after a warning is accepted', async ({
+    authedPage: page,
+    electronApp,
+  }, testInfo) => {
+    const kept = 'إيمان بنت فتحي القلال';
+    await addStudent(page, kept);
+    const oldBackup = writeUnsignedBackup(
+      testInfo.outputPath('old-backup.qdb'),
+      'طالب من نسخة قديمة',
+    );
+    await stubDialogAndRelaunch(electronApp, oldBackup);
+    const warning = page.locator('.modal', { hasText: 'نسخة احتياطية قديمة غير موقّعة' });
+
+    async function restoreUntilWarning() {
+      await navigate(page, 'الإعدادات');
+      await openTab(page, 'النسخ الاحتياطي');
+      await activePane(page).getByRole('button', { name: 'استرجاع من نسخة احتياطية...' }).click();
+      await modal(page)
+        .locator('input[placeholder="أدخل كلمة المرور الخاصة بك"]')
+        .fill(SUPERADMIN.password);
+      await modal(page).getByRole('button', { name: 'تأكيد' }).click();
+      await expect(warning).toBeVisible();
+      await expect(warning).toContainText('لا شيء يثبت مصدرها');
+    }
+
+    // Refused: nothing changes.
+    await restoreUntilWarning();
+    await warning.getByRole('button', { name: 'إلغاء' }).click();
+    await expectToast(page, 'warning', 'تم إلغاء عملية الاستيراد.');
+    await expectNoModal(page);
+    expect(await electronApp.evaluate(() => global.__e2eRelaunches)).toBe(0);
+    await navigate(page, 'شؤون الطلاب');
+    await expect(studentRow(page, kept)).toBeVisible();
+
+    // Accepted: the backup is restored.
+    await restoreUntilWarning();
+    await warning.getByRole('button', { name: 'استرجاعها رغم ذلك' }).click();
+    await expectToast(page, 'success', 'تم استيراد قاعدة البيانات بنجاح!');
+    await expect.poll(() => electronApp.evaluate(() => global.__e2eRelaunches)).toBe(1);
   });
 });

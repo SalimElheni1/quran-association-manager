@@ -219,66 +219,79 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (event, { password, userId, filePath, backupPassword }) => {
-    // Re-authenticate the logged-in user, not whichever user id the renderer sends.
-    const confirmingUserId = getUserIdForEvent(event) ?? userId;
-    if (!password || !confirmingUserId) {
-      return { success: false, message: 'بيانات المصادقة غير كاملة.' };
-    }
-    try {
-      const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [
-        confirmingUserId,
-      ]);
-      if (!currentUser) {
-        return { success: false, message: 'المستخدم الحالي غير موجود.' };
+  ipcMain.handle(
+    'db:import',
+    async (event, { password, filePath, backupPassword, allowUnsigned }) => {
+      // Re-authenticate the logged-in user, never a user id sent by the window.
+      const confirmingUserId = getUserIdForEvent(event);
+      if (!password || !confirmingUserId) {
+        return { success: false, message: 'بيانات المصادقة غير كاملة.' };
       }
-      const isMatch = await bcrypt.compare(password, currentUser.password);
-      if (!isMatch) {
-        return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
-      }
-
-      let importedDbPath = filePath;
-      if (!importedDbPath) {
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-          title: 'Select Database to Import',
-          properties: ['openFile'],
-          filters: [
-            { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
-            { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
-          ],
-        });
-        if (canceled || !filePaths || !filePaths[0]) {
-          return { success: false, message: 'لم يتم تحديد أي ملف.' };
+      try {
+        const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [
+          confirmingUserId,
+        ]);
+        if (!currentUser) {
+          return { success: false, message: 'المستخدم الحالي غير موجود.' };
         }
-        importedDbPath = filePaths[0];
-      }
+        const isMatch = await bcrypt.compare(password, currentUser.password);
+        if (!isMatch) {
+          return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
+        }
 
-      // Read while the database is still open: restoring closes it before decrypting the file.
-      // The backup folder (for the safety copy) and the transfer key come from these settings.
-      const { settings: currentSettings } = await internalGetSettingsHandler();
-      const savedTransferKey = currentSettings?.association_transfer_key || '';
-      const validationResult = await importManager.validateDatabaseFile(
-        importedDbPath,
-        backupPassword,
-        savedTransferKey,
-      );
-      if (!validationResult.isValid) {
-        return { success: false, message: validationResult.message };
+        let importedDbPath = filePath;
+        if (!importedDbPath) {
+          const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Select Database to Import',
+            properties: ['openFile'],
+            filters: [
+              { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
+              { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
+            ],
+          });
+          if (canceled || !filePaths || !filePaths[0]) {
+            return { success: false, message: 'لم يتم تحديد أي ملف.' };
+          }
+          importedDbPath = filePaths[0];
+        }
+
+        // Read while the database is still open: restoring closes it before decrypting the file.
+        // The backup folder (for the safety copy) and the transfer key come from these settings.
+        const { settings: currentSettings } = await internalGetSettingsHandler();
+        const savedTransferKey = currentSettings?.association_transfer_key || '';
+        const validationResult = await importManager.validateDatabaseFile(
+          importedDbPath,
+          backupPassword,
+          savedTransferKey,
+        );
+        if (!validationResult.isValid) {
+          return { success: false, message: validationResult.message };
+        }
+        // A backup from before version 1.3.0 is a plain ZIP: nothing proves who made it. It is
+        // restored only once the user has confirmed, after this warning.
+        if (validationResult.unsigned && allowUnsigned !== true) {
+          return {
+            success: false,
+            needsUnsignedConfirmation: true,
+            message:
+              'هذه نسخة احتياطية قديمة غير مشفّرة وغير موقّعة (قبل الإصدار 1.3.0): لا شيء يثبت مصدرها. لا تسترجعها إلا إذا كنت متأكداً أنها من نسخ جمعيتكم.',
+          };
+        }
+        return await importManager.replaceDatabase(
+          importedDbPath,
+          password,
+          backupPassword,
+          currentSettings,
+        );
+      } catch (error) {
+        logError('Error during database import process:', error);
+        return {
+          success: false,
+          message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,
+        };
       }
-      return await importManager.replaceDatabase(
-        importedDbPath,
-        password,
-        backupPassword,
-        currentSettings,
-      );
-    } catch (error) {
-      logError('Error during database import process:', error);
-      return {
-        success: false,
-        message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,
-      };
-    }
-  });
+    },
+  );
 
   // The association transfer key never goes to the window with the settings. A Superadmin sees
   // it, or changes it, only after typing their password again, so a session left open does not

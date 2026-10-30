@@ -5,6 +5,7 @@ jest.mock('fs', () => ({
   promises: {
     readFile: jest.fn(),
     unlink: jest.fn().mockResolvedValue(),
+    rename: jest.fn().mockResolvedValue(),
   },
   existsSync: jest.fn(),
   mkdirSync: jest.fn(),
@@ -49,6 +50,8 @@ const { setDbSalt } = require('../src/main/keyManager');
 const {
   getDatabasePath,
   isDbOpen,
+  closeDatabase,
+  withTransaction,
   initializeDatabase,
   getDb,
   dbExec,
@@ -122,95 +125,107 @@ describe('importManager - Extended Tests', () => {
   });
 
   describe('replaceDatabase', () => {
+    const DB = '/fake/db/path.sqlite';
+    const PREVIOUS = `${DB}.pre-restore`;
+    // The database files on "disk": path -> which database they hold.
+    let files;
+
+    const backupZip = (sql, extraFiles = [], salt = '{"db-salt": "new-salt"}') => ({
+      file: jest.fn((name) => {
+        if (name instanceof RegExp) return extraFiles.filter((f) => name.test(f.name));
+        if (name === 'backup.sql') return { asText: () => sql };
+        if (name === 'salt.json') return { asNodeBuffer: () => Buffer.from(salt) };
+        return null;
+      }),
+    });
+
     beforeEach(() => {
-      getDatabasePath.mockReturnValue('/fake/db/path.sqlite');
+      files = new Map([
+        [DB, 'current'],
+        [`${DB}-wal`, 'current'],
+      ]);
+      getDatabasePath.mockReturnValue(DB);
       isDbOpen.mockReturnValue(true);
-      fsSync.existsSync.mockReturnValue(true);
+      fsSync.existsSync.mockImplementation((p) => files.has(p) || p === '/user/data/assets');
+      fs.rename.mockImplementation(async (from, to) => {
+        files.set(to, files.get(from));
+        files.delete(from);
+      });
+      fs.unlink.mockImplementation(async (p) => {
+        files.delete(p);
+      });
+      // Opening the database creates an empty one when the file is gone.
+      initializeDatabase.mockImplementation(async () => {
+        if (!files.has(DB)) files.set(DB, 'new');
+      });
+      fs.readFile.mockResolvedValue(Buffer.from('zip content'));
+      getDb.mockReturnValue({});
+      dbExec.mockResolvedValue();
+      runQuery.mockResolvedValue({ changes: 1 });
+      getQuery.mockImplementation((sql) =>
+        Promise.resolve(sql.includes('FROM roles WHERE name = ?') ? { id: 2 } : undefined),
+      );
+      allQuery.mockImplementation((sql) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve([
+            { name: 'students' },
+            { name: 'teachers' },
+            { name: 'migrations' },
+          ]);
+        }
+        if (sql.startsWith('PRAGMA table_info')) {
+          return Promise.resolve([{ name: 'id' }, { name: 'name' }]);
+        }
+        if (sql.includes('NOT EXISTS (SELECT 1 FROM user_roles')) {
+          return Promise.resolve([{ id: 4, username: 'old_admin' }]);
+        }
+        if (sql.includes('FROM students') && sql.includes('LENGTH(matricule)')) {
+          return Promise.resolve([{ id: 1, matricule: 'S-000012' }]);
+        }
+        return Promise.resolve([]);
+      });
       app.relaunch.mockClear();
       app.quit.mockClear();
-      // Explicitly reset fs.unlink before each test in this describe block
-      fs.unlink.mockResolvedValue();
     });
 
-    it('should fail if backup file is invalid', async () => {
-      const mockZip = { file: () => null }; // Missing files
-      fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-      PizZip.mockImplementation(() => mockZip);
+    describe('a file that cannot be restored changes nothing', () => {
+      it.each([
+        ['files are missing from the package', { file: () => null }, 'غير صالح أو تالف'],
+        [
+          'the salt is missing',
+          backupZip('SELECT 1;', [], '{}'),
+          'Backup configuration is missing the required salt.',
+        ],
+      ])('%s', async (_label, zip, message) => {
+        PizZip.mockImplementation(() => zip);
 
-      const result = await replaceDatabase('bad.zip', 'pw');
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Could not find required files');
-      expect(app.relaunch).not.toHaveBeenCalled();
+        const result = await replaceDatabase('bad.qdb', 'pw');
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain(message);
+        expect(closeDatabase).not.toHaveBeenCalled();
+        expect(fs.rename).not.toHaveBeenCalled();
+        expect(files.get(DB)).toBe('current');
+        expect(app.relaunch).not.toHaveBeenCalled();
+      });
     });
 
-    it('should fail if salt is missing from config', async () => {
-      const mockSqlFile = { asText: () => 'SELECT 1;' };
-      const mockConfigFile = { asNodeBuffer: () => Buffer.from('{}') }; // No db-salt
-      const mockZip = {
-        file: jest.fn((name) => (name === 'backup.sql' ? mockSqlFile : mockConfigFile)),
-      };
-      fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-      PizZip.mockImplementation(() => mockZip);
+    it('keeps the current database when it cannot be moved aside', async () => {
+      PizZip.mockImplementation(() => backupZip('REPLACE INTO "students" (id) VALUES (1);'));
+      fs.rename.mockImplementationOnce(() => Promise.reject(new Error('Permission denied')));
 
-      const result = await replaceDatabase('bad.zip', 'pw');
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('missing the required salt');
-    });
+      const result = await replaceDatabase('good.qdb', 'pw');
 
-    it('should fail gracefully if unlinking the old db fails', async () => {
-      const mockSqlFile = { asText: () => 'SELECT 1;' };
-      const mockConfigFile = { asNodeBuffer: () => Buffer.from('{"db-salt": "test-salt"}') };
-      const mockZip = {
-        file: jest.fn((name) => (name === 'backup.sql' ? mockSqlFile : mockConfigFile)),
-      };
-      fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-      PizZip.mockImplementation(() => mockZip);
-      // Use mockImplementationOnce to prevent mock leaking to other tests
-      fs.unlink.mockImplementationOnce(() => Promise.reject(new Error('Permission denied')));
-
-      const result = await replaceDatabase('good.zip', 'pw');
       expect(result.success).toBe(false);
       expect(result.message).toContain('Permission denied');
+      expect(files.get(DB)).toBe('current');
+      expect(dbExec).not.toHaveBeenCalled();
+      // Opened again, so the app keeps working.
+      expect(initializeDatabase).toHaveBeenCalledTimes(1);
     });
 
     describe('with a valid backup', () => {
-      const backupZip = (sql, extraFiles = []) => ({
-        file: jest.fn((name) => {
-          if (name instanceof RegExp) return extraFiles.filter((f) => name.test(f.name));
-          if (name === 'backup.sql') return { asText: () => sql };
-          if (name === 'salt.json')
-            return { asNodeBuffer: () => Buffer.from('{"db-salt": "new-salt"}') };
-          return null;
-        }),
-      });
-
-      beforeEach(() => {
-        fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-        getDb.mockReturnValue({});
-        initializeDatabase.mockResolvedValue();
-        dbExec.mockResolvedValue();
-        runQuery.mockResolvedValue({ changes: 1 });
-        getQuery.mockImplementation((sql) =>
-          Promise.resolve(sql.includes('FROM roles WHERE name = ?') ? { id: 2 } : undefined),
-        );
-        allQuery.mockImplementation((sql) => {
-          if (sql.includes('sqlite_master')) {
-            return Promise.resolve([{ name: 'students' }, { name: 'teachers' }]);
-          }
-          if (sql.startsWith('PRAGMA table_info')) {
-            return Promise.resolve([{ name: 'id' }, { name: 'name' }]);
-          }
-          if (sql.includes('NOT EXISTS (SELECT 1 FROM user_roles')) {
-            return Promise.resolve([{ id: 4, username: 'old_admin' }]);
-          }
-          if (sql.includes('FROM students') && sql.includes('LENGTH(matricule)')) {
-            return Promise.resolve([{ id: 1, matricule: 'S-000012' }]);
-          }
-          return Promise.resolve([]);
-        });
-      });
-
-      it('replaces the database, skipping data for tables that no longer exist', async () => {
+      it('replaces the database and keeps the previous one aside', async () => {
         PizZip.mockImplementation(() =>
           backupZip(`
             REPLACE INTO "students" (id, name) VALUES (1, 'Ali');
@@ -225,16 +240,19 @@ describe('importManager - Extended Tests', () => {
           success: true,
           message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
         });
+        expect(files.get(DB)).toBe('new');
+        expect(files.get(PREVIOUS)).toBe('current');
+        expect(files.get(`${PREVIOUS}-wal`)).toBe('current');
+        expect(files.has(`${DB}-wal`)).toBe(false);
         expect(setDbSalt).toHaveBeenCalledWith('new-salt');
-        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite');
-        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite-wal');
-        expect(fs.unlink).toHaveBeenCalledWith('/fake/db/path.sqlite-shm');
-        expect(initializeDatabase).toHaveBeenCalledWith('pw');
+        expect(initializeDatabase).toHaveBeenCalledWith();
 
-        // The data runs with foreign keys off, and they are always turned back on.
+        // The data runs with foreign keys off, in one transaction, and they are always turned
+        // back on.
         const execs = dbExec.mock.calls.map(([, sql]) => sql);
         expect(execs[0]).toBe('PRAGMA foreign_keys = OFF');
         expect(execs[execs.length - 1]).toBe('PRAGMA foreign_keys = ON');
+        expect(withTransaction).toHaveBeenCalledTimes(1);
         const data = execs[1];
         expect(data).toContain('REPLACE INTO "students"');
         expect(data).toContain('REPLACE INTO "teachers"');
@@ -243,6 +261,41 @@ describe('importManager - Extended Tests', () => {
         // The renderer relaunches the app and the user has to log in again.
         expect(Store.mockMethods.set).toHaveBeenCalledWith('force-relogin-after-restart', true);
         expect(app.relaunch).not.toHaveBeenCalled();
+      });
+
+      it('replaces the copy kept by an earlier restore', async () => {
+        files.set(PREVIOUS, 'older');
+        files.set(`${PREVIOUS}-shm`, 'older');
+        PizZip.mockImplementation(() => backupZip('REPLACE INTO "students" (id) VALUES (1);'));
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        expect(files.get(PREVIOUS)).toBe('current');
+        expect(files.has(`${PREVIOUS}-shm`)).toBe(false);
+      });
+
+      it('runs only rows: schema changes, ATTACH, triggers, PRAGMA and INSERT ... SELECT are skipped', async () => {
+        PizZip.mockImplementation(() =>
+          backupZip(`
+            -- Database Schema
+            CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY, name TEXT);
+            DROP TABLE teachers;
+            ATTACH DATABASE '/tmp/evil.bat' AS evil;
+            CREATE TRIGGER t AFTER INSERT ON students BEGIN DELETE FROM teachers; END;
+            PRAGMA writable_schema = 1;
+            INSERT INTO "teachers" (id, name) SELECT id, name FROM users;
+            REPLACE INTO "migrations" (name) VALUES ('999-skip-everything.sql');
+            -- Database Data
+            REPLACE INTO "students" (id, name) VALUES (1, 'Ali; DROP TABLE teachers');
+          `),
+        );
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        const data = dbExec.mock.calls[1][1];
+        expect(data).toBe(
+          '-- Database Data\n            REPLACE INTO "students" (id, name) VALUES (1, \'Ali; DROP TABLE teachers\')',
+        );
       });
 
       it('makes a safety copy of the current data in its backup folder before replacing it', async () => {
@@ -268,9 +321,9 @@ describe('importManager - Extended Tests', () => {
             currentSettings,
             expect.stringMatching(/^\/backups\/pre-import-backup-.+\.qdb$/),
           );
-          // Taken while the current database is still there.
+          // Taken while the current database is still in place.
           expect(runBackup.mock.invocationCallOrder[0]).toBeLessThan(
-            fs.unlink.mock.invocationCallOrder[0],
+            fs.rename.mock.invocationCallOrder[0],
           );
         } finally {
           validate.mockRestore();
@@ -289,17 +342,42 @@ describe('importManager - Extended Tests', () => {
         expect(data).toBe('REPLACE INTO "students" ("id", "name") VALUES (1, \'Ali\')');
       });
 
-      it('turns foreign keys back on when the data fails to load', async () => {
-        PizZip.mockImplementation(() => backupZip('REPLACE INTO "students" (id) VALUES (1);'));
+      it('puts the previous database back when the data fails to load', async () => {
+        const assetFile = {
+          name: 'assets/logo.png',
+          dir: false,
+          asNodeBuffer: () => Buffer.from('x'),
+        };
+        PizZip.mockImplementation(() =>
+          backupZip('REPLACE INTO "students" (id) VALUES (1);', [assetFile]),
+        );
+        app.getPath = jest.fn(() => '/user/data');
         dbExec.mockImplementation((_db, sql) =>
           sql.startsWith('PRAGMA') ? Promise.resolve() : Promise.reject(new Error('bad data')),
         );
 
-        const result = await replaceDatabase('good.qdb', 'pw');
+        try {
+          const result = await replaceDatabase('good.qdb', 'pw');
 
-        expect(result.success).toBe(false);
-        expect(result.message).toContain('bad data');
-        expect(dbExec).toHaveBeenLastCalledWith({}, 'PRAGMA foreign_keys = ON');
+          expect(result.success).toBe(false);
+          expect(result.message).toContain('bad data');
+          expect(result.message).toContain('بقيت البيانات السابقة كما هي');
+          expect(dbExec).toHaveBeenLastCalledWith({}, 'PRAGMA foreign_keys = ON');
+          // The half-imported database is gone and the previous one is open again.
+          expect(files.get(DB)).toBe('current');
+          expect(files.get(`${DB}-wal`)).toBe('current');
+          expect(files.has(PREVIOUS)).toBe(false);
+          expect(initializeDatabase).toHaveBeenCalledTimes(2);
+          // Nothing of the backup was applied.
+          expect(setDbSalt).not.toHaveBeenCalled();
+          expect(fsSync.writeFileSync).not.toHaveBeenCalled();
+          expect(Store.mockMethods.set).not.toHaveBeenCalledWith(
+            'force-relogin-after-restart',
+            true,
+          );
+        } finally {
+          delete app.getPath;
+        }
       });
 
       it('gives users of old backups without a role the Administrator role', async () => {

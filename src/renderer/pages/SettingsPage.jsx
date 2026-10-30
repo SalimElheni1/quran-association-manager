@@ -18,6 +18,7 @@ import {
 import { toast } from 'react-toastify';
 import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 import TransferKeyCard from '@renderer/components/settings/TransferKeyCard';
 
@@ -36,6 +37,8 @@ const SettingsPage = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // A restore waiting for the user to accept an unsigned backup from before version 1.3.0.
+  const [unsignedRestore, setUnsignedRestore] = useState(null);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
   useEffect(() => {
@@ -147,25 +150,12 @@ const SettingsPage = () => {
     }
   };
 
-  const handlePasswordConfirm = async (password, backupKey) => {
-    const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
-    setShowPasswordModal(false);
-
-    if (!password) {
-      toast.warn('تم إلغاء عملية الاستيراد.');
-      return;
-    }
-
+  const restoreDatabase = async (request) => {
     setIsImporting(true);
     toast.info('بدء استبدال قاعدة البيانات...');
 
     try {
-      const result = await window.electronAPI.importDatabase({
-        password,
-        userId: user.id,
-        filePath: downloadedFilePath,
-        backupPassword: backupKey || undefined,
-      });
+      const result = await window.electronAPI.importDatabase(request);
 
       if (result.success) {
         toast.success(
@@ -175,6 +165,8 @@ const SettingsPage = () => {
             onClose: () => window.electronAPI.relaunchApp(),
           },
         );
+      } else if (result.needsUnsignedConfirmation) {
+        setUnsignedRestore({ request, message: result.message });
       } else {
         toast.error(`فشل الاستبدال: ${result.message}`);
       }
@@ -183,6 +175,33 @@ const SettingsPage = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handlePasswordConfirm = async (password, backupKey) => {
+    const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
+    setShowPasswordModal(false);
+
+    if (!password) {
+      toast.warn('تم إلغاء عملية الاستيراد.');
+      return;
+    }
+
+    await restoreDatabase({
+      password,
+      filePath: downloadedFilePath,
+      backupPassword: backupKey || undefined,
+    });
+  };
+
+  const handleUnsignedRestoreConfirm = async () => {
+    const { request } = unsignedRestore;
+    setUnsignedRestore(null);
+    await restoreDatabase({ ...request, allowUnsigned: true });
+  };
+
+  const handleUnsignedRestoreCancel = () => {
+    setUnsignedRestore(null);
+    toast.warn('تم إلغاء عملية الاستيراد.');
   };
 
   const handleImportDb = async () => {
@@ -661,6 +680,16 @@ const SettingsPage = () => {
         body="أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع."
         showBackupKeyField
         backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)"
+      />
+
+      <ConfirmationModal
+        show={!!unsignedRestore}
+        handleClose={handleUnsignedRestoreCancel}
+        handleConfirm={handleUnsignedRestoreConfirm}
+        title="نسخة احتياطية قديمة غير موقّعة"
+        body={unsignedRestore?.message}
+        confirmVariant="danger"
+        confirmText="استرجاعها رغم ذلك"
       />
     </Container>
   );
