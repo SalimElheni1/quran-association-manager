@@ -6,25 +6,19 @@ in the installed app, see [docs/user/troubleshooting.md](../user/troubleshooting
 
 ## Install and Native Module
 
-The only native dependency is `better-sqlite3-multiple-ciphers`. `npm install` runs
-`electron-builder install-app-deps` (postinstall), which builds it for **Electron's** Node
-version, not your system Node.
+The only native dependency is `better-sqlite3-multiple-ciphers`. Since version 13 it ships N-API
+binaries for every platform inside the package (`prebuilds/<platform>.node`) and always loads
+those, so the same file works under Electron and under plain Node, and nothing is compiled: no
+build tools are needed, and neither `npm install` nor packaging rebuilds it (`npmRebuild: false`
+in `electron-builder.yml`).
 
-**"was compiled against a different Node.js version … NODE_MODULE_VERSION"**
+**"Failed to load the SQLite native module" / `ERR_DLOPEN_FAILED`**: the package is incomplete
+(for example `node_modules` copied from another platform). Reinstall: `npm ci`.
 
-- *In the app (`npm run dev`)*: the module was built for plain Node. Rebuild it for Electron:
-  `npx electron-builder install-app-deps`.
-- *In a script run with `node`* that opens the database: expected after a normal install. Scripts
-  that need the app's database should run inside Electron, as `npm run seed:manual` does
-  (`electron scripts/<script>.js`); for a quick check, Electron's Node also works:
-  `ELECTRON_RUN_AS_NODE=1 npx electron scripts/<script>.js` (PowerShell:
-  `$env:ELECTRON_RUN_AS_NODE=1; npx electron scripts/<script>.js`).
+- Scripts that need the app's database should run inside Electron, as `npm run seed:manual` does
+  (`electron scripts/<script>.js`), so they see the app's data folder and key store.
 - Jest does not need the module: the database is mocked in unit tests, which is why CI installs
   with `npm ci --ignore-scripts`.
-
-**Build tools**: if no prebuilt binary matches, the module is compiled. On Windows install Visual
-Studio Build Tools with "Desktop development with C++"; on Linux `build-essential` and
-`python3`.
 
 ## Running in Development
 

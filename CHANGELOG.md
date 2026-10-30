@@ -47,6 +47,8 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 ### Changed
 
 - CI runs lint, the unit tests and the database tests on every push.
+- The SQLite module is no longer rebuilt after `npm install` or when packaging: version 13 ships
+  binaries for every platform (no build tools needed).
 
 ## [1.4.0] - 2026-10-27
 

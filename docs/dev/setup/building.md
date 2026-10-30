@@ -10,8 +10,8 @@ How to build the Windows installer, locally or with GitHub Actions, and publish 
 
 ## Building Locally
 
-1. **Install dependencies.** `postinstall` rebuilds the native SQLite module
-   (`better-sqlite3-multiple-ciphers`) for Electron:
+1. **Install dependencies.** The native SQLite module (`better-sqlite3-multiple-ciphers`) ships
+   N-API binaries for every platform, so nothing is compiled:
 
    ```bash
    npm install

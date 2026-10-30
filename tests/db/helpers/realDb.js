@@ -160,7 +160,7 @@ function useRealDb(options = {}) {
   beforeAll(async () => {
     if (!process.versions.electron) {
       throw new Error(
-        'db-integration tests need Electron’s Node (the SQLite module is built for it). ' +
+        'db-integration tests run under Electron’s Node, like the app. ' +
           'Run them with `npm run test:db`.',
       );
     }

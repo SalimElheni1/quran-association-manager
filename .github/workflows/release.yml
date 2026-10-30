@@ -62,7 +62,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # postinstall rebuilds the native SQLite module for Electron on Windows.
+      # The SQLite module ships N-API binaries for every platform; nothing is rebuilt.
       - run: npm ci
       # electron-builder.yml points at release/.icon-ico/icon.ico, which git ignores. Generate it
       # from build/icon.png with electron-builder's own converter (a 256x256 ICO, the minimum

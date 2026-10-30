@@ -433,13 +433,13 @@ async function initializeDatabase() {
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null;
-    // A native module built for another platform or Electron version fails to load
-    // before the database is even touched; don't report that as a bad password.
+    // A missing or broken native module fails to load before the database is even touched;
+    // don't report that as a bad password.
     if (error && error.code === 'ERR_DLOPEN_FAILED') {
       logError('[DB_LOG] Failed to load the SQLite native module.', error);
       const nativeError = new Error(
-        'The SQLite native module could not be loaded (built for another platform or ' +
-          'Electron version). Run `npx electron-builder install-app-deps` to rebuild it.',
+        'The SQLite native module could not be loaded (its package is incomplete). ' +
+          'Reinstall the dependencies with `npm ci`.',
       );
       nativeError.code = 'ERR_DLOPEN_FAILED';
       throw nativeError;

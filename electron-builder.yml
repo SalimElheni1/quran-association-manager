@@ -24,6 +24,9 @@ directories:
   buildResources: build
 # Sets the Electron fuses of the packaged executable (no Node mode, no --inspect).
 afterPack: build/afterPack.js
+# better-sqlite3-multiple-ciphers ships N-API binaries for every platform in its package and always
+# loads those: nothing native is rebuilt (a rebuild would compile one nothing loads).
+npmRebuild: false
 asar:
   smartUnpack: true
 asarUnpack:

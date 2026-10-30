@@ -25,7 +25,7 @@ Prerequisites: Node.js 22+, npm 10+, Git. On Windows, the native SQLite module n
 ```bash
 git clone https://github.com/SalimElheni1/quran-association-manager.git
 cd quran-association-manager
-npm install              # postinstall rebuilds the native SQLite module for Electron
+npm install              # also downloads Electron
 cp .env.example .env     # then fill it in
 ```
 
