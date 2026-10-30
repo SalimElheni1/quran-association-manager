@@ -81,3 +81,30 @@ describe('classes:updateEnrollments', () => {
     }
   });
 });
+
+describe('ageGroups:delete', () => {
+  test('is refused while a class uses the age group, and allowed once none does', async () => {
+    const ageGroupId = await addAgeGroup(ctx);
+    const classId = await addClass(ctx, {
+      age_group_id: ageGroupId,
+      teacher_id: await addTeacher(ctx),
+    });
+
+    const refused = await ctx.invoke('ageGroups:delete', ageGroupId);
+
+    expect(refused.success).toBe(false);
+    expect(refused.message).toContain('1 من الفصول تستعملها');
+    expect(ctx.get('SELECT is_active FROM age_groups WHERE id = ?', [ageGroupId]).is_active).toBe(
+      1,
+    );
+
+    // A deleted class no longer counts.
+    await ctx.invoke('classes:delete', classId);
+    const allowed = await ctx.invoke('ageGroups:delete', ageGroupId);
+
+    expect(allowed.success).toBe(true);
+    expect(ctx.get('SELECT is_active FROM age_groups WHERE id = ?', [ageGroupId]).is_active).toBe(
+      0,
+    );
+  });
+});

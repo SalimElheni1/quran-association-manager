@@ -48,6 +48,8 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
   list is also paged by the database now, and the total under an age filter is exact.
 - Saving a class's enrolments removed every inactive student from the class (they are not listed
   in the dialog). Only the students the dialog shows are added or removed now.
+- An age group used by a class can no longer be deactivated: the class's enrolment dialog then
+  stopped filtering students by age and gender without saying so.
 - The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
 - Scheduled backups and fee charges failed while the login screen showed: logging out closed the
   database. It now stays open. The automatic backup is also checked a minute after the app
