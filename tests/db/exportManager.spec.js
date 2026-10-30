@@ -32,8 +32,8 @@ const SCREENS = {
   attendance: ['pages/AttendancePage.jsx', ['attendanceFields']],
   inventory: ['components/financial/InventoryTab.jsx', ['inventoryFields']],
   'student-fees': ['components/financial/StudentFeesTab.jsx', ['studentPaymentFields']],
-  expenses: ['pages/ExpensesPage.jsx', ['expenseFields']],
-  income: ['pages/IncomePage.jsx', ['incomeFields']],
+  expenses: ['components/financial/TransactionsPage.jsx', ['EXPORT_FIELDS']],
+  income: ['components/financial/TransactionsPage.jsx', ['EXPORT_FIELDS']],
 };
 
 function screenKeys(type) {
