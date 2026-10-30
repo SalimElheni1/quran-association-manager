@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
 
   /**
-   * Logs out the current user and closes database connections.
+   * Logs out the current user (ends the main-process session; the database stays open).
    * This is a one-way message (send, not invoke).
    */
   logout: () => ipcRenderer.send('logout'),

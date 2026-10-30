@@ -447,13 +447,14 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Handle user logout: revoke the sender's session and close the database connection
-ipcMain.on('logout', async (event) => {
+// Handle user logout: revoke the sender's session. The database stays open: the scheduled
+// backups and fee charges keep running while the login screen shows (the key never depended on
+// a user's password).
+ipcMain.on('logout', (event) => {
   if (event && event.sender && typeof event.sender.id === 'number') {
     sessionManager.revokeSession(event.sender.id);
   }
-  log('User logging out, closing database connection.');
-  await db.closeDatabase();
+  log('User logged out.');
 });
 
 // Gracefully close the database and stop schedulers when the app is about to quit

@@ -98,7 +98,7 @@ export function AuthProvider({ children }) {
    * Logs out the current user and cleans up authentication state.
    * Performs a complete logout including:
    * - Resetting authentication state
-   * - Notifying main process to close database connections
+   * - Notifying the main process, which ends the session (the database stays open)
    *
    * @returns {void}
    */
@@ -107,7 +107,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     // 2. Reset the password change requirement
     setPasswordChangeRequired(false);
-    // 3. Notify the main process to close the database connection
+    // 3. Notify the main process, which ends this window's session
     window.electronAPI.logout();
   };
 

@@ -290,6 +290,11 @@ const runBackup = async (settings, backupFilePath, userPassword) => {
 };
 
 let schedulerIntervalId = null;
+let firstCheckTimeoutId = null;
+// The first check runs a minute after start (not during start-up), then every hour: an app that
+// is open for less than an hour a day still makes its scheduled backups.
+const FIRST_CHECK_DELAY_MS = 60 * 1000;
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Checks if a backup is due based on frequency and last backup time.
@@ -385,32 +390,42 @@ const startScheduler = (settings) => {
 
   log(`Backup scheduler started. Frequency: ${settings.backup_frequency}.`);
 
-  schedulerIntervalId = setInterval(
-    async () => {
-      if (settings.backup_enabled && isBackupDue(settings)) {
-        log('Scheduled backup is due. Running now...');
-        if (settings.backup_path) {
-          const validation = validateBackupPath(settings.backup_path);
-          if (!validation.valid) {
-            logError(`Scheduled backup skipped: ${validation.message}`);
-            return;
-          }
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const backupFilePath = path.join(validation.path, `auto-backup-${timestamp}.qdb`);
-          await runBackup(settings, backupFilePath);
-        } else {
-          logError('Scheduled backup failed: No backup path configured.');
-        }
-      }
-    },
-    1000 * 60 * 60,
-  );
+  firstCheckTimeoutId = setTimeout(() => {
+    firstCheckTimeoutId = null;
+    runScheduledBackupIfDue(settings);
+  }, FIRST_CHECK_DELAY_MS);
+  schedulerIntervalId = setInterval(() => runScheduledBackupIfDue(settings), CHECK_INTERVAL_MS);
 };
+
+/**
+ * Makes the scheduled backup when it is due.
+ * @param {Object} settings - The settings the scheduler was started with.
+ */
+async function runScheduledBackupIfDue(settings) {
+  if (!settings.backup_enabled || !isBackupDue(settings)) return;
+  log('Scheduled backup is due. Running now...');
+  if (!settings.backup_path) {
+    logError('Scheduled backup failed: No backup path configured.');
+    return;
+  }
+  const validation = validateBackupPath(settings.backup_path);
+  if (!validation.valid) {
+    logError(`Scheduled backup skipped: ${validation.message}`);
+    return;
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupFilePath = path.join(validation.path, `auto-backup-${timestamp}.qdb`);
+  await runBackup(settings, backupFilePath);
+}
 
 /**
  * Stops the backup scheduler.
  */
 const stopScheduler = () => {
+  if (firstCheckTimeoutId) {
+    clearTimeout(firstCheckTimeoutId);
+    firstCheckTimeoutId = null;
+  }
   if (schedulerIntervalId) {
     clearInterval(schedulerIntervalId);
     schedulerIntervalId = null;

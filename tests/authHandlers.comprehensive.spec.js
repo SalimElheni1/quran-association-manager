@@ -212,23 +212,13 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toBe('Database error');
     });
 
-    it('should close database on non-password errors', async () => {
+    it('keeps the database open when a login fails with an error', async () => {
       db.isDbOpen.mockReturnValue(true);
       db.getQuery.mockRejectedValue(new Error('Connection failed'));
-      db.closeDatabase.mockResolvedValue(undefined);
 
-      await handlers['auth:login'](null, { username: 'user', password: 'pass' });
+      const result = await handlers['auth:login'](null, { username: 'user', password: 'pass' });
 
-      expect(db.closeDatabase).toHaveBeenCalled();
-    });
-
-    it('should not close database on password errors', async () => {
-      db.isDbOpen.mockReturnValue(true);
-      db.getQuery.mockRejectedValue(new Error('Incorrect password or corrupt database.'));
-      db.closeDatabase.mockResolvedValue(undefined);
-
-      await handlers['auth:login'](null, { username: 'user', password: 'pass' });
-
+      expect(result.success).toBe(false);
       expect(db.closeDatabase).not.toHaveBeenCalled();
     });
   });

@@ -173,13 +173,13 @@ describe('Main Process (index.js)', () => {
       expect(installGuardOrder).toBeLessThan(firstListenerOrder);
     });
 
-    it('revokes the sender session and closes the database on logout', async () => {
+    it('revokes the sender session on logout and keeps the database open for the schedulers', async () => {
       sessionManager.createSession({ id: 5 }, { id: 3, username: 'admin', roles: [] }, null);
 
       await logoutListener[1]({ sender: { id: 5 } });
 
       expect(sessionManager.getSession(5)).toBeNull();
-      expect(db.closeDatabase).toHaveBeenCalled();
+      expect(db.closeDatabase).not.toHaveBeenCalled();
     });
 
     it('stops the schedulers, revokes every session and closes the database on quit', async () => {

@@ -209,8 +209,18 @@ describe('backupManager', () => {
   });
 
   describe('startScheduler', () => {
-    it('should check every hour when backup is enabled', () => {
+    it('checks a minute after start, then every hour, when backup is enabled', async () => {
+      const { error: logError } = require('../src/main/logger');
+      mockStore.get.mockReturnValue(null); // never backed up: due
       backupManager.startScheduler({ backup_enabled: true, backup_frequency: 'daily' });
+      // The first check and the hourly one.
+      expect(jest.getTimerCount()).toBe(2);
+
+      await jest.advanceTimersByTimeAsync(59 * 1000);
+      expect(logError).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1000);
+      // Due and no folder: reported a minute after start, not an hour later.
+      expect(logError).toHaveBeenCalledWith('Scheduled backup failed: No backup path configured.');
       expect(jest.getTimerCount()).toBe(1);
     });
 
@@ -243,7 +253,7 @@ describe('backupManager', () => {
         backup_frequency: 'daily',
         backup_path: path.resolve('/backups/branch'),
       });
-      expect(jest.getTimerCount()).toBe(1);
+      expect(jest.getTimerCount()).toBe(2);
 
       fsSync.statSync.mockImplementation(() => {
         throw new Error('ENOENT');
@@ -269,10 +279,10 @@ describe('backupManager', () => {
   });
 
   describe('stopScheduler', () => {
-    it('should stop the active scheduler, keeping a single timer across restarts', () => {
+    it('should stop the active scheduler, keeping a single schedule across restarts', () => {
       backupManager.startScheduler({ backup_enabled: true });
       backupManager.startScheduler({ backup_enabled: true });
-      expect(jest.getTimerCount()).toBe(1);
+      expect(jest.getTimerCount()).toBe(2);
 
       backupManager.stopScheduler();
       expect(jest.getTimerCount()).toBe(0);

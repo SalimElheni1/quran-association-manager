@@ -377,10 +377,7 @@ function registerAuthHandlers() {
         },
       };
     } catch (error) {
-      logError('Error in auth:login handler:', error.message);
-      if (error.message !== 'Incorrect password or corrupt database.') {
-        await db.closeDatabase();
-      }
+      logError('Error in auth:login handler:', error);
       return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
     }
   });

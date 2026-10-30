@@ -41,6 +41,9 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 ### Fixed
 
 - The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
+- Scheduled backups and fee charges failed while the login screen showed: logging out closed the
+  database. It now stays open. The automatic backup is also checked a minute after the app
+  starts, so a computer used less than an hour a day still gets its backups.
 - A failed restore no longer loses the data: the previous database is kept aside and put back.
 - Exports now include the expense/income category, the class age group, the fee payment's
   sponsor, the student's enrolment date and memorised surahs/hizbs, which were silently left out.
