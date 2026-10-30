@@ -21,7 +21,10 @@ const { requireRoles } = require('../authMiddleware');
 const { translateStudent } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
 const { deletedFilter, notDeleted, softDeleteRow, restoreRow } = require('../softDelete');
-const { getUserIdForEvent } = require('../sessionManager');
+const sessionManager = require('../sessionManager');
+const { CHANNEL_ROLES } = require('../ipcSecurity');
+
+const { getUserIdForEvent } = sessionManager;
 
 /**
  * Minimum age (in years) enforced for registered students.
@@ -98,6 +101,50 @@ const studentFields = [
  *
  * @returns {void}
  */
+// What a role that only reads students (FinanceManager, SessionSupervisor) gets from
+// students:getById: the fields the student details view shows. Health conditions, emergency
+// contacts, sponsors and family links are for the roles that edit students.
+const READ_ONLY_STUDENT_FIELDS = [
+  'id',
+  'matricule',
+  'name',
+  'date_of_birth',
+  'gender',
+  'national_id',
+  'address',
+  'contact_info',
+  'email',
+  'parent_name',
+  'parent_contact',
+  'guardian_relation',
+  'guardian_email',
+  'educational_level',
+  'occupation',
+  'school_name',
+  'grade_level',
+  'status',
+  'enrollment_date',
+  'notes',
+  'financial_assistance_notes',
+  'deleted_at',
+];
+
+function pickReadOnlyFields(student) {
+  return Object.fromEntries(
+    READ_ONLY_STUDENT_FIELDS.filter((field) => field in student).map((field) => [
+      field,
+      student[field],
+    ]),
+  );
+}
+
+/** Whether the user behind this call may edit students (the roles of students:update). */
+function canEditStudents(event) {
+  const session = sessionManager.getSession(event && event.sender ? event.sender.id : null);
+  const editors = CHANNEL_ROLES['students:update'];
+  return !!session && session.roles.some((role) => editors.includes(role));
+}
+
 function registerStudentHandlers() {
   /**
    * Retrieves students from the database with optional filtering.
@@ -300,10 +347,11 @@ function registerStudentHandlers() {
    * @returns {Promise<Object|null>} Complete student object or null if not found
    * @throws {Error} If database query fails
    */
-  ipcMain.handle('students:getById', async (_event, id) => {
+  ipcMain.handle('students:getById', async (event, id) => {
     try {
-      const student = await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
-      if (!student) return null;
+      const row = await db.getQuery('SELECT * FROM students WHERE id = ?', [id]);
+      if (!row) return null;
+      const student = canEditStudents(event) ? row : pickReadOnlyFields(row);
 
       const classes = await db.allQuery(
         `SELECT c.id, c.name FROM classes c

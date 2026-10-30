@@ -71,6 +71,10 @@ Roles (a user can hold several):
 | FinanceManager | Finances, student fees, inventory and financial reports; attendance; read access to students, teachers and classes |
 | SessionSupervisor | Attendance; read access to students, teachers, classes and groups |
 
+`students:getById` gives roles that only read students (FinanceManager, SessionSupervisor) the
+fields the student details view shows; health conditions, emergency contacts, sponsors and family
+links go only to the roles that edit students.
+
 The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 (`utils/permissions.js`) only to hide what a user cannot use; hiding is not the protection.
 
