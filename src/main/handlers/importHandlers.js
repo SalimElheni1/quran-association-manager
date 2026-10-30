@@ -1,7 +1,7 @@
 const { ipcMain, dialog, BrowserWindow } = require('electron');
 const { importExcelData, refusedImportSheets } = require('../importManager');
 const sessionManager = require('../sessionManager');
-const { getAllSheets, getSheetInfo } = require('../importConstants');
+const { getAllSheets, getSheetInfo, sheetForImportType } = require('../importConstants');
 const { generateExcelTemplate } = require('../exportManager');
 const { error: logError } = require('../logger');
 
@@ -17,24 +17,7 @@ function registerImportHandlers() {
       if (!Array.isArray(selectedSheets) || selectedSheets.length === 0) {
         return { success: false, message: 'لم يتم تحديد أي ورقة للاستيراد.' };
       }
-      // Map UI sheet names to canonical sheet names if needed
-      const sheetNameMap = {
-        المداخيل: 'العمليات المالية',
-        المصاريف: 'العمليات المالية',
-        'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        الجرد: 'المخزون',
-        // Canonical names are already correct
-        الطلاب: 'الطلاب',
-        المعلمون: 'المعلمون',
-        المستخدمون: 'المستخدمون',
-        الفصول: 'الفصول',
-        'العمليات المالية': 'العمليات المالية',
-        الحضور: 'الحضور',
-        المجموعات: 'المجموعات',
-        المخزون: 'المخزون',
-      };
-
-      const canonicalSheets = selectedSheets.map((sheet) => sheetNameMap[sheet] || sheet);
+      const canonicalSheets = selectedSheets.map(sheetForImportType);
 
       // Each sheet needs the roles of the channel that writes its records (users:add for the
       // users sheet, and so on); the import:excel channel alone is not enough.
@@ -105,28 +88,11 @@ function registerImportHandlers() {
    */
   ipcMain.handle('generate-import-template', async (_event, options = {}) => {
     try {
-      // Map UI import type names to their corresponding sheet names for template generation
-      const importTypeToSheetMap = {
-        المداخيل: 'العمليات المالية',
-        المصاريف: 'العمليات المالية',
-        'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        الجرد: 'المخزون',
-        // Direct matches for other types
-        الطلاب: 'الطلاب',
-        المعلمون: 'المعلمون',
-        المستخدمون: 'المستخدمون',
-        الفصول: 'الفصول',
-        'العمليات المالية': 'العمليات المالية',
-        الحضور: 'الحضور',
-        المجموعات: 'المجموعات',
-        المخزون: 'المخزون',
-      };
-
       const mappedOptions = { ...options };
-      if (options.sheetName && importTypeToSheetMap[options.sheetName]) {
+      if (options.sheetName) {
         // Store original import type for filtering dummy data
         mappedOptions.importType = options.sheetName;
-        mappedOptions.sheetName = importTypeToSheetMap[options.sheetName];
+        mappedOptions.sheetName = sheetForImportType(options.sheetName);
       }
 
       // Generate filename based on original import type for better differentiation
