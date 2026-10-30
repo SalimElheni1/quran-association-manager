@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3-multiple-ciphers');
 const path = require('path');
 const fs = require('fs');
+const { AsyncLocalStorage } = require('async_hooks');
 const { app } = require('electron'); // <-- Import `app` from Electron
 const schema = require('./schema');
 const {
@@ -481,50 +482,57 @@ function getDb() {
   return db;
 }
 
-function dbRun(database, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = database.prepare(sql);
-      const info = stmt.run(...params);
-      resolve({ id: info.lastInsertRowid, changes: info.changes });
-    } catch (err) {
-      reject(err);
-    }
-  });
+// One connection serves every IPC call, so a transaction belongs to the call chain that opened
+// it (tracked with AsyncLocalStorage, which follows awaits, timers and callbacks). While it is
+// open, the queries and transactions of other call chains wait for it to end: they never read
+// its uncommitted rows, never get rolled back with it, and never commit it half-way.
+const transactionScope = new AsyncLocalStorage();
+// Settles when the transaction now running (if any) ends.
+let openTransaction = null;
+// Settles when the last transaction queued so far has ended.
+let transactionQueue = Promise.resolve();
+
+// The store is { open } and is closed when the transaction ends: work started inside it that
+// finishes later is not "inside" any more.
+const inOwnTransaction = () => transactionScope.getStore()?.open === true;
+
+/** Runs `query` now, or once another call chain's open transaction has ended. */
+function whenNoOtherTransaction(query) {
+  if (!openTransaction || inOwnTransaction()) {
+    return new Promise((resolve, reject) => {
+      try {
+        resolve(query());
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+  return transactionQueue.then(() => whenNoOtherTransaction(query));
 }
 
 function runQuery(sql, params = []) {
-  // Use module-level db implicitly if not passed, but matching original structure:
-  // Original runQuery called dbRun(getDb(), ...)
-  try {
-    return dbRun(getDb(), sql, params);
-  } catch (err) {
-    return Promise.reject(err);
-  }
+  return whenNoOtherTransaction(() => {
+    const info = getDb()
+      .prepare(sql)
+      .run(...params);
+    return { id: info.lastInsertRowid, changes: info.changes };
+  });
 }
 
 function getQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = getDb().prepare(sql);
-      const row = stmt.get(...params);
-      resolve(row);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  return whenNoOtherTransaction(() =>
+    getDb()
+      .prepare(sql)
+      .get(...params),
+  );
 }
 
 function allQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = getDb().prepare(sql);
-      const rows = stmt.all(...params);
-      resolve(rows);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  return whenNoOtherTransaction(() =>
+    getDb()
+      .prepare(sql)
+      .all(...params),
+  );
 }
 
 function dbExec(database, sql) {
@@ -557,32 +565,43 @@ function isDbOpen() {
 }
 
 /**
- * Executes an async callback within a transaction.
- * Handles nested calls by only starting/committing at the top level.
- * Uses manual BEGIN/COMMIT since better-sqlite3 transaction() doesn't support async.
+ * Executes an async callback within a transaction (manual BEGIN/COMMIT: better-sqlite3's
+ * transaction() is synchronous). A call from inside a transaction of the same call chain joins
+ * it; a call from another chain waits until no other transaction is open.
  * @param {Function} callback - Async function containing DB operations
  * @returns {Promise<any>}
  */
 async function withTransaction(callback) {
   if (!db || !db.open) throw new Error('Database not initialized');
+  // Called from inside a transaction of the same call chain: part of it.
+  if (inOwnTransaction()) return callback();
 
-  const isTopLevel = !db.inTransaction;
+  // One transaction at a time: wait for the ones queued before this one.
+  const previous = transactionQueue;
+  let finished;
+  transactionQueue = new Promise((resolve) => {
+    finished = resolve;
+  });
+  await previous;
 
-  if (isTopLevel) {
-    db.prepare('BEGIN').run();
-  }
-
+  openTransaction = transactionQueue;
+  const scope = { open: true };
   try {
-    const result = await callback();
-    if (isTopLevel) {
-      db.prepare('COMMIT').run();
-    }
-    return result;
-  } catch (err) {
-    if (isTopLevel && db.inTransaction) {
-      db.prepare('ROLLBACK').run();
-    }
-    throw err;
+    return await transactionScope.run(scope, async () => {
+      db.prepare('BEGIN').run();
+      try {
+        const result = await callback();
+        db.prepare('COMMIT').run();
+        return result;
+      } catch (err) {
+        if (db.inTransaction) db.prepare('ROLLBACK').run();
+        throw err;
+      }
+    });
+  } finally {
+    scope.open = false;
+    openTransaction = null;
+    finished();
   }
 }
 

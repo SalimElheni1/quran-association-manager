@@ -757,9 +757,9 @@ describe('importManager - Extended Tests', () => {
         expect.stringContaining('INSERT INTO user_roles'),
         [100, 1],
       );
-      // Check for transaction commits
-      expect(runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-      expect(runQuery).toHaveBeenCalledWith('COMMIT');
+      // The user and their role are written in one transaction.
+      expect(withTransaction).toHaveBeenCalledTimes(1);
+      expect(runQuery).not.toHaveBeenCalledWith('BEGIN TRANSACTION');
     });
 
     it('should return error if required fields are missing', async () => {
@@ -1031,7 +1031,8 @@ describe('importManager - Extended Tests', () => {
       const result = await processTransactionRow(mockRow, mockHeaderRow);
 
       expect(result.success).toBe(true);
-      expect(runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION;');
+      // The transaction and the account balance are written in one transaction.
+      expect(withTransaction).toHaveBeenCalledTimes(1);
       // Check main insertion
       expect(runQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO transactions'),
@@ -1039,7 +1040,6 @@ describe('importManager - Extended Tests', () => {
       );
       // Check account balance update
       expect(runQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE accounts'), [100]);
-      expect(runQuery).toHaveBeenCalledWith('COMMIT;');
     });
 
     it('should fail if amount is > 500 and payment method is cash', async () => {

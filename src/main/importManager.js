@@ -1371,9 +1371,7 @@ async function processUserRow(row, headerRow) {
         return { success: false, message: LAST_SUPERADMIN_MESSAGE };
       }
 
-      await runQuery('BEGIN TRANSACTION');
-
-      try {
+      return await withTransaction(async () => {
         // Update basic user data
         const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
         if (fields.length > 0) {
@@ -1394,12 +1392,8 @@ async function processUserRow(row, headerRow) {
           ]);
         }
 
-        await runQuery('COMMIT');
         return { success: true };
-      } catch (error) {
-        await runQuery('ROLLBACK');
-        throw error;
-      }
+      });
     }
 
     // Insert new record
@@ -1411,9 +1405,7 @@ async function processUserRow(row, headerRow) {
     const password = generateImportPassword();
     const newMatricule = await generateMatricule('user');
 
-    await runQuery('BEGIN TRANSACTION');
-
-    try {
+    return await withTransaction(async () => {
       // Insert main user record
       const allFields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
       const userFields = [...allFields, 'matricule', 'password'];
@@ -1439,12 +1431,8 @@ async function processUserRow(row, headerRow) {
         roleRecord.id,
       ]);
 
-      await runQuery('COMMIT');
       return { success: true, newUser: { username: data.username, password } };
-    } catch (error) {
-      await runQuery('ROLLBACK');
-      throw error;
-    }
+    });
   } catch (error) {
     logError('Error processing user row:', error);
     return { success: false, message: `حدث خطأ غير متوقع: ${error.message}` };
@@ -1675,8 +1663,7 @@ async function processTransactionRow(row, headerRow) {
     data.voucher_number = await generateVoucherNumber();
   }
 
-  await runQuery('BEGIN TRANSACTION;');
-  try {
+  return withTransaction(async () => {
     const sql = `INSERT INTO transactions (
       matricule, type, category, receipt_type, amount, transaction_date, description,
       payment_method, check_number, voucher_number, account_id, related_person_name,
@@ -1703,12 +1690,8 @@ async function processTransactionRow(row, headerRow) {
       adjustment,
     ]);
 
-    await runQuery('COMMIT;');
     return { success: true };
-  } catch (error) {
-    await runQuery('ROLLBACK;');
-    throw error;
-  }
+  });
 }
 
 async function processAttendanceRow(row, headerRow) {
