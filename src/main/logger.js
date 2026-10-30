@@ -15,6 +15,14 @@ const SENSITIVE_FIELD_PATTERN = /pass(word)?|token|secret|transfer_key|national_
  * @param {WeakSet} [seen] - Circular-reference guard
  * @returns {*}
  */
+// An Error (also one from another realm, such as a native module's): its message and stack are
+// not enumerable, so JSON.stringify alone would write "{}".
+const isErrorLike = (value) =>
+  !!value &&
+  typeof value === 'object' &&
+  typeof value.message === 'string' &&
+  (value instanceof Error || typeof value.stack === 'string');
+
 const sanitizeForLog = (value, seen = new WeakSet()) => {
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeForLog(item, seen));
@@ -24,8 +32,12 @@ const sanitizeForLog = (value, seen = new WeakSet()) => {
       return '[Circular]';
     }
     seen.add(value);
+    // An error inside an object: keep what explains it, plus its own fields (code, ...).
+    const fields = isErrorLike(value)
+      ? { name: value.name, message: value.message, stack: value.stack, ...value }
+      : value;
     const sanitized = {};
-    for (const [key, item] of Object.entries(value)) {
+    for (const [key, item] of Object.entries(fields)) {
       sanitized[key] = SENSITIVE_FIELD_PATTERN.test(key)
         ? '[REDACTED]'
         : sanitizeForLog(item, seen);
@@ -52,6 +64,21 @@ const SENSITIVE_JSON_PAIR = new RegExp(
 const redactJsonText = (text) => text.replace(SENSITIVE_JSON_PAIR, '$1"[REDACTED]"');
 
 /**
+ * An error as log text: its stack (which starts with "Name: message"), then its own fields such
+ * as `code`, redacted like any other value.
+ * @param {Error} error
+ * @returns {string}
+ */
+const formatError = (error) => {
+  const text = redactJsonText(error.stack || `${error.name || 'Error'}: ${error.message}`);
+  const own = Object.fromEntries(
+    Object.entries(error).filter(([key]) => !['name', 'message', 'stack'].includes(key)),
+  );
+  const extra = Object.keys(own).length > 0 ? ` ${JSON.stringify(sanitizeForLog(own))}` : '';
+  return `${text}${extra}`;
+};
+
+/**
  * Initialize log file path (called after app is ready)
  */
 const initializeLogFile = () => {
@@ -74,6 +101,7 @@ const writeToFile = (level, args) => {
       const timestamp = new Date().toISOString();
       const message = args
         .map((arg) => {
+          if (isErrorLike(arg)) return formatError(arg);
           if (typeof arg === 'object' && arg !== null) {
             return JSON.stringify(sanitizeForLog(arg));
           }

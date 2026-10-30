@@ -40,6 +40,7 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 
 ### Fixed
 
+- The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
 - A failed restore no longer loses the data: the previous database is kept aside and put back.
 - Exports now include the expense/income category, the class age group, the fee payment's
   sponsor, the student's enrolment date and memorised surahs/hizbs, which were silently left out.

@@ -137,3 +137,54 @@ describe('logger: text that already holds JSON (SEC-015)', () => {
     expect(line).not.toContain('Sup3rSecret!');
   });
 });
+
+describe('logger: errors', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    logger.initializeLogFile();
+  });
+
+  const writtenLine = () => fs.appendFileSync.mock.calls[0][1];
+
+  it('writes the message and the stack of an error, not "{}"', () => {
+    const error = new Error('UNIQUE constraint failed: students.matricule');
+
+    logger.error('Error in students:add handler:', error);
+
+    const line = writtenLine();
+    expect(line).toContain('Error in students:add handler: Error: UNIQUE constraint failed');
+    expect(line).toContain('at ');
+    expect(line).not.toContain('{}');
+  });
+
+  it("adds the error's own fields, such as its code", () => {
+    const error = Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
+
+    logger.error('Query failed:', error);
+
+    expect(writtenLine()).toContain('"code":"SQLITE_BUSY"');
+  });
+
+  it('writes an error nested in an object, and redacts its sensitive fields', () => {
+    const error = Object.assign(new Error('login failed'), { password: 'Sup3rSecret!' });
+
+    logger.warn('context', { step: 'login', error });
+
+    const line = writtenLine();
+    expect(line).toContain('"message":"login failed"');
+    expect(line).toContain('"password":"[REDACTED]"');
+    expect(line).not.toContain('Sup3rSecret!');
+  });
+
+  it('recognises an error from another realm (no instanceof Error)', () => {
+    const foreign = {
+      name: 'SqliteError',
+      message: 'no such table: x',
+      stack: 'SqliteError: no such table: x\n    at prepare',
+    };
+
+    logger.error('Native error:', foreign);
+
+    expect(writtenLine()).toContain('SqliteError: no such table: x');
+  });
+});
