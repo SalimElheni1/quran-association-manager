@@ -381,4 +381,4 @@ function registerUserHandlers() {
   });
 }
 
-module.exports = { registerUserHandlers };
+module.exports = { registerUserHandlers, isLastActiveSuperadmin, LAST_SUPERADMIN_MESSAGE };

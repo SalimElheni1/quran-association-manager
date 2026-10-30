@@ -655,7 +655,7 @@ describe('importManager - Extended Tests', () => {
       expect(result.message).toContain('هي حقول مطلوبة');
     });
 
-    it('should rollback transaction if role assignment fails', async () => {
+    it('refuses a row whose role is not one of the four, before writing anything', async () => {
       const rowData = {
         'اسم المستخدم': 'fail.user',
         'الاسم الأول': 'Fail',
@@ -665,25 +665,53 @@ describe('importManager - Extended Tests', () => {
       };
       const mockRow = createMockRow(rowData);
 
-      // Mock user doesn't exist, but role also doesn't exist
-      getQuery.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
-      generateMatricule.mockResolvedValue('U-2024-002');
-      runQuery.mockResolvedValue({ id: 101 });
-
       const { processUserRow } = require('../src/main/importManager');
 
       const result = await processUserRow(mockRow, mockHeaderRow);
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Role "NonExistentRole" not found');
+      expect(result).toEqual({ success: false, message: 'الدور "NonExistentRole" غير معروف.' });
+      expect(runQuery).not.toHaveBeenCalled();
+    });
+  });
 
-      // Verify that the transaction was started and rolled back, but not committed.
-      expect(runQuery).toHaveBeenCalledWith('BEGIN TRANSACTION');
-      expect(runQuery).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO users'),
-        expect.any(Array),
-      );
-      expect(runQuery).not.toHaveBeenCalledWith('COMMIT');
-      expect(runQuery).toHaveBeenCalledWith('ROLLBACK');
+  describe('refusedImportSheets', () => {
+    const { refusedImportSheets } = require('../src/main/importManager');
+    const ALL = [
+      'الطلاب',
+      'المعلمون',
+      'المستخدمون',
+      'الفصول',
+      'العمليات المالية',
+      'رسوم الطلاب',
+      'الحضور',
+      'المجموعات',
+      'المخزون',
+    ];
+
+    it('lets the Superadmin import every sheet', () => {
+      expect(refusedImportSheets(['Superadmin'], ALL)).toEqual([]);
+    });
+
+    it('keeps the users sheet for the Superadmin', () => {
+      expect(refusedImportSheets(['Administrator'], ALL)).toEqual(['المستخدمون']);
+    });
+
+    it('gives a FinanceManager only the sheets of the channels they may write', () => {
+      expect(refusedImportSheets(['FinanceManager'], ALL)).toEqual([
+        'الطلاب',
+        'المعلمون',
+        'المستخدمون',
+        'الفصول',
+        'المجموعات',
+        'المخزون',
+      ]);
+    });
+
+    it('refuses unknown sheets, and everything without roles', () => {
+      expect(refusedImportSheets(['Superadmin'], ['constructor', 'ورقة'])).toEqual([
+        'constructor',
+        'ورقة',
+      ]);
+      expect(refusedImportSheets(undefined, ['الطلاب'])).toEqual(['الطلاب']);
     });
   });
 

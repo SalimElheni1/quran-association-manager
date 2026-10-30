@@ -246,11 +246,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'financial-export:financial-summary': [requiredPayload],
   'financial-export:word-report': [requiredPayload],
   'generate-import-template': [options],
-  'import:generate-template': [],
   'import:excel': [Joi.string().max(4096).required(), Joi.array().items(Joi.string().max(200))],
   'import:get-sheets': [],
   'import:get-sheet-info': [Joi.string().max(200).required()],
-  'import:execute': [requiredPayload],
 
   // ---- Logs ----
   'logs:get-recent': [Joi.object({ lines: Joi.number().integer().min(1).max(10000) })],

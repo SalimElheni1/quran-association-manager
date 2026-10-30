@@ -157,8 +157,6 @@ const CHANNEL_ROLES = {
   'import:get-sheets': ROLES.FINANCE,
   'import:get-sheet-info': ROLES.FINANCE,
   'generate-import-template': ROLES.FINANCE,
-  'import:generate-template': ROLES.FINANCE,
-  'import:execute': ROLES.FINANCE,
   'dialog:openFile': ROLES.FINANCE,
 
   // ---- Any authenticated session (attendance/sessions + shared reads) ----

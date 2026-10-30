@@ -17,8 +17,10 @@ const {
   getQuery,
   allQuery,
 } = require('../db/db');
+const crypto = require('crypto');
 const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
+const { CHANNEL_ROLES } = require('./ipcSecurity');
 
 const CLASS_GENDER_MAP = {
   ذكر: 'men',
@@ -843,6 +845,48 @@ const parseScheduleCell = (raw) => {
   return null;
 };
 
+// The channel that writes what each sheet imports. Importing a sheet needs the roles of that
+// channel (CHANNEL_ROLES), so the import is never a way around them: a FinanceManager may import
+// fee payments but not users, students or classes.
+const SHEET_WRITE_CHANNELS = {
+  الطلاب: 'students:add',
+  المعلمون: 'teachers:add',
+  المعلمين: 'teachers:add',
+  المستخدمون: 'users:add',
+  المستخدمين: 'users:add',
+  الفصول: 'classes:add',
+  'العمليات المالية': 'transactions:add',
+  'رسوم الطلاب': 'student-fees:recordPayment',
+  الحضور: 'attendance:save',
+  المجموعات: 'groups:add',
+  المخزون: 'inventory:add',
+};
+
+/**
+ * The sheets in `sheetNames` that a user holding `roles` may not import (unknown sheets
+ * included).
+ * @param {string[]} roles
+ * @param {string[]} sheetNames
+ * @returns {string[]}
+ */
+function refusedImportSheets(roles, sheetNames) {
+  const userRoles = Array.isArray(roles) ? roles : [];
+  return sheetNames.filter((sheet) => {
+    const channel = Object.hasOwn(SHEET_WRITE_CHANNELS, sheet) ? SHEET_WRITE_CHANNELS[sheet] : null;
+    const allowed = channel ? CHANNEL_ROLES[channel] : null;
+    return !allowed || !allowed.some((role) => userRoles.includes(role));
+  });
+}
+
+// The roles a users sheet may give.
+const IMPORTABLE_ROLES = ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'];
+
+/** A random 10-character password for an imported account (shown once to the importer). */
+function generateImportPassword() {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.randomBytes(10), (byte) => alphabet[byte % alphabet.length]).join('');
+}
+
 async function importExcelData(filePath, selectedSheets) {
   log(`Starting import with path: ${filePath} and sheets: ${JSON.stringify(selectedSheets)}`);
   const workbook = new ExcelJS.Workbook();
@@ -863,7 +907,10 @@ async function importExcelData(filePath, selectedSheets) {
     المخزون: processInventoryRow,
   };
 
-  const sheetsToProcess = selectedSheets || Object.keys(allSheetProcessors);
+  if (!Array.isArray(selectedSheets) || selectedSheets.length === 0) {
+    throw new Error('No sheets selected for import.');
+  }
+  const sheetsToProcess = selectedSheets;
   log(`Sheets to process: ${JSON.stringify(sheetsToProcess)}`);
 
   for (const sheetName of sheetsToProcess) {
@@ -1152,7 +1199,7 @@ async function processUserRow(row, headerRow) {
       محاسب: 'FinanceManager',
     };
 
-    const mappedRole = roleMappings[roleValue] || roleValue;
+    const mappedRole = Object.hasOwn(roleMappings, roleValue) ? roleMappings[roleValue] : roleValue;
 
     const data = {
       username: getCellValueByHeader(headerRow, row, 'اسم المستخدم'),
@@ -1184,11 +1231,26 @@ async function processUserRow(row, headerRow) {
       };
     }
 
+    if (!IMPORTABLE_ROLES.includes(mappedRole)) {
+      return { success: false, message: `الدور "${roleValue}" غير معروف.` };
+    }
+
     if (matricule) {
       // Update existing record - need to handle user roles
       const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
       if (!existingUser) {
         return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
+      }
+
+      // Same rule as users:update: the last active Superadmin keeps the role and stays active.
+      const {
+        isLastActiveSuperadmin,
+        LAST_SUPERADMIN_MESSAGE,
+      } = require('./handlers/userHandlers');
+      const losesSuperadmin =
+        mappedRole !== 'Superadmin' || (data.status && data.status !== 'active');
+      if (losesSuperadmin && (await isLastActiveSuperadmin(existingUser.id))) {
+        return { success: false, message: LAST_SUPERADMIN_MESSAGE };
       }
 
       await runQuery('BEGIN TRANSACTION');
@@ -1228,7 +1290,7 @@ async function processUserRow(row, headerRow) {
       return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
     }
 
-    const password = Math.random().toString(36).slice(-8);
+    const password = generateImportPassword();
     const newMatricule = await generateMatricule('user');
 
     await runQuery('BEGIN TRANSACTION');
@@ -1885,6 +1947,8 @@ const exported = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
+  refusedImportSheets,
+  SHEET_WRITE_CHANNELS,
 };
 
 // Conditionally export internal functions for testing

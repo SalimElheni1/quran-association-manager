@@ -107,7 +107,12 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   whitelists of known columns.
 - Inputs that create or change records are validated with Joi (`validationSchemas.js`,
   `settingsValidation.js`) and unknown fields are stripped.
-- Excel imports map known Arabic headers to known columns (`importConstants.js`).
+- Excel imports map known Arabic headers to known columns (`importConstants.js`). Each sheet
+  needs the roles of the channel that writes its records (`SHEET_WRITE_CHANNELS` in
+  `importManager.js`, roles from `CHANNEL_ROLES`): only the Superadmin imports users, only
+  Superadmin/Administrator import students, teachers, classes, groups and inventory. A users sheet
+  can only give the four known roles and cannot take the last active Superadmin's role away;
+  imported accounts get a random password from `crypto`.
 - Every IPC channel has an argument schema (`CHANNEL_ARG_SCHEMAS` in `ipcValidation.js`, one Joi
   schema per positional argument, matching `preload.js`). The guard checks it after the session and
   role checks and before the handler: wrong types, missing ids, extra arguments or a non-object

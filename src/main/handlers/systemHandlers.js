@@ -147,48 +147,6 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('import:generate-template', async () => {
-    try {
-      const { filePath } = await dialog.showSaveDialog({
-        title: 'Save Import Template',
-        defaultPath: `import-template-${Date.now()}.xlsx`,
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-
-      if (!filePath) {
-        return { success: false, message: 'Template generation canceled by user.' };
-      }
-
-      await exportManager.generateExcelTemplate(filePath);
-
-      return { success: true, message: `Template saved to ${filePath}` };
-    } catch (error) {
-      logError('Error during template generation:', error);
-      return { success: false, message: `Template generation failed: ${error.message}` };
-    }
-  });
-
-  ipcMain.handle('import:execute', async (_event, { selectedSheets }) => {
-    try {
-      const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: 'Select Excel File to Import',
-        properties: ['openFile'],
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-
-      if (canceled || !filePaths || filePaths.length === 0) {
-        return { success: false, message: 'Import canceled by user.' };
-      }
-
-      const results = await importManager.importExcelData(filePaths[0], selectedSheets);
-
-      return { success: true, ...results };
-    } catch (error) {
-      logError('Error during import execution:', error);
-      return { success: false, message: `Import failed: ${error.message}` };
-    }
-  });
-
   ipcMain.handle('dialog:openDirectory', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory'],

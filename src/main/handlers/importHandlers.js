@@ -1,5 +1,6 @@
 const { ipcMain, dialog, BrowserWindow } = require('electron');
-const { importExcelData } = require('../importManager');
+const { importExcelData, refusedImportSheets } = require('../importManager');
+const sessionManager = require('../sessionManager');
 const { getAllSheets, getSheetInfo } = require('../importConstants');
 const { generateExcelTemplate } = require('../exportManager');
 const { error: logError } = require('../logger');
@@ -11,8 +12,11 @@ function registerImportHandlers() {
   /**
    * Import Excel data - single step
    */
-  ipcMain.handle('import:excel', async (_event, filePath, selectedSheets) => {
+  ipcMain.handle('import:excel', async (event, filePath, selectedSheets) => {
     try {
+      if (!Array.isArray(selectedSheets) || selectedSheets.length === 0) {
+        return { success: false, message: 'لم يتم تحديد أي ورقة للاستيراد.' };
+      }
       // Map UI sheet names to canonical sheet names if needed
       const sheetNameMap = {
         المداخيل: 'العمليات المالية',
@@ -31,6 +35,17 @@ function registerImportHandlers() {
       };
 
       const canonicalSheets = selectedSheets.map((sheet) => sheetNameMap[sheet] || sheet);
+
+      // Each sheet needs the roles of the channel that writes its records (users:add for the
+      // users sheet, and so on); the import:excel channel alone is not enough.
+      const session = sessionManager.getSession(event && event.sender ? event.sender.id : null);
+      const refused = refusedImportSheets(session ? session.roles : [], canonicalSheets);
+      if (refused.length > 0) {
+        return {
+          success: false,
+          message: `ليست لديك صلاحية استيراد: ${[...new Set(refused)].join('، ')}.`,
+        };
+      }
 
       const result = await importExcelData(filePath, canonicalSheets);
       // Broadcast import completion to all renderer windows so they can refresh their data

@@ -83,9 +83,9 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 |---|---|---|---|
 | `backup:get-reminder-status` | `getBackupReminderStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
 | `backup:getStatus` | `getBackupStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
-| `backup:reveal-transfer-key` | `revealTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
+| `backup:reveal-transfer-key` | `revealTransferKey` | Superadmin | `handlers/systemHandlers.js` |
 | `backup:run` | `runBackup` | Superadmin, Administrator | `handlers/systemHandlers.js` |
-| `backup:set-transfer-key` | `setTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
+| `backup:set-transfer-key` | `setTransferKey` | Superadmin | `handlers/systemHandlers.js` |
 
 ### categories
 
@@ -193,8 +193,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `import:excel` | `importExcel` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
-| `import:execute` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
-| `import:generate-template` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
 | `import:get-sheet-info` | `getSheetInfo` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
 | `import:get-sheets` | `getImportSheets` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
 
