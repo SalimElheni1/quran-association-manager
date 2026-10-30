@@ -28,8 +28,12 @@ jest.mock('../src/main/logger', () => ({
   clearLogFile: jest.fn(),
 }));
 
+const path = require('path');
+const { pathToFileURL } = require('url');
+
 const DEV_URL = 'http://localhost:3000';
-const PROD_URL = 'file:///opt/quran-branch/dist/renderer/index.html';
+// The page index.js loads with mainWindow.loadFile().
+const PROD_URL = pathToFileURL(path.resolve(__dirname, '../dist/renderer/index.html')).href;
 const FOREIGN_URL = 'https://evil.example.com';
 
 function createFakeIpcMain() {
@@ -70,6 +74,20 @@ describe('ipcSecurity', () => {
     it('accepts the dev server URL and the packaged renderer file', () => {
       expect(isAllowedSender({ getURL: () => DEV_URL })).toBe(true);
       expect(isAllowedSender({ getURL: () => PROD_URL })).toBe(true);
+    });
+
+    it('accepts the packaged page with a route in its hash', () => {
+      expect(isAllowedSender({ getURL: () => `${PROD_URL}#/students` })).toBe(true);
+    });
+
+    it('rejects another file that only looks like the renderer page', () => {
+      expect(isAllowedSender({ getURL: () => 'file:///tmp/evil/dist/renderer/index.html' })).toBe(
+        false,
+      );
+      expect(isAllowedSender({ getURL: () => `${PROD_URL}.evil.html` })).toBe(false);
+      expect(isAllowedSender({ getURL: () => 'file:///tmp/x.html?dist/renderer/index.html' })).toBe(
+        false,
+      );
     });
 
     it('rejects foreign URLs, empty URLs, and malformed senders', () => {

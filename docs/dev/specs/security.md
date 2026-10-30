@@ -51,8 +51,8 @@ accounts. The main risks are:
 
 `ipcSecurity.js` wraps every `ipcMain.handle` / `ipcMain.on` registration. For each call it:
 
-1. checks the sender is the app window (the built `dist/renderer/index.html`, or
-   `http://localhost:3000` in development);
+1. checks the sender is the app window (exactly the built `dist/renderer/index.html` that
+   `index.js` loads, any hash route included, or `http://localhost:3000` in development);
 2. lets `PUBLIC_CHANNELS` through (login, first-run setup, version, logo, toasts);
 3. otherwise requires a live session, and that one of the user's roles is allowed for the channel
    in `CHANNEL_ROLES`.

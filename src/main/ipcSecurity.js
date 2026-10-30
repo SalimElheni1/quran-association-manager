@@ -5,8 +5,8 @@
 //   (sessionManager), never from renderer-supplied tokens.
 // - Sender frame validation restricts IPC to the application window itself.
 
-const path = require('path');
 const sessionManager = require('./sessionManager');
+const { isInternalUrl } = require('./navigationGuard');
 const { warn: logWarn } = require('./logger');
 const { validateChannelArgs, hasArgSchema } = require('./ipcValidation');
 
@@ -19,7 +19,6 @@ const ERRORS = {
 };
 
 const ALLOWED_DEV_URL_ORIGIN = 'http://localhost:3000';
-const ALLOWED_PROD_URL_MARKER = path.posix.join('dist', 'renderer', 'index.html');
 
 const ROLES = {
   ADMIN: ['Superadmin', 'Administrator'],
@@ -210,7 +209,9 @@ function isAllowedSender(webContents) {
   try {
     const url = webContents && typeof webContents.getURL === 'function' ? webContents.getURL() : '';
     if (!url) return false;
-    if (url.startsWith('file://') && url.includes(ALLOWED_PROD_URL_MARKER)) return true;
+    // The built renderer: exactly the file index.js loads (dist/renderer/index.html of this app),
+    // not any file that happens to sit in a dist/renderer folder.
+    if (url.startsWith('file://')) return isInternalUrl(url, { isPackaged: true, isE2E: false });
     try {
       return new URL(url).origin === ALLOWED_DEV_URL_ORIGIN;
     } catch {
