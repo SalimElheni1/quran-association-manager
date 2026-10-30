@@ -230,9 +230,7 @@ function getPolicy(channel) {
 }
 
 function senderSession(event) {
-  const senderId = event && event.sender ? event.sender.id : null;
-  if (typeof senderId !== 'number') return null;
-  return sessionManager.getSession(senderId);
+  return sessionManager.getSessionForEvent(event);
 }
 
 /** True while the session may only change its password and the channel is something else. */

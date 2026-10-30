@@ -21,7 +21,7 @@ function registerImportHandlers() {
 
       // Each sheet needs the roles of the channel that writes its records (users:add for the
       // users sheet, and so on); the import:excel channel alone is not enough.
-      const session = sessionManager.getSession(event && event.sender ? event.sender.id : null);
+      const session = sessionManager.getSessionForEvent(event);
       const refused = refusedImportSheets(session ? session.roles : [], canonicalSheets);
       if (refused.length > 0) {
         return {

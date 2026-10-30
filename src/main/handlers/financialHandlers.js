@@ -8,6 +8,7 @@ const { ipcMain, BrowserWindow } = require('electron');
 const db = require('../../db/db');
 const { transactionValidationSchema } = require('../validationSchemas');
 const { error: logError } = require('../logger');
+const { invalidDataError } = require('../utils/handlerData');
 const { requireRoles } = require('../authMiddleware');
 const { getUserIdForEvent } = require('../sessionManager');
 const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
@@ -306,7 +307,7 @@ async function handleAddTransaction(event, transaction) {
     return translateTransaction(newTransaction);
   } catch (error) {
     if (error.isJoi) {
-      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      throw invalidDataError(error);
     }
     if (isDuplicateVoucherError(error)) {
       throw new Error(DUPLICATE_VOUCHER_MESSAGE);
@@ -405,7 +406,7 @@ async function handleUpdateTransaction(event, id, transaction) {
     return translateTransaction(updatedTransaction);
   } catch (error) {
     if (error.isJoi) {
-      throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      throw invalidDataError(error);
     }
     if (isDuplicateVoucherError(error)) {
       throw new Error(DUPLICATE_VOUCHER_MESSAGE);

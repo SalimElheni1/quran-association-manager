@@ -6,8 +6,7 @@ const requireRoles = (allowedRoles) => {
       // Authorization is decided from the main-process session registry
       // (created at login, keyed by the sender webContents id). The renderer
       // never supplies authentication state for IPC calls.
-      const senderId = event && event.sender ? event.sender.id : null;
-      const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+      const session = sessionManager.getSessionForEvent(event);
 
       if (!session) {
         throw new Error('مطلوب تسجيل الدخول.');

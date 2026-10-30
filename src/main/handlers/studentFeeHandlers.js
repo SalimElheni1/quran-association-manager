@@ -9,6 +9,7 @@ const db = require('../../db/db');
 const { requireRoles } = require('../authMiddleware');
 const { getUserIdForEvent } = require('../sessionManager');
 const { log, error: logError, warn: logWarn } = require('../logger');
+const { invalidDataError } = require('../utils/handlerData');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
 const { toLocalISODate, toLocalISODateTime } = require('../utils/dates');
 // Circular dependency broken: require('./settingsHandlers') moved to where it is needed
@@ -2117,7 +2118,7 @@ function registerStudentFeeHandlers() {
           return await recordStudentPayment(event, paymentDetails);
         } catch (error) {
           if (error.isJoi) {
-            throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+            throw invalidDataError(error);
           }
           logError('Error recording student payment:', error);
           // recordStudentPayment already throws a user-facing Arabic message (e.g. a

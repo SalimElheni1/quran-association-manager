@@ -3,6 +3,7 @@ const db = require('../../db/db');
 const { teacherValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
+const { toSqliteValues, invalidDataError } = require('../utils/handlerData');
 const { mapGender } = require('../utils/translations');
 const { deletedFilter, softDeleteRow, restoreRow } = require('../softDelete');
 const { getUserIdForEvent } = require('../sessionManager');
@@ -34,18 +35,7 @@ function registerTeacherHandlers() {
         stripUnknown: false,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          // Convert booleans to integers (0/1)
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          // Convert Date objects to date-only strings (YYYY-MM-DD)
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToInsert = teacherFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
@@ -54,8 +44,7 @@ function registerTeacherHandlers() {
       const sql = `INSERT INTO teachers (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
       return await db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in teachers:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
@@ -68,18 +57,7 @@ function registerTeacherHandlers() {
         stripUnknown: false,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          // Convert booleans to integers (0/1)
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          // Convert Date objects to date-only strings (YYYY-MM-DD)
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToUpdate = teacherFields.filter(
         (field) => field !== 'matricule' && validatedData[field] !== undefined,
@@ -89,8 +67,7 @@ function registerTeacherHandlers() {
       const sql = `UPDATE teachers SET ${setClauses} WHERE id = ?`;
       return await db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in teachers:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }

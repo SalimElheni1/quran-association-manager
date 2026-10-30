@@ -13,6 +13,7 @@ const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler, internalSetTransferKey } = require('./settingsHandlers');
 const { checkTransferKey } = require('../transferKeyPolicy');
 const { error: logError } = require('../logger');
+const { getUserRoleNames } = require('../utils/handlerData');
 
 let authStore = null;
 const getAuthStore = () => {
@@ -108,8 +109,7 @@ const PROFILE_EDITABLE_FIELDS = [
 ];
 
 const getUserIdFromSession = (event) => {
-  const senderId = event && event.sender ? event.sender.id : null;
-  const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+  const session = sessionManager.getSessionForEvent(event);
   if (!session) {
     throw new Error('Authentication required.');
   }
@@ -126,11 +126,7 @@ const getProfileHandler = async (userId) => {
     throw new Error('User profile not found.');
   }
 
-  const roles = await db.allQuery(
-    'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-    [userId],
-  );
-  userProfile.roles = roles.map((r) => r.name);
+  userProfile.roles = await getUserRoleNames(userId);
 
   // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
   try {
@@ -324,11 +320,7 @@ function registerAuthHandlers() {
       // the legacy default password '123456', force a password change.
       const mustChangePassword = await bcrypt.compare('123456', user.password);
 
-      const roles = await db.allQuery(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [user.id],
-      );
-      const userRoles = roles.map((r) => r.name);
+      const userRoles = await getUserRoleNames(user.id);
 
       await refreshSettings();
 

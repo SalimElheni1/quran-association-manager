@@ -87,15 +87,24 @@ function hasSession(webContentsId) {
  * @returns {number|null}
  */
 function getUserIdForEvent(event) {
-  const senderId = event && event.sender ? event.sender.id : null;
-  const session = typeof senderId === 'number' ? getSession(senderId) : null;
+  const session = getSessionForEvent(event);
   return session ? session.userId : null;
+}
+
+/**
+ * The session of the window an IPC call came from, or null.
+ * @param {{ sender?: { id?: number } }} event
+ */
+function getSessionForEvent(event) {
+  const senderId = event && event.sender ? event.sender.id : null;
+  return typeof senderId === 'number' ? getSession(senderId) : null;
 }
 
 module.exports = {
   createSession,
   clearMustChangePassword,
   getUserIdForEvent,
+  getSessionForEvent,
   getSession,
   revokeSession,
   revokeAllSessions,

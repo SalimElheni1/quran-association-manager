@@ -5,6 +5,7 @@ const { userValidationSchema, userUpdateValidationSchema } = require('../validat
 const { checkPassword } = require('../passwordPolicy');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
+const { toSqliteValues, invalidDataError, getUserRoleNames } = require('../utils/handlerData');
 const { requireRoles } = require('../authMiddleware');
 const { translateUser } = require('../utils/translations');
 const sessionManager = require('../sessionManager');
@@ -132,11 +133,7 @@ function registerUserHandlers() {
       [id],
     );
     if (user) {
-      const roles = await db.allQuery(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [id],
-      );
-      user.roles = roles.map((r) => r.name);
+      user.roles = await getUserRoleNames(id);
     }
     return user;
   });
@@ -162,18 +159,7 @@ function registerUserHandlers() {
           // Convert empty email to null for UNIQUE constraint
           if (validatedData.email === '') validatedData.email = null;
 
-          // Convert non-SQLite-bindable types for compatibility
-          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-          for (const key of Object.keys(validatedData)) {
-            const value = validatedData[key];
-            if (typeof value === 'boolean') {
-              // Convert booleans to integers (0/1)
-              validatedData[key] = value ? 1 : 0;
-            } else if (value instanceof Date) {
-              // Convert Date objects to ISO strings
-              validatedData[key] = value.toISOString();
-            }
-          }
+          toSqliteValues(validatedData, { dates: 'iso' });
 
           const fieldsToInsert = userFields.filter((field) => validatedData[field] !== undefined);
 
@@ -205,7 +191,7 @@ function registerUserHandlers() {
         return transactionResult;
       } catch (error) {
         if (error.isJoi) {
-          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+          throw invalidDataError(error);
         }
         logError('Error in users:add handler:', error);
         throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
@@ -249,18 +235,7 @@ function registerUserHandlers() {
           // Convert empty email to null for UNIQUE constraint
           if (validatedData.email === '') validatedData.email = null;
 
-          // Convert non-SQLite-bindable types for compatibility
-          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-          for (const key of Object.keys(validatedData)) {
-            const value = validatedData[key];
-            if (typeof value === 'boolean') {
-              // Convert booleans to integers (0/1)
-              validatedData[key] = value ? 1 : 0;
-            } else if (value instanceof Date) {
-              // Convert Date objects to ISO strings
-              validatedData[key] = value.toISOString();
-            }
-          }
+          toSqliteValues(validatedData, { dates: 'iso' });
 
           const fieldsToUpdate = userFields.filter(
             (field) => field !== 'matricule' && validatedData[field] !== undefined,
@@ -274,11 +249,7 @@ function registerUserHandlers() {
           }
 
           if (roles) {
-            const currentRolesResult = await db.allQuery(
-              'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-              [id],
-            );
-            const currentRoles = currentRolesResult.map((r) => r.name);
+            const currentRoles = await getUserRoleNames(id);
 
             const rolesToAdd = roles.filter((r) => !currentRoles.includes(r));
             const rolesToRemove = currentRoles.filter((r) => !roles.includes(r));
@@ -309,7 +280,7 @@ function registerUserHandlers() {
         return transactionResult;
       } catch (error) {
         if (error.isJoi) {
-          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+          throw invalidDataError(error);
         }
         logError('Error in users:update handler:', error);
         throw new Error(error.message || 'حدث خطأ غير متوقع في الخادم.');
@@ -345,8 +316,7 @@ function registerUserHandlers() {
 
   // Lightweight handler to update only onboarding-related fields without triggering full user validation
   const getUserIdFromSession = (event) => {
-    const senderId = event && event.sender ? event.sender.id : null;
-    const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+    const session = sessionManager.getSessionForEvent(event);
     if (!session) {
       throw new Error('Authentication required.');
     }

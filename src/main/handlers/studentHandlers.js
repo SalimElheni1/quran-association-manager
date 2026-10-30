@@ -17,6 +17,7 @@ const db = require('../../db/db');
 const { studentValidationSchema } = require('../validationSchemas');
 const { generateMatricule } = require('../services/matriculeService');
 const { error: logError } = require('../logger');
+const { toSqliteValues, invalidDataError } = require('../utils/handlerData');
 const { requireRoles } = require('../authMiddleware');
 const { translateStudent } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
@@ -140,7 +141,7 @@ function pickReadOnlyFields(student) {
 
 /** Whether the user behind this call may edit students (the roles of students:update). */
 function canEditStudents(event) {
-  const session = sessionManager.getSession(event && event.sender ? event.sender.id : null);
+  const session = sessionManager.getSessionForEvent(event);
   const editors = CHANNEL_ROLES['students:update'];
   return !!session && session.roles.some((role) => editors.includes(role));
 }
@@ -325,19 +326,7 @@ function registerStudentHandlers() {
             }
           }
 
-          // Convert non-SQLite-bindable types for compatibility
-          // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-          for (const key of Object.keys(validatedData)) {
-            const value = validatedData[key];
-            if (typeof value === 'boolean') {
-              // Convert booleans to integers (0/1)
-              validatedData[key] = value ? 1 : 0;
-            } else if (value instanceof Date) {
-              // Convert Date objects to ISO strings (YYYY-MM-DD for dates or full ISO for timestamps)
-              // If it's just a date field, ISO string split by T is usually safer for SQLite DATE type
-              validatedData[key] = value.toISOString().split('T')[0];
-            }
-          }
+          toSqliteValues(validatedData);
 
           const fieldsToInsert = studentFields.filter(
             (field) => validatedData[field] !== undefined,
@@ -404,8 +393,7 @@ function registerStudentHandlers() {
 
         return result;
       } catch (error) {
-        if (error.isJoi)
-          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        if (error.isJoi) throw invalidDataError(error);
         if (error.userFacing) throw error;
         logError('Error in students:add handler:', error);
         throw new Error('حدث خطأ غير متوقع في الخادم.');
@@ -443,15 +431,7 @@ function registerStudentHandlers() {
             }
           }
 
-          // Convert non-SQLite-bindable types for compatibility
-          for (const key of Object.keys(validatedData)) {
-            const value = validatedData[key];
-            if (typeof value === 'boolean') {
-              validatedData[key] = value ? 1 : 0;
-            } else if (value instanceof Date) {
-              validatedData[key] = value.toISOString().split('T')[0];
-            }
-          }
+          toSqliteValues(validatedData);
 
           // Ensure matricule is not updatable
           const fieldsToUpdate = studentFields.filter(
@@ -547,8 +527,7 @@ function registerStudentHandlers() {
 
         return result;
       } catch (error) {
-        if (error.isJoi)
-          throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+        if (error.isJoi) throw invalidDataError(error);
         if (error.userFacing) throw error;
         logError('Error in students:update handler:', error);
         throw new Error('حدث خطأ غير متوقع في الخادم.');

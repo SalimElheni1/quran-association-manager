@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
+const { toSqliteValues, invalidDataError } = require('../utils/handlerData');
 const { mapCategory } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
 const { deletedFilter, notDeleted, softDeleteRow, restoreRow } = require('../softDelete');
@@ -30,18 +31,7 @@ function registerClassHandlers() {
         stripUnknown: true,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          // Convert booleans to integers (0/1)
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          // Convert Date objects to ISO strings
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToInsert = classFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
@@ -50,8 +40,7 @@ function registerClassHandlers() {
       const sql = `INSERT INTO classes (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
       return db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in classes:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
@@ -64,15 +53,7 @@ function registerClassHandlers() {
         stripUnknown: true,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToUpdate = classFields.filter((field) => validatedData[field] !== undefined);
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
@@ -80,8 +61,7 @@ function registerClassHandlers() {
       const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
       return db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in classes:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
