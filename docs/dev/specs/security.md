@@ -88,8 +88,11 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   stored; the random `jwt_secret` older versions kept in electron-store is deleted at startup.
   `.env` no longer needs `JWT_SECRET`. A copied database file is useless without that OS account
   or key file.
-- **Backups:** `.qdb` files encrypted with AES-256-GCM (PBKDF2, 100k iterations), whose
-  authentication tag makes a modified file fail to restore. The key is the association transfer key
+- **Backups:** `.qdb` files encrypted with AES-256-GCM, whose authentication tag makes a modified
+  file fail to restore. The key is stretched with PBKDF2-SHA256, 600,000 rounds, written in a
+  `QDB2` header (backups from 1.3.0 to 1.4.x have no header and 100,000 rounds; they still open;
+  a file asking for more than 5,000,000 rounds is refused). Stretching runs on libuv's thread pool,
+  so the window does not freeze. The key is the association transfer key
   (so another branch computer can restore it), otherwise this computer's database key.
   Older SQL-script backups carry an HMAC-SHA256 signature that is checked on import.
 - **Association transfer key («رمز حماية النسخ الاحتياطية»):** chosen at first-run setup

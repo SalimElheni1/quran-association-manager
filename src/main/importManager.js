@@ -73,7 +73,7 @@ function resolveTransferKey(savedTransferKey) {
   return settings.association_transfer_key;
 }
 
-function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
+async function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
   if (!Buffer.isBuffer(fileBuffer)) {
     return fileBuffer;
   }
@@ -97,7 +97,7 @@ function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
 
   for (const key of candidateKeys) {
     try {
-      return backupManager.decryptBackup(fileBuffer, key);
+      return await backupManager.decryptBackup(fileBuffer, key);
     } catch (err) {
       // Try next key
     }
@@ -459,7 +459,7 @@ class BackupFileError extends Error {}
  */
 async function readBackupPackage(filePath, backupPassword, savedTransferKey) {
   const rawBuffer = await fs.readFile(filePath);
-  const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
+  const zipBuffer = await extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
   // AES-GCM authenticates what it decrypts: a decrypted backup was made with one of the keys.
   const decrypted = zipBuffer !== rawBuffer;
   if (!decrypted && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {

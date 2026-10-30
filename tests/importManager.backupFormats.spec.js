@@ -35,72 +35,76 @@ describe('Backup format auto-detection (legacy vs encrypted)', () => {
     mockStoreData.settings = {};
   });
 
-  it('should pass through a legacy unencrypted ZIP buffer (PK magic bytes)', () => {
+  it('should pass through a legacy unencrypted ZIP buffer (PK magic bytes)', async () => {
     const legacyZip = Buffer.concat([
       Buffer.from([0x50, 0x4b, 0x03, 0x04]),
       Buffer.from('legacy zip payload'),
     ]);
 
-    const result = extractZipFromBuffer(legacyZip, 'any-password');
+    const result = await extractZipFromBuffer(legacyZip, 'any-password');
     expect(result).toBe(legacyZip);
   });
 
-  it('should pass through short buffers untouched', () => {
+  it('should pass through short buffers untouched', async () => {
     const shortBuffer = Buffer.from('not a backup');
-    expect(extractZipFromBuffer(shortBuffer, 'pw')).toBe(shortBuffer);
+    expect(await extractZipFromBuffer(shortBuffer, 'pw')).toBe(shortBuffer);
   });
 
-  it('should decrypt an encrypted backup with the user-provided transfer key', () => {
+  it('should decrypt an encrypted backup with the user-provided transfer key', async () => {
     const originalZip = Buffer.concat([
       Buffer.from([0x50, 0x4b, 0x03, 0x04]),
       Buffer.from('encrypted payload'),
     ]);
-    const encrypted = backupManager.encryptBackup(originalZip, 'association-secret');
+    const encrypted = await backupManager.encryptBackup(originalZip, 'association-secret');
 
-    const result = extractZipFromBuffer(encrypted, 'association-secret');
+    const result = await extractZipFromBuffer(encrypted, 'association-secret');
     expect(result.equals(originalZip)).toBe(true);
   });
 
-  it('should decrypt an encrypted backup using the stored association_transfer_key setting', () => {
+  it('should decrypt an encrypted backup using the stored association_transfer_key setting', async () => {
     const originalZip = Buffer.from('payload');
-    const encrypted = backupManager.encryptBackup(originalZip, 'stored-transfer-key');
+    const encrypted = await backupManager.encryptBackup(originalZip, 'stored-transfer-key');
     mockStoreData.settings = { association_transfer_key: 'stored-transfer-key' };
 
-    const result = extractZipFromBuffer(encrypted, undefined);
+    const result = await extractZipFromBuffer(encrypted, undefined);
     expect(result.equals(originalZip)).toBe(true);
   });
 
-  it('should decrypt an encrypted backup with the transfer key saved in the settings table', () => {
+  it('should decrypt an encrypted backup with the transfer key saved in the settings table', async () => {
     const originalZip = Buffer.from('payload');
-    const encrypted = backupManager.encryptBackup(originalZip, 'saved-transfer-key');
+    const encrypted = await backupManager.encryptBackup(originalZip, 'saved-transfer-key');
 
     // No key typed in the restore dialog: the saved key (passed by db:import) opens it.
-    const result = extractZipFromBuffer(encrypted, undefined, 'saved-transfer-key');
+    const result = await extractZipFromBuffer(encrypted, undefined, 'saved-transfer-key');
     expect(result.equals(originalZip)).toBe(true);
   });
 
-  it('should still try a typed key before the saved one (e.g. an older key)', () => {
+  it('should still try a typed key before the saved one (e.g. an older key)', async () => {
     const originalZip = Buffer.from('payload');
-    const encrypted = backupManager.encryptBackup(originalZip, 'previous-transfer-key');
+    const encrypted = await backupManager.encryptBackup(originalZip, 'previous-transfer-key');
 
-    const result = extractZipFromBuffer(encrypted, 'previous-transfer-key', 'saved-transfer-key');
+    const result = await extractZipFromBuffer(
+      encrypted,
+      'previous-transfer-key',
+      'saved-transfer-key',
+    );
     expect(result.equals(originalZip)).toBe(true);
   });
 
-  it('should decrypt an encrypted backup using the local DB key as last resort', () => {
+  it('should decrypt an encrypted backup using the local DB key as last resort', async () => {
     const originalZip = Buffer.from('payload');
-    const encrypted = backupManager.encryptBackup(originalZip, 'local-db-key');
+    const encrypted = await backupManager.encryptBackup(originalZip, 'local-db-key');
     getDbKey.mockReturnValue('local-db-key');
 
-    const result = extractZipFromBuffer(encrypted, undefined);
+    const result = await extractZipFromBuffer(encrypted, undefined);
     expect(result.equals(originalZip)).toBe(true);
   });
 
-  it('should return the buffer unchanged when no candidate key decrypts it', () => {
-    const encrypted = backupManager.encryptBackup(Buffer.from('payload'), 'unknown-key');
+  it('should return the buffer unchanged when no candidate key decrypts it', async () => {
+    const encrypted = await backupManager.encryptBackup(Buffer.from('payload'), 'unknown-key');
     getDbKey.mockReturnValue('another-key');
 
-    const result = extractZipFromBuffer(encrypted, 'wrong-key');
+    const result = await extractZipFromBuffer(encrypted, 'wrong-key');
     expect(result).toBe(encrypted);
   });
 });

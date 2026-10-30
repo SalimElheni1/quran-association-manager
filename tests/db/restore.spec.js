@@ -60,7 +60,7 @@ describe('restore of a backup made by the app', () => {
     await runBackup({ association_transfer_key: TRANSFER_KEY }, backupFile);
     // Decrypt, change the SQL, and pack it again as a plain ZIP with the old signature.
     const { decryptBackup } = require('../../src/main/backupManager');
-    const zip = new PizZip(decryptBackup(fs.readFileSync(backupFile), TRANSFER_KEY));
+    const zip = new PizZip(await decryptBackup(fs.readFileSync(backupFile), TRANSFER_KEY));
     zip.file('backup.sql', `${zip.file('backup.sql').asText()}\nDROP TABLE teachers;`);
     const tampered = path.join(ctx.dir, 'tampered.qdb');
     fs.writeFileSync(tampered, zip.generate({ type: 'nodebuffer' }));

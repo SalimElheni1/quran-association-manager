@@ -121,22 +121,65 @@ describe('backupManager', () => {
   });
 
   describe('encryptBackup/decryptBackup', () => {
-    it('should round-trip encrypt and decrypt with the same password', () => {
+    const crypto = jest.requireActual('crypto');
+
+    /** A backup encrypted the way versions 1.3.0 to 1.4.x did (no header, 100,000 rounds). */
+    function legacyEncrypt(buffer, password) {
+      const salt = crypto.randomBytes(16);
+      const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+      const data = Buffer.concat([cipher.update(buffer), cipher.final()]);
+      return Buffer.concat([salt, iv, cipher.getAuthTag(), data]);
+    }
+
+    it('round-trips with the same password', async () => {
       const original = Buffer.from('hello backup content');
-      const encrypted = backupManager.encryptBackup(original, 'transfer-secret');
+      const encrypted = await backupManager.encryptBackup(original, 'transfer-secret');
       expect(Buffer.isBuffer(encrypted)).toBe(true);
-      expect(encrypted.length).toBe(44 + original.length);
-      const decrypted = backupManager.decryptBackup(encrypted, 'transfer-secret');
+      expect(encrypted.length).toBe(8 + 44 + original.length);
+      const decrypted = await backupManager.decryptBackup(encrypted, 'transfer-secret');
       expect(decrypted.equals(original)).toBe(true);
     });
 
-    it('should throw when decrypting with the wrong password', () => {
-      const encrypted = backupManager.encryptBackup(Buffer.from('secret data'), 'right-key');
-      expect(() => backupManager.decryptBackup(encrypted, 'wrong-key')).toThrow();
+    it('writes the QDB2 header with 600,000 PBKDF2 rounds', async () => {
+      const encrypted = await backupManager.encryptBackup(Buffer.from('x'), 'transfer-secret');
+
+      expect(encrypted.subarray(0, 4).toString()).toBe('QDB2');
+      expect(encrypted.readUInt32BE(4)).toBe(600000);
+      expect(backupManager.BACKUP_KDF_ITERATIONS).toBe(600000);
     });
 
-    it('should throw for a buffer too short to be an encrypted backup', () => {
-      expect(() => backupManager.decryptBackup(Buffer.from('tiny'), 'key')).toThrow(
+    it('still opens backups made by versions 1.3.0 to 1.4.x', async () => {
+      const original = Buffer.from('backup from 1.4.0');
+      const encrypted = legacyEncrypt(original, 'transfer-secret');
+
+      const decrypted = await backupManager.decryptBackup(encrypted, 'transfer-secret');
+
+      expect(decrypted.equals(original)).toBe(true);
+    });
+
+    it('does not let a file ask for an absurd number of rounds', async () => {
+      const encrypted = await backupManager.encryptBackup(Buffer.from('x'), 'transfer-secret');
+      encrypted.writeUInt32BE(4000000000, 4);
+
+      // Refused within the test's time limit: 4 billion rounds would take hours.
+      await expect(backupManager.decryptBackup(encrypted, 'transfer-secret')).rejects.toThrow();
+    }, 10000);
+
+    it('throws when decrypting with the wrong password', async () => {
+      const encrypted = await backupManager.encryptBackup(Buffer.from('secret data'), 'right-key');
+      await expect(backupManager.decryptBackup(encrypted, 'wrong-key')).rejects.toThrow();
+    });
+
+    it('throws when the file was changed', async () => {
+      const encrypted = await backupManager.encryptBackup(Buffer.from('secret data'), 'key');
+      encrypted[encrypted.length - 1] ^= 1;
+      await expect(backupManager.decryptBackup(encrypted, 'key')).rejects.toThrow();
+    });
+
+    it('throws for a buffer too short to be an encrypted backup', async () => {
+      await expect(backupManager.decryptBackup(Buffer.from('tiny'), 'key')).rejects.toThrow(
         'Invalid encrypted backup file structure',
       );
     });

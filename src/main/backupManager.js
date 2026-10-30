@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const util = require('util');
 const Store = require('electron-store');
 const PizZip = require('pizzip');
 const { allQuery } = require('../db/db');
@@ -43,42 +44,80 @@ function validateBackupPath(dirPath) {
   return { valid: true, path: path.resolve(dirPath) };
 }
 
+// Encrypted backup files (.qdb), AES-256-GCM with a key stretched by PBKDF2-SHA256:
+// - current: "QDB2" | iterations (uint32, big-endian) | salt(16) | iv(12) | authTag(16) | data
+// - versions 1.3.0 to 1.4.x: salt(16) | iv(12) | authTag(16) | data, with 100,000 iterations.
+const BACKUP_MAGIC = Buffer.from('QDB2');
+const HEADER_LENGTH = BACKUP_MAGIC.length + 4;
+// OWASP's figure for PBKDF2-HMAC-SHA256: the transfer key is typed by people (8+ characters).
+const BACKUP_KDF_ITERATIONS = 600000;
+const LEGACY_KDF_ITERATIONS = 100000;
+// A file cannot make a restore spin for minutes.
+const MAX_KDF_ITERATIONS = 5000000;
+const SALT_IV_TAG_LENGTH = 16 + 12 + 16;
+
+const pbkdf2 = util.promisify(crypto.pbkdf2);
+
 /**
- * Encrypts a buffer using AES-256-GCM with PBKDF2 key derivation (100k iterations).
- * Format: salt(16) || iv(12) || authTag(16) || ciphertext
+ * Encrypts a buffer (current format). The key is stretched on libuv's thread pool, so the window
+ * does not freeze while 600,000 PBKDF2 rounds run.
  * @param {Buffer} buffer
  * @param {string} passwordOrKey
- * @returns {Buffer}
+ * @returns {Promise<Buffer>}
  */
-function encryptBackup(buffer, passwordOrKey) {
+async function encryptBackup(buffer, passwordOrKey) {
   const salt = crypto.randomBytes(16);
-  const key = crypto.pbkdf2Sync(passwordOrKey, salt, 100000, 32, 'sha256');
+  const key = await pbkdf2(passwordOrKey, salt, BACKUP_KDF_ITERATIONS, 32, 'sha256');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const ciphertext = Buffer.concat([cipher.update(buffer), cipher.final()]);
   const authTag = cipher.getAuthTag();
-  return Buffer.concat([salt, iv, authTag, ciphertext]);
+  const header = Buffer.alloc(HEADER_LENGTH);
+  BACKUP_MAGIC.copy(header);
+  header.writeUInt32BE(BACKUP_KDF_ITERATIONS, BACKUP_MAGIC.length);
+  return Buffer.concat([header, salt, iv, authTag, ciphertext]);
 }
 
-/**
- * Decrypts a buffer encrypted with AES-256-GCM (PBKDF2 100k iterations).
- * @param {Buffer} encryptedBuffer
- * @param {string} passwordOrKey
- * @returns {Buffer}
- */
-function decryptBackup(encryptedBuffer, passwordOrKey) {
-  if (!Buffer.isBuffer(encryptedBuffer) || encryptedBuffer.length < 44) {
-    throw new Error('Invalid encrypted backup file structure: Buffer too short.');
-  }
-  const salt = encryptedBuffer.subarray(0, 16);
-  const iv = encryptedBuffer.subarray(16, 28);
-  const authTag = encryptedBuffer.subarray(28, 44);
-  const ciphertext = encryptedBuffer.subarray(44);
-
-  const key = crypto.pbkdf2Sync(passwordOrKey, salt, 100000, 32, 'sha256');
+async function decryptWith(body, passwordOrKey, iterations) {
+  const salt = body.subarray(0, 16);
+  const iv = body.subarray(16, 28);
+  const authTag = body.subarray(28, 44);
+  const ciphertext = body.subarray(44);
+  const key = await pbkdf2(passwordOrKey, salt, iterations, 32, 'sha256');
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
   decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
+
+/**
+ * Decrypts a backup in either format. Throws when the key is wrong or the file was changed (the
+ * GCM tag does not match).
+ * @param {Buffer} encryptedBuffer
+ * @param {string} passwordOrKey
+ * @returns {Promise<Buffer>}
+ */
+async function decryptBackup(encryptedBuffer, passwordOrKey) {
+  if (!Buffer.isBuffer(encryptedBuffer) || encryptedBuffer.length < SALT_IV_TAG_LENGTH) {
+    throw new Error('Invalid encrypted backup file structure: Buffer too short.');
+  }
+  const hasHeader =
+    encryptedBuffer.length >= HEADER_LENGTH + SALT_IV_TAG_LENGTH &&
+    encryptedBuffer.subarray(0, BACKUP_MAGIC.length).equals(BACKUP_MAGIC);
+  if (hasHeader) {
+    const iterations = encryptedBuffer.readUInt32BE(BACKUP_MAGIC.length);
+    if (iterations >= LEGACY_KDF_ITERATIONS && iterations <= MAX_KDF_ITERATIONS) {
+      try {
+        return await decryptWith(
+          encryptedBuffer.subarray(HEADER_LENGTH),
+          passwordOrKey,
+          iterations,
+        );
+      } catch (error) {
+        // An old backup whose random salt happens to start with "QDB2": read it the old way.
+      }
+    }
+  }
+  return decryptWith(encryptedBuffer, passwordOrKey, LEGACY_KDF_ITERATIONS);
 }
 
 /**
@@ -215,7 +254,7 @@ const runBackup = async (settings, backupFilePath, userPassword) => {
       compression: 'DEFLATE',
     });
 
-    const encryptedContent = encryptBackup(zipContent, encryptionKey);
+    const encryptedContent = await encryptBackup(zipContent, encryptionKey);
 
     await fs.writeFile(backupFilePath, encryptedContent);
 
@@ -386,6 +425,7 @@ module.exports = {
   isBackupDue,
   encryptBackup,
   decryptBackup,
+  BACKUP_KDF_ITERATIONS,
   generateSignature,
   verifySignature,
   validateBackupPath,
