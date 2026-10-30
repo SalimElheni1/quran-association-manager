@@ -40,6 +40,9 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 
 ### Fixed
 
+- The home page showed «فشل في تحميل بيانات لوحة التحكم» to Finance Managers and Session
+  Supervisors on every visit, and lost its counts: it also asked for the backup reminder, which only
+  Superadmin/Administrator may read.
 - The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
 - Scheduled backups and fee charges failed while the login screen showed: logging out closed the
   database. It now stays open. The automatic backup is also checked a minute after the app

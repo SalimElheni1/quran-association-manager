@@ -44,6 +44,30 @@ describe('DashboardPage', () => {
     };
   });
 
+  it('loads for a role without the backup settings: no reminder request, no error', async () => {
+    // FinanceManager / SessionSupervisor: the main process refuses backup:get-reminder-status.
+    usePermissions.mockReturnValue({
+      hasPermission: (permission) => permission !== 'settings:view',
+    });
+    window.electronAPI.getBackupReminderStatus.mockRejectedValue(new Error('غير مسموح به.'));
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('120')).toBeInTheDocument();
+    expect(window.electronAPI.getBackupReminderStatus).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('still shows the counts when the backup reminder fails to load', async () => {
+    window.electronAPI.getBackupReminderStatus.mockRejectedValue(new Error('backup status'));
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('120')).toBeInTheDocument();
+    await waitFor(() => expect(window.electronAPI.getBackupReminderStatus).toHaveBeenCalled());
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it('shows the branch counts, including zero, once they arrive', async () => {
     render(<DashboardPage />);
 
