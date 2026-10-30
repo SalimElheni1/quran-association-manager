@@ -380,18 +380,58 @@ describe('importManager - Extended Tests', () => {
         }
       });
 
-      it('gives users of old backups without a role the Administrator role', async () => {
-        PizZip.mockImplementation(() => backupZip('SELECT 1;'));
+      it('gives users of a backup from before user_roles the role they had', async () => {
+        allQuery.mockImplementation((sql) => {
+          if (sql.includes('sqlite_master')) return Promise.resolve([{ name: 'users' }]);
+          if (sql.startsWith('PRAGMA table_info')) {
+            return Promise.resolve([{ name: 'id' }, { name: 'username' }]);
+          }
+          return Promise.resolve([]);
+        });
+        getQuery.mockImplementation((sql, [name]) =>
+          Promise.resolve({ Administrator: { id: 2 }, SessionSupervisor: { id: 4 } }[name]),
+        );
+        PizZip.mockImplementation(() =>
+          backupZip(
+            `REPLACE INTO "users" ("id", "username", "role") VALUES (7, 'amal', 'Manager');
+             REPLACE INTO "users" ("id", "username", "role") VALUES (8, 'samir', 'SessionSupervisor');
+             REPLACE INTO "users" ("id", "username", "role") VALUES (9, 'x', 'Owner');`,
+          ),
+        );
 
         await replaceDatabase('good.qdb', 'pw');
 
-        expect(getQuery).toHaveBeenCalledWith('SELECT id FROM roles WHERE name = ?', [
-          'Administrator',
+        const grants = runQuery.mock.calls.filter(([sql]) => sql.includes('INTO user_roles'));
+        expect(grants.map(([, params]) => params)).toEqual([
+          [7, 2],
+          [8, 4],
         ]);
-        expect(runQuery).toHaveBeenCalledWith(
-          'INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
-          [4, 2],
+      });
+
+      it('makes up no role for a user of a recent backup who has none', async () => {
+        allQuery.mockImplementation((sql) => {
+          if (sql.includes('sqlite_master')) {
+            return Promise.resolve([{ name: 'users' }, { name: 'user_roles' }]);
+          }
+          if (sql.startsWith('PRAGMA table_info("users")')) {
+            return Promise.resolve([{ name: 'id' }, { name: 'username' }]);
+          }
+          if (sql.startsWith('PRAGMA table_info')) {
+            return Promise.resolve([{ name: 'user_id' }, { name: 'role_id' }]);
+          }
+          return Promise.resolve([]);
+        });
+        PizZip.mockImplementation(() =>
+          backupZip(
+            `REPLACE INTO "users" ("id", "username") VALUES (7, 'amal'), (8, 'no_role');
+             REPLACE INTO "user_roles" ("user_id", "role_id") VALUES (7, 1);`,
+          ),
         );
+
+        await replaceDatabase('good.qdb', 'pw');
+
+        const grants = runQuery.mock.calls.filter(([sql]) => sql.includes('INTO user_roles'));
+        expect(grants).toEqual([]);
       });
 
       it('converts old 6-digit matricules to the 4-digit format', async () => {

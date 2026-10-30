@@ -138,6 +138,9 @@ async function executeSqlScriptSafely(sqlScript) {
   const skippedTables = new Set();
   const fixedStatements = [];
   let skippedStatements = 0;
+  // What the backup brings, for the fix-ups after the import.
+  const tablesWithRows = new Set();
+  const legacyUserRoles = [];
 
   for (const statement of statements) {
     // Anything that is not a row insert (CREATE, DROP, ATTACH, PRAGMA, triggers...) is skipped:
@@ -160,6 +163,10 @@ async function executeSqlScriptSafely(sqlScript) {
       col.trim().replace(/^"|"$/g, ''),
     );
     const currentColumns = tableColumns[tableName];
+    tablesWithRows.add(tableName);
+    if (tableName === 'users' && !currentColumns.has('role')) {
+      legacyUserRoles.push(...readLegacyUserRoles(statement, columns));
+    }
 
     // Check if all columns exist
     const invalidColumns = columns.filter((col) => !currentColumns.has(col));
@@ -192,6 +199,7 @@ async function executeSqlScriptSafely(sqlScript) {
   if (finalScript.trim()) {
     await dbExec(getDb(), finalScript);
   }
+  return { tablesWithRows, legacyUserRoles };
 }
 
 // Splits a SQL fragment on a delimiter, ignoring delimiters that appear inside
@@ -355,6 +363,43 @@ function parseValuesRows(valuesSection) {
   if (currentRow.length > 0) rows.push(currentRow);
 
   return rows;
+}
+
+// The one role per user that backups made before user_roles existed carried in users.role, and
+// the role each one is today.
+const LEGACY_USER_ROLES = {
+  Superadmin: 'Superadmin',
+  Admin: 'Administrator',
+  Manager: 'Administrator',
+  Administrator: 'Administrator',
+  FinanceManager: 'FinanceManager',
+  SessionSupervisor: 'SessionSupervisor',
+};
+
+/** A SQL literal from a VALUES list as a JS value ('it''s' -> it's, NULL -> null). */
+function sqlLiteralValue(token) {
+  const text = String(token).trim();
+  if (/^NULL$/i.test(text)) return null;
+  if (text.startsWith("'") && text.endsWith("'")) return text.slice(1, -1).replace(/''/g, "'");
+  return text;
+}
+
+/**
+ * The legacy users.role value of each row of a users insert, by user id.
+ * @returns {Array<{id: number, role: string}>}
+ */
+function readLegacyUserRoles(statement, columns) {
+  const idIndex = columns.indexOf('id');
+  const roleIndex = columns.indexOf('role');
+  if (idIndex === -1 || roleIndex === -1) return [];
+  const valuesIndex = statement.search(/\bVALUES\b/i);
+  if (valuesIndex === -1) return [];
+  return parseValuesRows(statement.slice(valuesIndex + 6))
+    .map((values) => ({
+      id: Number(sqlLiteralValue(values[idIndex])),
+      role: sqlLiteralValue(values[roleIndex]),
+    }))
+    .filter((row) => Number.isInteger(row.id) && row.role);
 }
 
 function fixStatementColumns(statement, columns, invalidColumns) {
@@ -547,27 +592,27 @@ async function putPreviousDatabaseBack(currentDbPath, previousDbPath) {
   }
 }
 
-/** Users of old backups made before user_roles existed get the Administrator role. */
-async function giveRolelessUsersADefaultRole() {
-  log('Checking for users without role assignments...');
-  const usersWithoutRoles = await allQuery(`
-      SELECT u.id, u.username
-      FROM users u
-      WHERE NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)
-    `);
-
-  if (usersWithoutRoles.length > 0) {
-    log(`Found ${usersWithoutRoles.length} users without roles. Assigning default roles...`);
-    for (const user of usersWithoutRoles) {
-      // Assign Administrator role as default for imported users
-      const roleId = await getQuery('SELECT id FROM roles WHERE name = ?', ['Administrator']);
-      if (roleId) {
-        await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-          user.id,
-          roleId.id,
-        ]);
-        log(`Assigned Administrator role to user: ${user.username}`);
-      }
+/**
+ * Backups made before user_roles existed (versions 1.0 and 1.1) kept one role per user in
+ * users.role: those users get the matching role. A backup that has user_roles rows is taken as
+ * it is; a user it gives no role keeps none (no role is ever made up).
+ * @param {{tablesWithRows: Set<string>, legacyUserRoles: Array<{id: number, role: string}>}} imported
+ */
+async function giveLegacyUsersTheirRole({ tablesWithRows, legacyUserRoles }) {
+  if (tablesWithRows.has('user_roles') || legacyUserRoles.length === 0) return;
+  log(`Backup without user_roles: mapping the old role of ${legacyUserRoles.length} user(s).`);
+  for (const { id, role } of legacyUserRoles) {
+    const roleName = Object.hasOwn(LEGACY_USER_ROLES, role) ? LEGACY_USER_ROLES[role] : null;
+    if (!roleName) {
+      logWarn(`User ${id} had an unknown role in the backup; no role given.`);
+      continue;
+    }
+    const roleRow = await getQuery('SELECT id FROM roles WHERE name = ?', [roleName]);
+    if (roleRow) {
+      await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+        id,
+        roleRow.id,
+      ]);
     }
   }
 }
@@ -631,8 +676,8 @@ async function importBackupRows(sqlScript) {
   await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
   try {
     await withTransaction(async () => {
-      await executeSqlScriptSafely(sqlScript);
-      await giveRolelessUsersADefaultRole();
+      const imported = await executeSqlScriptSafely(sqlScript);
+      await giveLegacyUsersTheirRole(imported);
       await convertLegacyMatricules();
     });
     log('Data import completed successfully.');

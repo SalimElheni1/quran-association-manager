@@ -133,3 +133,49 @@ describe('restore of an unsigned backup (before 1.3.0)', () => {
     expect(studentNames()).toEqual(['بعد الفشل', 'يبقى']);
   });
 });
+
+describe('roles of restored users', () => {
+  const rolesOf = (username) =>
+    ctx
+      .all(
+        `SELECT r.name FROM users u JOIN user_roles ur ON ur.user_id = u.id
+         JOIN roles r ON r.id = ur.role_id WHERE u.username = ? ORDER BY r.name`,
+        [username],
+      )
+      .map((r) => r.name);
+
+  test('a backup from before user_roles (1.0/1.1) gives each user the role they had', async () => {
+    const file = writeUnsignedBackup(
+      'v1.0.qdb',
+      `REPLACE INTO "users" ("id", "username", "password", "role", "status") VALUES
+         (10, 'boss', 'h', 'Superadmin', 'active'),
+         (11, 'manager', 'h', 'Manager', 'active'),
+         (12, 'supervisor', 'h', 'SessionSupervisor', 'active'),
+         (13, 'cashier', 'h', 'FinanceManager', 'active');`,
+    );
+
+    const result = await replaceDatabase(file, 'pw', undefined, {});
+
+    expect(result.success).toBe(true);
+    expect(rolesOf('boss')).toEqual(['Superadmin']);
+    expect(rolesOf('manager')).toEqual(['Administrator']);
+    expect(rolesOf('supervisor')).toEqual(['SessionSupervisor']);
+    expect(rolesOf('cashier')).toEqual(['FinanceManager']);
+  });
+
+  test('a user of a recent backup without a role does not become Administrator', async () => {
+    const file = writeUnsignedBackup(
+      'recent.qdb',
+      `REPLACE INTO "users" ("id", "username", "password", "status") VALUES
+         (10, 'boss', 'h', 'active'), (11, 'no_role', 'h', 'active');
+       REPLACE INTO "user_roles" ("user_id", "role_id")
+         VALUES (10, (SELECT id FROM roles WHERE name = 'Superadmin'));`,
+    );
+
+    const result = await replaceDatabase(file, 'pw', undefined, {});
+
+    expect(result.success).toBe(true);
+    expect(rolesOf('boss')).toEqual(['Superadmin']);
+    expect(rolesOf('no_role')).toEqual([]);
+  });
+});
