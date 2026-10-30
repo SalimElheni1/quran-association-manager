@@ -33,7 +33,7 @@
   "dependencies": {
     "arabic-reshaper": "^1.1.0",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3-multiple-ciphers": "^12.6.2",
+    "better-sqlite3-multiple-ciphers": "^13.0.3",
     "bootstrap": "^5.3.3",
     "d3-array": "^3.2.4",
     "d3-scale": "^4.0.2",
@@ -63,7 +63,7 @@
     "@testing-library/user-event": "^14.6.3",
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^8.2.2",
-    "electron": "^32.0.0",
+    "electron": "^45.1.0",
     "electron-builder": "^24.13.3",
     "electron-reloader": "^1.2.3",
     "eslint": "^8.57.0",

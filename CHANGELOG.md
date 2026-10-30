@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Security and reliability fixes from the October 2026 review (`docs/dev/review-2026-10.md`).
+
+### Security
+
+- **Exports could read any table.** The columns of an export are now a fixed list per screen; a
+  column name sent by the window can no longer put SQL into the query (it could read the backup
+  transfer key and the password hashes with Finance Manager rights).
+- **The Excel import could create a Superadmin.** Each sheet needs the rights of the screen that
+  writes it: only the Superadmin imports users, only Superadmin/Administrator import students,
+  teachers, classes, groups and inventory. Imported users get a random password from `crypto`
+  and only one of the four roles; the last active Superadmin cannot be demoted by an import.
+- **Restoring a backup only brings rows.** A backup can no longer change the database schema,
+  add triggers, attach files or skip migrations. Backups from before 1.3.0 (neither encrypted nor
+  signed) are restored only after accepting a warning.
+- **The forced password change** for accounts still on `123456` is enforced by the main process:
+  until the new password is saved, the account can do nothing else.
+- **Login lockout per account:** five wrong passwords lock that username, not every account,
+  and an unknown username takes as long to refuse as a wrong password.
+- **No debugger in the installed app:** Electron fuses turn off Node mode and `--inspect`, the
+  app refuses `--remote-debugging-port`, and DevTools are off.
+- **Electron 45** (from 32, unsupported since early 2025), with the SQLite module 13.
+- **Backups are harder to brute-force:** the backup key is stretched with 600,000 PBKDF2 rounds
+  (new `QDB2` format). Backups from 1.3.0–1.4.x still restore; backups made by this version
+  cannot be restored by 1.4.x.
+- Roles sent to «تعديل مستخدم» are validated (an account always keeps a role); restored users
+  without a role no longer become Administrators; old backups map their single role correctly.
+- Finance Managers and Session Supervisors no longer receive a student's health, emergency
+  contact and sponsor details.
+- Log files redact passwords and keys inside JSON text too, and no longer contain a hash of the
+  database key. Only the app's own page may call the main process.
+
+### Fixed
+
+- A failed restore no longer loses the data: the previous database is kept aside and put back.
+- Exports now include the expense/income category, the class age group, the fee payment's
+  sponsor, the student's enrolment date and memorised surahs/hizbs, which were silently left out.
+
+### Changed
+
+- CI runs lint, the unit tests and the database tests on every push.
+
 ## [1.4.0] - 2026-10-27
 
 First stable release of 1.4.0: it is 1.4.0-beta.2 promoted to stable, with no code changes. The
