@@ -7,7 +7,7 @@
 
 const sessionManager = require('./sessionManager');
 const { isInternalUrl } = require('./navigationGuard');
-const { warn: logWarn } = require('./logger');
+const { warn: logWarn, error: logError } = require('./logger');
 const { validateChannelArgs, hasArgSchema } = require('./ipcValidation');
 
 const ERRORS = {
@@ -16,6 +16,7 @@ const ERRORS = {
   SENDER_REJECTED: 'الوصول مرفوض.',
   INVALID_INPUT: 'بيانات غير صالحة.',
   PASSWORD_CHANGE_REQUIRED: 'يجب تغيير كلمة المرور قبل المتابعة.',
+  DATABASE: 'تعذر إتمام العملية بسبب خطأ في قاعدة البيانات. التفاصيل في سجل البرنامج.',
 };
 
 const ALLOWED_DEV_URL_ORIGIN = 'http://localhost:3000';
@@ -256,6 +257,21 @@ function argsAreValid(channel, args) {
 }
 
 /**
+ * Runs a handler. A failure inside SQLite reaches the window as an Arabic message; the SQL error
+ * itself (table and column names, constraint text) only goes to the log.
+ */
+async function runHandler(channel, handler, event, args) {
+  try {
+    return await handler(event, ...args);
+  } catch (error) {
+    const fromSqlite = typeof error?.code === 'string' && error.code.startsWith('SQLITE_');
+    if (!fromSqlite) throw error;
+    logError(`[ipcSecurity] "${channel}" failed in the database:`, error);
+    throw new Error(ERRORS.DATABASE);
+  }
+}
+
+/**
  * Wraps a handle registration with authentication + authorization + sender + argument checks.
  */
 function wrapHandle(channel, handler, policy) {
@@ -265,7 +281,7 @@ function wrapHandle(channel, handler, policy) {
     }
     if (policy.public) {
       if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
-      return handler(event, ...args);
+      return runHandler(channel, handler, event, args);
     }
 
     const session = senderSession(event);
@@ -283,7 +299,7 @@ function wrapHandle(channel, handler, policy) {
       );
     }
     if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
-    return handler(event, ...args);
+    return runHandler(channel, handler, event, args);
   };
 }
 

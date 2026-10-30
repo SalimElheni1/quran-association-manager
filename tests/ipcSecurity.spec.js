@@ -420,6 +420,50 @@ describe('ipcSecurity', () => {
     });
   });
 
+  describe('errors from the database', () => {
+    const loggedIn = () =>
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'a', roles: ['Superadmin'] },
+        null,
+      );
+
+    it('reach the window as an Arabic message; the SQL error only goes to the log', async () => {
+      const ipcMain = makeGuard();
+      const sqlError = Object.assign(
+        new Error("CHECK constraint failed: status IN ('present', 'absent', 'late')"),
+        { code: 'SQLITE_CONSTRAINT_CHECK' },
+      );
+      ipcMain.handle('attendance:save', jest.fn().mockRejectedValue(sqlError));
+      loggedIn();
+
+      const failure = ipcMain.handlers.get('attendance:save')(makeEvent(1), {
+        classId: 1,
+        date: '2026-10-01',
+        records: {},
+      });
+
+      await expect(failure).rejects.toThrow(ERRORS.DATABASE);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('attendance:save'),
+        sqlError,
+      );
+    });
+
+    it('leave the messages handlers write themselves as they are', async () => {
+      const ipcMain = makeGuard();
+      ipcMain.handle(
+        'students:delete',
+        jest.fn().mockRejectedValue(new Error('لا يمكن حذف هذا الطالب.')),
+      );
+      loggedIn();
+
+      await expect(ipcMain.handlers.get('students:delete')(makeEvent(1), 3)).rejects.toThrow(
+        'لا يمكن حذف هذا الطالب.',
+      );
+    });
+  });
+
   describe('on guard', () => {
     it('allows public event channels without a session', () => {
       // No event channel is public today; one added later goes through the same path.

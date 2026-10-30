@@ -161,7 +161,9 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 ## Errors and Logs
 
 - Handlers log the technical error and send the renderer a short Arabic message, not a stack
-  trace or SQL.
+  trace or SQL. A SQLite error a handler lets through is caught by the IPC guard
+  (`ipcSecurity.runHandler`): it is logged with the channel name, and the window gets
+  `ERRORS.DATABASE` («تعذر إتمام العملية بسبب خطأ في قاعدة البيانات…»).
 - `logger.js` writes `app-logs.txt` in the user-data folder and redacts any field whose name
   matches `pass`, `password`, `token`, `secret`, `transfer_key`, `national_id`, `credit` or `card`,
   in objects and in text that already holds JSON (`"password": "..."` inside a message). Neither

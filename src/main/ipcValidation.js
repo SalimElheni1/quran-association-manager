@@ -23,7 +23,16 @@ const requiredPayload = payload.required();
 const options = payload.allow(null);
 const text = (max) => Joi.string().allow('').max(max);
 const academicYear = Joi.string().max(20).allow(null, '');
-const date = Joi.string().max(40);
+// A calendar day as the attendance register stores it: YYYY-MM-DD, a day that exists.
+const calendarDay = Joi.string()
+  .pattern(/^\d{4}-\d{2}-\d{2}$/)
+  .custom((value, helpers) => {
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    const exists = parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+    return exists ? value : helpers.error('any.invalid');
+  });
+const ATTENDANCE_STATUSES = ['present', 'absent', 'late'];
 const receiptType = Joi.string().max(60).allow(null, '');
 // financial:get-summary takes a { startDate, endDate } period, a year, or nothing.
 const period = Joi.alternatives()
@@ -159,14 +168,18 @@ const CHANNEL_ARG_SCHEMAS = {
   // ---- Dashboard and attendance ----
   'get-dashboard-stats': [],
   'get-todays-classes': [],
-  'attendance:getClassesForDay': [date.required()],
+  'attendance:getClassesForDay': [calendarDay.required()],
   'attendance:getStudentsForClass': [requiredId],
-  'attendance:getForDate': [Joi.object({ classId: requiredId, date: date.required() }).required()],
+  'attendance:getForDate': [
+    Joi.object({ classId: requiredId, date: calendarDay.required() }).required(),
+  ],
   'attendance:save': [
     Joi.object({
       classId: requiredId,
-      date: date.required(),
-      records: Joi.object().pattern(/^\d+$/, Joi.string().max(20)).required(),
+      date: calendarDay.required(),
+      records: Joi.object()
+        .pattern(/^\d+$/, Joi.string().valid(...ATTENDANCE_STATUSES))
+        .required(),
     }).required(),
   ],
   // Called with an empty value before a class is chosen (the handler then returns []).
