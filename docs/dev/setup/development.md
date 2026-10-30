@@ -83,8 +83,10 @@ See [testing.md](testing.md) and [building.md](building.md).
 
 Add a new file `src/db/migrations/NNN-description.sql` with the next free number. Migrations
 run in filename order at startup, on fresh and existing databases alike (fresh installs run
-`schema.js` first). The runner records each file by **name**, so never rename, renumber or edit
-a migration that has shipped: add a new one. Each file runs in one transaction and is recorded
+`schema.js` first). The runner records each file by **name**, so never rename, renumber, edit or
+remove a migration that has shipped: add a new one. Backups list these names too: a restore
+rebuilds the backup's schema from them and runs the later ones on its rows, and refuses a backup
+that lists a name the app does not have. Each file runs in one transaction and is recorded
 only when all of it ran; any error stops the start-up. The one exception: an
 `ALTER TABLE … ADD COLUMN` whose column the table already has is left out, and the rest of the
 file runs.

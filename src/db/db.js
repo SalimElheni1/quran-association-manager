@@ -298,15 +298,23 @@ function dropFeeChargeUniqueness() {
   Object.keys(FEE_CHARGE_UNIQUE_INDEXES).forEach((name) => db.exec(`DROP INDEX IF EXISTS ${name}`));
 }
 
-async function runMigrations() {
+const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
+
+/** The migration files of this version of the app, in the order they run. */
+function listMigrationFiles() {
+  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
+  return fs.readdirSync(MIGRATIONS_DIR).sort();
+}
+
+/**
+ * Applies the migration files not applied yet, in filename order.
+ * @param {object} [options]
+ * @param {string[]} [options.only] Apply only these files: a restore builds the schema the backup
+ *   was made with, loads its rows, then runs the rest.
+ */
+async function runMigrations({ only } = {}) {
   log('Checking for pending migrations...');
-  const migrationsDir = path.join(__dirname, 'migrations');
-
-  if (!fs.existsSync(migrationsDir)) {
-    fs.mkdirSync(migrationsDir);
-  }
-
-  const migrationFiles = fs.readdirSync(migrationsDir).sort();
+  const migrationFiles = listMigrationFiles().filter((file) => !only || only.includes(file));
   const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
 
   // better-sqlite3 transactions are synchronous: a migration file runs, and is recorded, whole.
@@ -319,7 +327,7 @@ async function runMigrations() {
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
       log(`Applying migration: ${file}`);
-      const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      const migrationSql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
       // PRAGMA foreign_keys cannot be changed inside a transaction, and some
       // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
       // child tables reference. Disable FK enforcement around the migration so
@@ -344,8 +352,11 @@ async function runMigrations() {
 /**
  * Initializes the database connection. This is the main entry point for the DB.
  * It handles key derivation, migration, and schema setup.
+ * @param {object} [options]
+ * @param {string[]} [options.migrations] For a new database, apply only these migrations (a
+ *   restore: the schema of the backup).
  */
-async function initializeDatabase() {
+async function initializeDatabase({ migrations } = {}) {
   log('[DB_LOG] InitializeDatabase called (better-sqlite3).');
   if (db && db.open) {
     log('[DB_LOG] Database already open. Skipping initialization.');
@@ -460,7 +471,7 @@ async function initializeDatabase() {
     if (!dbExists) {
       log('[DB_LOG] New database detected. Initializing schema...');
       db.exec(schema);
-      await runMigrations(); // This uses db, which is set now
+      await runMigrations({ only: migrations }); // This uses db, which is set now
       getDbSalt();
       log('[DB_LOG] Database salt created.');
       // SEC-04: no default superadmin is seeded. The first-run setup flow
@@ -470,7 +481,8 @@ async function initializeDatabase() {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
-    ensureFeeChargeUniqueness();
+    // A restore that builds an older schema adds them once its rows are migrated forward.
+    if (!migrations) ensureFeeChargeUniqueness();
 
     // Ensure the Quran reference data (surahs/hizbs) exists so the
     // memorization pickers are usable on fresh installs. Both seed
@@ -654,6 +666,8 @@ module.exports = {
   createSuperadminUser,
   rotateDatabaseKey,
   withoutExistingColumns,
+  listMigrationFiles,
+  runMigrations,
   ensureFeeChargeUniqueness,
   dropFeeChargeUniqueness,
 };

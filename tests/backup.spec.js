@@ -44,9 +44,11 @@ describe('Backup Manager', () => {
 
     it('should generate a SQL backup successfully', async () => {
       keyManager.getDbSalt.mockReturnValue(mockSalt);
-      db.allQuery
-        .mockResolvedValueOnce([{ name: 'students' }])
-        .mockResolvedValueOnce([{ id: 1, name: "Alice's" }]);
+      db.allQuery.mockImplementation(async (sql) => {
+        if (sql.startsWith('SELECT name FROM migrations')) return [{ name: '001-init.sql' }];
+        if (sql.includes('FROM sqlite_master')) return [{ name: 'students' }];
+        return [{ id: 1, name: "Alice's" }];
+      });
 
       const result = await runBackup(mockSettings, backupFilePath);
 
@@ -56,6 +58,8 @@ describe('Backup Manager', () => {
       );
       expect(db.allQuery).toHaveBeenCalledWith('SELECT * FROM "students"');
       const generatedSql = PizZip.mockInstance.file.mock.calls[0][1];
+      // The first line lists the migrations of the database.
+      expect(generatedSql.split('\n')[0]).toBe('-- qdb-migrations: ["001-init.sql"]');
       expect(generatedSql).toContain(
         'REPLACE INTO "students" ("id", "name") VALUES (1, \'Alice\'\'s\');',
       );

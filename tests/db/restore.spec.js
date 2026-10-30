@@ -8,7 +8,7 @@ const { useRealDb } = require('./helpers/realDb');
 const { addStudent, addTeacher } = require('./helpers/fixtures');
 const { registerStudentHandlers } = require('../../src/main/handlers/studentHandlers');
 const { registerTeacherHandlers } = require('../../src/main/handlers/teacherHandlers');
-const { runBackup } = require('../../src/main/backupManager');
+const { runBackup, decryptBackup } = require('../../src/main/backupManager');
 const { validateDatabaseFile, replaceDatabase } = require('../../src/main/importManager');
 const db = require('../../src/db/db');
 
@@ -226,5 +226,76 @@ describe('fee charges of a backup', () => {
     expect((await backUpAndRestore()).success).toBe(true);
     expect(charges()).toEqual([{ amount_paid: 30, status: 'PAID' }]);
     expect(uniqueIndexes()).toEqual(['uq_fee_charges_annual', 'uq_fee_charges_monthly']);
+  });
+});
+
+describe('the migrations of a backup', () => {
+  const MIGRATIONS_DIR = path.join(__dirname, '..', '..', 'src', 'db', 'migrations');
+  const migrationFiles = () => fs.readdirSync(MIGRATIONS_DIR).sort();
+  const header = (names) => `-- qdb-migrations: ${JSON.stringify(names)}`;
+  const recordedMigrations = () =>
+    ctx.all('SELECT name FROM migrations ORDER BY name').map((r) => r.name);
+
+  test('a backup starts with the list of the migrations its database had', async () => {
+    const backupFile = path.join(ctx.dir, 'backup.qdb');
+    await runBackup({ association_transfer_key: TRANSFER_KEY }, backupFile);
+
+    const zip = new PizZip(await decryptBackup(fs.readFileSync(backupFile), TRANSFER_KEY));
+    const firstLine = zip.file('backup.sql').asText().split('\n')[0];
+
+    expect(firstLine).toBe(header(migrationFiles()));
+  });
+
+  test('the rows of an older backup go through the migrations that came after it', async () => {
+    // A backup made before migration 058, with the duplicate September charge 058 removes.
+    const file = writeUnsignedBackup(
+      'older.qdb',
+      `${header(migrationFiles().filter((name) => name < '058'))}
+       REPLACE INTO students (id, matricule, name, status) VALUES (1, 'S-0001', 'طالب', 'active');
+       REPLACE INTO student_fee_charges
+         (id, student_id, charge_date, fee_type, amount, amount_paid, status, academic_year, billing_month)
+       VALUES (1, 1, '2026-08-25', 'MONTHLY', 30, 0, 'UNPAID', '2025-2026', '2025-2026-09'),
+              (2, 1, '2026-09-01', 'MONTHLY', 30, 0, 'UNPAID', '2026-2027', '2026-2027-09');`,
+    );
+
+    const result = await replaceDatabase(file, 'pw', undefined, {});
+
+    expect(result.success).toBe(true);
+    expect(
+      ctx
+        .all("SELECT billing_month FROM student_fee_charges WHERE billing_month LIKE '%-09'")
+        .map((r) => r.billing_month),
+    ).toEqual(['2026-2027-09']);
+    expect(recordedMigrations()).toEqual(migrationFiles());
+  });
+
+  test('a backup from a newer version of the app is refused, and the data stays', async () => {
+    await addStudent(ctx, { name: 'يبقى' });
+    const file = writeUnsignedBackup(
+      'newer.qdb',
+      `${header([...migrationFiles(), '999-from-a-newer-version.sql'])}
+       REPLACE INTO students (id, name, status) VALUES (1, 'من النسخة', 'active');`,
+    );
+
+    expect(await validateDatabaseFile(file, undefined, TRANSFER_KEY)).toEqual(
+      expect.objectContaining({ isValid: false, message: expect.stringContaining('إصدار أحدث') }),
+    );
+    const result = await replaceDatabase(file, 'pw', undefined, {});
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('إصدار أحدث');
+    expect(studentNames()).toEqual(['يبقى']);
+  });
+
+  test('a migration list that is not a list of migration names is refused', async () => {
+    const file = writeUnsignedBackup(
+      'garbled.qdb',
+      `-- qdb-migrations: ["../../etc/passwd"]
+       REPLACE INTO students (id, name, status) VALUES (1, 'من النسخة', 'active');`,
+    );
+
+    expect(await validateDatabaseFile(file, undefined, TRANSFER_KEY)).toEqual(
+      expect.objectContaining({ isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' }),
+    );
   });
 });

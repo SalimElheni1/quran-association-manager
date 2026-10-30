@@ -146,6 +146,10 @@ function verifySignature(data, key, signatureHex) {
   return crypto.timingSafeEqual(sigBuf, expBuf);
 }
 
+// The first line of backup.sql lists the migrations of the database it was made from: a restore
+// builds that schema, loads the rows, then runs the migrations that came after.
+const MIGRATIONS_LINE_PREFIX = '-- qdb-migrations: ';
+
 /**
  * Generates a complete SQL script including schema and data.
  * Using REPLACE (or INSERT OR REPLACE) handles conflicts with pre-existing data
@@ -154,6 +158,8 @@ function verifySignature(data, key, signatureHex) {
  */
 async function generateSqlReplaceStatements() {
   const sqlParts = [];
+  const migrations = await allQuery('SELECT name FROM migrations ORDER BY name');
+  sqlParts.push(`${MIGRATIONS_LINE_PREFIX}${JSON.stringify(migrations.map((row) => row.name))}`);
 
   // Add schema first
   sqlParts.push('-- Database Schema');
@@ -441,6 +447,7 @@ module.exports = {
   encryptBackup,
   decryptBackup,
   BACKUP_KDF_ITERATIONS,
+  MIGRATIONS_LINE_PREFIX,
   generateSignature,
   verifySignature,
   validateBackupPath,

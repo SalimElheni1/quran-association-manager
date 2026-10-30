@@ -59,6 +59,12 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
   database. It now stays open. The automatic backup is also checked a minute after the app
   starts, so a computer used less than an hour a day still gets its backups.
 - A failed restore no longer loses the data: the previous database is kept aside and put back.
+- A restored backup now goes through the database changes made since it was taken, as an
+  upgrade would: backups record the schema they were made with, the restore rebuilds it, loads
+  the rows, then runs the later changes on them (before, an older backup's rows skipped the data
+  fixes, such as the removal of the duplicate September charge). A backup made by a newer
+  version of the app is refused instead of losing the columns this version doesn't know.
+  Backups from before this version are restored as before.
 - Two saves at the same moment could undo each other: the database had one transaction for the
   whole app, so a save that failed could roll back another one's changes, or let it read data
   that was then cancelled. Each save now has its own transaction, one at a time.

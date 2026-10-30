@@ -245,7 +245,8 @@ describe('importManager - Extended Tests', () => {
         expect(files.get(`${PREVIOUS}-wal`)).toBe('current');
         expect(files.has(`${DB}-wal`)).toBe(false);
         expect(setDbSalt).toHaveBeenCalledWith('new-salt');
-        expect(initializeDatabase).toHaveBeenCalledWith();
+        // A backup that does not list its migrations gets today's schema.
+        expect(initializeDatabase).toHaveBeenCalledWith({ migrations: null });
 
         // The data runs with foreign keys off, in one transaction, and they are always turned
         // back on.

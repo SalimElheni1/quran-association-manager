@@ -19,6 +19,8 @@ const {
   allQuery,
   ensureFeeChargeUniqueness,
   dropFeeChargeUniqueness,
+  listMigrationFiles,
+  runMigrations,
 } = require('../db/db');
 const crypto = require('crypto');
 const { generateMatricule } = require('./services/matriculeService');
@@ -447,6 +449,9 @@ function fixStatementColumns(statement, columns, invalidColumns) {
 
 const WRONG_KEY_MESSAGE =
   'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.';
+const INVALID_BACKUP_MESSAGE = 'ملف النسخ الاحتياطي غير صالح أو تالف.';
+const NEWER_BACKUP_MESSAGE =
+  'هذه النسخة الاحتياطية من إصدار أحدث من البرنامج. حدّث البرنامج ثم أعد المحاولة.';
 
 /** A problem with the backup file itself; its message is shown to the user as it is. */
 class BackupFileError extends Error {}
@@ -454,7 +459,8 @@ class BackupFileError extends Error {}
 /**
  * Opens a backup: decrypts it with the candidate keys, checks its signature, and reads its SQL
  * and salt. Nothing is changed.
- * @returns {Promise<{zip: PizZip, sqlScript: string, salt: string, unsigned: boolean}>}
+ * @returns {Promise<{zip: PizZip, sqlScript: string, salt: string, migrations: string[]|null,
+ *   unsigned: boolean}>} `migrations`: see readBackupMigrations.
  *   `unsigned` is true for a plain ZIP without a signature (backups made before version 1.3.0):
  *   nothing proves who made it, so the user confirms before it is restored.
  * @throws {BackupFileError} When the file is not a backup this app can restore.
@@ -473,7 +479,7 @@ async function readBackupPackage(filePath, backupPassword, savedTransferKey) {
   const sqlFile = zip.file('backup.sql');
   const configFile = zip.file('salt.json') || zip.file('config.json'); // config.json: legacy name
   if (!sqlFile || !configFile) {
-    throw new BackupFileError('ملف النسخ الاحتياطي غير صالح أو تالف.');
+    throw new BackupFileError(INVALID_BACKUP_MESSAGE);
   }
   const sqlScript = sqlFile.asText();
 
@@ -501,7 +507,36 @@ async function readBackupPackage(filePath, backupPassword, savedTransferKey) {
     throw new BackupFileError('Backup configuration is missing the required salt.');
   }
 
-  return { zip, sqlScript, salt, unsigned: !decrypted && !signatureFile };
+  const migrations = readBackupMigrations(sqlScript);
+  return { zip, sqlScript, salt, migrations, unsigned: !decrypted && !signatureFile };
+}
+
+const MIGRATION_FILE_NAME = /^\d{3}-[\w-]+\.sql$/;
+
+/**
+ * The migrations of the database a backup was made from (the first line of its SQL), or null
+ * for a backup from before they were recorded. A backup with a migration this version of the
+ * app does not have comes from a newer version, and is refused.
+ * @param {string} sqlScript
+ * @returns {string[]|null}
+ */
+function readBackupMigrations(sqlScript) {
+  const prefix = backupManager.MIGRATIONS_LINE_PREFIX;
+  if (!sqlScript.startsWith(prefix)) return null;
+  const lineEnd = sqlScript.indexOf('\n');
+  let names;
+  try {
+    names = JSON.parse(sqlScript.slice(prefix.length, lineEnd === -1 ? undefined : lineEnd));
+  } catch {
+    names = null;
+  }
+  const isMigrationName = (name) => typeof name === 'string' && MIGRATION_FILE_NAME.test(name);
+  if (!Array.isArray(names) || !names.every(isMigrationName)) {
+    throw new BackupFileError(INVALID_BACKUP_MESSAGE);
+  }
+  const known = new Set(listMigrationFiles());
+  if (names.some((name) => !known.has(name))) throw new BackupFileError(NEWER_BACKUP_MESSAGE);
+  return names;
 }
 
 async function validateDatabaseFile(filePath, backupPassword, savedTransferKey) {
@@ -685,7 +720,6 @@ async function importBackupRows(sqlScript) {
       await giveLegacyUsersTheirRole(imported);
       await convertLegacyMatricules();
     });
-    ensureFeeChargeUniqueness();
     log('Data import completed successfully.');
   } finally {
     log('Re-enabling foreign key constraints...');
@@ -778,9 +812,13 @@ async function replaceDatabase(importedDbPath, _password, backupPassword, curren
 
   try {
     log('Initializing a new database for the backup...');
-    await initializeDatabase();
+    // The schema the backup was made with (today's, for a backup that does not say)...
+    await initializeDatabase({ migrations: backup.migrations });
     log('Processing SQL script to import data...');
     await importBackupRows(backup.sqlScript);
+    // ...then the migrations that came after it, on its rows.
+    await runMigrations();
+    ensureFeeChargeUniqueness();
   } catch (error) {
     logError('Failed to import the backup; putting the previous database back:', error);
     await putPreviousDatabaseBack(currentDbPath, previousDbPath);

@@ -120,9 +120,13 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   ZIP, neither encrypted nor signed) is restored only after the user accepts a warning. Only
   `INSERT`/`REPLACE INTO` rows of tables the app already has are run (never schema changes,
   `ATTACH`, triggers, `PRAGMA`, `INSERT ... SELECT` or the `migrations` table). The current
-  database is moved to `quran_assoc_manager.sqlite.pre-restore`, the rows are imported in one
-  transaction, and if anything fails the previous database is put back and opened again; after a
-  successful restore it stays there until the next one.
+  database is moved to `quran_assoc_manager.sqlite.pre-restore`. The new database gets the schema
+  the backup was made with (the migrations listed on the first line of its SQL; today's schema
+  for a backup from before that line existed), the rows are imported in one transaction, then the
+  later migrations run on them, as an upgrade would. A backup that lists a migration this version
+  does not have was made by a newer version and is refused. If anything fails the previous
+  database is put back and opened again; after a successful restore it stays there until the
+  next one.
 
 ## Input Handling
 
