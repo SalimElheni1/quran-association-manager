@@ -439,7 +439,7 @@ describe('systemHandlers', () => {
       const password = 'correct-password';
       const userId = 1;
       const mockUser = { password: 'hashed-password' };
-      const mockValidationResult = { isValid: true };
+      const mockValidationResult = { isValid: true, backup: { sqlScript: 'read once' } };
       const mockImportResult = { success: true, message: 'Import completed' };
 
       db.getQuery.mockResolvedValue(mockUser);
@@ -461,11 +461,13 @@ describe('systemHandlers', () => {
         undefined,
         'saved-transfer-key',
       );
+      // The restore uses the package the check read: the file is decrypted once.
       expect(importManager.replaceDatabase).toHaveBeenCalledWith(
         '/path/to/backup.qdb',
         password,
         undefined,
         { association_transfer_key: 'saved-transfer-key' },
+        mockValidationResult.backup,
       );
       expect(result).toBe(mockImportResult);
     });
@@ -611,6 +613,7 @@ describe('systemHandlers', () => {
           'password',
           undefined,
           expect.any(Object),
+          undefined,
         );
       });
     });

@@ -539,10 +539,20 @@ function readBackupMigrations(sqlScript) {
   return names;
 }
 
+/**
+ * Reads and checks a backup without changing anything.
+ * @returns {Promise<{isValid: boolean, message: string, unsigned?: boolean, backup?: object}>}
+ *   `backup`: the package read, for replaceDatabase, so the file is decrypted only once.
+ */
 async function validateDatabaseFile(filePath, backupPassword, savedTransferKey) {
   try {
-    const { unsigned } = await readBackupPackage(filePath, backupPassword, savedTransferKey);
-    return { isValid: true, unsigned, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
+    const backup = await readBackupPackage(filePath, backupPassword, savedTransferKey);
+    return {
+      isValid: true,
+      unsigned: backup.unsigned,
+      backup,
+      message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.',
+    };
   } catch (error) {
     if (error instanceof BackupFileError) return { isValid: false, message: error.message };
     logError('Error during backup validation:', error);
@@ -766,15 +776,24 @@ function restoreBackupAssets(zip) {
  * @param {string} [backupPassword] A key typed in the restore dialog.
  * @param {object} [currentSettings] The settings of the current database, read by the caller
  *   while it is still open: the backup folder for the safety copy, and the transfer key.
+ * @param {object} [readBackup] The package validateDatabaseFile already read; the file is
+ *   decrypted again only without it (stretching the key takes a few seconds).
  */
-async function replaceDatabase(importedDbPath, _password, backupPassword, currentSettings) {
+async function replaceDatabase(
+  importedDbPath,
+  _password,
+  backupPassword,
+  currentSettings,
+  readBackup,
+) {
   const currentDbPath = getDatabasePath();
   const settings = currentSettings || mainStore.get('settings') || {};
   const savedTransferKey = settings.association_transfer_key;
 
   let backup;
   try {
-    backup = await readBackupPackage(importedDbPath, backupPassword, savedTransferKey);
+    backup =
+      readBackup || (await readBackupPackage(importedDbPath, backupPassword, savedTransferKey));
   } catch (error) {
     if (!(error instanceof BackupFileError)) logError('Failed to read the backup:', error);
     return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };

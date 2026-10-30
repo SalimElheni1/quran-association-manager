@@ -264,6 +264,7 @@ function registerSystemHandlers() {
           password,
           backupPassword,
           currentSettings,
+          validationResult.backup,
         );
       } catch (error) {
         logError('Error during database import process:', error);

@@ -55,6 +55,26 @@ describe('restore of a backup made by the app', () => {
     expect(fs.existsSync(`${db.getDatabasePath()}.pre-restore`)).toBe(true);
   });
 
+  test('the restore uses the backup the check read: the file is decrypted once', async () => {
+    await addStudent(ctx, { name: 'في النسخة' });
+    const backupFile = path.join(ctx.dir, 'backup.qdb');
+    await runBackup({ association_transfer_key: TRANSFER_KEY }, backupFile);
+    await addStudent(ctx, { name: 'بعد النسخة' });
+
+    const checked = await validateDatabaseFile(backupFile, undefined, TRANSFER_KEY);
+    fs.rmSync(backupFile); // nothing can be read from the file any more
+    const result = await replaceDatabase(
+      backupFile,
+      'pw',
+      undefined,
+      { association_transfer_key: TRANSFER_KEY },
+      checked.backup,
+    );
+
+    expect(result.success).toBe(true);
+    expect(studentNames()).toEqual(['في النسخة']);
+  });
+
   test('a backup whose SQL was changed is refused', async () => {
     const backupFile = path.join(ctx.dir, 'backup.qdb');
     await runBackup({ association_transfer_key: TRANSFER_KEY }, backupFile);
