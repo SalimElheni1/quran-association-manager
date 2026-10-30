@@ -46,6 +46,8 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 - The student list gave wrong results when the memorised-surahs or hizbs filter was combined with
   the search, gender, status or fee filter, or when surahs and hizbs were filtered together. The
   list is also paged by the database now, and the total under an age filter is exact.
+- Saving a class's enrolments removed every inactive student from the class (they are not listed
+  in the dialog). Only the students the dialog shows are added or removed now.
 - The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
 - Scheduled backups and fee charges failed while the login screen showed: logging out closed the
   database. It now stays open. The automatic backup is also checked a minute after the app

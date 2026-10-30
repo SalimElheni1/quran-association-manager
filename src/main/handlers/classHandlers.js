@@ -244,44 +244,46 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
+  ipcMain.handle('classes:updateEnrollments', async (event, { classId, studentIds }) => {
     try {
-      // Track which students were added/removed for charge regeneration
-      // Deleted students are not in the dialog, so their enrollments are left as they are
-      // (kept for history and for a restore).
-      const oldEnrollments = await db.allQuery(
+      // The audit user is the one logged in on this window, never a value from the window.
+      const userId = getUserIdForEvent(event);
+      // The dialog lists the class's active, non-deleted students (classes:getEnrollmentData):
+      // only their enrolments change. Inactive and deleted students stay enrolled (kept for
+      // history and for when they come back), since the dialog never showed them.
+      const shownEnrollments = await db.allQuery(
         `SELECT cs.student_id FROM class_students cs JOIN students s ON s.id = cs.student_id
-         WHERE cs.class_id = ? AND ${notDeleted('s')}`,
+         WHERE cs.class_id = ? AND s.status = 'active' AND ${notDeleted('s')}`,
         [classId],
       );
-      const oldStudentIds = oldEnrollments.map((e) => e.student_id);
+      const oldStudentIds = shownEnrollments.map((e) => e.student_id);
+      const newStudentIds = [...new Set((studentIds || []).map(Number))];
 
       // Identify added and removed students
-      const addedStudents = (studentIds || []).filter((id) => !oldStudentIds.includes(id));
-      const removedStudents = oldStudentIds.filter((id) => !(studentIds || []).includes(id));
+      const addedStudents = newStudentIds.filter((id) => !oldStudentIds.includes(id));
+      const removedStudents = oldStudentIds.filter((id) => !newStudentIds.includes(id));
       const affectedStudents = [...new Set([...addedStudents, ...removedStudents])];
 
       log(`[Enrollment] ════════════════════════════════════════════════════`);
       log(`[Enrollment] Updating enrollments for class ${classId}`);
       log(`[Enrollment] Previous students: ${oldStudentIds.join(', ') || 'none'}`);
-      log(`[Enrollment] New students: ${(studentIds || []).join(', ') || 'none'}`);
+      log(`[Enrollment] New students: ${newStudentIds.join(', ') || 'none'}`);
       log(`[Enrollment] Added students: ${addedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Removed students: ${removedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
 
       await db.withTransaction(async () => {
-        await db.runQuery(
-          `DELETE FROM class_students WHERE class_id = ?
-           AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)`,
-          [classId],
-        );
-        if (studentIds && studentIds.length > 0) {
-          const placeholders = studentIds.map(() => '(?, ?)').join(', ');
-          const params = [];
-          studentIds.forEach((studentId) => {
-            params.push(classId, studentId);
-          });
-          const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
+        if (removedStudents.length > 0) {
+          await db.runQuery(
+            `DELETE FROM class_students WHERE class_id = ?
+             AND student_id IN (${removedStudents.map(() => '?').join(', ')})`,
+            [classId, ...removedStudents],
+          );
+        }
+        if (addedStudents.length > 0) {
+          const placeholders = addedStudents.map(() => '(?, ?)').join(', ');
+          const params = addedStudents.flatMap((studentId) => [classId, studentId]);
+          const sql = `INSERT OR IGNORE INTO class_students (class_id, student_id) VALUES ${placeholders}`;
           await db.runQuery(sql, params);
         }
       });
