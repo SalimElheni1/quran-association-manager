@@ -83,7 +83,6 @@ describe('validateChannelArgs: the calls the renderer really makes are accepted'
     ['fee-charges:runManualCheck', [undefined]],
     ['logs:get-recent', [{ lines: 100 }]],
     ['logs:get-filtered', [{ keyword: 'backup', lines: 200 }]],
-    ['ui:show-error-toast', ['حدث خطأ']],
     ['backup:reveal-transfer-key', [{ password: 'secret' }]],
     [
       'backup:set-transfer-key',

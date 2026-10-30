@@ -63,8 +63,6 @@ const CHANNEL_ARG_SCHEMAS = {
   'auth:updateProfile': [requiredPayload],
   'auth:updatePassword': [requiredPayload],
   logout: [],
-  'ui:show-error-toast': [text(2000)],
-  'ui:show-success-toast': [text(2000)],
   'app:relaunch': [],
   'dialog:openDirectory': [],
   'dialog:openFile': [options],

@@ -342,10 +342,15 @@ describe('ipcSecurity', () => {
     it('silently drops an `on` message with invalid arguments', () => {
       const ipcMain = makeGuard();
       const handler = jest.fn();
-      ipcMain.on('ui:show-error-toast', handler);
+      ipcMain.on('logout', handler);
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'admin', roles: ['Superadmin'] },
+        null,
+      );
       validateChannelArgs.mockReturnValue(PROBLEM);
 
-      expect(ipcMain.ons.get('ui:show-error-toast')(makeEvent(1), { not: 'text' })).toBeUndefined();
+      expect(ipcMain.ons.get('logout')(makeEvent(1), { not: 'expected' })).toBeUndefined();
       expect(handler).not.toHaveBeenCalled();
     });
 
@@ -417,14 +422,25 @@ describe('ipcSecurity', () => {
 
   describe('on guard', () => {
     it('allows public event channels without a session', () => {
-      const ipcMain = makeGuard();
-      const handler = jest.fn();
-      ipcMain.on('ui:show-error-toast', handler);
-      const event = makeEvent(1);
+      // No event channel is public today; one added later goes through the same path.
+      PUBLIC_CHANNELS.add('test:public-event');
+      try {
+        const ipcMain = makeGuard();
+        const handler = jest.fn();
+        ipcMain.on('test:public-event', handler);
+        const event = makeEvent(1);
 
-      ipcMain.ons.get('ui:show-error-toast')(event, 'Hello');
+        ipcMain.ons.get('test:public-event')(event, 'Hello');
 
-      expect(handler).toHaveBeenCalledWith(event, 'Hello');
+        expect(handler).toHaveBeenCalledWith(event, 'Hello');
+      } finally {
+        PUBLIC_CHANNELS.delete('test:public-event');
+      }
+    });
+
+    it('has no toast relay channels any more (nothing listened to them)', () => {
+      expect(PUBLIC_CHANNELS.has('ui:show-error-toast')).toBe(false);
+      expect(PUBLIC_CHANNELS.has('ui:show-success-toast')).toBe(false);
     });
 
     it('drops logout when there is no session', () => {

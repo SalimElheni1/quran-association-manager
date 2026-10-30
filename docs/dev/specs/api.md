@@ -32,7 +32,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 
 <!-- api-doc:start -->
 
-148 channels.
+146 channels.
 
 ### accounts
 
@@ -322,13 +322,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `transactions:get` | `getTransactions` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `transactions:get-earliest-date` | `getEarliestTransactionDate` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `transactions:update` | `updateTransaction` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
-
-### ui
-
-| Channel | `window.electronAPI` | Allowed | File |
-|---|---|---|---|
-| `ui:show-error-toast` | `showErrorToast` | Public (before login) | `handlers/systemHandlers.js` |
-| `ui:show-success-toast` | `showSuccessToast` | Public (before login) | `handlers/systemHandlers.js` |
 
 ### users
 

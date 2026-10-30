@@ -35,8 +35,6 @@ const PUBLIC_CHANNELS = new Set([
   'get-is-packaged',
   'get-app-version',
   'settings:getLogo',
-  'ui:show-error-toast',
-  'ui:show-success-toast',
 ]);
 
 // What a session may still do while its user must replace the legacy default password: change

@@ -58,7 +58,7 @@ accounts. The main risks are:
 
 1. checks the sender is the app window (exactly the built `dist/renderer/index.html` that
    `index.js` loads, any hash route included, or `http://localhost:3000` in development);
-2. lets `PUBLIC_CHANNELS` through (login, first-run setup, version, logo, toasts);
+2. lets `PUBLIC_CHANNELS` through (login, first-run setup, version, logo);
 3. otherwise requires a live session, and that one of the user's roles is allowed for the channel
    in `CHANNEL_ROLES`.
 
