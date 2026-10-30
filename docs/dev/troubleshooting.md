@@ -22,8 +22,7 @@ in `electron-builder.yml`).
 
 ## Running in Development
 
-- **"FATAL ERROR: JWT_SECRET could not be derived"**: the session secret is derived from the
-  database key (HKDF, `keyManager.getJwtSecret`); this error means the key could not be read or is
+- **"Invalid database encryption key" at start-up**: the database key could not be read or is
   not 64 hex characters. Check the key store (`db-secure-config.json` in the user data folder) and
   the OS keychain. `JWT_SECRET` in `.env` is no longer used.
 - **Port 3000 in use**: `npm run dev` expects Vite on 3000 (the main process loads

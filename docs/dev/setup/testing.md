@@ -38,7 +38,7 @@ display: `xvfb-run -a npx playwright test`).
 
 | Project | Environment | Files | Notes |
 |---|---|---|---|
-| `main-process` | node | `tests/*.spec.js` | `moduleNameMapper` swaps `electron`, `electron-store`, `bcryptjs`, `jsonwebtoken`, `joi`, `exceljs`, `pizzip`, `fs` and `../db/db` for the mocks in `tests/mocks/`. |
+| `main-process` | node | `tests/*.spec.js` | `moduleNameMapper` swaps `electron`, `electron-store`, `bcryptjs`, `joi`, `exceljs`, `pizzip`, `fs` and `../db/db` for the mocks in `tests/mocks/`. |
 | `renderer-process` | jsdom | `tests/renderer/**/*.spec.js` | Babel transforms JSX; `@renderer/*` resolves to `src/renderer/*`; `tests/renderer/setup.js` loads jest-dom and stubs `window.electronAPI` and `react-toastify`. |
 
 Only those two patterns run. A spec anywhere else is silently skipped, so put new specs in

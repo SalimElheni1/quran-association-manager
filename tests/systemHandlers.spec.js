@@ -167,28 +167,24 @@ describe('systemHandlers', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should generate financial report export', async () => {
-      const exportParams = {
-        exportType: 'financial-report',
-        format: 'xlsx',
-        columns: [],
-        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } },
-      };
-      const mockData = { summary: {}, payments: [] };
-
+    it('has no separate financial-report path: the export whitelist refuses that type', async () => {
       dialog.showSaveDialog.mockResolvedValue({ filePath: '/path/to/financial.xlsx' });
       exportManager.getExportHeaderData.mockResolvedValue({});
-      exportManager.fetchFinancialData.mockResolvedValue(mockData);
-      exportManager.generateFinancialXlsx.mockResolvedValue();
-
-      const result = await handlers['export:generate'](null, exportParams);
-
-      expect(exportManager.fetchFinancialData).toHaveBeenCalledWith(exportParams.options.period);
-      expect(exportManager.generateFinancialXlsx).toHaveBeenCalledWith(
-        mockData,
-        '/path/to/financial.xlsx',
+      exportManager.fetchExportData.mockRejectedValue(
+        new Error('Invalid export type: financial-report'),
       );
-      expect(result.success).toBe(true);
+
+      const result = await handlers['export:generate'](null, {
+        exportType: 'financial-report',
+        format: 'xlsx',
+        columns: [{ key: 'name', header: 'x' }],
+        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } },
+      });
+
+      expect(exportManager.fetchExportData).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'financial-report' }),
+      );
+      expect(result.success).toBe(false);
     });
 
     it('should handle user cancellation', async () => {

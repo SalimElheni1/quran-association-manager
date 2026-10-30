@@ -1,87 +1,9 @@
-const jwt = require('jsonwebtoken');
-const { getUserFromToken, requireRoles } = require('../src/main/authMiddleware');
+const { requireRoles } = require('../src/main/authMiddleware');
 const sessionManager = require('../src/main/sessionManager');
-const db = require('../src/db/db');
-
-jest.mock('jsonwebtoken');
-jest.mock('../src/db/db');
 
 describe('Auth Middleware', () => {
-  const mockToken = 'valid.jwt.token';
-  const mockSecret = 'test-secret';
-
-  beforeAll(() => {
-    process.env.JWT_SECRET = mockSecret;
-  });
-
   afterEach(() => {
     jest.clearAllMocks();
-  });
-
-  describe('getUserFromToken', () => {
-    it('should return user with roles when token is valid', async () => {
-      const mockDecoded = { id: 1 };
-      const mockUser = { id: 1, username: 'testuser' };
-      const mockRoles = [{ name: 'Administrator' }, { name: 'FinanceManager' }];
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue(mockRoles);
-
-      const result = await getUserFromToken(mockToken);
-
-      expect(jwt.verify).toHaveBeenCalledWith(mockToken, mockSecret);
-      expect(db.getQuery).toHaveBeenCalledWith('SELECT id, username FROM users WHERE id = ?', [1]);
-      expect(db.allQuery).toHaveBeenCalledWith(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [1],
-      );
-      expect(result).toEqual({
-        id: 1,
-        username: 'testuser',
-        roles: ['Administrator', 'FinanceManager'],
-      });
-    });
-
-    it('should throw error when token is not provided', async () => {
-      await expect(getUserFromToken(null)).rejects.toThrow('Authentication token not provided.');
-      await expect(getUserFromToken(undefined)).rejects.toThrow(
-        'Authentication token not provided.',
-      );
-      await expect(getUserFromToken('')).rejects.toThrow('Authentication token not provided.');
-    });
-
-    it('should throw error when token is invalid', async () => {
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
-      });
-
-      await expect(getUserFromToken('invalid.token')).rejects.toThrow(
-        'Invalid or expired authentication token.',
-      );
-    });
-
-    it('should throw error when user is not found', async () => {
-      jwt.verify.mockReturnValue({ id: 999 });
-      db.getQuery.mockResolvedValue(null);
-
-      await expect(getUserFromToken(mockToken)).rejects.toThrow(
-        'Invalid or expired authentication token.',
-      );
-    });
-
-    it('should handle user with no roles', async () => {
-      const mockDecoded = { id: 2 };
-      const mockUser = { id: 2, username: 'noroles' };
-
-      jwt.verify.mockReturnValue(mockDecoded);
-      db.getQuery.mockResolvedValue(mockUser);
-      db.allQuery.mockResolvedValue([]);
-
-      const result = await getUserFromToken(mockToken);
-
-      expect(result.roles).toEqual([]);
-    });
   });
 
   describe('requireRoles', () => {

@@ -1,6 +1,9 @@
 const { useRealDb } = require('./helpers/realDb');
 const { addStudent } = require('./helpers/fixtures');
-const { registerFinancialHandlers } = require('../../src/main/handlers/financialHandlers');
+const {
+  registerFinancialHandlers,
+  recomputeAccountBalances,
+} = require('../../src/main/handlers/financialHandlers');
 const { registerStudentHandlers } = require('../../src/main/handlers/studentHandlers');
 const { registerStudentFeeHandlers } = require('../../src/main/handlers/studentFeeHandlers');
 
@@ -273,7 +276,8 @@ describe('transactions: void', () => {
     expect(await ctx.invoke('transactions:get-earliest-date')).toEqual({ date: '2026-10-05' });
 
     ctx.run('UPDATE accounts SET current_balance = 9999 WHERE id = ?', [CASH_ACCOUNT]);
-    await ctx.invoke('financial:reconcile');
+    // The recompute the app runs at every start.
+    await recomputeAccountBalances();
     expect(balance()).toBe(150);
   });
 });

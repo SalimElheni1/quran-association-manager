@@ -32,7 +32,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 
 <!-- api-doc:start -->
 
-146 channels.
+141 channels.
 
 ### accounts
 
@@ -146,7 +146,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `financial:export-excel` | `exportFinancialReportExcel` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `financial:export-pdf` | `exportFinancialReportPDF` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `financial:get-summary` | `getFinancialSummary` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
-| `financial:reconcile` | — | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 
 ### generate
 
@@ -237,7 +236,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `receipt-books:add` | `addReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
-| `receipt-books:check-exists` | `checkReceiptExists` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:delete` | `deleteReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get` | `getReceiptBooks` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get-active` | `getActiveReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
@@ -245,19 +243,11 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `receipt-books:restore` | `restoreReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:update` | `updateReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 
-### receipts
-
-| Channel | `window.electronAPI` | Allowed | File |
-|---|---|---|---|
-| `receipts:generate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-| `receipts:getStats` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-| `receipts:validate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-
 ### settings
 
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
-| `settings:get` | `getSetting` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `settings:get` | `getSettings` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
 | `settings:getLogo` | `getLogo` | Public (before login) | `handlers/settingsHandlers.js` |
 | `settings:update` | `updateSettings` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
 | `settings:uploadLogo` | `uploadLogo` | Superadmin, Administrator | `handlers/settingsHandlers.js` |

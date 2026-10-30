@@ -1,6 +1,5 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const db = require('../../db/db');
 const sessionManager = require('../sessionManager');
@@ -23,6 +22,8 @@ const getAuthStore = () => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_DURATION_MS = 5 * 60 * 1000;
+// A login lasts 8 hours; after that the main process asks for the password again.
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 // Failed logins are counted per username: guessing one account's password locks that account,
 // not everybody's. Stored as { [username in lower case]: { failCount, lastFailAt, lockedUntil } }.
 const LOCKOUTS_STORE_KEY = 'login_lockouts';
@@ -345,27 +346,19 @@ function registerAuthHandlers() {
         logError('Failed to cache logo path on login:', e);
       }
 
-      const token = jwt.sign(
-        { id: user.id, username: user.username, roles: userRoles },
-        process.env.JWT_SECRET,
-        { expiresIn: '8h' },
-      );
-
       // Establish the main-process session for this webContents. All later
-      // IPC authorization reads from this session, not from the token.
+      // IPC authorization reads from this session.
       if (event && event.sender && typeof event.sender.id === 'number') {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         sessionManager.createSession(
           event.sender,
           { id: user.id, username: user.username, roles: userRoles },
-          decoded && decoded.exp ? decoded.exp * 1000 : null,
+          Date.now() + SESSION_DURATION_MS,
           { mustChangePassword },
         );
       }
 
       return {
         success: true,
-        token,
         mustChangePassword,
         user: {
           id: user.id,

@@ -21,7 +21,6 @@ const payload = Joi.object().unknown(true);
 const requiredPayload = payload.required();
 // Optional filters/options objects; the renderer may also send nothing or null.
 const options = payload.allow(null);
-const text = (max) => Joi.string().allow('').max(max);
 const academicYear = Joi.string().max(20).allow(null, '');
 // A calendar day as the attendance register stores it: YYYY-MM-DD, a day that exists.
 const calendarDay = Joi.string()
@@ -147,7 +146,7 @@ const CHANNEL_ARG_SCHEMAS = {
   'groups:getEligibleStudentsForGroup': [Joi.string().max(60).required()],
 
   // ---- Settings, age groups, backups ----
-  'settings:get': [text(100)],
+  'settings:get': [],
   'settings:update': [requiredPayload],
   'settings:getLogo': [],
   'settings:uploadLogo': [],
@@ -194,7 +193,6 @@ const CHANNEL_ARG_SCHEMAS = {
   'financial:get-summary': [period],
   'financial:export-pdf': [options],
   'financial:export-excel': [options],
-  'financial:reconcile': [],
   'accounts:get': [],
   'accounts:add': [requiredPayload],
   'categories:get': [Joi.string().max(20).allow(null, '')],
@@ -234,11 +232,6 @@ const CHANNEL_ARG_SCHEMAS = {
   ],
   'student-fees:refreshAllStudentCharges': [options],
   'student-fees:resetCharges': [academicYear],
-  'receipts:generate': [options],
-  'receipts:getStats': [
-    Joi.alternatives().try(Joi.number().integer(), Joi.string().max(20)).allow(null),
-  ],
-  'receipts:validate': [Joi.string().max(100).required()],
   'receipt-books:get': [options],
   'receipt-books:get-active': [receiptType],
   'receipt-books:add': [requiredPayload],
@@ -246,7 +239,6 @@ const CHANNEL_ARG_SCHEMAS = {
   'receipt-books:delete': [requiredId],
   'receipt-books:restore': [requiredId],
   'receipt-books:get-next-number': [receiptType],
-  'receipt-books:check-exists': [requiredPayload],
 
   // ---- Exports and imports ----
   'export:generate': [exportRequest],

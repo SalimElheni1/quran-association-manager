@@ -83,6 +83,11 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 ### Changed
 
 - CI runs lint, the unit tests and the database tests on every push.
+- Removed code nothing used: the login token (JWT; sessions live in the main process, 8 hours, as
+  before) and the `jsonwebtoken` package, the pre-2025 «financial-report» export and its
+  `legacyFinancialHandlers`, and the channels no screen called (`financial:reconcile`,
+  `receipts:generate`, `receipts:getStats`, `receipts:validate`, `receipt-books:check-exists`).
+  A test now checks that every main-process channel is called from the window.
 - The SQLite module is no longer rebuilt after `npm install` or when packaging: version 13 ships
   binaries for every platform (no build tools needed).
 

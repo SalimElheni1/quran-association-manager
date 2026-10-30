@@ -925,10 +925,6 @@ function registerFinancialHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(handleGetAccounts),
   );
   ipcMain.handle('accounts:add', requireRoles(['Superadmin', 'Administrator'])(handleAddAccount));
-  ipcMain.handle(
-    'financial:reconcile',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(recomputeAccountBalances),
-  );
 
   // Categories
   ipcMain.handle('categories:get', handleGetCategories);

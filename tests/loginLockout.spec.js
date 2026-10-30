@@ -16,7 +16,6 @@ const mockStore = {
 
 jest.mock('electron-store', () => jest.fn().mockImplementation(() => mockStore));
 jest.mock('bcryptjs');
-jest.mock('jsonwebtoken');
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
 jest.mock('../src/main/settingsManager', () => ({
@@ -40,7 +39,6 @@ jest.mock('../src/main/validationSchemas', () => {
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { registerAuthHandlers, getLoginLockoutState } = require('../src/main/handlers/authHandlers');
 
 describe('Login Attempt Lockout & Throttling', () => {
@@ -98,7 +96,6 @@ describe('Login Attempt Lockout & Throttling', () => {
     db.isDbOpen.mockReturnValue(true);
     db.getQuery.mockResolvedValue({ id: 1, username: 'admin', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    jwt.sign.mockReturnValue('mock-token');
 
     mockStoreData.login_lockouts = {
       admin: {
@@ -116,7 +113,6 @@ describe('Login Attempt Lockout & Throttling', () => {
     db.isDbOpen.mockReturnValue(true);
     db.getQuery.mockResolvedValue({ id: 1, username: 'admin', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    jwt.sign.mockReturnValue('mock-token');
 
     mockStoreData.login_lockouts = {
       admin: {
@@ -156,7 +152,6 @@ describe('Login Attempt Lockout & Throttling', () => {
 
     db.getQuery.mockResolvedValue({ id: 2, username: 'amal', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    jwt.sign.mockReturnValue('mock-token');
     const other = await attemptLogin('right', 'amal');
 
     expect(other.success).toBe(true);

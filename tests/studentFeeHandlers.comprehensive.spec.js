@@ -14,8 +14,6 @@ jest.mock('../src/main/authMiddleware', () => ({
 }));
 jest.mock('../src/main/services/receiptService', () => ({
   generateReceiptNumber: jest.fn(),
-  getReceiptBookStats: jest.fn(),
-  validateReceiptNumber: jest.fn(),
 }));
 jest.mock('../src/main/validationSchemas', () => ({
   studentPaymentValidationSchema: {
@@ -133,53 +131,6 @@ describe('Student Fee Handlers - Comprehensive Tests', () => {
       expect(result.studentsProcessed).toBe(0);
       expect(result.chargesGenerated).toBe(0);
       expect(result.message).toContain('لا توجد طلاب مؤهلون لتوليد الرسوم');
-    });
-  });
-
-  // ============================================
-  // RECEIPT MANAGEMENT TESTS
-  // ============================================
-
-  describe('Receipt Management Handlers', () => {
-    const mockReceiptService = require('../src/main/services/receiptService');
-
-    it('receipts:generate should generate receipt number', async () => {
-      mockReceiptService.generateReceiptNumber.mockResolvedValue({
-        receiptNumber: 'RCP-2024-001',
-        bookId: 1,
-        isUsed: false,
-      });
-
-      const result = await ipcMain.invoke('receipts:generate', { receiptType: 'fee_payment' });
-
-      // Recorded under the logged-in user of the session (the mock invoke logs in user 1).
-      expect(mockReceiptService.generateReceiptNumber).toHaveBeenCalledWith('fee_payment', 1);
-      expect(result).toHaveProperty('receiptNumber', 'RCP-2024-001');
-    });
-
-    it('receipts:getStats should return receipt book statistics', async () => {
-      const mockStats = {
-        totalReceipts: 100,
-        usedReceipts: 75,
-        availableReceipts: 25,
-        nextReceiptNumber: 'RCP-2024-076',
-      };
-      mockReceiptService.getReceiptBookStats.mockResolvedValue(mockStats);
-
-      const result = await ipcMain.invoke('receipts:getStats', 2024);
-
-      expect(mockReceiptService.getReceiptBookStats).toHaveBeenCalledWith(2024);
-      expect(result).toEqual(mockStats);
-    });
-
-    it('receipts:validate should validate receipt number format', async () => {
-      const mockValidation = { isValid: true, normalized: 'RCP-2024-001' };
-      mockReceiptService.validateReceiptNumber.mockResolvedValue(mockValidation);
-
-      const result = await ipcMain.invoke('receipts:validate', 'RCP-2024-001');
-
-      expect(mockReceiptService.validateReceiptNumber).toHaveBeenCalledWith('RCP-2024-001');
-      expect(result).toEqual(mockValidation);
     });
   });
 

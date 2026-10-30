@@ -90,42 +90,35 @@ function registerSystemHandlers() {
       // Fetch header data for all export types
       const headerData = await exportManager.getExportHeaderData();
 
-      if (exportType === 'financial-report') {
-        const period = options.period || null;
-        const data = await exportManager.fetchFinancialData(period);
-        // We will need to update generateFinancialXlsx to accept headerData later
-        await exportManager.generateFinancialXlsx(data, filePath);
+      const fields = columns.map((c) => c.key);
+      const data = await exportManager.fetchExportData({ type: exportType, fields, options });
+
+      if (data.length === 0) {
+        return { success: false, message: 'No data available for the selected criteria.' };
+      }
+
+      const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
+      const sheetNameMap = {
+        students: 'الطلاب',
+        teachers: 'المعلمون',
+        admins: 'المستخدمون',
+        users: 'المستخدمون',
+        classes: 'الفصول',
+        attendance: 'الحضور',
+        'student-fees': 'رسوم الطلاب',
+        expenses: 'المصاريف',
+        income: 'المداخيل',
+        inventory: 'المخزون',
+      };
+      const sheetName = sheetNameMap[exportType] || 'Exported Data';
+      if (format === 'pdf') {
+        await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
+      } else if (format === 'xlsx') {
+        await exportManager.generateXlsx(columns, data, filePath, sheetName);
+      } else if (format === 'docx') {
+        await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
       } else {
-        const fields = columns.map((c) => c.key);
-        const data = await exportManager.fetchExportData({ type: exportType, fields, options });
-
-        if (data.length === 0) {
-          return { success: false, message: 'No data available for the selected criteria.' };
-        }
-
-        const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
-        const sheetNameMap = {
-          students: 'الطلاب',
-          teachers: 'المعلمون',
-          admins: 'المستخدمون',
-          users: 'المستخدمون',
-          classes: 'الفصول',
-          attendance: 'الحضور',
-          'student-fees': 'رسوم الطلاب',
-          expenses: 'المصاريف',
-          income: 'المداخيل',
-          inventory: 'المخزون',
-        };
-        const sheetName = sheetNameMap[exportType] || 'Exported Data';
-        if (format === 'pdf') {
-          await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
-        } else if (format === 'xlsx') {
-          await exportManager.generateXlsx(columns, data, filePath, sheetName);
-        } else if (format === 'docx') {
-          await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
-        } else {
-          throw new Error(`Unsupported export format: ${format}`);
-        }
+        throw new Error(`Unsupported export format: ${format}`);
       }
 
       return { success: true, message: `Export saved to ${filePath}` };

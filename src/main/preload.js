@@ -34,13 +34,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
-  /**
-   * Retrieves a specific application setting by key.
-   * @param {string} key - The setting key to retrieve
-   * @returns {Promise<string|null>} The setting value or null if not found
-   */
-  getSetting: (key) => ipcRenderer.invoke('settings:get', key),
-
   // ========================================================================
   // AUTHENTICATION APIs
   // ========================================================================
@@ -347,7 +340,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restoreReceiptBook: (id) => ipcRenderer.invoke('receipt-books:restore', id),
   getNextReceiptNumber: (receiptType) =>
     ipcRenderer.invoke('receipt-books:get-next-number', receiptType),
-  checkReceiptExists: (data) => ipcRenderer.invoke('receipt-books:check-exists', data),
 
   // Listener for events from main process
   onForceLogout: (callback) => {

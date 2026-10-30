@@ -22,9 +22,8 @@ student fees (`components/financial/StudentFeesTab`), expenses (`ExpensesPage`),
 donation categories («إدارة الفئات», `AccountsPage`, despite its name), inventory (`InventoryTab`)
 and reports (`FinancialReportsTab`). Accounts have no page of their own.
 
-The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist and are read
-by the financial Excel export through the getters in `legacyFinancialHandlers.js`. Nothing writes to
-them any more, and they have no IPC channels.
+The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist in older
+databases. Nothing reads or writes them any more.
 
 ## Income and Expenses (`transactions`)
 
@@ -125,9 +124,9 @@ from there, never taken by a current-year payment.
 
 A book is a numbered range (`start_receipt_number`–`end_receipt_number`) of one `receipt_type`
 (`payment`, `donation`, `expense`, `salary`, `fee_payment`), with a `current_receipt_number` and
-a status (`active`, `completed`, `cancelled`). `receipts:generate` hands out the next number,
-`RCP-YYYY-NNNN`, from the active book of that type for the current year, creating one if there is
-none.
+a status (`active`, `completed`, `cancelled`). `receiptService.generateReceiptNumber` hands out
+the next number, `RCP-YYYY-NNNN`, from the active book of that type for the current year,
+creating one if there is none.
 
 ## Settings
 

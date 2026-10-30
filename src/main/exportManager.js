@@ -121,33 +121,6 @@ async function getExportHeaderData() {
   };
 }
 
-// --- Data Fetching ---
-async function fetchFinancialData(period) {
-  const {
-    handleGetFinancialSummary,
-    handleGetPayments,
-    handleGetSalaries,
-    handleGetDonations,
-    handleGetExpenses,
-  } = require('./handlers/legacyFinancialHandlers');
-  const { handleGetInventoryItems } = require('./handlers/inventoryHandlers');
-
-  // handleGetFinancialSummary now takes a year. If a period is provided,
-  // we can extract the year from the startDate. If not, it will default to the current year.
-  const summaryYear = period ? new Date(period.startDate).getFullYear() : null;
-
-  const [summary, payments, salaries, donations, expenses] = await Promise.all([
-    handleGetFinancialSummary(null, summaryYear),
-    handleGetPayments(null, period),
-    handleGetSalaries(null, period),
-    handleGetDonations(null, period),
-    handleGetExpenses(null, period),
-  ]);
-  // include inventory items for the financial export
-  const inventory = await handleGetInventoryItems();
-  return { summary, payments, salaries, donations, expenses, inventory };
-}
-
 // Column keys each export accepts, and what each one selects. A key the window sends that is not
 // listed here is ignored: only these strings ever reach the SQL, so no key can inject any.
 const EXPORT_COLUMNS = {
@@ -851,87 +824,6 @@ async function generateXlsx(columns, data, outputPath, sheetName = 'Exported Dat
   // Adjust the original table header row style, which has shifted down because of our inserted rows
   // Header row will now be row 4 (two inserted + title + spacer)
   worksheet.getRow(4).font = { bold: true };
-
-  await workbook.xlsx.writeFile(outputPath);
-}
-
-async function generateFinancialXlsx(data, outputPath) {
-  const workbook = new ExcelJS.Workbook();
-
-  // Summary Sheet
-  const summarySheet = workbook.addWorksheet('الملخص');
-  summarySheet.views = [{ rightToLeft: true }];
-  summarySheet.addRow(['الملخص المالي العام']);
-  summarySheet.addRow(['إجمالي الدخل', data.summary.totalIncome]);
-  summarySheet.addRow(['إجمالي المصروفات', data.summary.totalExpenses]);
-  summarySheet.addRow(['الرصيد الإجمالي', data.summary.balance]);
-
-  // Payments Sheet
-  const paymentsSheet = workbook.addWorksheet('الرسوم الدراسية');
-  paymentsSheet.views = [{ rightToLeft: true }];
-  paymentsSheet.columns = [
-    { header: 'الطالب', key: 'student_name', width: 25 },
-    { header: 'المبلغ', key: 'amount', width: 15 },
-    { header: 'طريقة الدفع', key: 'payment_method', width: 20 },
-    { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
-    { header: 'ملاحظات', key: 'notes', width: 30 },
-  ];
-  paymentsSheet.addRows(data.payments);
-
-  // Salaries Sheet
-  const salariesSheet = workbook.addWorksheet('الرواتب');
-  salariesSheet.views = [{ rightToLeft: true }];
-  salariesSheet.columns = [
-    { header: 'المعلم', key: 'teacher_name', width: 25 },
-    { header: 'المبلغ', key: 'amount', width: 15 },
-    { header: 'تاريخ الدفع', key: 'payment_date', width: 20 },
-    { header: 'ملاحظات', key: 'notes', width: 30 },
-  ];
-  salariesSheet.addRows(data.salaries);
-
-  // Donations Sheet
-  const donationsSheet = workbook.addWorksheet('التبرعات');
-  donationsSheet.views = [{ rightToLeft: true }];
-  donationsSheet.columns = [
-    { header: 'اسم المتبرع', key: 'donor_name', width: 25 },
-    { header: 'نوع التبرع', key: 'donation_type', width: 15 },
-    { header: 'القيمة / الوصف', key: 'amount', width: 20 },
-    { header: 'تاريخ التبرع', key: 'donation_date', width: 20 },
-    { header: 'ملاحظات', key: 'notes', width: 30 },
-  ];
-  // Localize donation data before adding to sheet
-  const localizedDonations = data.donations.map((d) => {
-    const localized = { ...d };
-    // Localize donation type
-    const donationTypeMap = {
-      Cash: 'نقدي',
-      'In-kind': 'عيني',
-      'In-Kind': 'عيني',
-      cash: 'نقدي',
-      'in-kind': 'عيني',
-    };
-    if (localized.donation_type && donationTypeMap[localized.donation_type]) {
-      localized.donation_type = donationTypeMap[localized.donation_type];
-    }
-    // Set amount/description based on type
-    localized.amount =
-      d.donation_type === 'Cash' || d.donation_type === 'cash' ? d.amount : d.description;
-    return localized;
-  });
-
-  donationsSheet.addRows(localizedDonations);
-
-  // Expenses Sheet
-  const expensesSheet = workbook.addWorksheet('المصاريف');
-  expensesSheet.views = [{ rightToLeft: true }];
-  expensesSheet.columns = [
-    { header: 'الفئة', key: 'category', width: 20 },
-    { header: 'المبلغ', key: 'amount', width: 15 },
-    { header: 'تاريخ الصرف', key: 'expense_date', width: 20 },
-    { header: 'المسؤول', key: 'responsible_person', width: 25 },
-    { header: 'الوصف', key: 'description', width: 30 },
-  ];
-  expensesSheet.addRows(data.expenses);
 
   await workbook.xlsx.writeFile(outputPath);
 }
@@ -1853,11 +1745,9 @@ async function generateDevExcelTemplate(outputPath) {
 module.exports = {
   getExportHeaderData,
   fetchExportData,
-  fetchFinancialData,
   localizeData,
   generatePdf,
   generateXlsx,
-  generateFinancialXlsx,
   generateDocx,
   generateExcelTemplate,
   generateDevExcelTemplate,

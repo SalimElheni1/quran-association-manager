@@ -87,11 +87,10 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   Keychain on macOS, libsecret on Linux). When `safeStorage` is unavailable, the key is stored in
   a plaintext file with owner-only permissions (`0o600`). `keyManager.validateHexKey` accepts only
   64 hex characters; `db.js` refuses an invalid key before the file is opened, and every PRAGMA
-  `key` / `rekey` goes through `applyKeyPragma`, which validates it again. The session-signing
-  secret is derived from the database key with HKDF-SHA256 (`keyManager.getJwtSecret`), never
-  stored; the random `jwt_secret` older versions kept in electron-store is deleted at startup.
-  `.env` no longer needs `JWT_SECRET`. A copied database file is useless without that OS account
-  or key file.
+  `key` / `rekey` goes through `applyKeyPragma`, which validates it again. Logins sign no token:
+  the session lives in the main process (`sessionManager`, 8 hours), and the `jwt_secret` older
+  versions kept in electron-store is deleted at startup. A copied database file is useless
+  without that OS account or key file.
 - **Backups:** `.qdb` files encrypted with AES-256-GCM, whose authentication tag makes a modified
   file fail to restore. The key is stretched with PBKDF2-SHA256, 600,000 rounds, written in a
   `QDB2` header (backups from 1.3.0 to 1.4.x have no header and 100,000 rounds; they still open;

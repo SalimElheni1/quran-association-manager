@@ -61,7 +61,6 @@ main/
 │   ├── classHandlers.js
 │   ├── dashboardHandlers.js
 │   ├── financialHandlers.js       # Unified transactions/accounts system
-│   ├── legacyFinancialHandlers.js # Old per-table queries, still used by exportManager
 │   ├── groupHandlers.js
 │   ├── importHandlers.js
 │   ├── inventoryHandlers.js
@@ -214,8 +213,6 @@ tests/
   (`FinancialsPage`, `FinancialDashboard`, `IncomePage`, `ExpensesPage`, `AccountsPage`)
 - Handlers: `src/main/handlers/financialHandlers.js` (unified `transactions` table) and
   `src/main/handlers/studentFeeHandlers.js` (student fees)
-- `legacyFinancialHandlers.js` still backs parts of `exportManager.js`; remove it only after
-  those exports move to the unified tables.
 
 ## Migration Files
 

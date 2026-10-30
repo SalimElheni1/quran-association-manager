@@ -12,28 +12,16 @@ jest.mock('exceljs');
 jest.mock('docx');
 jest.mock('../src/db/db');
 jest.mock('../src/main/settingsManager');
-jest.mock('../src/main/handlers/legacyFinancialHandlers');
-jest.mock('../src/main/handlers/inventoryHandlers');
 
 const ExcelJS = require('exceljs');
 const {
   getExportHeaderData,
   fetchExportData,
-  fetchFinancialData,
   localizeData,
   generateXlsx,
-  generateFinancialXlsx,
 } = require('../src/main/exportManager');
 const { getSetting } = require('../src/main/settingsManager');
 const { allQuery } = require('../src/db/db');
-const {
-  handleGetFinancialSummary,
-  handleGetPayments,
-  handleGetSalaries,
-  handleGetDonations,
-  handleGetExpenses,
-} = require('../src/main/handlers/legacyFinancialHandlers');
-const { handleGetInventoryItems } = require('../src/main/handlers/inventoryHandlers');
 
 describe('exportManager', () => {
   beforeEach(() => {
@@ -65,56 +53,6 @@ describe('exportManager', () => {
         nationalLogoPath: '/path/to/national/logo.png',
         regionalLocalLogoPath: '/path/to/regional/logo.png',
       });
-    });
-  });
-
-  describe('fetchFinancialData', () => {
-    it('should fetch financial data with period', async () => {
-      const mockPeriod = { startDate: '2024-01-01', endDate: '2024-12-31' };
-      const mockSummary = { totalIncome: 1000, totalExpenses: 500 };
-      const mockPayments = [{ id: 1, amount: 100 }];
-      const mockSalaries = [{ id: 1, amount: 200 }];
-      const mockDonations = [{ id: 1, amount: 300 }];
-      const mockExpenses = [{ id: 1, amount: 50 }];
-      const mockInventory = [{ id: 1, item: 'Book' }];
-
-      handleGetFinancialSummary.mockResolvedValue(mockSummary);
-      handleGetPayments.mockResolvedValue(mockPayments);
-      handleGetSalaries.mockResolvedValue(mockSalaries);
-      handleGetDonations.mockResolvedValue(mockDonations);
-      handleGetExpenses.mockResolvedValue(mockExpenses);
-      handleGetInventoryItems.mockResolvedValue(mockInventory);
-
-      const result = await fetchFinancialData(mockPeriod);
-
-      expect(handleGetFinancialSummary).toHaveBeenCalledWith(null, 2024);
-      expect(handleGetPayments).toHaveBeenCalledWith(null, mockPeriod);
-      expect(handleGetSalaries).toHaveBeenCalledWith(null, mockPeriod);
-      expect(handleGetDonations).toHaveBeenCalledWith(null, mockPeriod);
-      expect(handleGetExpenses).toHaveBeenCalledWith(null, mockPeriod);
-      expect(handleGetInventoryItems).toHaveBeenCalled();
-
-      expect(result).toEqual({
-        summary: mockSummary,
-        payments: mockPayments,
-        salaries: mockSalaries,
-        donations: mockDonations,
-        expenses: mockExpenses,
-        inventory: mockInventory,
-      });
-    });
-
-    it('should fetch financial data without period', async () => {
-      handleGetFinancialSummary.mockResolvedValue({});
-      handleGetPayments.mockResolvedValue([]);
-      handleGetSalaries.mockResolvedValue([]);
-      handleGetDonations.mockResolvedValue([]);
-      handleGetExpenses.mockResolvedValue([]);
-      handleGetInventoryItems.mockResolvedValue([]);
-
-      await fetchFinancialData();
-
-      expect(handleGetFinancialSummary).toHaveBeenCalledWith(null, null);
     });
   });
 
@@ -414,48 +352,6 @@ describe('exportManager', () => {
         { name: 'John', gender: 'ذكر' },
         { name: 'Jane', gender: 'أنثى' },
       ]);
-      expect(mockWorkbook.xlsx.writeFile).toHaveBeenCalledWith(outputPath);
-    });
-  });
-
-  describe('generateFinancialXlsx', () => {
-    let mockWorkbook, mockWorksheet;
-
-    beforeEach(() => {
-      mockWorksheet = {
-        views: [],
-        columns: [],
-        addRow: jest.fn(),
-        addRows: jest.fn(),
-      };
-
-      mockWorkbook = {
-        addWorksheet: jest.fn(() => mockWorksheet),
-        xlsx: {
-          writeFile: jest.fn(),
-        },
-      };
-
-      ExcelJS.Workbook.mockImplementation(() => mockWorkbook);
-    });
-
-    it('should generate financial XLSX with multiple sheets', async () => {
-      const data = {
-        summary: { totalIncome: 1000, totalExpenses: 500, balance: 500 },
-        payments: [{ student_name: 'John', amount: 100 }],
-        salaries: [{ teacher_name: 'Teacher', amount: 200 }],
-        donations: [{ donor_name: 'Donor', donation_type: 'Cash', amount: 300 }],
-        expenses: [{ category: 'Bills', amount: 50 }],
-      };
-      const outputPath = '/mock/financial.xlsx';
-
-      await generateFinancialXlsx(data, outputPath);
-
-      expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('الملخص');
-      expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('الرسوم الدراسية');
-      expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('الرواتب');
-      expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('التبرعات');
-      expect(mockWorkbook.addWorksheet).toHaveBeenCalledWith('المصاريف');
       expect(mockWorkbook.xlsx.writeFile).toHaveBeenCalledWith(outputPath);
     });
   });

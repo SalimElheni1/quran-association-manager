@@ -28,8 +28,6 @@ const bcrypt = require('bcryptjs');
 const joi = require('joi');
 const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
 
-process.env.JWT_SECRET = 'test-secret';
-
 describe('Superadmin first-run setup (SEC-04)', () => {
   let handlers = {};
 
@@ -252,9 +250,6 @@ describe('Superadmin first-run setup (SEC-04)', () => {
         return Promise.resolve(plain === '123456' ? hash === 'default-hash' : hash === 'real-hash');
       });
       bcrypt.compare.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
-      const jwt = require('jsonwebtoken');
-      jwt.sign.mockReturnValue('mock-jwt-token');
-      jwt.verify.mockReturnValue({ id: 1, exp: Math.floor(Date.now() / 1000) + 3600 });
       db.allQuery.mockResolvedValue([{ name: 'Superadmin' }]);
 
       const result = await handlers['auth:login'](
@@ -272,9 +267,6 @@ describe('Superadmin first-run setup (SEC-04)', () => {
     it('should not flag mustChangePassword for a changed password', async () => {
       db.getQuery.mockResolvedValue({ id: 1, username: 'superadmin', password: 'real-hash' });
       bcrypt.compare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-      const jwt = require('jsonwebtoken');
-      jwt.sign.mockReturnValue('mock-jwt-token');
-      jwt.verify.mockReturnValue({ id: 1, exp: Math.floor(Date.now() / 1000) + 3600 });
       db.allQuery.mockResolvedValue([{ name: 'Superadmin' }]);
 
       const result = await handlers['auth:login'](

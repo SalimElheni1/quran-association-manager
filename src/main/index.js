@@ -90,7 +90,6 @@ const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
 const sessionManager = require('./sessionManager');
 const { installIpcGuard } = require('./ipcSecurity');
-const { getJwtSecret } = require('./keyManager');
 const { IMAGE_EXTENSIONS, isSafeRelativePath, findImageFile } = require('./imagePaths');
 const {
   registerFinancialHandlers,
@@ -207,26 +206,12 @@ const initializeApp = async () => {
     log(`Time: ${new Date().toISOString()}`);
     log('═══════════════════════════════════════════════════════════════════════════');
 
-    // =================================================================================
-    // JWT SECRET MANAGEMENT
-    // =================================================================================
-    // Derived from the database key with HKDF (keyManager.getJwtSecret), so it is never stored.
-    // Login (auth:login) and token checks (authMiddleware) both read process.env.JWT_SECRET.
-    let jwtSecret;
-    try {
-      jwtSecret = getJwtSecret();
-    } catch (secretError) {
-      throw new Error(
-        `FATAL ERROR: JWT_SECRET could not be derived. The application cannot start securely. (${secretError.message})`,
-      );
-    }
-    process.env.JWT_SECRET = jwtSecret;
-    // Older versions kept a random secret in electron-store; it is no longer used.
+    // Older versions signed a token at login with a secret kept in electron-store. Sessions
+    // live in the main process (sessionManager); the old secret is removed.
     if (store.has('jwt_secret')) {
       store.delete('jwt_secret');
       log('Removed the stored JWT secret left by an older version.');
     }
-    // =================================================================================
 
     // =============================================================================
     // INITIALIZE DATABASE

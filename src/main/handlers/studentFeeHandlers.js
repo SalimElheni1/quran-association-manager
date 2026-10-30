@@ -9,7 +9,6 @@ const db = require('../../db/db');
 const { requireRoles } = require('../authMiddleware');
 const { getUserIdForEvent } = require('../sessionManager');
 const { log, error: logError, warn: logWarn } = require('../logger');
-const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
 const { toLocalISODate, toLocalISODateTime } = require('../utils/dates');
 // Circular dependency broken: require('./settingsHandlers') moved to where it is needed
@@ -2350,46 +2349,6 @@ function registerStudentFeeHandlers() {
       } catch (error) {
         logError('Error resetting student fee charges:', error);
         throw new Error('فشل في إعادة ضبط الرسوم');
-      }
-    }),
-  );
-
-  // Receipt management handlers
-  ipcMain.handle(
-    'receipts:generate',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, options = {}) => {
-      try {
-        const receiptType = options.receiptType || 'fee_payment';
-        const result = await generateReceiptNumber(receiptType, getUserIdForEvent(event));
-        return result;
-      } catch (error) {
-        logError('Error generating receipt number:', error);
-        throw new Error('Failed to generate receipt number.');
-      }
-    }),
-  );
-
-  ipcMain.handle(
-    'receipts:getStats',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_, year = null) => {
-      try {
-        return await getReceiptBookStats(year);
-      } catch (error) {
-        logError('Error getting receipt book stats:', error);
-        throw new Error('Failed to get receipt book statistics.');
-      }
-    }),
-  );
-
-  ipcMain.handle(
-    'receipts:validate',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_, receiptNumber) => {
-      try {
-        const { validateReceiptNumber } = require('../services/receiptService');
-        return validateReceiptNumber(receiptNumber);
-      } catch (error) {
-        logError('Error validating receipt number:', error);
-        throw new Error('Failed to validate receipt number.');
       }
     }),
   );

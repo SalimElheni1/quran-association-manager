@@ -112,9 +112,8 @@ async function handleRestoreReceiptBook(event, bookId) {
 }
 
 // Get next receipt number for a type
-// Unified numbering: delegates to receiptService.generateReceiptNumber so both
-// this legacy channel and 'receipts:generate' share one engine and one format
-// (RCP-{year}-{NNNN}), avoiding double-increments on the same receipt book.
+// Numbering is receiptService.generateReceiptNumber's: one engine and one format
+// (RCP-{year}-{NNNN}) for every receipt book.
 async function handleGetNextReceiptNumber(event, receiptType) {
   const result = await generateReceiptNumber(receiptType);
   return {
@@ -122,38 +121,6 @@ async function handleGetNextReceiptNumber(event, receiptType) {
     book_id: result.bookId,
     book_number: result.bookNumber,
   };
-}
-
-// Check if receipt number exists
-async function handleCheckReceiptExists(event, { receiptNumber, transactionType, excludeId }) {
-  let table;
-  switch (transactionType) {
-    case 'payment':
-      table = 'payments';
-      break;
-    case 'donation':
-      table = 'donations';
-      break;
-    case 'expense':
-      table = 'expenses';
-      break;
-    case 'salary':
-      table = 'salaries';
-      break;
-    default:
-      return { exists: false };
-  }
-
-  let sql = `SELECT id FROM ${table} WHERE receipt_number = ?`;
-  const params = [receiptNumber];
-
-  if (excludeId) {
-    sql += ' AND id != ?';
-    params.push(excludeId);
-  }
-
-  const result = await getQuery(sql, params);
-  return { exists: !!result };
 }
 
 function registerReceiptHandlers() {
@@ -164,7 +131,6 @@ function registerReceiptHandlers() {
   ipcMain.handle('receipt-books:delete', createHandler(handleDeleteReceiptBook));
   ipcMain.handle('receipt-books:restore', createHandler(handleRestoreReceiptBook));
   ipcMain.handle('receipt-books:get-next-number', createHandler(handleGetNextReceiptNumber));
-  ipcMain.handle('receipt-books:check-exists', createHandler(handleCheckReceiptExists));
 }
 
 module.exports = {
@@ -176,5 +142,4 @@ module.exports = {
   handleDeleteReceiptBook,
   handleRestoreReceiptBook,
   handleGetNextReceiptNumber,
-  handleCheckReceiptExists,
 };
