@@ -32,7 +32,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 
 <!-- api-doc:start -->
 
-141 channels.
+142 channels.
 
 ### accounts
 
@@ -210,6 +210,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `inventory:add` | `addInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
+| `inventory:add-in-kind` | `addInKindDonation` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:check-uniqueness` | `checkInventoryItemUniqueness` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
 | `inventory:delete` | `deleteInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:get` | `getInventoryItems` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
