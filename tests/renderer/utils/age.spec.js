@@ -39,3 +39,30 @@ describe('calculateAge', () => {
     expect(calculateAge(tenYearsAgo)).toBe(10);
   });
 });
+
+// The window (age shown, age group suggested) and the main process (age group checks, fees) must
+// read a date of birth the same way.
+describe('calculateAge in both processes', () => {
+  const main = require('../../../src/main/utils/age');
+  const today = new Date(2026, 5, 15);
+
+  it.each([
+    ['an ISO date', '2016-03-20'],
+    ['before the birthday', '2016-08-20'],
+    ['the birthday itself', new Date(2016, 5, 15)],
+    ['the day before the birthday', new Date(2016, 5, 16)],
+    ['a timestamp', new Date(2016, 2, 20).getTime()],
+    ['a slash date', '2016/03/20'],
+    ['a day-first slash date', '20/03/2016'],
+    ['a day-first dash date', '20-03-2016'],
+    ['a leap day', '2016-02-29'],
+    ['an empty value', ''],
+    ['blanks', '   '],
+    ['null', null],
+    ['text', 'invalid-date'],
+    ['an impossible date', '2099-13-45'],
+    ['a year before 1900', '1850-01-01'],
+  ])('%s', (_label, dob) => {
+    expect(calculateAge(dob, today)).toBe(main.calculateAge(dob, today));
+  });
+});
