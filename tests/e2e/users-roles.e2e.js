@@ -73,6 +73,14 @@ test.describe('users and roles', () => {
     await expect(
       page.locator('.tab-pane.active').getByRole('button', { name: 'إضافة مدخول' }),
     ).toBeVisible();
+    // The inventory is read-only for them: the main process lets only Superadmin/Administrator
+    // change items.
+    await page.getByRole('tab', { name: 'الجرد', exact: true }).click();
+    await expect(
+      page.locator('.tab-pane.active').getByRole('heading', { name: 'الجرد' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'إضافة صنف جديد' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'إضافة تبرع عيني' })).toHaveCount(0);
 
     await navigate(page, 'شؤون الطلاب');
     await expect(page.getByPlaceholder('البحث بالاسم أو الرقم التعريفي...')).toBeVisible();

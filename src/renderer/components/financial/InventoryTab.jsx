@@ -26,6 +26,7 @@ const inventoryFields = [
 
 function InventoryTab() {
   const { hasPermission } = usePermissions();
+  const canManageInventory = hasPermission(PERMISSIONS.INVENTORY_MANAGE);
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [filters, setFilters] = useState({ page: 1, limit: 25 });
@@ -205,7 +206,7 @@ function InventoryTab() {
         <td>{item.total_value ? `${item.total_value.toFixed(2)}` : 'غير محدد'}</td>
         <td>{item.acquisition_source || 'غير محدد'}</td>
         <td>
-          {item.deleted_at ? (
+          {!canManageInventory ? null : item.deleted_at ? (
             <Button variant="outline-primary" size="sm" onClick={() => handleRestore(item)}>
               استعادة
             </Button>
@@ -235,27 +236,33 @@ function InventoryTab() {
         <Card.Header className="d-flex justify-content-between align-items-center">
           <h3 className="mb-0">الجرد</h3>
           <div className="d-flex gap-2">
-            <ShowDeletedSwitch
-              id="inventory-show-deleted"
-              checked={!!filters.showDeleted}
-              onChange={(checked) => setFilters((f) => ({ ...f, showDeleted: checked, page: 1 }))}
-            />
+            {canManageInventory && (
+              <ShowDeletedSwitch
+                id="inventory-show-deleted"
+                checked={!!filters.showDeleted}
+                onChange={(checked) => setFilters((f) => ({ ...f, showDeleted: checked, page: 1 }))}
+              />
+            )}
             {hasPermission(PERMISSIONS.FINANCIALS_VIEW) && (
               <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
                 <ExportIcon className="ms-2" /> تصدير البيانات
               </Button>
             )}
-            {hasPermission(PERMISSIONS.FINANCIALS_MANAGE) && (
+            {canManageInventory && hasPermission(PERMISSIONS.DATA_IMPORT) && (
               <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
                 <ImportIcon className="ms-2" /> استيراد البيانات
               </Button>
             )}
-            <Button variant="primary" onClick={handleAddItem}>
-              إضافة صنف جديد
-            </Button>
-            <Button variant="success" onClick={() => setShowInKindModal(true)}>
-              إضافة تبرع عيني
-            </Button>
+            {canManageInventory && (
+              <Button variant="primary" onClick={handleAddItem}>
+                إضافة صنف جديد
+              </Button>
+            )}
+            {canManageInventory && (
+              <Button variant="success" onClick={() => setShowInKindModal(true)}>
+                إضافة تبرع عيني
+              </Button>
+            )}
           </div>
         </Card.Header>
         <Card.Body>

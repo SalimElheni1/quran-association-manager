@@ -68,7 +68,7 @@ Roles (a user can hold several):
 |---|---|
 | Superadmin | Everything, including user management, logs and database import |
 | Administrator | Everything except user management, logs and database import |
-| FinanceManager | Finances, student fees, inventory and financial reports; attendance; read access to students, teachers and classes |
+| FinanceManager | Finances, student fees and financial reports; attendance; read access to inventory, students, teachers and classes |
 | SessionSupervisor | Attendance; read access to students, teachers, classes and groups |
 
 `students:getById` gives roles that only read students (FinanceManager, SessionSupervisor) the

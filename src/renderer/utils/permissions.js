@@ -26,6 +26,8 @@ export const PERMISSIONS = {
   FINANCIALS_VIEW: 'financials:view',
   FINANCIALS_MANAGE: 'financials:manage',
   FINANCIALS_REPORTS: 'financials:reports',
+  // Changing inventory items (an in-kind donation adds one)
+  INVENTORY_MANAGE: 'inventory:manage',
 
   // Users
   USERS_VIEW: 'users:view',
@@ -44,7 +46,7 @@ export const PERMISSIONS = {
 };
 
 // What each role does, as the user manual and docs/dev/specs/security.md describe it, and as the
-// main process allows it (ipcSecurity.CHANNEL_ROLES).
+// main process allows it (ipcSecurity.CHANNEL_ROLES; tests/roleGates.spec.js keeps them equal).
 
 export const ROLE_PERMISSIONS = {
   Superadmin: [
@@ -79,6 +81,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.FINANCIALS_VIEW,
     PERMISSIONS.FINANCIALS_MANAGE,
     PERMISSIONS.FINANCIALS_REPORTS,
+    PERMISSIONS.INVENTORY_MANAGE,
     PERMISSIONS.SETTINGS_VIEW,
     PERMISSIONS.SETTINGS_EDIT,
     PERMISSIONS.DATA_EXPORT,
@@ -89,7 +92,8 @@ export const ROLE_PERMISSIONS = {
   ],
 
   FinanceManager: [
-    // Finances, student fees, inventory and financial reports
+    // Finances, student fees and financial reports; inventory read-only (the main process lets
+    // only Superadmin/Administrator change items)
     PERMISSIONS.FINANCIALS_VIEW,
     PERMISSIONS.FINANCIALS_MANAGE,
     PERMISSIONS.FINANCIALS_REPORTS,

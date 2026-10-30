@@ -52,7 +52,8 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
   allowed: Administrators get «الشؤون المالية» and «الإعدادات» (restoring a backup stays the
   Superadmin's), the financial officer takes attendance and reads teachers and classes, the
   session supervisor reads teachers. Buttons the main process would refuse (Excel export and
-  import for the session supervisor) are no longer shown.
+  import for the session supervisor, inventory changes for the financial officer, which only
+  Superadmin/Administrator may make) are no longer shown.
 - An age group used by a class can no longer be deactivated: the class's enrolment dialog then
   stopped filtering students by age and gender without saying so.
 - A migration that met a column already present was recorded as applied although the rest of it
