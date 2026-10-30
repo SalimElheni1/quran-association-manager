@@ -1,9 +1,12 @@
 # Testing Guide
 
-The app has two test layers:
+The app has three test layers:
 
 - **Jest** unit and integration tests. They run in Node without Electron: the database, Electron,
-  and a few libraries are mocked, so they are fast and run in CI on every release.
+  and a few libraries are mocked, so they are fast.
+- **Database tests** (`npm run test:db`, `tests/db`). Jest run under Electron's Node, so the
+  handlers execute their SQL against a real, migrated, encrypted SQLite database in a temporary
+  folder. The first `npm install` downloads Electron and rebuilds the SQLite module for it.
 - **Playwright** end-to-end tests. They launch the real Electron app (main process, preload
   bridge, encrypted SQLite database, built renderer) and drive it like a user.
 
@@ -15,6 +18,7 @@ npm test -- tests/studentHandlers.spec.js   # one file
 npm test -- -t "minimum age"             # tests whose name matches
 npm test -- --coverage                   # with a coverage report in coverage/
 npm run lint                             # ESLint + Prettier (run before pushing)
+npm run test:db                          # handlers against a real SQLite database (tests/db)
 
 npm run test:e2e                         # build the renderer, then the e2e suite
 npm run test:e2e:debug                   # same, with the Playwright inspector
@@ -22,6 +26,11 @@ npm run test:e2e:report                  # open the last HTML report
 npm run test:e2e:realworld               # the long real-world scenario (see below)
 npm run e2e:open-data                    # open the data the real-world scenario left behind
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, `npm test` and `npm run test:db` on every push and pull
+request, and the release workflow runs the same jobs before building the installer. The
+end-to-end suite needs a display and about an hour, so it is run locally (on Linux without a
+display: `xvfb-run -a npx playwright test`).
 
 ## Jest
 
