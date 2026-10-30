@@ -1,6 +1,6 @@
 // tests/loginLockout.spec.js
-// Verifies the login attempt lockout: 5 consecutive failures on a PC
-// locks login for 5 minutes (or until the lock window expires).
+// Verifies the login attempt lockout: 5 consecutive failures for a username lock that username
+// for 5 minutes (or until the lock window expires); other accounts can still log in.
 
 const mockStoreData = {};
 
@@ -48,6 +48,7 @@ describe('Login Attempt Lockout & Throttling', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete mockStoreData.login_lockouts;
     handlers = {};
     ipcMain.handle.mockImplementation((channel, handler) => {
       handlers[channel] = handler;
@@ -55,8 +56,8 @@ describe('Login Attempt Lockout & Throttling', () => {
     registerAuthHandlers();
   });
 
-  const attemptLogin = (password = 'wrong-pass') =>
-    handlers['auth:login'](null, { username: 'admin', password });
+  const attemptLogin = (password = 'wrong-pass', username = 'admin') =>
+    handlers['auth:login'](null, { username, password });
 
   it('should lock login after 5 consecutive failed attempts', async () => {
     db.isDbOpen.mockReturnValue(true);
@@ -79,10 +80,12 @@ describe('Login Attempt Lockout & Throttling', () => {
     db.getQuery.mockResolvedValue({ id: 1, username: 'admin', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
 
-    mockStoreData.login_lockout = {
-      failCount: 5,
-      lastFailAt: Date.now(),
-      lockedUntil: Date.now() + 5 * 60 * 1000,
+    mockStoreData.login_lockouts = {
+      admin: {
+        failCount: 5,
+        lastFailAt: Date.now(),
+        lockedUntil: Date.now() + 5 * 60 * 1000,
+      },
     };
 
     const result = await attemptLogin('correct-password');
@@ -97,10 +100,12 @@ describe('Login Attempt Lockout & Throttling', () => {
     bcrypt.compare.mockResolvedValue(true);
     jwt.sign.mockReturnValue('mock-token');
 
-    mockStoreData.login_lockout = {
-      failCount: 5,
-      lastFailAt: Date.now() - 6 * 60 * 1000,
-      lockedUntil: Date.now() - 60 * 1000,
+    mockStoreData.login_lockouts = {
+      admin: {
+        failCount: 5,
+        lastFailAt: Date.now() - 6 * 60 * 1000,
+        lockedUntil: Date.now() - 60 * 1000,
+      },
     };
 
     const result = await attemptLogin('correct-password');
@@ -113,29 +118,71 @@ describe('Login Attempt Lockout & Throttling', () => {
     bcrypt.compare.mockResolvedValue(true);
     jwt.sign.mockReturnValue('mock-token');
 
-    mockStoreData.login_lockout = {
-      failCount: 3,
-      lastFailAt: Date.now(),
-      lockedUntil: null,
+    mockStoreData.login_lockouts = {
+      admin: {
+        failCount: 3,
+        lastFailAt: Date.now(),
+        lockedUntil: null,
+      },
     };
 
     const result = await attemptLogin('correct-password');
     expect(result.success).toBe(true);
-    expect(mockStoreData.login_lockout).toBeUndefined();
+    expect(mockStoreData.login_lockouts.admin).toBeUndefined();
   });
 
   it('should reset the failure counter after the inactivity window', async () => {
     db.isDbOpen.mockReturnValue(true);
     db.getQuery.mockResolvedValue(null);
 
-    mockStoreData.login_lockout = {
-      failCount: 4,
-      lastFailAt: Date.now() - 6 * 60 * 1000,
-      lockedUntil: null,
+    mockStoreData.login_lockouts = {
+      admin: {
+        failCount: 4,
+        lastFailAt: Date.now() - 6 * 60 * 1000,
+        lockedUntil: null,
+      },
     };
 
     const result = await attemptLogin();
     expect(result.success).toBe(false);
-    expect(getLoginLockoutState().failCount).toBe(1);
+    expect(getLoginLockoutState('admin').failCount).toBe(1);
+  });
+
+  it('locks only the username that was guessed', async () => {
+    db.isDbOpen.mockReturnValue(true);
+    db.getQuery.mockResolvedValue(null);
+    for (let i = 1; i <= 5; i++) await attemptLogin('wrong', 'admin');
+    expect((await attemptLogin('wrong', 'Admin')).message).toContain('تم قفل تسجيل الدخول مؤقتاً');
+
+    db.getQuery.mockResolvedValue({ id: 2, username: 'amal', password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    jwt.sign.mockReturnValue('mock-token');
+    const other = await attemptLogin('right', 'amal');
+
+    expect(other.success).toBe(true);
+  });
+
+  it('runs bcrypt for an unknown username too, so timing does not reveal which names exist', async () => {
+    db.isDbOpen.mockReturnValue(true);
+    db.getQuery.mockResolvedValue(null);
+    bcrypt.compare.mockResolvedValue(false);
+
+    const result = await attemptLogin('guess', 'nobody');
+
+    expect(result.message).toBe('اسم المستخدم أو كلمة المرور غير صحيحة');
+    expect(bcrypt.compare).toHaveBeenCalledWith('guess', expect.stringMatching(/^\$2a\$10\$/));
+  });
+
+  it('forgets the counters of other usernames once their window has passed', async () => {
+    db.isDbOpen.mockReturnValue(true);
+    db.getQuery.mockResolvedValue(null);
+    mockStoreData.login_lockouts = {
+      typo1: { failCount: 1, lastFailAt: Date.now() - 6 * 60 * 1000, lockedUntil: null },
+      locked: { failCount: 5, lastFailAt: Date.now(), lockedUntil: Date.now() + 60 * 1000 },
+    };
+
+    await attemptLogin('wrong', 'admin');
+
+    expect(Object.keys(mockStoreData.login_lockouts).sort()).toEqual(['admin', 'locked']);
   });
 });

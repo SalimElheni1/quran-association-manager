@@ -37,7 +37,9 @@ accounts. The main risks are:
   no forced reset.
 - **First run:** no default account is ever seeded; the first superadmin is created in the setup
   form (`auth:setup-superadmin`).
-- **Lockout:** 5 failed logins lock login for 5 minutes (state kept in the main process store).
+- **Lockout:** 5 failed logins for a username lock that username for 5 minutes (state kept in the
+  main process store, per username); other accounts can still log in. An unknown username is
+  checked against a dummy bcrypt hash, so it takes as long to refuse as a wrong password.
 - **Inactive users** («غير نشط») cannot log in; their records are kept.
 - **Sessions:** a successful login creates a session in the main process (`sessionManager.js`),
   tied to that window and expiring after 8 hours. A login with the legacy default password
