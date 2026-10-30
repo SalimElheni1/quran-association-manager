@@ -155,176 +155,80 @@ function registerStudentHandlers() {
     requireRoles(['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'])(
       async (_event, filters) => {
         try {
-          let params = [];
-          let havingClauses = [];
-
-          let sql = `
-        SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category, s.deleted_at
-        FROM students s
-      `;
-
-          if (filters?.surahIds?.length > 0) {
-            sql += `
-          LEFT JOIN student_surahs ss ON s.id = ss.student_id
-        `;
-            const placeholders = filters.surahIds.map(() => '?').join(',');
-            havingClauses.push(
-              `SUM(CASE WHEN ss.surah_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.surahIds.length}`,
-            );
-            params.push(...filters.surahIds);
-          }
-
-          if (filters?.hizbIds?.length > 0) {
-            sql += `
-          LEFT JOIN student_hizbs sh ON s.id = sh.student_id
-        `;
-            const placeholders = filters.hizbIds.map(() => '?').join(',');
-            havingClauses.push(
-              `SUM(CASE WHEN sh.hizb_id IN (${placeholders}) THEN 1 ELSE 0 END) = ${filters.hizbIds.length}`,
-            );
-            params.push(...filters.hizbIds);
-          }
-
-          // Deleted students are listed only when asked for (restore view).
-          sql += ` WHERE ${deletedFilter(filters, 's')}`;
+          // WHERE conditions and their parameters, added together so they stay in order.
+          const conditions = [deletedFilter(filters, 's')];
+          const params = [];
 
           if (filters?.searchTerm) {
-            sql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
+            conditions.push('(s.name LIKE ? OR s.matricule LIKE ?)');
             params.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
           }
-
           if (filters?.genderFilter && filters.genderFilter !== 'all') {
-            sql += ' AND s.gender = ?';
+            conditions.push('s.gender = ?');
             params.push(filters.genderFilter);
           }
-
           if (filters?.statusFilter && filters.statusFilter !== 'all') {
-            sql += ' AND s.status = ?';
+            conditions.push('s.status = ?');
             params.push(filters.statusFilter);
           }
-
           if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
-            sql += ' AND s.fee_category = ?';
+            conditions.push('s.fee_category = ?');
             params.push(filters.feeCategoryFilter);
           }
-
-          sql += ' GROUP BY s.id';
-
-          if (havingClauses.length > 0) {
-            sql += ` HAVING ${havingClauses.join(' AND ')}`;
+          // Students who memorised every selected surah (and every selected hizb). A subquery per
+          // list, so the two never multiply each other's rows.
+          const memorised = [
+            [filters?.surahIds, 'student_surahs', 'surah_id'],
+            [filters?.hizbIds, 'student_hizbs', 'hizb_id'],
+          ];
+          for (const [ids, table, column] of memorised) {
+            const unique = Array.isArray(ids) ? [...new Set(ids)] : [];
+            if (unique.length === 0) continue;
+            conditions.push(
+              `(SELECT COUNT(DISTINCT m.${column}) FROM ${table} m
+                WHERE m.student_id = s.id AND m.${column} IN (${unique.map(() => '?').join(',')})) = ?`,
+            );
+            params.push(...unique, unique.length);
           }
 
-          sql += ' ORDER BY s.name ASC';
-
-          // First, get the total count without pagination
-          let countSql = `
-            SELECT COUNT(*) as total
-            FROM (
-              ${sql.replace('SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender, s.fee_category, s.deleted_at', 'SELECT COUNT(*) as cnt')}
-            ) as filtered_students
-          `;
-
-          let totalCount = 0;
-          if (havingClauses.length > 0) {
-            // For HAVING clauses, we need a different approach to count
-            const countParams = [];
-            if (filters?.searchTerm) {
-              countParams.push(`%${filters.searchTerm}%`, `%${filters.searchTerm}%`);
-            }
-            if (filters?.genderFilter && filters.genderFilter !== 'all') {
-              countParams.push(filters.genderFilter);
-            }
-            if (filters?.statusFilter && filters.statusFilter !== 'all') {
-              countParams.push(filters.statusFilter);
-            }
-            if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
-              countParams.push(filters.feeCategoryFilter);
-            }
-            if (filters?.surahIds?.length > 0) {
-              countParams.push(...filters.surahIds);
-            }
-            if (filters?.hizbIds?.length > 0) {
-              countParams.push(...filters.hizbIds);
-            }
-            let baseSql = `
-              SELECT COUNT(*) as cnt
-              FROM students s
-            `;
-
-            if (filters?.surahIds?.length > 0) {
-              baseSql += `
-                LEFT JOIN student_surahs ss ON s.id = ss.student_id
-              `;
-            }
-
-            if (filters?.hizbIds?.length > 0) {
-              baseSql += `
-                LEFT JOIN student_hizbs sh ON s.id = sh.student_id
-              `;
-            }
-
-            baseSql += ` WHERE ${deletedFilter(filters, 's')}`;
-
-            if (filters?.searchTerm) {
-              baseSql += ' AND (s.name LIKE ? OR s.matricule LIKE ?)';
-            }
-
-            if (filters?.genderFilter && filters.genderFilter !== 'all') {
-              baseSql += ' AND s.gender = ?';
-            }
-
-            if (filters?.statusFilter && filters.statusFilter !== 'all') {
-              baseSql += ' AND s.status = ?';
-            }
-
-            if (filters?.feeCategoryFilter && filters.feeCategoryFilter !== 'all') {
-              baseSql += ' AND s.fee_category = ?';
-            }
-
-            if (havingClauses.length > 0) {
-              baseSql += ` GROUP BY s.id HAVING ${havingClauses.join(' AND ')}`;
-              baseSql = `SELECT COUNT(*) as total FROM (${baseSql}) as filtered`;
-            }
-
-            const countResult = await db.getQuery(baseSql, countParams);
-            totalCount = countResult?.total || countResult?.cnt || 0;
-          } else {
-            const countResult = await db.getQuery(countSql, params);
-            totalCount = countResult?.total || 0;
-          }
-
-          let students = await db.allQuery(sql, params);
-
-          // Apply age filtering in JavaScript for accuracy
-          if (filters?.minAgeFilter || filters?.maxAgeFilter) {
-            const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
-            const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
-
-            const originalCount = students.length;
-            students = students.filter((student) => {
-              const age = calculateAge(student.date_of_birth);
-              if (age === null) return false; // Exclude students without valid birth date
-
-              if (minAge !== null && age < minAge) return false;
-              if (maxAge !== null && age > maxAge) return false;
-
-              return true;
-            });
-
-            // Adjust total count if age filtering was applied
-            if (originalCount !== students.length) {
-              totalCount = students.length; // Approximation - perfect count would be complex
-            }
-          }
-
-          // Apply pagination
+          const where = conditions.join(' AND ');
           const page = parseInt(filters?.page) || 1;
           const limit = parseInt(filters?.limit) || 25;
           const offset = (page - 1) * limit;
-          const paginatedStudents = students.slice(offset, offset + limit);
+          const select = `
+            SELECT s.id, s.matricule, s.name, s.date_of_birth, s.enrollment_date, s.status, s.gender,
+                   s.fee_category, s.deleted_at
+            FROM students s
+            WHERE ${where}
+            ORDER BY s.name ASC`;
+
+          let students;
+          let totalCount;
+          if (filters?.minAgeFilter || filters?.maxAgeFilter) {
+            // Ages come from the birth date in JavaScript (calculateAge), so this filter runs on
+            // the rows and the page is cut from what is left.
+            const minAge = filters?.minAgeFilter ? parseInt(filters.minAgeFilter, 10) : null;
+            const maxAge = filters?.maxAgeFilter ? parseInt(filters.maxAgeFilter, 10) : null;
+            const matching = (await db.allQuery(select, params)).filter((student) => {
+              const age = calculateAge(student.date_of_birth);
+              if (age === null) return false; // Exclude students without valid birth date
+              if (minAge !== null && age < minAge) return false;
+              if (maxAge !== null && age > maxAge) return false;
+              return true;
+            });
+            totalCount = matching.length;
+            students = matching.slice(offset, offset + limit);
+          } else {
+            const countResult = await db.getQuery(
+              `SELECT COUNT(*) AS total FROM students s WHERE ${where}`,
+              params,
+            );
+            totalCount = countResult?.total || 0;
+            students = await db.allQuery(`${select} LIMIT ? OFFSET ?`, [...params, limit, offset]);
+          }
 
           return {
-            students: paginatedStudents.map(translateStudent),
+            students: students.map(translateStudent),
             total: totalCount,
             page,
             limit,

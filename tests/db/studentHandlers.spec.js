@@ -58,3 +58,74 @@ describe('students:getById: what each role sees', () => {
     },
   );
 });
+
+describe('students:get: filters', () => {
+  let surahs;
+  let hizbs;
+  let ids;
+
+  const names = async (filters) =>
+    (await ctx.invoke('students:get', filters)).students.map((st) => st.name).sort();
+
+  const memorise = (studentId, { surahIds = [], hizbIds = [] }) => {
+    surahIds.forEach((id) =>
+      ctx.run('INSERT INTO student_surahs (student_id, surah_id) VALUES (?, ?)', [studentId, id]),
+    );
+    hizbIds.forEach((id) =>
+      ctx.run('INSERT INTO student_hizbs (student_id, hizb_id) VALUES (?, ?)', [studentId, id]),
+    );
+  };
+
+  beforeEach(async () => {
+    surahs = ctx.all('SELECT id FROM surahs ORDER BY id LIMIT 3').map((r) => r.id);
+    hizbs = ctx.all('SELECT id FROM hizbs ORDER BY id LIMIT 2').map((r) => r.id);
+    ids = {
+      ahmed: await addStudent(ctx, { name: 'أحمد', gender: 'Male' }),
+      amina: await addStudent(ctx, { name: 'آمنة', gender: 'Female' }),
+      ali: await addStudent(ctx, { name: 'علي', gender: 'Male' }),
+    };
+    memorise(ids.ahmed, { surahIds: [surahs[0], surahs[1]], hizbIds: [hizbs[0], hizbs[1]] });
+    memorise(ids.amina, { surahIds: [surahs[0], surahs[1]], hizbIds: [hizbs[0]] });
+    memorise(ids.ali, { surahIds: [surahs[0]] });
+  });
+
+  test('students who memorised every selected surah', async () => {
+    expect(await names({ surahIds: [surahs[0], surahs[1]] })).toEqual(['آمنة', 'أحمد']);
+  });
+
+  test('a surah filter together with a search or a gender filter', async () => {
+    expect(await names({ surahIds: [surahs[0]], searchTerm: 'علي' })).toEqual(['علي']);
+    expect(await names({ surahIds: [surahs[0], surahs[1]], genderFilter: 'Male' })).toEqual([
+      'أحمد',
+    ]);
+  });
+
+  test('surah and hizb filters together', async () => {
+    expect(await names({ surahIds: [surahs[0], surahs[1]], hizbIds: [hizbs[0]] })).toEqual([
+      'آمنة',
+      'أحمد',
+    ]);
+    expect(await names({ surahIds: [surahs[0]], hizbIds: [hizbs[0], hizbs[1]] })).toEqual(['أحمد']);
+  });
+
+  test('the total counts the matching students, the page holds at most the limit', async () => {
+    const result = await ctx.invoke('students:get', {
+      surahIds: [surahs[0]],
+      page: 2,
+      limit: 2,
+    });
+
+    expect(result.total).toBe(3);
+    expect(result.totalPages).toBe(2);
+    expect(result.students).toHaveLength(1);
+  });
+
+  test('an age filter gives the exact total', async () => {
+    await addStudent(ctx, { name: 'صغير', date_of_birth: '2018-01-01' });
+
+    const result = await ctx.invoke('students:get', { minAgeFilter: 18, limit: 2 });
+
+    expect(result.total).toBe(3);
+    expect(result.students).toHaveLength(2);
+  });
+});

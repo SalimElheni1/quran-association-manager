@@ -43,6 +43,9 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
 - The home page showed «فشل في تحميل بيانات لوحة التحكم» to Finance Managers and Session
   Supervisors on every visit, and lost its counts: it also asked for the backup reminder, which only
   Superadmin/Administrator may read.
+- The student list gave wrong results when the memorised-surahs or hizbs filter was combined with
+  the search, gender, status or fee filter, or when surahs and hizbs were filtered together. The
+  list is also paged by the database now, and the total under an age filter is exact.
 - The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
 - Scheduled backups and fee charges failed while the login screen showed: logging out closed the
   database. It now stays open. The automatic backup is also checked a minute after the app
