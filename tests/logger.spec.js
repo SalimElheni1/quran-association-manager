@@ -90,3 +90,50 @@ describe('logger file output (SEC-015)', () => {
     );
   });
 });
+
+describe('logger: text that already holds JSON (SEC-015)', () => {
+  const { redactJsonText } = logger;
+
+  it('redacts sensitive pairs in a stringified object', () => {
+    const text = JSON.stringify({
+      name: 'الكهول',
+      password: 'Sup3rSecret!',
+      national_id: '08123456',
+      nested: { association_transfer_key: 'branch-key', amount: 30 },
+      access_token: null,
+      card_number: 4111111111111111,
+    });
+
+    const out = redactJsonText(`[DEBUG] Input data: ${text}`);
+
+    expect(out).not.toContain('Sup3rSecret!');
+    expect(out).not.toContain('08123456');
+    expect(out).not.toContain('branch-key');
+    expect(out).not.toContain('4111111111111111');
+    expect(out).toContain('"name":"الكهول"');
+    expect(out).toContain('"amount":30');
+    expect(JSON.parse(out.slice(out.indexOf('{'))).password).toBe('[REDACTED]');
+  });
+
+  it('copes with escaped quotes in values', () => {
+    const out = redactJsonText(JSON.stringify({ password: 'a"b\\c', note: 'x' }));
+
+    expect(JSON.parse(out)).toEqual({ password: '[REDACTED]', note: 'x' });
+  });
+
+  it('leaves ordinary sentences alone', () => {
+    const text = 'Password changed for user 4; token refresh not needed.';
+    expect(redactJsonText(text)).toBe(text);
+  });
+
+  it('is applied to string arguments written to the file', () => {
+    jest.clearAllMocks();
+    logger.initializeLogFile();
+
+    logger.log('[DEBUG] payload:', JSON.stringify({ password: 'Sup3rSecret!' }));
+
+    const [[, line]] = fs.appendFileSync.mock.calls;
+    expect(line).toContain('"password":"[REDACTED]"');
+    expect(line).not.toContain('Sup3rSecret!');
+  });
+});

@@ -57,4 +57,19 @@ describe('database key validation (real db.js)', () => {
     const header = fs.readFileSync(db.getDatabasePath()).subarray(0, 16).toString('latin1');
     expect(header).not.toBe('SQLite format 3\u0000');
   });
+
+  it('never writes the key, or a hash of it, to the log', async () => {
+    mockKey = 'c3'.repeat(32);
+    const keyHash = require('crypto').createHash('sha256').update(mockKey).digest('hex');
+    // Everything the logger writes to its file.
+    const written = [];
+    jest.spyOn(fs, 'appendFileSync').mockImplementation((_file, line) => written.push(line));
+
+    await db.initializeDatabase();
+
+    const logText = written.join('');
+    expect(logText).toContain('Database initialized successfully');
+    expect(logText).not.toContain(mockKey);
+    expect(logText).not.toContain(keyHash);
+  });
 });

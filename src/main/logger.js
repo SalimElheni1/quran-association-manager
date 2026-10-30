@@ -35,6 +35,22 @@ const sanitizeForLog = (value, seen = new WeakSet()) => {
   return value;
 };
 
+// A "key": value pair inside text that was already turned into JSON (e.g. a template string
+// with JSON.stringify(...) in it), whose key is sensitive. The value is a JSON string, number,
+// boolean or null.
+const SENSITIVE_JSON_PAIR = new RegExp(
+  `("(?:[^"\\\\]|\\\\.)*(?:${SENSITIVE_FIELD_PATTERN.source})(?:[^"\\\\]|\\\\.)*"\\s*:\\s*)` +
+    `("(?:[^"\\\\]|\\\\.)*"|-?\\d+(?:\\.\\d+)?|true|false|null)`,
+  'gi',
+);
+
+/**
+ * Redacts sensitive "key": value pairs in a string that holds JSON.
+ * @param {string} text
+ * @returns {string}
+ */
+const redactJsonText = (text) => text.replace(SENSITIVE_JSON_PAIR, '$1"[REDACTED]"');
+
 /**
  * Initialize log file path (called after app is ready)
  */
@@ -61,7 +77,7 @@ const writeToFile = (level, args) => {
           if (typeof arg === 'object' && arg !== null) {
             return JSON.stringify(sanitizeForLog(arg));
           }
-          return String(arg);
+          return redactJsonText(String(arg));
         })
         .join(' ');
       const logLine = `[${timestamp}] [${level}] ${message}\n`;
@@ -132,4 +148,5 @@ module.exports = {
   getLogFilePath,
   clearLogFile,
   sanitizeForLog,
+  redactJsonText,
 };

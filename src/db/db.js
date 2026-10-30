@@ -2,7 +2,6 @@ const Database = require('better-sqlite3-multiple-ciphers');
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron'); // <-- Import `app` from Electron
-const crypto = require('crypto');
 const schema = require('./schema');
 const {
   getDbKey,
@@ -304,8 +303,6 @@ async function initializeDatabase() {
   log(`[DB_LOG] Database path: ${dbPath}`);
   // Rejected here, before the database file is touched, when it is not 64 hex characters.
   const key = validateHexKey(getDbKey());
-  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-  log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
