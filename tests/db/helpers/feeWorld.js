@@ -26,7 +26,7 @@ function useFeeWorld() {
   beforeEach(async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     await ctx.resetDatabase();
-    // recordStudentPayment and the charge code trace every step with console.log.
+    // Handlers that still trace with console.log stay quiet in the test output.
     ctx.quietLogs();
   });
 

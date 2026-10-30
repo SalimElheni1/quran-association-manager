@@ -150,7 +150,7 @@ function useRealDb(options = {}) {
   };
   // For a test that exercises an error path: the handler's console.error is expected there.
   ctx.expectErrorLogs = () => silence('error');
-  // For handlers that trace every step with console.log (e.g. recordStudentPayment).
+  // For handlers that trace with console.log.
   ctx.quietLogs = () => silence('log');
   afterEach(() => {
     consoleSpies.forEach((spy) => spy.mockRestore());
