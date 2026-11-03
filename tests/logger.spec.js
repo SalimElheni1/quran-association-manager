@@ -53,6 +53,16 @@ describe('logger sanitizeForLog (SEC-015)', () => {
     expect(out).toEqual({ failCount: 1, lockedUntil: null, name: 'test' });
   });
 
+  it('keeps the message and stack of Error objects', () => {
+    const err = new Error('no such column: fee_age_group_id');
+    err.code = 'SQLITE_ERROR';
+    const out = logger.sanitizeForLog(err);
+    expect(out.message).toBe('no such column: fee_age_group_id');
+    expect(out.code).toBe('SQLITE_ERROR');
+    expect(out.stack).toContain('no such column');
+    expect(JSON.stringify(out)).toContain('fee_age_group_id');
+  });
+
   it('handles circular references without hanging', () => {
     const circular = { name: 'loop' };
     circular.self = circular;

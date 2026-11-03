@@ -25,6 +25,13 @@ const sanitizeForLog = (value, seen = new WeakSet()) => {
     }
     seen.add(value);
     const sanitized = {};
+    // An Error's name, message and stack are not enumerable, so without this an error
+    // logs as {} (or {"code":"SQLITE_ERROR"}) and the actual reason is lost.
+    if (value instanceof Error) {
+      sanitized.name = value.name;
+      sanitized.message = value.message;
+      sanitized.stack = value.stack;
+    }
     for (const [key, item] of Object.entries(value)) {
       sanitized[key] = SENSITIVE_FIELD_PATTERN.test(key)
         ? '[REDACTED]'

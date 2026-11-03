@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-03
+
+### Fixed
+
+- **The app would not start after updating to 1.4.0 on some older databases.** A database that
+  already had one of the age-group fee or payment-system columns from an earlier build skipped
+  the rest of migrations 056/057, so `students.fee_age_group_id` was never added and migration
+  060 failed on every launch («Failed to open database»). Migrations 059a-059d add whichever of
+  these columns is missing; on other databases they change nothing. An affected install repairs
+  itself on the next launch, with all its data.
+- The log file now records an error's message and stack (it wrote `{"code":"SQLITE_ERROR"}`,
+  which hid the reason).
+
 ## [1.4.0] - 2026-10-27
 
 First stable release of 1.4.0: it is 1.4.0-beta.2 promoted to stable, with no code changes. The
