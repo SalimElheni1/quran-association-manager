@@ -6,30 +6,23 @@ in the installed app, see [docs/user/troubleshooting.md](../user/troubleshooting
 
 ## Install and Native Module
 
-The only native dependency is `better-sqlite3-multiple-ciphers`. `npm install` runs
-`electron-builder install-app-deps` (postinstall), which builds it for **Electron's** Node
-version, not your system Node.
+The only native dependency is `better-sqlite3-multiple-ciphers`. Since version 13 it ships N-API
+binaries for every platform inside the package (`prebuilds/<platform>.node`) and always loads
+those, so the same file works under Electron and under plain Node, and nothing is compiled: no
+build tools are needed, and neither `npm install` nor packaging rebuilds it (`npmRebuild: false`
+in `electron-builder.yml`).
 
-**"was compiled against a different Node.js version … NODE_MODULE_VERSION"**
+**"Failed to load the SQLite native module" / `ERR_DLOPEN_FAILED`**: the package is incomplete
+(for example `node_modules` copied from another platform). Reinstall: `npm ci`.
 
-- *In the app (`npm run dev`)*: the module was built for plain Node. Rebuild it for Electron:
-  `npx electron-builder install-app-deps`.
-- *In a script run with `node`* that opens the database: expected after a normal install. Scripts
-  that need the app's database should run inside Electron, as `npm run seed:manual` does
-  (`electron scripts/<script>.js`); for a quick check, Electron's Node also works:
-  `ELECTRON_RUN_AS_NODE=1 npx electron scripts/<script>.js` (PowerShell:
-  `$env:ELECTRON_RUN_AS_NODE=1; npx electron scripts/<script>.js`).
+- Scripts that need the app's database should run inside Electron, as `npm run seed:manual` does
+  (`electron scripts/<script>.js`), so they see the app's data folder and key store.
 - Jest does not need the module: the database is mocked in unit tests, which is why CI installs
   with `npm ci --ignore-scripts`.
 
-**Build tools**: if no prebuilt binary matches, the module is compiled. On Windows install Visual
-Studio Build Tools with "Desktop development with C++"; on Linux `build-essential` and
-`python3`.
-
 ## Running in Development
 
-- **"FATAL ERROR: JWT_SECRET could not be derived"**: the session secret is derived from the
-  database key (HKDF, `keyManager.getJwtSecret`); this error means the key could not be read or is
+- **"Invalid database encryption key" at start-up**: the database key could not be read or is
   not 64 hex characters. Check the key store (`db-secure-config.json` in the user data folder) and
   the OS keychain. `JWT_SECRET` in `.env` is no longer used.
 - **Port 3000 in use**: `npm run dev` expects Vite on 3000 (the main process loads
@@ -49,9 +42,13 @@ Studio Build Tools with "Desktop development with C++"; on Linux `build-essentia
   (SQLite3 Multiple Ciphers). Inspect data through the app, a backup export, or a script that uses
   `src/db/db.js` (run with Electron's Node, see above).
 - **A migration failed**: the app stops starting and the log names the file. The file was rolled
-  back and not recorded, so it runs again on the next start once fixed. A "duplicate column
-  name" error is treated as already applied and skips the **whole file**; see
+  back and not recorded, so it runs again on the next start once fixed. Only an `ADD COLUMN`
+  of a column that already exists is skipped (logged as a warning); see
   [development.md](setup/development.md#a-database-change).
+- **"uq_fee_charges_monthly (or _annual) not created" in the log**: the database still holds a
+  student charged twice for one month (or one academic year), from before the unique indexes.
+  The app works without them; they are created at the first start after the duplicates are gone
+  («إعادة ضبط الرسوم» removes the unpaid ones; paid ones have to be settled by hand).
 - **Account balances look wrong**: they are recomputed from the transactions on every start
   (`recomputeAccountBalances`), so restart the app before investigating.
 

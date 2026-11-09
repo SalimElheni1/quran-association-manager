@@ -9,7 +9,7 @@ const db = require('../../db/db');
 const { requireRoles } = require('../authMiddleware');
 const { getUserIdForEvent } = require('../sessionManager');
 const { log, error: logError, warn: logWarn } = require('../logger');
-const { generateReceiptNumber, getReceiptBookStats } = require('../services/receiptService');
+const { invalidDataError } = require('../utils/handlerData');
 const { studentPaymentValidationSchema } = require('../validationSchemas');
 const { toLocalISODate, toLocalISODateTime } = require('../utils/dates');
 // Circular dependency broken: require('./settingsHandlers') moved to where it is needed
@@ -330,12 +330,12 @@ async function generateAnnualFeeCharges(academicYear) {
         // The annual fee of the student's age group (or the branch fee).
         const { annualFee } = await resolveStudentFeeGroup(student.id, branchFees);
         if (!(annualFee > 0)) continue;
-        await db.runQuery(
+        const { changes } = await db.runQuery(
           `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-         VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')`,
+         VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING`,
           [student.id, chargeDate, `رسوم سنوية - ${academicYear}`, annualFee, academicYear],
         );
-        createdCount++;
+        createdCount += changes;
       }
     }
     log(`[FeeGen] Generated ${createdCount} annual charges for ${academicYear}`);
@@ -442,9 +442,9 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
 
           const relatedClassId = enrolledClasses.length === 1 ? enrolledClasses[0].id : null;
 
-          await db.runQuery(
+          const { changes } = await db.runQuery(
             `INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status, payment_frequency, billing_month, related_class_id)
-           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?)`,
+           VALUES (?, ?, 'MONTHLY', ?, ?, ?, 'UNPAID', ?, ?, ?) ON CONFLICT DO NOTHING`,
             [
               student.id,
               chargeDate,
@@ -456,7 +456,7 @@ async function generateMonthlyFeeCharges(academicYear, month, options = {}) {
               relatedClassId,
             ],
           );
-          createdCount++;
+          createdCount += changes;
         }
       }
       log(`[FeeGen] Generated ${createdCount} monthly charges for ${academicYear}-${month}`);
@@ -805,10 +805,10 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
         const { annualFee } = await resolveStudentFeeGroup(studentId);
         if (annualFee > 0) {
           const chargeDate = toLocalISODate();
-          await db.runQuery(
+          const { changes } = await db.runQuery(
             `
           INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status)
-          VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')
+          VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING
         `,
             [
               studentId,
@@ -818,8 +818,9 @@ async function refreshStudentCharges(studentId, academicYear = null, userId = nu
               currentAcademicYear,
             ],
           );
-          chargesGenerated++;
-          log(`[refreshStudentCharges] Generated annual charge for student ${studentId}`);
+          chargesGenerated += changes;
+          if (changes)
+            log(`[refreshStudentCharges] Generated annual charge for student ${studentId}`);
         }
       }
 
@@ -1178,8 +1179,8 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
           ? { annualFee: 0 }
           : await resolveStudentFeeGroup(student.id, branchFees);
         if (!existingAnnual && annualFee > 0) {
-          await db.runQuery(
-            "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID')",
+          const { changes } = await db.runQuery(
+            "INSERT INTO student_fee_charges (student_id, charge_date, fee_type, description, amount, academic_year, status) VALUES (?, ?, 'ANNUAL', ?, ?, ?, 'UNPAID') ON CONFLICT DO NOTHING",
             [
               student.id,
               chargeDate,
@@ -1188,7 +1189,7 @@ async function refreshAllStudentCharges(academicYear = null, userId = null) {
               currentAcademicYear,
             ],
           );
-          studentChargesGenerated++;
+          studentChargesGenerated += changes;
         }
 
         totalChargesGenerated += studentChargesGenerated;
@@ -1433,14 +1434,14 @@ async function recordStudentPayment(event, paymentDetails) {
     account_id,
   } = paymentDetails;
 
-  console.log(
+  log(
     `[PAYMENT_START] Recording payment for student ${student_id}, amount: ${amount}, method: ${payment_method}`,
   );
 
   try {
-    console.log(`[PAYMENT_DB] Starting transaction...`);
+    log(`[PAYMENT_DB] Starting transaction...`);
     const studentPaymentId = await db.withTransaction(async () => {
-      console.log(`[PAYMENT_DB] Transaction started successfully`);
+      log(`[PAYMENT_DB] Transaction started successfully`);
 
       const payer = await db.getQuery('SELECT deleted_at FROM students WHERE id = ?', [student_id]);
       if (payer && payer.deleted_at) throw new Error('DELETED_STUDENT');
@@ -1450,7 +1451,7 @@ async function recordStudentPayment(event, paymentDetails) {
 
       // Validate receipt number uniqueness across all income tables
       if (receipt_number) {
-        console.log(`[PAYMENT_RECEIPT] Validating receipt number: ${receipt_number}`);
+        log(`[PAYMENT_RECEIPT] Validating receipt number: ${receipt_number}`);
         // Check payments table
         const existingPayment = await db.getQuery(
           'SELECT id FROM payments WHERE receipt_number = ?',
@@ -1477,16 +1478,16 @@ async function recordStudentPayment(event, paymentDetails) {
         );
 
         if (existingPayment || existingDonation || existingStudentPayment || existingTransaction) {
-          console.log(
+          log(
             `[PAYMENT_RECEIPT] Duplicate receipt found - existingPayment: ${!!existingPayment}, existingDonation: ${!!existingDonation}, existingStudentPayment: ${!!existingStudentPayment}, existingTransaction: ${!!existingTransaction}`,
           );
           throw new Error('DUPLICATE_RECEIPT');
         }
-        console.log(`[PAYMENT_RECEIPT] Receipt validation passed`);
+        log(`[PAYMENT_RECEIPT] Receipt validation passed`);
       }
 
       // 1. Create a student_payment record
-      console.log(`[PAYMENT_DB] Creating payment record...`);
+      log(`[PAYMENT_DB] Creating payment record...`);
       const paymentResult = await db.runQuery(
         `
       INSERT INTO student_payments (student_id, amount, payment_method, payment_type, academic_year, notes, check_number, receipt_number, class_id, sponsor_name, sponsor_phone, payment_date)
@@ -1510,10 +1511,10 @@ async function recordStudentPayment(event, paymentDetails) {
       );
 
       const studentPaymentId = paymentResult.id;
-      console.log(`[PAYMENT_DB] Payment record created with ID: ${studentPaymentId}`);
+      log(`[PAYMENT_DB] Payment record created with ID: ${studentPaymentId}`);
 
       // 2. First, apply payment to consume existing credit (if any)
-      console.log(`[PAYMENT_CREDIT] Checking for existing credit for student ${student_id}...`);
+      log(`[PAYMENT_CREDIT] Checking for existing credit for student ${student_id}...`);
       const existingCreditCharges = await db.allQuery(
         `
       SELECT * FROM student_fee_charges
@@ -1523,7 +1524,7 @@ async function recordStudentPayment(event, paymentDetails) {
         [student_id],
       );
 
-      console.log(`[PAYMENT_CREDIT] Found ${existingCreditCharges.length} credit charges`);
+      log(`[PAYMENT_CREDIT] Found ${existingCreditCharges.length} credit charges`);
       let remainingAmountToApply = amount;
 
       // Track available credit (decremented as it is applied to charges)
@@ -1533,7 +1534,7 @@ async function recordStudentPayment(event, paymentDetails) {
       //    from existing credit first, then from the new cash payment.
       //    Only charges of the payment's academic year are settled: arrears from earlier
       //    years are kept apart and paid with a payment recorded for that year.
-      console.log(
+      log(
         `[PAYMENT_CHARGES] Applying payment of ${remainingAmountToApply} to outstanding charges...`,
       );
       const outstandingCharges = await db.allQuery(
@@ -1555,7 +1556,7 @@ async function recordStudentPayment(event, paymentDetails) {
           ]
         : outstandingCharges;
 
-      console.log(
+      log(
         `[PAYMENT_CHARGES] Found ${outstandingCharges.length} outstanding charges to apply payment to`,
       );
 
@@ -1596,7 +1597,7 @@ async function recordStudentPayment(event, paymentDetails) {
             credit.available -= creditToApply;
             amountFromCredit += creditToApply;
             chargeRemaining -= creditToApply;
-            console.log(
+            log(
               `[PAYMENT_CREDIT] Applied ${creditToApply} of credit from charge ${credit.id} to charge ${charge.id}`,
             );
           }
@@ -1608,7 +1609,7 @@ async function recordStudentPayment(event, paymentDetails) {
 
         if (amountToApplyToCharge <= 0) continue;
 
-        console.log(
+        log(
           `[PAYMENT_CHARGES] Applying ${amountToApplyToCharge} to charge ${charge.id} (${charge.description}) - balance was ${chargeBalance} (credit: ${amountFromCredit}, cash: ${amountFromCash})`,
         );
 
@@ -1636,14 +1637,14 @@ async function recordStudentPayment(event, paymentDetails) {
         );
 
         remainingAmountToApply -= amountFromCash;
-        console.log(
+        log(
           `[PAYMENT_CHARGES] Charge ${charge.id} updated. New status: ${newStatus}, remaining cash to apply: ${remainingAmountToApply}`,
         );
       }
 
       // 2.5. Handle overpayment - store as credit for future charges
       if (remainingAmountToApply > 0) {
-        console.log(
+        log(
           `[PAYMENT_OVERPAYMENT] Student ${student_id} overpaid by ${remainingAmountToApply}. Storing as credit.`,
         );
 
@@ -1685,7 +1686,7 @@ async function recordStudentPayment(event, paymentDetails) {
             studentPaymentId,
           ],
         );
-        console.log(`[PAYMENT_OVERPAYMENT] Credit charge created for ${remainingAmountToApply}`);
+        log(`[PAYMENT_OVERPAYMENT] Credit charge created for ${remainingAmountToApply}`);
       }
 
       // 3. Create a corresponding transaction record
@@ -2117,7 +2118,7 @@ function registerStudentFeeHandlers() {
           return await recordStudentPayment(event, paymentDetails);
         } catch (error) {
           if (error.isJoi) {
-            throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+            throw invalidDataError(error);
           }
           logError('Error recording student payment:', error);
           // recordStudentPayment already throws a user-facing Arabic message (e.g. a
@@ -2349,46 +2350,6 @@ function registerStudentFeeHandlers() {
       } catch (error) {
         logError('Error resetting student fee charges:', error);
         throw new Error('فشل في إعادة ضبط الرسوم');
-      }
-    }),
-  );
-
-  // Receipt management handlers
-  ipcMain.handle(
-    'receipts:generate',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (event, options = {}) => {
-      try {
-        const receiptType = options.receiptType || 'fee_payment';
-        const result = await generateReceiptNumber(receiptType, getUserIdForEvent(event));
-        return result;
-      } catch (error) {
-        logError('Error generating receipt number:', error);
-        throw new Error('Failed to generate receipt number.');
-      }
-    }),
-  );
-
-  ipcMain.handle(
-    'receipts:getStats',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_, year = null) => {
-      try {
-        return await getReceiptBookStats(year);
-      } catch (error) {
-        logError('Error getting receipt book stats:', error);
-        throw new Error('Failed to get receipt book statistics.');
-      }
-    }),
-  );
-
-  ipcMain.handle(
-    'receipts:validate',
-    requireRoles(['Superadmin', 'Administrator', 'FinanceManager'])(async (_, receiptNumber) => {
-      try {
-        const { validateReceiptNumber } = require('../services/receiptService');
-        return validateReceiptNumber(receiptNumber);
-      } catch (error) {
-        logError('Error validating receipt number:', error);
-        throw new Error('Failed to validate receipt number.');
       }
     }),
   );

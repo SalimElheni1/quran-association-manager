@@ -34,13 +34,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
-  /**
-   * Retrieves a specific application setting by key.
-   * @param {string} key - The setting key to retrieve
-   * @returns {Promise<string|null>} The setting value or null if not found
-   */
-  getSetting: (key) => ipcRenderer.invoke('settings:get', key),
-
   // ========================================================================
   // AUTHENTICATION APIs
   // ========================================================================
@@ -55,7 +48,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
 
   /**
-   * Logs out the current user and closes database connections.
+   * Logs out the current user (ends the main-process session; the database stays open).
    * This is a one-way message (send, not invoke).
    */
   logout: () => ipcRenderer.send('logout'),
@@ -259,6 +252,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getInventoryItems: (filters) => ipcRenderer.invoke('inventory:get', filters),
   checkInventoryItemUniqueness: (data) => ipcRenderer.invoke('inventory:check-uniqueness', data),
   addInventoryItem: (item) => ipcRenderer.invoke('inventory:add', item),
+  addInKindDonation: (donation) => ipcRenderer.invoke('inventory:add-in-kind', donation),
   updateInventoryItem: (item) => ipcRenderer.invoke('inventory:update', item),
   deleteInventoryItem: (id) => ipcRenderer.invoke('inventory:delete', id),
   restoreInventoryItem: (id) => ipcRenderer.invoke('inventory:restore', id),
@@ -347,7 +341,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restoreReceiptBook: (id) => ipcRenderer.invoke('receipt-books:restore', id),
   getNextReceiptNumber: (receiptType) =>
     ipcRenderer.invoke('receipt-books:get-next-number', receiptType),
-  checkReceiptExists: (data) => ipcRenderer.invoke('receipt-books:check-exists', data),
 
   // Listener for events from main process
   onForceLogout: (callback) => {
@@ -376,22 +369,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getInitialCredentials: () => ipcRenderer.invoke('get-initial-credentials'),
   setupSuperadmin: (credentials) => ipcRenderer.invoke('auth:setup-superadmin', credentials),
-
-  // ========================================================================
-  // UI NOTIFICATION APIs
-  // ========================================================================
-
-  /**
-   * Shows an error toast notification
-   * @param {string} message Error message to display
-   */
-  showErrorToast: (message) => ipcRenderer.send('ui:show-error-toast', message),
-
-  /**
-   * Shows a success toast notification
-   * @param {string} message Success message to display
-   */
-  showSuccessToast: (message) => ipcRenderer.send('ui:show-success-toast', message),
 
   // ========================================================================
   // TESTING & DEBUGGING APIs

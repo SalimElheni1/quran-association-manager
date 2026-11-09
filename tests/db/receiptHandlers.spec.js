@@ -170,37 +170,3 @@ describe('receipt books: soft delete and restore', () => {
     expect((await ctx.invoke('receipt-books:get-next-number', 'donation')).book_id).toBe(book.id);
   });
 });
-
-describe('receipt numbers already used', () => {
-  test('a receipt number is reported as used only where it was used, and not for the record being edited', async () => {
-    const { lastInsertRowid: expenseId } = ctx.run(
-      "INSERT INTO expenses (category, amount, expense_date, receipt_number) VALUES ('كراء', 10, '2026-10-01', 'R-77')",
-    );
-
-    expect(
-      await ctx.invoke('receipt-books:check-exists', {
-        receiptNumber: 'R-77',
-        transactionType: 'expense',
-      }),
-    ).toEqual({ exists: true });
-    expect(
-      await ctx.invoke('receipt-books:check-exists', {
-        receiptNumber: 'R-77',
-        transactionType: 'expense',
-        excludeId: Number(expenseId),
-      }),
-    ).toEqual({ exists: false });
-    expect(
-      await ctx.invoke('receipt-books:check-exists', {
-        receiptNumber: 'R-77',
-        transactionType: 'donation',
-      }),
-    ).toEqual({ exists: false });
-    expect(
-      await ctx.invoke('receipt-books:check-exists', {
-        receiptNumber: 'R-77',
-        transactionType: 'unknown',
-      }),
-    ).toEqual({ exists: false });
-  });
-});

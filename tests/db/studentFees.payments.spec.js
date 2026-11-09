@@ -348,3 +348,18 @@ describe('refunding a payment', () => {
     expect(summary).toMatchObject({ balance: 130, displayType: 'owed' });
   });
 });
+
+describe('the trace of a payment', () => {
+  test('goes to the log file, where support can read it (the console goes nowhere once installed)', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = require('electron');
+    const studentId = await octoberStudent();
+
+    await ctx.pay(studentId, 150); // 20 more than owed: credit
+
+    const logFile = fs.readFileSync(path.join(app.getPath('userData'), 'app-logs.txt'), 'utf8');
+    expect(logFile).toMatch(/\[LOG\] \[PAYMENT_OVERPAYMENT\] Student \d+ overpaid by 20/);
+    expect(logFile).toMatch(/\[LOG\] \[PAYMENT_OVERPAYMENT\] Credit charge created for 20/);
+  });
+});

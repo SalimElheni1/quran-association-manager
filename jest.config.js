@@ -1,6 +1,6 @@
-// Handler tests against a real, migrated SQLite database (tests/db). The SQLite module is built
-// for Electron's ABI and does not load under plain Node, so this project only exists when Jest
-// runs under Electron's Node (`npm run test:db`); a plain `jest` run leaves it out. It uses the
+// Handler tests against a real, migrated SQLite database (tests/db). They run under Electron's
+// Node, like the app (`npm run test:db`), so this project only exists there; a plain `jest` run
+// leaves it out. It uses the
 // real src/db/db.js (no '../db/db' mapping); 'electron' and 'electron-store' are mapped to
 // in-memory mocks so the database, logs and key store stay in a temporary directory.
 const dbIntegrationProject = {
@@ -29,7 +29,6 @@ module.exports = {
         exceljs: '<rootDir>/tests/mocks/exceljs.js',
         '^fs$': '<rootDir>/tests/mocks/fs.js',
         '^joi$': '<rootDir>/tests/mocks/joi.js',
-        jsonwebtoken: '<rootDir>/tests/mocks/jsonwebtoken.js',
       },
     },
     {

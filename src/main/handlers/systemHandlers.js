@@ -90,102 +90,42 @@ function registerSystemHandlers() {
       // Fetch header data for all export types
       const headerData = await exportManager.getExportHeaderData();
 
-      if (exportType === 'financial-report') {
-        const period = options.period || null;
-        const data = await exportManager.fetchFinancialData(period);
-        // We will need to update generateFinancialXlsx to accept headerData later
-        await exportManager.generateFinancialXlsx(data, filePath);
+      const fields = columns.map((c) => c.key);
+      const data = await exportManager.fetchExportData({ type: exportType, fields, options });
+
+      if (data.length === 0) {
+        return { success: false, message: 'No data available for the selected criteria.' };
+      }
+
+      const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
+      const sheetNameMap = {
+        students: 'الطلاب',
+        teachers: 'المعلمون',
+        admins: 'المستخدمون',
+        users: 'المستخدمون',
+        classes: 'الفصول',
+        attendance: 'الحضور',
+        'student-fees': 'رسوم الطلاب',
+        expenses: 'المصاريف',
+        income: 'المداخيل',
+        inventory: 'المخزون',
+      };
+      const sheetName = sheetNameMap[exportType] || 'Exported Data';
+      if (format === 'pdf') {
+        await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
+      } else if (format === 'xlsx') {
+        await exportManager.generateXlsx(columns, data, filePath, sheetName);
+      } else if (format === 'docx') {
+        await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
       } else {
-        const fields = columns.map((c) => c.key);
-        const data = await exportManager.fetchExportData({ type: exportType, fields, options });
-
-        if (data.length === 0) {
-          return { success: false, message: 'No data available for the selected criteria.' };
-        }
-
-        const reportTitle = `${exportType.charAt(0).toUpperCase() + exportType.slice(1)} Report`;
-        const sheetNameMap = {
-          students: 'الطلاب',
-          teachers: 'المعلمون',
-          admins: 'المستخدمون',
-          users: 'المستخدمون',
-          classes: 'الفصول',
-          attendance: 'الحضور',
-          'student-fees': 'رسوم الطلاب',
-          expenses: 'المصاريف',
-          income: 'المداخيل',
-          inventory: 'المخزون',
-        };
-        const sheetName = sheetNameMap[exportType] || 'Exported Data';
-        if (format === 'pdf') {
-          await exportManager.generatePdf(reportTitle, columns, data, filePath, headerData);
-        } else if (format === 'xlsx') {
-          await exportManager.generateXlsx(columns, data, filePath, sheetName);
-        } else if (format === 'docx') {
-          await exportManager.generateDocx(reportTitle, columns, data, filePath, headerData);
-        } else {
-          throw new Error(`Unsupported export format: ${format}`);
-        }
+        throw new Error(`Unsupported export format: ${format}`);
       }
 
       return { success: true, message: `Export saved to ${filePath}` };
     } catch (error) {
       logError(`Error during export (${exportType}, ${format}):`, error);
-      // Show error toast notification to user
-      try {
-        const mainWindow = require('../index').mainWindow;
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(
-            'ui:show-error-toast',
-            `فشل في تصدير ${exportType}: ${error.message}`,
-          );
-        }
-      } catch (toastError) {
-        logError('Error showing error toast:', toastError);
-      }
+      // The export screen shows this message.
       return { success: false, message: `Export failed: ${error.message}` };
-    }
-  });
-
-  ipcMain.handle('import:generate-template', async () => {
-    try {
-      const { filePath } = await dialog.showSaveDialog({
-        title: 'Save Import Template',
-        defaultPath: `import-template-${Date.now()}.xlsx`,
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-
-      if (!filePath) {
-        return { success: false, message: 'Template generation canceled by user.' };
-      }
-
-      await exportManager.generateExcelTemplate(filePath);
-
-      return { success: true, message: `Template saved to ${filePath}` };
-    } catch (error) {
-      logError('Error during template generation:', error);
-      return { success: false, message: `Template generation failed: ${error.message}` };
-    }
-  });
-
-  ipcMain.handle('import:execute', async (_event, { selectedSheets }) => {
-    try {
-      const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: 'Select Excel File to Import',
-        properties: ['openFile'],
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-
-      if (canceled || !filePaths || filePaths.length === 0) {
-        return { success: false, message: 'Import canceled by user.' };
-      }
-
-      const results = await importManager.importExcelData(filePaths[0], selectedSheets);
-
-      return { success: true, ...results };
-    } catch (error) {
-      logError('Error during import execution:', error);
-      return { success: false, message: `Import failed: ${error.message}` };
     }
   });
 
@@ -261,66 +201,80 @@ function registerSystemHandlers() {
     }
   });
 
-  ipcMain.handle('db:import', async (event, { password, userId, filePath, backupPassword }) => {
-    // Re-authenticate the logged-in user, not whichever user id the renderer sends.
-    const confirmingUserId = getUserIdForEvent(event) ?? userId;
-    if (!password || !confirmingUserId) {
-      return { success: false, message: 'بيانات المصادقة غير كاملة.' };
-    }
-    try {
-      const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [
-        confirmingUserId,
-      ]);
-      if (!currentUser) {
-        return { success: false, message: 'المستخدم الحالي غير موجود.' };
+  ipcMain.handle(
+    'db:import',
+    async (event, { password, filePath, backupPassword, allowUnsigned }) => {
+      // Re-authenticate the logged-in user, never a user id sent by the window.
+      const confirmingUserId = getUserIdForEvent(event);
+      if (!password || !confirmingUserId) {
+        return { success: false, message: 'بيانات المصادقة غير كاملة.' };
       }
-      const isMatch = await bcrypt.compare(password, currentUser.password);
-      if (!isMatch) {
-        return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
-      }
-
-      let importedDbPath = filePath;
-      if (!importedDbPath) {
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-          title: 'Select Database to Import',
-          properties: ['openFile'],
-          filters: [
-            { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
-            { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
-          ],
-        });
-        if (canceled || !filePaths || !filePaths[0]) {
-          return { success: false, message: 'لم يتم تحديد أي ملف.' };
+      try {
+        const currentUser = await db.getQuery('SELECT password FROM users WHERE id = ?', [
+          confirmingUserId,
+        ]);
+        if (!currentUser) {
+          return { success: false, message: 'المستخدم الحالي غير موجود.' };
         }
-        importedDbPath = filePaths[0];
-      }
+        const isMatch = await bcrypt.compare(password, currentUser.password);
+        if (!isMatch) {
+          return { success: false, message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.' };
+        }
 
-      // Read while the database is still open: restoring closes it before decrypting the file.
-      // The backup folder (for the safety copy) and the transfer key come from these settings.
-      const { settings: currentSettings } = await internalGetSettingsHandler();
-      const savedTransferKey = currentSettings?.association_transfer_key || '';
-      const validationResult = await importManager.validateDatabaseFile(
-        importedDbPath,
-        backupPassword,
-        savedTransferKey,
-      );
-      if (!validationResult.isValid) {
-        return { success: false, message: validationResult.message };
+        let importedDbPath = filePath;
+        if (!importedDbPath) {
+          const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Select Database to Import',
+            properties: ['openFile'],
+            filters: [
+              { name: 'All Files / كل الملفات (*.*)', extensions: ['*'] },
+              { name: 'Quran DB Backups / نسخ احتياطية (*.qdb)', extensions: ['qdb', 'QDB'] },
+            ],
+          });
+          if (canceled || !filePaths || !filePaths[0]) {
+            return { success: false, message: 'لم يتم تحديد أي ملف.' };
+          }
+          importedDbPath = filePaths[0];
+        }
+
+        // Read while the database is still open: restoring closes it before decrypting the file.
+        // The backup folder (for the safety copy) and the transfer key come from these settings.
+        const { settings: currentSettings } = await internalGetSettingsHandler();
+        const savedTransferKey = currentSettings?.association_transfer_key || '';
+        const validationResult = await importManager.validateDatabaseFile(
+          importedDbPath,
+          backupPassword,
+          savedTransferKey,
+        );
+        if (!validationResult.isValid) {
+          return { success: false, message: validationResult.message };
+        }
+        // A backup from before version 1.3.0 is a plain ZIP: nothing proves who made it. It is
+        // restored only once the user has confirmed, after this warning.
+        if (validationResult.unsigned && allowUnsigned !== true) {
+          return {
+            success: false,
+            needsUnsignedConfirmation: true,
+            message:
+              'هذه نسخة احتياطية قديمة غير مشفّرة وغير موقّعة (قبل الإصدار 1.3.0): لا شيء يثبت مصدرها. لا تسترجعها إلا إذا كنت متأكداً أنها من نسخ جمعيتكم.',
+          };
+        }
+        return await importManager.replaceDatabase(
+          importedDbPath,
+          password,
+          backupPassword,
+          currentSettings,
+          validationResult.backup,
+        );
+      } catch (error) {
+        logError('Error during database import process:', error);
+        return {
+          success: false,
+          message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,
+        };
       }
-      return await importManager.replaceDatabase(
-        importedDbPath,
-        password,
-        backupPassword,
-        currentSettings,
-      );
-    } catch (error) {
-      logError('Error during database import process:', error);
-      return {
-        success: false,
-        message: `حدث خطأ فادح أثناء الاستيراد: ${error.message}`,
-      };
-    }
-  });
+    },
+  );
 
   // The association transfer key never goes to the window with the settings. A Superadmin sees
   // it, or changes it, only after typing their password again, so a session left open does not
@@ -426,44 +380,6 @@ function registerSystemHandlers() {
     } catch (error) {
       logError('Error getting log file path:', error);
       return { success: false, message: error.message };
-    }
-  });
-
-  // ========================================================================
-  // UI NOTIFICATION APIs
-  // ========================================================================
-
-  /**
-   * Shows an error toast notification in the renderer process
-   * @param {Object} event IPC event
-   * @param {string} message Error message to display
-   */
-  ipcMain.on('ui:show-error-toast', (event, message) => {
-    try {
-      // Forward to renderer process main window
-      const mainWindow = require('../index').mainWindow;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('ui:show-error-toast', message);
-      }
-    } catch (error) {
-      logError('Error showing error toast:', error);
-    }
-  });
-
-  /**
-   * Shows a success toast notification in the renderer process
-   * @param {Object} event IPC event
-   * @param {string} message Success message to display
-   */
-  ipcMain.on('ui:show-success-toast', (event, message) => {
-    try {
-      // Forward to renderer process main window
-      const mainWindow = require('../index').mainWindow;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('ui:show-success-toast', message);
-      }
-    } catch (error) {
-      logError('Error showing success toast:', error);
     }
   });
 

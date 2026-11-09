@@ -1,8 +1,8 @@
 const Database = require('better-sqlite3-multiple-ciphers');
 const path = require('path');
 const fs = require('fs');
+const { AsyncLocalStorage } = require('async_hooks');
 const { app } = require('electron'); // <-- Import `app` from Electron
-const crypto = require('crypto');
 const schema = require('./schema');
 const {
   getDbKey,
@@ -233,67 +233,130 @@ async function migrateToEncrypted(dbPath, key) {
   }
 }
 
-async function runMigrations() {
+// An "ALTER TABLE t ADD [COLUMN] c ..." statement of a migration file.
+const ADD_COLUMN_STATEMENT =
+  /ALTER\s+TABLE\s+["`]?(\w+)["`]?\s+ADD\s+(?:COLUMN\s+)?["`]?(\w+)["`]?[^;]*;?/gi;
+
+/**
+ * The migration's SQL without the ADD COLUMN statements whose column the table already has (a
+ * column added by an earlier migration too, or by hand), so the rest of the file still runs. Any
+ * other error fails the migration: a migration is only recorded once all of it ran.
+ * @param {string} migrationSql
+ * @returns {string}
+ */
+function withoutExistingColumns(migrationSql) {
+  return migrationSql.replace(ADD_COLUMN_STATEMENT, (statement, table, column) => {
+    const columns = db.prepare(`PRAGMA table_info("${table}")`).all();
+    if (!columns.some((c) => c.name === column)) return statement;
+    logWarn(`Migration: ${table}.${column} already exists; its ADD COLUMN is skipped.`);
+    return `-- ${table}.${column} already exists\n`;
+  });
+}
+
+/** Logs the rows whose foreign keys point nowhere (migrations run with the checks off). */
+function reportForeignKeyProblems() {
+  const problems = db.pragma('foreign_key_check');
+  if (problems.length === 0) return;
+  const byTable = {};
+  problems.forEach(({ table, parent }) => {
+    const key = `${table} -> ${parent}`;
+    byTable[key] = (byTable[key] || 0) + 1;
+  });
+  logWarn('[DB_LOG] Rows with a broken foreign key after the migrations:', byTable);
+}
+
+// One monthly charge per student and billing month, one annual charge per student and academic
+// year. Cancelled charges count too: the charge generators treat them as there, and restoring
+// the student brings them back.
+const FEE_CHARGE_UNIQUE_INDEXES = {
+  uq_fee_charges_monthly:
+    "ON student_fee_charges(student_id, billing_month) WHERE fee_type = 'MONTHLY'",
+  uq_fee_charges_annual:
+    "ON student_fee_charges(student_id, academic_year) WHERE fee_type = 'ANNUAL'",
+};
+
+/**
+ * Creates the fee charge unique indexes the data allows. A database that still holds duplicate
+ * charges from before them keeps working without the index; it is created at the first start
+ * after the duplicates are gone. Never throws: start-up must not depend on it.
+ */
+function ensureFeeChargeUniqueness() {
+  Object.entries(FEE_CHARGE_UNIQUE_INDEXES).forEach(([name, target]) => {
+    try {
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ${name} ${target}`);
+    } catch (error) {
+      logWarn(
+        `[DB_LOG] ${name} not created: the database holds duplicate fee charges.`,
+        error.message,
+      );
+    }
+  });
+}
+
+/** Removes the fee charge unique indexes, for rows that may come from before them (restore). */
+function dropFeeChargeUniqueness() {
+  Object.keys(FEE_CHARGE_UNIQUE_INDEXES).forEach((name) => db.exec(`DROP INDEX IF EXISTS ${name}`));
+}
+
+const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
+
+/** The migration files of this version of the app, in the order they run. */
+function listMigrationFiles() {
+  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
+  return fs.readdirSync(MIGRATIONS_DIR).sort();
+}
+
+/**
+ * Applies the migration files not applied yet, in filename order.
+ * @param {object} [options]
+ * @param {string[]} [options.only] Apply only these files: a restore builds the schema the backup
+ *   was made with, loads its rows, then runs the rest.
+ */
+async function runMigrations({ only } = {}) {
   log('Checking for pending migrations...');
-  const migrationsDir = path.join(__dirname, 'migrations');
-
-  if (!fs.existsSync(migrationsDir)) {
-    fs.mkdirSync(migrationsDir);
-  }
-
-  const migrationFiles = fs.readdirSync(migrationsDir).sort();
+  const migrationFiles = listMigrationFiles().filter((file) => !only || only.includes(file));
   const appliedMigrations = (await allQuery('SELECT name FROM migrations')).map((row) => row.name);
 
-  // We need to use synchronous exec inside the loop, but we wrap it in our async logic.
-  // Actually, since this function is async, we can just call our promisified helpers.
-  // But for better-sqlite3 transaction logic, we can use the synchronous transaction feature.
-
+  // better-sqlite3 transactions are synchronous: a migration file runs, and is recorded, whole.
   const applyMigration = db.transaction((file, migrationSql) => {
-    db.exec(migrationSql);
+    db.exec(withoutExistingColumns(migrationSql));
     db.prepare('INSERT INTO migrations (name) VALUES (?)').run(file);
   });
 
+  let appliedNow = 0;
   for (const file of migrationFiles) {
     if (!appliedMigrations.includes(file)) {
       log(`Applying migration: ${file}`);
+      const migrationSql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      // PRAGMA foreign_keys cannot be changed inside a transaction, and some
+      // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
+      // child tables reference. Disable FK enforcement around the migration so
+      // the rebuild succeeds; child references are by name and survive the rename.
+      db.pragma('foreign_keys = OFF');
       try {
-        const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        // better-sqlite3 transactions are synchronous.
-        // PRAGMA foreign_keys cannot be changed inside a transaction, and some
-        // table-rebuild migrations (e.g. 052 receipt_books) DROP a table that
-        // child tables reference. Disable FK enforcement around the migration so
-        // the rebuild succeeds; child references are by name and survive the rename.
-        db.pragma('foreign_keys = OFF');
         applyMigration(file, migrationSql);
-        db.pragma('foreign_keys = ON');
+        appliedNow++;
         log(`Successfully applied migration: ${file}`);
       } catch (err) {
+        logError(`Failed to apply migration ${file}:`, err);
+        throw err;
+      } finally {
         db.pragma('foreign_keys = ON');
-        // If the error is "duplicate column name", it means the migration was likely
-        // already applied manually or in a previous failed run. We can safely ignore it.
-        if (err.message.includes('duplicate column name')) {
-          logWarn(`Warning: Migration ${file} failed with 'duplicate column'. Marking as applied.`);
-          // Manually insert into migrations table so it doesn't run again
-          try {
-            db.prepare('INSERT OR IGNORE INTO migrations (name) VALUES (?)').run(file);
-          } catch (e) {
-            logError('Failed to mark migration as ignored', e);
-          }
-        } else {
-          logError(`Failed to apply migration ${file}:`, err);
-          throw err;
-        }
       }
     }
   }
+  if (appliedNow > 0) reportForeignKeyProblems();
   log('All migrations are up to date.');
 }
 
 /**
  * Initializes the database connection. This is the main entry point for the DB.
  * It handles key derivation, migration, and schema setup.
+ * @param {object} [options]
+ * @param {string[]} [options.migrations] For a new database, apply only these migrations (a
+ *   restore: the schema of the backup).
  */
-async function initializeDatabase() {
+async function initializeDatabase({ migrations } = {}) {
   log('[DB_LOG] InitializeDatabase called (better-sqlite3).');
   if (db && db.open) {
     log('[DB_LOG] Database already open. Skipping initialization.');
@@ -304,8 +367,6 @@ async function initializeDatabase() {
   log(`[DB_LOG] Database path: ${dbPath}`);
   // Rejected here, before the database file is touched, when it is not 64 hex characters.
   const key = validateHexKey(getDbKey());
-  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-  log(`[DB_LOG] Using dedicated DB key. Key hash: ${keyHash}`);
 
   // --- Migration Check ---
   if (fs.existsSync(dbPath) && !isDbEncrypted(dbPath)) {
@@ -410,7 +471,7 @@ async function initializeDatabase() {
     if (!dbExists) {
       log('[DB_LOG] New database detected. Initializing schema...');
       db.exec(schema);
-      await runMigrations(); // This uses db, which is set now
+      await runMigrations({ only: migrations }); // This uses db, which is set now
       getDbSalt();
       log('[DB_LOG] Database salt created.');
       // SEC-04: no default superadmin is seeded. The first-run setup flow
@@ -420,6 +481,8 @@ async function initializeDatabase() {
       log('[DB_LOG] Existing database detected. Checking migrations...');
       await runMigrations();
     }
+    // A restore that builds an older schema adds them once its rows are migrated forward.
+    if (!migrations) ensureFeeChargeUniqueness();
 
     // Ensure the Quran reference data (surahs/hizbs) exists so the
     // memorization pickers are usable on fresh installs. Both seed
@@ -436,13 +499,13 @@ async function initializeDatabase() {
     log(`[DB_LOG] Database initialized successfully at ${dbPath}`);
   } catch (error) {
     db = null;
-    // A native module built for another platform or Electron version fails to load
-    // before the database is even touched; don't report that as a bad password.
+    // A missing or broken native module fails to load before the database is even touched;
+    // don't report that as a bad password.
     if (error && error.code === 'ERR_DLOPEN_FAILED') {
       logError('[DB_LOG] Failed to load the SQLite native module.', error);
       const nativeError = new Error(
-        'The SQLite native module could not be loaded (built for another platform or ' +
-          'Electron version). Run `npx electron-builder install-app-deps` to rebuild it.',
+        'The SQLite native module could not be loaded (its package is incomplete). ' +
+          'Reinstall the dependencies with `npm ci`.',
       );
       nativeError.code = 'ERR_DLOPEN_FAILED';
       throw nativeError;
@@ -465,50 +528,57 @@ function getDb() {
   return db;
 }
 
-function dbRun(database, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = database.prepare(sql);
-      const info = stmt.run(...params);
-      resolve({ id: info.lastInsertRowid, changes: info.changes });
-    } catch (err) {
-      reject(err);
-    }
-  });
+// One connection serves every IPC call, so a transaction belongs to the call chain that opened
+// it (tracked with AsyncLocalStorage, which follows awaits, timers and callbacks). While it is
+// open, the queries and transactions of other call chains wait for it to end: they never read
+// its uncommitted rows, never get rolled back with it, and never commit it half-way.
+const transactionScope = new AsyncLocalStorage();
+// Settles when the transaction now running (if any) ends.
+let openTransaction = null;
+// Settles when the last transaction queued so far has ended.
+let transactionQueue = Promise.resolve();
+
+// The store is { open } and is closed when the transaction ends: work started inside it that
+// finishes later is not "inside" any more.
+const inOwnTransaction = () => transactionScope.getStore()?.open === true;
+
+/** Runs `query` now, or once another call chain's open transaction has ended. */
+function whenNoOtherTransaction(query) {
+  if (!openTransaction || inOwnTransaction()) {
+    return new Promise((resolve, reject) => {
+      try {
+        resolve(query());
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+  return transactionQueue.then(() => whenNoOtherTransaction(query));
 }
 
 function runQuery(sql, params = []) {
-  // Use module-level db implicitly if not passed, but matching original structure:
-  // Original runQuery called dbRun(getDb(), ...)
-  try {
-    return dbRun(getDb(), sql, params);
-  } catch (err) {
-    return Promise.reject(err);
-  }
+  return whenNoOtherTransaction(() => {
+    const info = getDb()
+      .prepare(sql)
+      .run(...params);
+    return { id: info.lastInsertRowid, changes: info.changes };
+  });
 }
 
 function getQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = getDb().prepare(sql);
-      const row = stmt.get(...params);
-      resolve(row);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  return whenNoOtherTransaction(() =>
+    getDb()
+      .prepare(sql)
+      .get(...params),
+  );
 }
 
 function allQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    try {
-      const stmt = getDb().prepare(sql);
-      const rows = stmt.all(...params);
-      resolve(rows);
-    } catch (err) {
-      reject(err);
-    }
-  });
+  return whenNoOtherTransaction(() =>
+    getDb()
+      .prepare(sql)
+      .all(...params),
+  );
 }
 
 function dbExec(database, sql) {
@@ -541,32 +611,43 @@ function isDbOpen() {
 }
 
 /**
- * Executes an async callback within a transaction.
- * Handles nested calls by only starting/committing at the top level.
- * Uses manual BEGIN/COMMIT since better-sqlite3 transaction() doesn't support async.
+ * Executes an async callback within a transaction (manual BEGIN/COMMIT: better-sqlite3's
+ * transaction() is synchronous). A call from inside a transaction of the same call chain joins
+ * it; a call from another chain waits until no other transaction is open.
  * @param {Function} callback - Async function containing DB operations
  * @returns {Promise<any>}
  */
 async function withTransaction(callback) {
   if (!db || !db.open) throw new Error('Database not initialized');
+  // Called from inside a transaction of the same call chain: part of it.
+  if (inOwnTransaction()) return callback();
 
-  const isTopLevel = !db.inTransaction;
+  // One transaction at a time: wait for the ones queued before this one.
+  const previous = transactionQueue;
+  let finished;
+  transactionQueue = new Promise((resolve) => {
+    finished = resolve;
+  });
+  await previous;
 
-  if (isTopLevel) {
-    db.prepare('BEGIN').run();
-  }
-
+  openTransaction = transactionQueue;
+  const scope = { open: true };
   try {
-    const result = await callback();
-    if (isTopLevel) {
-      db.prepare('COMMIT').run();
-    }
-    return result;
-  } catch (err) {
-    if (isTopLevel && db.inTransaction) {
-      db.prepare('ROLLBACK').run();
-    }
-    throw err;
+    return await transactionScope.run(scope, async () => {
+      db.prepare('BEGIN').run();
+      try {
+        const result = await callback();
+        db.prepare('COMMIT').run();
+        return result;
+      } catch (err) {
+        if (db.inTransaction) db.prepare('ROLLBACK').run();
+        throw err;
+      }
+    });
+  } finally {
+    scope.open = false;
+    openTransaction = null;
+    finished();
   }
 }
 
@@ -584,4 +665,9 @@ module.exports = {
   hasSuperadmin,
   createSuperadminUser,
   rotateDatabaseKey,
+  withoutExistingColumns,
+  listMigrationFiles,
+  runMigrations,
+  ensureFeeChargeUniqueness,
+  dropFeeChargeUniqueness,
 };

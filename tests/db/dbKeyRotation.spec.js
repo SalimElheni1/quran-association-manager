@@ -1,22 +1,14 @@
 // SEC-017: re-encrypting the database with a new key, against a real encrypted SQLite file.
 const Database = require('better-sqlite3-multiple-ciphers');
-const bcrypt = require('bcryptjs');
 const { useRealDb } = require('./helpers/realDb');
 const { registerSystemHandlers } = require('../../src/main/handlers/systemHandlers');
 const keyManager = require('../../src/main/keyManager');
 const db = require('../../src/db/db');
-const sessionManager = require('../../src/main/sessionManager');
 
 const ctx = useRealDb({ register: [registerSystemHandlers] });
 
-const PASSWORD = 'Zitouna#Fes2026';
-
 beforeEach(async () => {
   await ctx.resetDatabase();
-  ctx.run('UPDATE users SET password = ? WHERE id = ?', [
-    await bcrypt.hash(PASSWORD, 4),
-    ctx.user.id,
-  ]);
 });
 
 /** Whether `key` opens the database file (a separate connection, like a fresh start). */
@@ -79,69 +71,10 @@ describe('rotateDatabaseKey', () => {
   });
 });
 
+// The database key stays automatic: no screen rotates it any more (removed 2026-10-02), so the
+// channel that did must not come back by accident.
 describe('db:rotate-key', () => {
-  test('is refused until the association transfer key is saved', async () => {
-    const oldKey = keyManager.getDbKey();
-    ctx.setSettings({ association_transfer_key: '' });
-
-    const result = await ctx.invoke('db:rotate-key', { password: PASSWORD });
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('رمز النقل الموحد');
-    expect(keyManager.getDbKey()).toBe(oldKey);
-  });
-
-  test('is refused with a wrong password', async () => {
-    const oldKey = keyManager.getDbKey();
-    ctx.setSettings({ association_transfer_key: 'branch-transfer-key' });
-
-    const result = await ctx.invoke('db:rotate-key', { password: 'not-my-password' });
-
-    expect(result).toEqual({
-      success: false,
-      message: 'كلمة المرور الحالية التي أدخلتها غير صحيحة.',
-    });
-    expect(keyManager.getDbKey()).toBe(oldKey);
-  });
-
-  test('is reserved to the Superadmin', async () => {
-    ctx.setSettings({ association_transfer_key: 'branch-transfer-key' });
-    const oldKey = keyManager.getDbKey();
-
-    await expect(
-      ctx.invokeAs(['Administrator'], 'db:rotate-key', { password: PASSWORD }),
-    ).rejects.toThrow('غير مسموح به.');
-
-    expect(keyManager.getDbKey()).toBe(oldKey);
-  });
-
-  test('rotates the key, re-derives the session secret and ends every session', async () => {
-    ctx.setSettings({ association_transfer_key: 'branch-transfer-key' });
-    const oldKey = keyManager.getDbKey();
-    const oldSecret = process.env.JWT_SECRET;
-    // A logged-in window that can receive the force-logout signal.
-    const sent = [];
-    const sender = { id: 900, send: (channel) => sent.push(channel), isDestroyed: () => false };
-    sessionManager.createSession(
-      sender,
-      { id: ctx.user.id, username: 'test-admin', roles: ['Superadmin'] },
-      null,
-    );
-    const otherWindowId = ctx.event.sender.id;
-
-    const handler = require('electron').__handlers.get('db:rotate-key');
-    const result = await handler({ sender }, { password: PASSWORD });
-
-    expect(result).toEqual({
-      success: true,
-      message: 'تم تغيير مفتاح تشفير قاعدة البيانات. يرجى تسجيل الدخول من جديد.',
-    });
-    expect(keyManager.getDbKey()).not.toBe(oldKey);
-    expect(opensWith(keyManager.getDbKey())).toBe(true);
-    expect(process.env.JWT_SECRET).toBe(keyManager.getJwtSecret());
-    expect(process.env.JWT_SECRET).not.toBe(oldSecret);
-    expect(sessionManager.getSession(sender.id)).toBeNull();
-    expect(sessionManager.getSession(otherWindowId)).toBeNull();
-    expect(sent).toEqual(['force-logout']);
+  test('is no longer registered', () => {
+    expect(require('electron').__handlers.has('db:rotate-key')).toBe(false);
   });
 });

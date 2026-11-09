@@ -100,3 +100,101 @@ describe('logger file output (SEC-015)', () => {
     );
   });
 });
+
+describe('logger: text that already holds JSON (SEC-015)', () => {
+  const { redactJsonText } = logger;
+
+  it('redacts sensitive pairs in a stringified object', () => {
+    const text = JSON.stringify({
+      name: 'الكهول',
+      password: 'Sup3rSecret!',
+      national_id: '08123456',
+      nested: { association_transfer_key: 'branch-key', amount: 30 },
+      access_token: null,
+      card_number: 4111111111111111,
+    });
+
+    const out = redactJsonText(`[DEBUG] Input data: ${text}`);
+
+    expect(out).not.toContain('Sup3rSecret!');
+    expect(out).not.toContain('08123456');
+    expect(out).not.toContain('branch-key');
+    expect(out).not.toContain('4111111111111111');
+    expect(out).toContain('"name":"الكهول"');
+    expect(out).toContain('"amount":30');
+    expect(JSON.parse(out.slice(out.indexOf('{'))).password).toBe('[REDACTED]');
+  });
+
+  it('copes with escaped quotes in values', () => {
+    const out = redactJsonText(JSON.stringify({ password: 'a"b\\c', note: 'x' }));
+
+    expect(JSON.parse(out)).toEqual({ password: '[REDACTED]', note: 'x' });
+  });
+
+  it('leaves ordinary sentences alone', () => {
+    const text = 'Password changed for user 4; token refresh not needed.';
+    expect(redactJsonText(text)).toBe(text);
+  });
+
+  it('is applied to string arguments written to the file', () => {
+    jest.clearAllMocks();
+    logger.initializeLogFile();
+
+    logger.log('[DEBUG] payload:', JSON.stringify({ password: 'Sup3rSecret!' }));
+
+    const [[, line]] = fs.appendFileSync.mock.calls;
+    expect(line).toContain('"password":"[REDACTED]"');
+    expect(line).not.toContain('Sup3rSecret!');
+  });
+});
+
+describe('logger: errors', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    logger.initializeLogFile();
+  });
+
+  const writtenLine = () => fs.appendFileSync.mock.calls[0][1];
+
+  it('writes the message and the stack of an error, not "{}"', () => {
+    const error = new Error('UNIQUE constraint failed: students.matricule');
+
+    logger.error('Error in students:add handler:', error);
+
+    const line = writtenLine();
+    expect(line).toContain('Error in students:add handler: Error: UNIQUE constraint failed');
+    expect(line).toContain('at ');
+    expect(line).not.toContain('{}');
+  });
+
+  it("adds the error's own fields, such as its code", () => {
+    const error = Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' });
+
+    logger.error('Query failed:', error);
+
+    expect(writtenLine()).toContain('"code":"SQLITE_BUSY"');
+  });
+
+  it('writes an error nested in an object, and redacts its sensitive fields', () => {
+    const error = Object.assign(new Error('login failed'), { password: 'Sup3rSecret!' });
+
+    logger.warn('context', { step: 'login', error });
+
+    const line = writtenLine();
+    expect(line).toContain('"message":"login failed"');
+    expect(line).toContain('"password":"[REDACTED]"');
+    expect(line).not.toContain('Sup3rSecret!');
+  });
+
+  it('recognises an error from another realm (no instanceof Error)', () => {
+    const foreign = {
+      name: 'SqliteError',
+      message: 'no such table: x',
+      stack: 'SqliteError: no such table: x\n    at prepare',
+    };
+
+    logger.error('Native error:', foreign);
+
+    expect(writtenLine()).toContain('SqliteError: no such table: x');
+  });
+});

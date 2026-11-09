@@ -4,6 +4,7 @@ const {
   getSheetInfo,
   getAllSheets,
   isSheetAvailable,
+  sheetForImportType,
 } = require('../src/main/importConstants');
 
 describe('Import Constants', () => {
@@ -125,6 +126,21 @@ describe('Import Constants', () => {
         expect(typeof sheet.name).toBe('string');
         expect(Array.isArray(sheet.requiredColumns)).toBe(true);
       });
+    });
+  });
+
+  describe('sheetForImportType', () => {
+    it('sends the income and expense imports to the transactions sheet, the stock to the inventory', () => {
+      expect(sheetForImportType('المداخيل')).toBe('العمليات المالية');
+      expect(sheetForImportType('المصاريف')).toBe('العمليات المالية');
+      expect(sheetForImportType('الجرد')).toBe('المخزون');
+    });
+
+    it('leaves a sheet name as it is, and every import type reads a sheet that exists', () => {
+      for (const { name } of AVAILABLE_SHEETS) expect(sheetForImportType(name)).toBe(name);
+      for (const type of ['المداخيل', 'المصاريف', 'الجرد']) {
+        expect(isSheetAvailable(sheetForImportType(type))).toBe(true);
+      }
     });
   });
 });

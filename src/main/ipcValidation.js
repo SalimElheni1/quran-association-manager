@@ -21,15 +21,42 @@ const payload = Joi.object().unknown(true);
 const requiredPayload = payload.required();
 // Optional filters/options objects; the renderer may also send nothing or null.
 const options = payload.allow(null);
-const text = (max) => Joi.string().allow('').max(max);
 const academicYear = Joi.string().max(20).allow(null, '');
-const date = Joi.string().max(40);
+// A calendar day as the attendance register stores it: YYYY-MM-DD, a day that exists.
+const calendarDay = Joi.string()
+  .pattern(/^\d{4}-\d{2}-\d{2}$/)
+  .custom((value, helpers) => {
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    const exists = parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+    return exists ? value : helpers.error('any.invalid');
+  });
+const ATTENDANCE_STATUSES = ['present', 'absent', 'late'];
 const receiptType = Joi.string().max(60).allow(null, '');
 // financial:get-summary takes a { startDate, endDate } period, a year, or nothing.
 const period = Joi.alternatives()
   .try(payload, Joi.number().integer(), Joi.string().max(40))
   .allow(null);
 const gender = Joi.string().max(20).allow(null, '');
+// export:generate — the columns are keys from the export screens (exportManager.EXPORT_COLUMNS).
+const exportRequest = Joi.object({
+  exportType: Joi.string().max(40).required(),
+  format: Joi.string().valid('pdf', 'xlsx', 'docx').required(),
+  columns: Joi.array()
+    .items(
+      Joi.object({
+        key: Joi.string()
+          .pattern(/^[a-z][a-z_]*$/)
+          .max(64)
+          .required(),
+        header: Joi.string().max(200).allow(''),
+      }),
+    )
+    .max(100),
+  options: options,
+})
+  .unknown(true)
+  .required();
 const age = Joi.number().min(0).max(150).allow(null);
 
 /** channel -> array of per-argument Joi schemas (the IPC event is not included). */
@@ -44,8 +71,6 @@ const CHANNEL_ARG_SCHEMAS = {
   'auth:updateProfile': [requiredPayload],
   'auth:updatePassword': [requiredPayload],
   logout: [],
-  'ui:show-error-toast': [text(2000)],
-  'ui:show-success-toast': [text(2000)],
   'app:relaunch': [],
   'dialog:openDirectory': [],
   'dialog:openFile': [options],
@@ -121,7 +146,7 @@ const CHANNEL_ARG_SCHEMAS = {
   'groups:getEligibleStudentsForGroup': [Joi.string().max(60).required()],
 
   // ---- Settings, age groups, backups ----
-  'settings:get': [text(100)],
+  'settings:get': [],
   'settings:update': [requiredPayload],
   'settings:getLogo': [],
   'settings:uploadLogo': [],
@@ -142,14 +167,18 @@ const CHANNEL_ARG_SCHEMAS = {
   // ---- Dashboard and attendance ----
   'get-dashboard-stats': [],
   'get-todays-classes': [],
-  'attendance:getClassesForDay': [date.required()],
+  'attendance:getClassesForDay': [calendarDay.required()],
   'attendance:getStudentsForClass': [requiredId],
-  'attendance:getForDate': [Joi.object({ classId: requiredId, date: date.required() }).required()],
+  'attendance:getForDate': [
+    Joi.object({ classId: requiredId, date: calendarDay.required() }).required(),
+  ],
   'attendance:save': [
     Joi.object({
       classId: requiredId,
-      date: date.required(),
-      records: Joi.object().pattern(/^\d+$/, Joi.string().max(20)).required(),
+      date: calendarDay.required(),
+      records: Joi.object()
+        .pattern(/^\d+$/, Joi.string().valid(...ATTENDANCE_STATUSES))
+        .required(),
     }).required(),
   ],
   // Called with an empty value before a class is chosen (the handler then returns []).
@@ -164,7 +193,6 @@ const CHANNEL_ARG_SCHEMAS = {
   'financial:get-summary': [period],
   'financial:export-pdf': [options],
   'financial:export-excel': [options],
-  'financial:reconcile': [],
   'accounts:get': [],
   'accounts:add': [requiredPayload],
   'categories:get': [Joi.string().max(20).allow(null, '')],
@@ -176,6 +204,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'inventory:get': [options],
   'inventory:check-uniqueness': [options],
   'inventory:add': [requiredPayload],
+  'inventory:add-in-kind': [
+    Joi.object({ transaction: requiredPayload, item: requiredPayload }).required(),
+  ],
   'inventory:update': [requiredPayload],
   'inventory:delete': [requiredId],
   'inventory:restore': [requiredId],
@@ -204,11 +235,6 @@ const CHANNEL_ARG_SCHEMAS = {
   ],
   'student-fees:refreshAllStudentCharges': [options],
   'student-fees:resetCharges': [academicYear],
-  'receipts:generate': [options],
-  'receipts:getStats': [
-    Joi.alternatives().try(Joi.number().integer(), Joi.string().max(20)).allow(null),
-  ],
-  'receipts:validate': [Joi.string().max(100).required()],
   'receipt-books:get': [options],
   'receipt-books:get-active': [receiptType],
   'receipt-books:add': [requiredPayload],
@@ -216,10 +242,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'receipt-books:delete': [requiredId],
   'receipt-books:restore': [requiredId],
   'receipt-books:get-next-number': [receiptType],
-  'receipt-books:check-exists': [requiredPayload],
 
   // ---- Exports and imports ----
-  'export:generate': [requiredPayload],
+  'export:generate': [exportRequest],
   'export:generate-dev-template': [],
   'financial-export:cash-ledger': [requiredPayload],
   'financial-export:inventory-ledger': [],
@@ -227,11 +252,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'financial-export:financial-summary': [requiredPayload],
   'financial-export:word-report': [requiredPayload],
   'generate-import-template': [options],
-  'import:generate-template': [],
   'import:excel': [Joi.string().max(4096).required(), Joi.array().items(Joi.string().max(200))],
   'import:get-sheets': [],
   'import:get-sheet-info': [Joi.string().max(200).required()],
-  'import:execute': [requiredPayload],
 
   // ---- Logs ----
   'logs:get-recent': [Joi.object({ lines: Joi.number().integer().min(1).max(10000) })],

@@ -473,6 +473,18 @@ function registerSettingsHandlers(refreshSettings) {
 
   ipcMain.handle('ageGroups:delete', async (_event, id) => {
     try {
+      // A class keeps its age group id; with the group inactive its enrolment dialog would stop
+      // filtering students by age and gender without saying so. Refuse while classes use it.
+      const inUse = await db.getQuery(
+        'SELECT COUNT(*) AS count FROM classes WHERE age_group_id = ? AND deleted_at IS NULL',
+        [id],
+      );
+      if (inUse && inUse.count > 0) {
+        return {
+          success: false,
+          message: `لا يمكن إلغاء تفعيل هذه الفئة العمرية لأن ${inUse.count} من الفصول تستعملها. غيّر الفئة العمرية لهذه الفصول أولاً.`,
+        };
+      }
       await db.runQuery('UPDATE age_groups SET is_active = 0 WHERE id = ?', [id]);
       return { success: true, message: 'تم إلغاء تفعيل الفئة العمرية بنجاح.' };
     } catch (error) {

@@ -618,7 +618,7 @@ function StudentsPage() {
       <div className="page-header">
         <h1>شؤون الطلاب</h1>
         <div className="page-header-actions">
-          {activeTab === 'students' && hasPermission(PERMISSIONS.STUDENTS_VIEW) && (
+          {activeTab === 'students' && hasPermission(PERMISSIONS.DATA_EXPORT) && (
             <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>

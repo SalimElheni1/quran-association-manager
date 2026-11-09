@@ -1,6 +1,7 @@
 const {
   ERRORS,
   PUBLIC_CHANNELS,
+  PASSWORD_CHANGE_CHANNELS,
   CHANNEL_ROLES,
   ROLES,
   installIpcGuard,
@@ -27,8 +28,12 @@ jest.mock('../src/main/logger', () => ({
   clearLogFile: jest.fn(),
 }));
 
+const path = require('path');
+const { pathToFileURL } = require('url');
+
 const DEV_URL = 'http://localhost:3000';
-const PROD_URL = 'file:///opt/quran-branch/dist/renderer/index.html';
+// The page index.js loads with mainWindow.loadFile().
+const PROD_URL = pathToFileURL(path.resolve(__dirname, '../dist/renderer/index.html')).href;
 const FOREIGN_URL = 'https://evil.example.com';
 
 function createFakeIpcMain() {
@@ -69,6 +74,20 @@ describe('ipcSecurity', () => {
     it('accepts the dev server URL and the packaged renderer file', () => {
       expect(isAllowedSender({ getURL: () => DEV_URL })).toBe(true);
       expect(isAllowedSender({ getURL: () => PROD_URL })).toBe(true);
+    });
+
+    it('accepts the packaged page with a route in its hash', () => {
+      expect(isAllowedSender({ getURL: () => `${PROD_URL}#/students` })).toBe(true);
+    });
+
+    it('rejects another file that only looks like the renderer page', () => {
+      expect(isAllowedSender({ getURL: () => 'file:///tmp/evil/dist/renderer/index.html' })).toBe(
+        false,
+      );
+      expect(isAllowedSender({ getURL: () => `${PROD_URL}.evil.html` })).toBe(false);
+      expect(isAllowedSender({ getURL: () => 'file:///tmp/x.html?dist/renderer/index.html' })).toBe(
+        false,
+      );
     });
 
     it('rejects foreign URLs, empty URLs, and malformed senders', () => {
@@ -323,10 +342,15 @@ describe('ipcSecurity', () => {
     it('silently drops an `on` message with invalid arguments', () => {
       const ipcMain = makeGuard();
       const handler = jest.fn();
-      ipcMain.on('ui:show-error-toast', handler);
+      ipcMain.on('logout', handler);
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'admin', roles: ['Superadmin'] },
+        null,
+      );
       validateChannelArgs.mockReturnValue(PROBLEM);
 
-      expect(ipcMain.ons.get('ui:show-error-toast')(makeEvent(1), { not: 'text' })).toBeUndefined();
+      expect(ipcMain.ons.get('logout')(makeEvent(1), { not: 'expected' })).toBeUndefined();
       expect(handler).not.toHaveBeenCalled();
     });
 
@@ -341,16 +365,141 @@ describe('ipcSecurity', () => {
     });
   });
 
+  describe('a session that must change its legacy password first', () => {
+    const legacyLogin = (senderId) =>
+      sessionManager.createSession(
+        { id: senderId },
+        { id: 10, username: 'legacy', roles: ['Superadmin'] },
+        null,
+        { mustChangePassword: true },
+      );
+
+    it('can only change the password, read the profile and log out', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn().mockResolvedValue({ success: true });
+      ['students:get', 'users:add', 'auth:updatePassword', 'auth:getProfile'].forEach((c) =>
+        ipcMain.handle(c, handler),
+      );
+      const logout = jest.fn();
+      ipcMain.on('logout', logout);
+      legacyLogin(1);
+
+      await expect(ipcMain.handlers.get('students:get')(makeEvent(1))).rejects.toThrow(
+        ERRORS.PASSWORD_CHANGE_REQUIRED,
+      );
+      await expect(ipcMain.handlers.get('users:add')(makeEvent(1), {})).rejects.toThrow(
+        ERRORS.PASSWORD_CHANGE_REQUIRED,
+      );
+      expect(handler).not.toHaveBeenCalled();
+
+      await ipcMain.handlers.get('auth:getProfile')(makeEvent(1));
+      await ipcMain.handlers.get('auth:updatePassword')(makeEvent(1), { passwordData: {} });
+      ipcMain.ons.get('logout')(makeEvent(1));
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(logout).toHaveBeenCalled();
+    });
+
+    it('gets its roles back once the password is changed', async () => {
+      const ipcMain = makeGuard();
+      const handler = jest.fn().mockResolvedValue([]);
+      ipcMain.handle('students:get', handler);
+      legacyLogin(1);
+
+      sessionManager.clearMustChangePassword(1);
+
+      await ipcMain.handlers.get('students:get')(makeEvent(1));
+      expect(handler).toHaveBeenCalled();
+    });
+
+    it('keeps the allowed list to what the change screen needs', () => {
+      expect([...PASSWORD_CHANGE_CHANNELS].sort()).toEqual([
+        'auth:getProfile',
+        'auth:updatePassword',
+        'logout',
+      ]);
+    });
+  });
+
+  describe('errors from the database', () => {
+    const loggedIn = () =>
+      sessionManager.createSession(
+        { id: 1 },
+        { id: 10, username: 'a', roles: ['Superadmin'] },
+        null,
+      );
+
+    it('reach the window as an Arabic message; the SQL error only goes to the log', async () => {
+      const ipcMain = makeGuard();
+      const sqlError = Object.assign(
+        new Error("CHECK constraint failed: status IN ('present', 'absent', 'late')"),
+        { code: 'SQLITE_CONSTRAINT_CHECK' },
+      );
+      ipcMain.handle('attendance:save', jest.fn().mockRejectedValue(sqlError));
+      loggedIn();
+
+      const failure = ipcMain.handlers.get('attendance:save')(makeEvent(1), {
+        classId: 1,
+        date: '2026-10-01',
+        records: {},
+      });
+
+      await expect(failure).rejects.toThrow(ERRORS.DATABASE);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('attendance:save'),
+        sqlError,
+      );
+    });
+
+    it('are recognised by their text when a handler re-threw them without the code', async () => {
+      const ipcMain = makeGuard();
+      ipcMain.handle(
+        'inventory:add',
+        jest
+          .fn()
+          .mockRejectedValue(new Error('NOT NULL constraint failed: inventory_items.category')),
+      );
+      loggedIn();
+
+      await expect(ipcMain.handlers.get('inventory:add')(makeEvent(1), {})).rejects.toThrow(
+        ERRORS.DATABASE,
+      );
+    });
+
+    it('leave the messages handlers write themselves as they are', async () => {
+      const ipcMain = makeGuard();
+      ipcMain.handle(
+        'students:delete',
+        jest.fn().mockRejectedValue(new Error('لا يمكن حذف هذا الطالب.')),
+      );
+      loggedIn();
+
+      await expect(ipcMain.handlers.get('students:delete')(makeEvent(1), 3)).rejects.toThrow(
+        'لا يمكن حذف هذا الطالب.',
+      );
+    });
+  });
+
   describe('on guard', () => {
     it('allows public event channels without a session', () => {
-      const ipcMain = makeGuard();
-      const handler = jest.fn();
-      ipcMain.on('ui:show-error-toast', handler);
-      const event = makeEvent(1);
+      // No event channel is public today; one added later goes through the same path.
+      PUBLIC_CHANNELS.add('test:public-event');
+      try {
+        const ipcMain = makeGuard();
+        const handler = jest.fn();
+        ipcMain.on('test:public-event', handler);
+        const event = makeEvent(1);
 
-      ipcMain.ons.get('ui:show-error-toast')(event, 'Hello');
+        ipcMain.ons.get('test:public-event')(event, 'Hello');
 
-      expect(handler).toHaveBeenCalledWith(event, 'Hello');
+        expect(handler).toHaveBeenCalledWith(event, 'Hello');
+      } finally {
+        PUBLIC_CHANNELS.delete('test:public-event');
+      }
+    });
+
+    it('has no toast relay channels any more (nothing listened to them)', () => {
+      expect(PUBLIC_CHANNELS.has('ui:show-error-toast')).toBe(false);
+      expect(PUBLIC_CHANNELS.has('ui:show-success-toast')).toBe(false);
     });
 
     it('drops logout when there is no session', () => {

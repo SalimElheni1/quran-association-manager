@@ -24,7 +24,12 @@ accounts. The main risks are:
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: safe-image:; font-src 'self' data:`.
 - The `safe-image://` protocol (branch logos) rejects `..`, NUL bytes and absolute paths and only
   serves files under the app's user-data and bundled `public` folders.
-- `webviewTag` is disabled.
+- `webviewTag` is disabled, and DevTools are off in the installed app (`devTools: !app.isPackaged`).
+- The installed app has its Electron fuses set at packaging (`build/afterPack.js`): it cannot run
+  as plain Node (`ELECTRON_RUN_AS_NODE`), read `NODE_OPTIONS` or take `--inspect`, and only loads
+  its code from `app.asar`. It refuses to start with Chromium's `--remote-debugging-port`/`-pipe`
+  (`startupGuard.js`). Without these, anyone at the computer could run code in the main process
+  and skip every role check.
 
 ## Authentication
 
@@ -37,19 +42,23 @@ accounts. The main risks are:
   no forced reset.
 - **First run:** no default account is ever seeded; the first superadmin is created in the setup
   form (`auth:setup-superadmin`).
-- **Lockout:** 5 failed logins lock login for 5 minutes (state kept in the main process store).
+- **Lockout:** 5 failed logins for a username lock that username for 5 minutes (state kept in the
+  main process store, per username); other accounts can still log in. An unknown username is
+  checked against a dummy bcrypt hash, so it takes as long to refuse as a wrong password.
 - **Inactive users** («غير نشط») cannot log in; their records are kept.
 - **Sessions:** a successful login creates a session in the main process (`sessionManager.js`),
-  tied to that window and expiring after 8 hours. It ends on logout, when the window closes, or
+  tied to that window and expiring after 8 hours. A login with the legacy default password
+  `123456` gives a session that can only change the password, read the profile and log out
+  (`PASSWORD_CHANGE_CHANNELS` in `ipcSecurity.js`) until the new password is saved. It ends on logout, when the window closes, or
   when the app quits. The renderer holds the user's name and roles for display only.
 
 ## Authorization
 
 `ipcSecurity.js` wraps every `ipcMain.handle` / `ipcMain.on` registration. For each call it:
 
-1. checks the sender is the app window (the built `dist/renderer/index.html`, or
-   `http://localhost:3000` in development);
-2. lets `PUBLIC_CHANNELS` through (login, first-run setup, version, logo, toasts);
+1. checks the sender is the app window (exactly the built `dist/renderer/index.html` that
+   `index.js` loads, any hash route included, or `http://localhost:3000` in development);
+2. lets `PUBLIC_CHANNELS` through (login, first-run setup, version, logo);
 3. otherwise requires a live session, and that one of the user's roles is allowed for the channel
    in `CHANNEL_ROLES`.
 
@@ -59,8 +68,12 @@ Roles (a user can hold several):
 |---|---|
 | Superadmin | Everything, including user management, logs and database import |
 | Administrator | Everything except user management, logs and database import |
-| FinanceManager | Finances, student fees, inventory and financial reports; attendance; read access to students, teachers and classes |
+| FinanceManager | Finances, student fees and financial reports; attendance; read access to inventory, students, teachers and classes |
 | SessionSupervisor | Attendance; read access to students, teachers, classes and groups |
+
+`students:getById` gives roles that only read students (FinanceManager, SessionSupervisor) the
+fields the student details view shows; health conditions, emergency contacts, sponsors and family
+links go only to the roles that edit students.
 
 The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 (`utils/permissions.js`) only to hide what a user cannot use; hiding is not the protection.
@@ -74,13 +87,15 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   Keychain on macOS, libsecret on Linux). When `safeStorage` is unavailable, the key is stored in
   a plaintext file with owner-only permissions (`0o600`). `keyManager.validateHexKey` accepts only
   64 hex characters; `db.js` refuses an invalid key before the file is opened, and every PRAGMA
-  `key` / `rekey` goes through `applyKeyPragma`, which validates it again. The session-signing
-  secret is derived from the database key with HKDF-SHA256 (`keyManager.getJwtSecret`), never
-  stored; the random `jwt_secret` older versions kept in electron-store is deleted at startup.
-  `.env` no longer needs `JWT_SECRET`. A copied database file is useless without that OS account
-  or key file.
-- **Backups:** `.qdb` files encrypted with AES-256-GCM (PBKDF2, 100k iterations), whose
-  authentication tag makes a modified file fail to restore. The key is the association transfer key
+  `key` / `rekey` goes through `applyKeyPragma`, which validates it again. Logins sign no token:
+  the session lives in the main process (`sessionManager`, 8 hours), and the `jwt_secret` older
+  versions kept in electron-store is deleted at startup. A copied database file is useless
+  without that OS account or key file.
+- **Backups:** `.qdb` files encrypted with AES-256-GCM, whose authentication tag makes a modified
+  file fail to restore. The key is stretched with PBKDF2-SHA256, 600,000 rounds, written in a
+  `QDB2` header (backups from 1.3.0 to 1.4.x have no header and 100,000 rounds; they still open;
+  a file asking for more than 5,000,000 rounds is refused). Stretching runs on libuv's thread pool,
+  so the window does not freeze. The key is the association transfer key
   (so another branch computer can restore it), otherwise this computer's database key.
   Older SQL-script backups carry an HMAC-SHA256 signature that is checked on import.
 - **Association transfer key («رمز حماية النسخ الاحتياطية»):** chosen at first-run setup
@@ -100,6 +115,17 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   returns the Arabic reason, the safety copy before a restore is skipped with a warning.
 - **Restore** needs the logged-in user's password. The saved transfer key is tried
   automatically; a key is typed only for a backup made with another key (e.g. before a change).
+  The whole file is read and checked before anything changes. A backup from before 1.3.0 (a plain
+  ZIP, neither encrypted nor signed) is restored only after the user accepts a warning. Only
+  `INSERT`/`REPLACE INTO` rows of tables the app already has are run (never schema changes,
+  `ATTACH`, triggers, `PRAGMA`, `INSERT ... SELECT` or the `migrations` table). The current
+  database is moved to `quran_assoc_manager.sqlite.pre-restore`. The new database gets the schema
+  the backup was made with (the migrations listed on the first line of its SQL; today's schema
+  for a backup from before that line existed), the rows are imported in one transaction, then the
+  later migrations run on them, as an upgrade would. A backup that lists a migration this version
+  does not have was made by a newer version and is refused. If anything fails the previous
+  database is put back and opened again; after a successful restore it stays there until the
+  next one.
 
 ## Input Handling
 
@@ -107,7 +133,12 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
   whitelists of known columns.
 - Inputs that create or change records are validated with Joi (`validationSchemas.js`,
   `settingsValidation.js`) and unknown fields are stripped.
-- Excel imports map known Arabic headers to known columns (`importConstants.js`).
+- Excel imports map known Arabic headers to known columns (`importConstants.js`). Each sheet
+  needs the roles of the channel that writes its records (`SHEET_WRITE_CHANNELS` in
+  `importManager.js`, roles from `CHANNEL_ROLES`): only the Superadmin imports users, only
+  Superadmin/Administrator import students, teachers, classes, groups and inventory. A users sheet
+  can only give the four known roles and cannot take the last active Superadmin's role away;
+  imported accounts get a random password from `crypto`.
 - Every IPC channel has an argument schema (`CHANNEL_ARG_SCHEMAS` in `ipcValidation.js`, one Joi
   schema per positional argument, matching `preload.js`). The guard checks it after the session and
   role checks and before the handler: wrong types, missing ids, extra arguments or a non-object
@@ -129,9 +160,13 @@ The exact matrix per channel is in [api.md](api.md). The renderer mirrors it
 ## Errors and Logs
 
 - Handlers log the technical error and send the renderer a short Arabic message, not a stack
-  trace or SQL.
+  trace or SQL. A SQLite error a handler lets through is caught by the IPC guard
+  (`ipcSecurity.runHandler`): it is logged with the channel name, and the window gets
+  `ERRORS.DATABASE` («تعذر إتمام العملية بسبب خطأ في قاعدة البيانات…»).
 - `logger.js` writes `app-logs.txt` in the user-data folder and redacts any field whose name
-  matches `pass`, `password`, `token`, `secret`, `transfer_key`, `national_id`, `credit` or `card`.
+  matches `pass`, `password`, `token`, `secret`, `transfer_key`, `national_id`, `credit` or `card`,
+  in objects and in text that already holds JSON (`"password": "..."` inside a message). Neither
+  the database key nor a hash of it is ever logged.
 
 ## Development Rules
 

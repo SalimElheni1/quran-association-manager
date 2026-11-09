@@ -28,6 +28,15 @@ const path = require('path');
 // (logger, keyManager, electron-store).
 // Never in a packaged build: the test clock and data directory are for the unpacked app only.
 const isE2E = process.env.QBM_E2E === '1' && !app.isPackaged;
+
+// The installed app never runs with a debugger attached (see startupGuard.js).
+if (app.isPackaged) {
+  const debugSwitches = require('./startupGuard').debugSwitchesIn(app.commandLine, process.argv);
+  if (debugSwitches.length > 0) {
+    console.error(`Refusing to start with debugging switches: ${debugSwitches.join(', ')}`);
+    app.exit(1);
+  }
+}
 if (isE2E) {
   if (!process.env.QBM_E2E_USER_DATA) {
     throw new Error('QBM_E2E=1 requires QBM_E2E_USER_DATA so tests never touch real app data.');
@@ -81,7 +90,6 @@ const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
 const sessionManager = require('./sessionManager');
 const { installIpcGuard } = require('./ipcSecurity');
-const { getJwtSecret } = require('./keyManager');
 const { IMAGE_EXTENSIONS, isSafeRelativePath, findImageFile } = require('./imagePaths');
 const {
   registerFinancialHandlers,
@@ -153,6 +161,7 @@ const createWindow = () => {
       nodeIntegration: false, // CRITICAL: Security - no Node.js in renderer
       contextIsolation: true, // CRITICAL: Security - isolate contexts
       webviewTag: false, // CRITICAL: Security - disable webview tag
+      devTools: !app.isPackaged, // No DevTools in the installed app (no menu opens them anyway)
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });
@@ -197,26 +206,12 @@ const initializeApp = async () => {
     log(`Time: ${new Date().toISOString()}`);
     log('═══════════════════════════════════════════════════════════════════════════');
 
-    // =================================================================================
-    // JWT SECRET MANAGEMENT
-    // =================================================================================
-    // Derived from the database key with HKDF (keyManager.getJwtSecret), so it is never stored.
-    // Login (auth:login) and token checks (authMiddleware) both read process.env.JWT_SECRET.
-    let jwtSecret;
-    try {
-      jwtSecret = getJwtSecret();
-    } catch (secretError) {
-      throw new Error(
-        `FATAL ERROR: JWT_SECRET could not be derived. The application cannot start securely. (${secretError.message})`,
-      );
-    }
-    process.env.JWT_SECRET = jwtSecret;
-    // Older versions kept a random secret in electron-store; it is no longer used.
+    // Older versions signed a token at login with a secret kept in electron-store. Sessions
+    // live in the main process (sessionManager); the old secret is removed.
     if (store.has('jwt_secret')) {
       store.delete('jwt_secret');
       log('Removed the stored JWT secret left by an older version.');
     }
-    // =================================================================================
 
     // =============================================================================
     // INITIALIZE DATABASE
@@ -437,13 +432,14 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Handle user logout: revoke the sender's session and close the database connection
-ipcMain.on('logout', async (event) => {
+// Handle user logout: revoke the sender's session. The database stays open: the scheduled
+// backups and fee charges keep running while the login screen shows (the key never depended on
+// a user's password).
+ipcMain.on('logout', (event) => {
   if (event && event.sender && typeof event.sender.id === 'number') {
     sessionManager.revokeSession(event.sender.id);
   }
-  log('User logging out, closing database connection.');
-  await db.closeDatabase();
+  log('User logged out.');
 });
 
 // Gracefully close the database and stop schedulers when the app is about to quit

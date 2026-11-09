@@ -2,7 +2,6 @@
 
 // Mock the dependencies
 jest.mock('../src/db/db');
-jest.mock('jsonwebtoken');
 jest.mock('bcryptjs');
 jest.mock('../src/main/logger');
 
@@ -21,12 +20,9 @@ jest.mock('../src/main/validationSchemas', () => ({
 
 const { ipcMain } = require('electron');
 const db = require('../src/db/db');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sessionManager = require('../src/main/sessionManager');
 const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
-
-process.env.JWT_SECRET = 'test-secret';
 
 describe('Authentication Handlers', () => {
   let handlers = {};
@@ -51,7 +47,6 @@ describe('Authentication Handlers', () => {
       db.isDbOpen.mockReturnValue(true);
       db.getQuery.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('mock-token');
 
       const result = await handlers['auth:login'](null, {
         username: 'testuser',
@@ -66,7 +61,6 @@ describe('Authentication Handlers', () => {
       db.isDbOpen.mockReturnValue(true);
       db.getQuery.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('mock-jwt-token');
 
       const result = await handlers['auth:login'](
         { sender: { id: 5 } },

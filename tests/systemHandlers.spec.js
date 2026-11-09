@@ -167,28 +167,24 @@ describe('systemHandlers', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should generate financial report export', async () => {
-      const exportParams = {
-        exportType: 'financial-report',
-        format: 'xlsx',
-        columns: [],
-        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } },
-      };
-      const mockData = { summary: {}, payments: [] };
-
+    it('has no separate financial-report path: the export whitelist refuses that type', async () => {
       dialog.showSaveDialog.mockResolvedValue({ filePath: '/path/to/financial.xlsx' });
       exportManager.getExportHeaderData.mockResolvedValue({});
-      exportManager.fetchFinancialData.mockResolvedValue(mockData);
-      exportManager.generateFinancialXlsx.mockResolvedValue();
-
-      const result = await handlers['export:generate'](null, exportParams);
-
-      expect(exportManager.fetchFinancialData).toHaveBeenCalledWith(exportParams.options.period);
-      expect(exportManager.generateFinancialXlsx).toHaveBeenCalledWith(
-        mockData,
-        '/path/to/financial.xlsx',
+      exportManager.fetchExportData.mockRejectedValue(
+        new Error('Invalid export type: financial-report'),
       );
-      expect(result.success).toBe(true);
+
+      const result = await handlers['export:generate'](null, {
+        exportType: 'financial-report',
+        format: 'xlsx',
+        columns: [{ key: 'name', header: 'x' }],
+        options: { period: { startDate: '2024-01-01', endDate: '2024-12-31' } },
+      });
+
+      expect(exportManager.fetchExportData).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'financial-report' }),
+      );
+      expect(result.success).toBe(false);
     });
 
     it('should handle user cancellation', async () => {
@@ -266,122 +262,6 @@ describe('systemHandlers', () => {
       expect(result).toEqual({
         success: false,
         message: 'Export failed: Export failed',
-      });
-    });
-  });
-
-  describe('import:generate-template', () => {
-    it('should generate import template successfully', async () => {
-      dialog.showSaveDialog.mockResolvedValue({ filePath: '/path/to/template.xlsx' });
-      exportManager.generateExcelTemplate.mockResolvedValue();
-
-      const result = await handlers['import:generate-template']();
-
-      expect(dialog.showSaveDialog).toHaveBeenCalledWith({
-        title: 'Save Import Template',
-        defaultPath: expect.stringContaining('import-template-'),
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-      expect(exportManager.generateExcelTemplate).toHaveBeenCalledWith('/path/to/template.xlsx');
-      expect(result).toEqual({
-        success: true,
-        message: 'Template saved to /path/to/template.xlsx',
-      });
-    });
-
-    it('should handle user cancellation', async () => {
-      dialog.showSaveDialog.mockResolvedValue({ filePath: undefined });
-
-      const result = await handlers['import:generate-template']();
-
-      expect(result).toEqual({
-        success: false,
-        message: 'Template generation canceled by user.',
-      });
-    });
-
-    it('should handle template generation errors', async () => {
-      const error = new Error('Template generation failed');
-      dialog.showSaveDialog.mockResolvedValue({ filePath: '/path/to/template.xlsx' });
-      exportManager.generateExcelTemplate.mockRejectedValue(error);
-
-      const result = await handlers['import:generate-template']();
-
-      expect(logError).toHaveBeenCalledWith('Error during template generation:', error);
-      expect(result).toEqual({
-        success: false,
-        message: 'Template generation failed: Template generation failed',
-      });
-    });
-  });
-
-  describe('import:execute', () => {
-    it('should execute import successfully', async () => {
-      const selectedSheets = ['الطلاب', 'المعلمون'];
-      const mockResults = { successCount: 5, errorCount: 0, errors: [] };
-
-      dialog.showOpenDialog.mockResolvedValue({
-        canceled: false,
-        filePaths: ['/path/to/import.xlsx'],
-      });
-      importManager.importExcelData.mockResolvedValue(mockResults);
-
-      const result = await handlers['import:execute'](null, { selectedSheets });
-
-      expect(dialog.showOpenDialog).toHaveBeenCalledWith({
-        title: 'Select Excel File to Import',
-        properties: ['openFile'],
-        filters: [{ name: 'Excel Spreadsheets', extensions: ['xlsx'] }],
-      });
-      expect(importManager.importExcelData).toHaveBeenCalledWith(
-        '/path/to/import.xlsx',
-        selectedSheets,
-      );
-      expect(result).toEqual({
-        success: true,
-        ...mockResults,
-      });
-    });
-
-    it('should handle user cancellation', async () => {
-      dialog.showOpenDialog.mockResolvedValue({ canceled: true });
-
-      const result = await handlers['import:execute'](null, { selectedSheets: [] });
-
-      expect(result).toEqual({
-        success: false,
-        message: 'Import canceled by user.',
-      });
-    });
-
-    it('should handle no file selected', async () => {
-      dialog.showOpenDialog.mockResolvedValue({
-        canceled: false,
-        filePaths: [],
-      });
-
-      const result = await handlers['import:execute'](null, { selectedSheets: [] });
-
-      expect(result).toEqual({
-        success: false,
-        message: 'Import canceled by user.',
-      });
-    });
-
-    it('should handle import errors', async () => {
-      const error = new Error('Import failed');
-      dialog.showOpenDialog.mockResolvedValue({
-        canceled: false,
-        filePaths: ['/path/to/import.xlsx'],
-      });
-      importManager.importExcelData.mockRejectedValue(error);
-
-      const result = await handlers['import:execute'](null, { selectedSheets: [] });
-
-      expect(logError).toHaveBeenCalledWith('Error during import execution:', error);
-      expect(result).toEqual({
-        success: false,
-        message: 'Import failed: Import failed',
       });
     });
   });
@@ -547,11 +427,19 @@ describe('systemHandlers', () => {
   });
 
   describe('db:import', () => {
+    const sessionManager = require('../src/main/sessionManager');
+    // The window of the logged-in user (id 1) who confirms the restore with their password.
+    const importEvent = { sender: { id: 30 } };
+    beforeEach(() =>
+      sessionManager.createSession(importEvent.sender, { id: 1, username: 'admin' }, null),
+    );
+    afterEach(() => sessionManager.revokeAllSessions());
+
     it('should import database successfully', async () => {
       const password = 'correct-password';
       const userId = 1;
       const mockUser = { password: 'hashed-password' };
-      const mockValidationResult = { isValid: true };
+      const mockValidationResult = { isValid: true, backup: { sqlScript: 'read once' } };
       const mockImportResult = { success: true, message: 'Import completed' };
 
       db.getQuery.mockResolvedValue(mockUser);
@@ -563,7 +451,7 @@ describe('systemHandlers', () => {
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
       importManager.replaceDatabase.mockResolvedValue(mockImportResult);
 
-      const result = await handlers['db:import'](null, { password, userId });
+      const result = await handlers['db:import'](importEvent, { password });
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [userId]);
       expect(bcrypt.compare).toHaveBeenCalledWith(password, 'hashed-password');
@@ -573,17 +461,19 @@ describe('systemHandlers', () => {
         undefined,
         'saved-transfer-key',
       );
+      // The restore uses the package the check read: the file is decrypted once.
       expect(importManager.replaceDatabase).toHaveBeenCalledWith(
         '/path/to/backup.qdb',
         password,
         undefined,
         { association_transfer_key: 'saved-transfer-key' },
+        mockValidationResult.backup,
       );
       expect(result).toBe(mockImportResult);
     });
 
     it('should handle missing authentication data', async () => {
-      const result = await handlers['db:import'](null, { password: null, userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: null });
 
       expect(result).toEqual({
         success: false,
@@ -594,7 +484,7 @@ describe('systemHandlers', () => {
     it('should handle user not found', async () => {
       db.getQuery.mockResolvedValue(null);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -607,7 +497,7 @@ describe('systemHandlers', () => {
       db.getQuery.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(false);
 
-      const result = await handlers['db:import'](null, { password: 'wrong-password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'wrong-password' });
 
       expect(result).toEqual({
         success: false,
@@ -621,7 +511,7 @@ describe('systemHandlers', () => {
       bcrypt.compare.mockResolvedValue(true);
       dialog.showOpenDialog.mockResolvedValue({ canceled: true });
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -641,7 +531,7 @@ describe('systemHandlers', () => {
       });
       importManager.validateDatabaseFile.mockResolvedValue(mockValidationResult);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(result).toEqual({
         success: false,
@@ -661,7 +551,7 @@ describe('systemHandlers', () => {
       });
       importManager.validateDatabaseFile.mockRejectedValue(error);
 
-      const result = await handlers['db:import'](null, { password: 'password', userId: 1 });
+      const result = await handlers['db:import'](importEvent, { password: 'password' });
 
       expect(logError).toHaveBeenCalledWith('Error during database import process:', error);
       expect(result.success).toBe(false);
@@ -673,13 +563,61 @@ describe('systemHandlers', () => {
       sessionManager.createSession({ id: 31 }, { id: 4, username: 'admin' }, null);
       db.getQuery.mockResolvedValue(undefined);
 
-      await handlers['db:import']({ sender: { id: 31 } }, { password: 'password', userId: 1 });
+      await handlers['db:import']({ sender: { id: 31 } }, { password: 'password' });
 
       expect(db.getQuery).toHaveBeenCalledWith('SELECT password FROM users WHERE id = ?', [4]);
       sessionManager.revokeAllSessions();
     });
-  });
 
+    it('never takes the user to re-authenticate from the window', async () => {
+      sessionManager.revokeAllSessions();
+
+      const result = await handlers['db:import'](importEvent, { password: 'password', userId: 1 });
+
+      expect(result).toEqual({ success: false, message: 'بيانات المصادقة غير كاملة.' });
+      expect(db.getQuery).not.toHaveBeenCalled();
+    });
+
+    describe('an unsigned backup from before 1.3.0', () => {
+      beforeEach(() => {
+        db.getQuery.mockResolvedValue({ password: 'hashed-password' });
+        bcrypt.compare.mockResolvedValue(true);
+        importManager.validateDatabaseFile.mockResolvedValue({ isValid: true, unsigned: true });
+        importManager.replaceDatabase.mockResolvedValue({ success: true });
+      });
+
+      it('is not restored before the user accepts the warning', async () => {
+        const result = await handlers['db:import'](importEvent, {
+          password: 'password',
+          filePath: '/old.qdb',
+        });
+
+        expect(result).toEqual({
+          success: false,
+          needsUnsignedConfirmation: true,
+          message: expect.stringContaining('غير موقّعة'),
+        });
+        expect(importManager.replaceDatabase).not.toHaveBeenCalled();
+      });
+
+      it('is restored once the user accepted it', async () => {
+        const result = await handlers['db:import'](importEvent, {
+          password: 'password',
+          filePath: '/old.qdb',
+          allowUnsigned: true,
+        });
+
+        expect(result).toEqual({ success: true });
+        expect(importManager.replaceDatabase).toHaveBeenCalledWith(
+          '/old.qdb',
+          'password',
+          undefined,
+          expect.any(Object),
+          undefined,
+        );
+      });
+    });
+  });
   describe('backup transfer key', () => {
     const sessionManager = require('../src/main/sessionManager');
     const superadminEvent = { sender: { id: 51 } };

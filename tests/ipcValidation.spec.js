@@ -58,6 +58,8 @@ describe('validateChannelArgs: the calls the renderer really makes are accepted'
     ['ageGroups:validateStudentForClass', [9, 'Male', 2]],
     ['attendance:getStudentsForClass', ['3']], // select values arrive as strings
     ['attendance:getForDate', [{ classId: '3', date: '2026-10-01' }]],
+    ['attendance:getForDate', [{ classId: '3', date: '2028-02-29' }]], // a leap day
+    ['attendance:getClassesForDay', ['2026-10-01']],
     [
       'attendance:save',
       [{ classId: '3', date: '2026-10-01', records: { 5: 'present', 6: 'late' } }],
@@ -83,13 +85,26 @@ describe('validateChannelArgs: the calls the renderer really makes are accepted'
     ['fee-charges:runManualCheck', [undefined]],
     ['logs:get-recent', [{ lines: 100 }]],
     ['logs:get-filtered', [{ keyword: 'backup', lines: 200 }]],
-    ['ui:show-error-toast', ['حدث خطأ']],
     ['backup:reveal-transfer-key', [{ password: 'secret' }]],
     [
       'backup:set-transfer-key',
       [{ password: 'secret', key: 'branch-key', confirmKey: 'branch-key' }],
     ],
     ['logout', []],
+    [
+      'export:generate',
+      [
+        {
+          exportType: 'students',
+          format: 'xlsx',
+          columns: [
+            { header: 'الاسم واللقب', key: 'name' },
+            { header: 'تاريخ التسجيل', key: 'enrollment_date' },
+          ],
+          options: { groupId: null },
+        },
+      ],
+    ],
   ])('%s %j', (channel, args) => {
     expect(validateChannelArgs(channel, args)).toBeNull();
   });
@@ -112,10 +127,43 @@ describe('validateChannelArgs: bad input is rejected', () => {
     ['an oversized log request', 'logs:get-recent', [{ lines: 1e9 }]],
     ['an argument to a channel that takes none', 'logs:clear', ['now']],
     [
+      'an SQL expression as an export column',
+      'export:generate',
+      [
+        {
+          exportType: 'students',
+          format: 'xlsx',
+          columns: [{ header: 'x', key: '(SELECT value FROM settings) AS leaked' }],
+        },
+      ],
+    ],
+    [
+      'an unknown export format',
+      'export:generate',
+      [{ exportType: 'students', format: 'html', columns: [{ header: 'x', key: 'name' }] }],
+    ],
+    [
       'an object as an attendance status',
       'attendance:save',
-      [{ classId: 1, date: 'd', records: { 1: {} } }],
+      [{ classId: 1, date: '2026-10-01', records: { 1: {} } }],
     ],
+    [
+      'an unknown attendance status',
+      'attendance:save',
+      [{ classId: 1, date: '2026-10-01', records: { 1: 'sleeping' } }],
+    ],
+    ['a date in another format', 'attendance:getForDate', [{ classId: 1, date: '01/10/2026' }]],
+    [
+      'a date with a time',
+      'attendance:save',
+      [{ classId: 1, date: '2026-10-01T08:00', records: {} }],
+    ],
+    [
+      'a day that does not exist',
+      'attendance:save',
+      [{ classId: 1, date: '2026-02-30', records: {} }],
+    ],
+    ['a date in another format', 'attendance:getClassesForDay', ['2026/10/01']],
   ])('%s (%s)', (_label, channel, args) => {
     expect(validateChannelArgs(channel, args)).toEqual(expect.any(String));
   });

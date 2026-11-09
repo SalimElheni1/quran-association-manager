@@ -138,3 +138,17 @@ describe('teachers: soft delete and restore', () => {
     await expect(ctx.invoke('teachers:restore', null)).rejects.toThrow('فشل استعادة المعلم.');
   });
 });
+
+describe('an update without any field', () => {
+  test.each([
+    ['teachers:update', () => addTeacher(ctx)],
+    ['classes:update', async () => addClass(ctx, { age_group_id: await addAgeGroup(ctx) })],
+  ])('%s explains what is missing instead of failing in SQL', async (channel, create) => {
+    const id = await create();
+
+    const message = await ctx.rejectionMessage(ctx.invoke(channel, id, {}));
+
+    expect(message).toContain('بيانات غير صالحة');
+    expect(message).not.toMatch(/syntax error|SQLITE/i);
+  });
+});

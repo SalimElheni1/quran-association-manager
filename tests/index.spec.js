@@ -13,10 +13,6 @@ jest.mock('electron-store', () => {
   return Store;
 });
 jest.mock('../src/main/ipcSecurity', () => ({ installIpcGuard: jest.fn() }));
-jest.mock('../src/main/keyManager', () => ({
-  ...jest.requireActual('../src/main/keyManager'),
-  getJwtSecret: jest.fn(),
-}));
 jest.mock('../src/main/authMiddleware', () => ({
   requireRoles: jest.fn(() => (handler) => handler),
 }));
@@ -123,9 +119,6 @@ const { internalGetSettingsHandler } = require('../src/main/handlers/settingsHan
 const backupManager = require('../src/main/backupManager');
 const feeChargeScheduler = require('../src/main/feeChargeScheduler');
 const sessionManager = require('../src/main/sessionManager');
-const { getJwtSecret } = require('../src/main/keyManager');
-
-const DERIVED_SECRET = 'ab'.repeat(32);
 
 describe('Main Process (index.js)', () => {
   let initializeApp;
@@ -154,16 +147,10 @@ describe('Main Process (index.js)', () => {
     db.hasSuperadmin.mockResolvedValue(false);
     db.getQuery.mockResolvedValue({ count: 4 }); // age groups already exist
     mockApp.isPackaged = false;
-    delete process.env.JWT_SECRET;
-    getJwtSecret.mockReturnValue(DERIVED_SECRET);
     Store.store.get.mockReturnValue(undefined);
     Store.store.has.mockReturnValue(false);
     recomputeAccountBalances.mockResolvedValue({ accounts: [] });
     internalGetSettingsHandler.mockResolvedValue({ settings: null });
-  });
-
-  afterAll(() => {
-    delete process.env.JWT_SECRET;
   });
 
   describe('when the module loads', () => {
@@ -173,13 +160,13 @@ describe('Main Process (index.js)', () => {
       expect(installGuardOrder).toBeLessThan(firstListenerOrder);
     });
 
-    it('revokes the sender session and closes the database on logout', async () => {
+    it('revokes the sender session on logout and keeps the database open for the schedulers', async () => {
       sessionManager.createSession({ id: 5 }, { id: 3, username: 'admin', roles: [] }, null);
 
       await logoutListener[1]({ sender: { id: 5 } });
 
       expect(sessionManager.getSession(5)).toBeNull();
-      expect(db.closeDatabase).toHaveBeenCalled();
+      expect(db.closeDatabase).not.toHaveBeenCalled();
     });
 
     it('stops the schedulers, revokes every session and closes the database on quit', async () => {
@@ -207,6 +194,7 @@ describe('Main Process (index.js)', () => {
             nodeIntegration: false,
             contextIsolation: true,
             webviewTag: false,
+            devTools: true, // development only
           }),
         }),
       );
@@ -217,15 +205,14 @@ describe('Main Process (index.js)', () => {
       expect(mockApp.quit).not.toHaveBeenCalled();
     });
 
-    it('derives the JWT secret from the database key and never stores it', async () => {
+    it('signs no token: no secret is derived or stored', async () => {
       await initializeApp();
 
-      expect(getJwtSecret).toHaveBeenCalledTimes(1);
-      expect(process.env.JWT_SECRET).toBe(DERIVED_SECRET);
+      expect(process.env.JWT_SECRET).toBeUndefined();
       expect(Store.store.set).not.toHaveBeenCalledWith('jwt_secret', expect.anything());
     });
 
-    it('uses the derived secret in the packaged app too, ignoring an old stored one', async () => {
+    it('removes the secret an older version stored, and loads the built window when packaged', async () => {
       mockApp.isPackaged = true;
       Store.store.has.mockImplementation((key) => key === 'jwt_secret');
       Store.store.get.mockImplementation((key) =>
@@ -234,27 +221,28 @@ describe('Main Process (index.js)', () => {
 
       await initializeApp();
 
-      expect(process.env.JWT_SECRET).toBe(DERIVED_SECRET);
       expect(Store.store.delete).toHaveBeenCalledWith('jwt_secret');
       expect(Store.store.set).not.toHaveBeenCalledWith('jwt_secret', expect.anything());
       expect(mockWindow.loadFile).toHaveBeenCalledWith(
         expect.stringContaining(path.join('dist', 'renderer', 'index.html')),
       );
+      // No DevTools in the installed app.
+      expect(mockBrowserWindow).toHaveBeenCalledWith(
+        expect.objectContaining({ webPreferences: expect.objectContaining({ devTools: false }) }),
+      );
     });
 
-    it('refuses to start when the JWT secret cannot be derived', async () => {
-      getJwtSecret.mockImplementation(() => {
-        throw new Error('Invalid database encryption key: expected 64 hexadecimal characters.');
-      });
+    it('refuses to start when the database cannot be opened', async () => {
+      db.initializeDatabase.mockRejectedValue(
+        new Error('Invalid database encryption key: expected 64 hexadecimal characters.'),
+      );
 
       await initializeApp();
 
-      expect(db.initializeDatabase).not.toHaveBeenCalled();
-      expect(process.env.JWT_SECRET).toBeUndefined();
       expect(logger.error).toHaveBeenCalledWith(
         'Fatal error during application startup:',
         expect.objectContaining({
-          message: expect.stringContaining('JWT_SECRET could not be derived'),
+          message: expect.stringContaining('Invalid database encryption key'),
         }),
       );
       expect(dialog.showErrorBox).toHaveBeenCalledWith(

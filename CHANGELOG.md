@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Security and reliability fixes from the October 2026 review (`docs/dev/review-2026-10.md`).
+
+### Security
+
+- **Exports could read any table.** The columns of an export are now a fixed list per screen; a
+  column name sent by the window can no longer put SQL into the query (it could read the backup
+  transfer key and the password hashes with Finance Manager rights).
+- **The Excel import could create a Superadmin.** Each sheet needs the rights of the screen that
+  writes it: only the Superadmin imports users, only Superadmin/Administrator import students,
+  teachers, classes, groups and inventory. Imported users get a random password from `crypto`
+  and only one of the four roles; the last active Superadmin cannot be demoted by an import.
+- **Restoring a backup only brings rows.** A backup can no longer change the database schema,
+  add triggers, attach files or skip migrations. Backups from before 1.3.0 (neither encrypted nor
+  signed) are restored only after accepting a warning.
+- **The forced password change** for accounts still on `123456` is enforced by the main process:
+  until the new password is saved, the account can do nothing else.
+- **Login lockout per account:** five wrong passwords lock that username, not every account,
+  and an unknown username takes as long to refuse as a wrong password.
+- **No debugger in the installed app:** Electron fuses turn off Node mode and `--inspect`, the
+  app refuses `--remote-debugging-port`, and DevTools are off.
+- **Electron 45** (from 32, unsupported since early 2025), with the SQLite module 13.
+- **Backups are harder to brute-force:** the backup key is stretched with 600,000 PBKDF2 rounds
+  (new `QDB2` format). Backups from 1.3.0–1.4.x still restore; backups made by this version
+  cannot be restored by 1.4.x.
+- Roles sent to «تعديل مستخدم» are validated (an account always keeps a role); restored users
+  without a role no longer become Administrators; old backups map their single role correctly.
+- Finance Managers and Session Supervisors no longer receive a student's health, emergency
+  contact and sponsor details.
+- Log files redact passwords and keys inside JSON text too, and no longer contain a hash of the
+  database key. Only the app's own page may call the main process.
+
+### Fixed
+
+- The home page showed «فشل في تحميل بيانات لوحة التحكم» to Finance Managers and Session
+  Supervisors on every visit, and lost its counts: it also asked for the backup reminder, which only
+  Superadmin/Administrator may read.
+- The student list gave wrong results when the memorised-surahs or hizbs filter was combined with
+  the search, gender, status or fee filter, or when surahs and hizbs were filtered together. The
+  list is also paged by the database now, and the total under an age filter is exact.
+- Saving a class's enrolments removed every inactive student from the class (they are not listed
+  in the dialog). Only the students the dialog shows are added or removed now.
+- The window now shows each role what the user manual says it does, as the main process already
+  allowed: Administrators get «الشؤون المالية» and «الإعدادات» (restoring a backup stays the
+  Superadmin's), the financial officer takes attendance and reads teachers and classes, the
+  session supervisor reads teachers. Buttons the main process would refuse (Excel export and
+  import for the session supervisor, inventory changes for the financial officer, which only
+  Superadmin/Administrator may make) are no longer shown.
+- An in-kind donation is saved whole: the income and the inventory item together, or neither
+  (when the item failed, the income used to stay without it). Database errors that some screens
+  passed on as raw SQL text now also show the Arabic message.
+- An age group used by a class can no longer be deactivated: the class's enrolment dialog then
+  stopped filtering students by age and gender without saying so.
+- A migration that met a column already present was recorded as applied although the rest of it
+  had been rolled back (new databases missed the `classes.age_group_id` index this way). Only the
+  existing column's `ADD COLUMN` is skipped now, anything else that fails stops the migration,
+  and broken foreign keys are reported after migrating.
+- The log file (`app-logs.txt`) recorded every error as `{}`; it now has the message and stack.
+- The attendance register only takes a real day written `YYYY-MM-DD` and the statuses present,
+  absent and late; a date in another format was saved under a day no other screen finds.
+- A database error no longer shows its SQL text (table, column and constraint names) in the
+  window: it says «تعذر إتمام العملية بسبب خطأ في قاعدة البيانات», and the details go to the
+  log.
+- Scheduled backups and fee charges failed while the login screen showed: logging out closed the
+  database. It now stays open. The automatic backup is also checked a minute after the app
+  starts, so a computer used less than an hour a day still gets its backups.
+- A failed restore no longer loses the data: the previous database is kept aside and put back.
+- A restored backup now goes through the database changes made since it was taken, as an
+  upgrade would: backups record the schema they were made with, the restore rebuilds it, loads
+  the rows, then runs the later changes on them (before, an older backup's rows skipped the data
+  fixes, such as the removal of the duplicate September charge). A backup made by a newer
+  version of the app is refused instead of losing the columns this version doesn't know.
+  Backups from before this version are restored as before.
+- Two saves at the same moment could undo each other: the database had one transaction for the
+  whole app, so a save that failed could roll back another one's changes, or let it read data
+  that was then cancelled. Each save now has its own transaction, one at a time.
+- A student can no longer get the same month, or the same academic year's annual fee, billed
+  twice: the database refuses the second charge. A database that still holds such duplicates
+  from before keeps working, and gets the check at the first start after they are removed (with
+  «إعادة ضبط الرسوم» for unpaid ones).
+- Exports now include the expense/income category, the class age group, the fee payment's
+  sponsor, the student's enrolment date and memorised surahs/hizbs, which were silently left out.
+
+### Changed
+
+- CI runs lint, the unit tests and the database tests on every push.
+- Removed code nothing used: the login token (JWT; sessions live in the main process, 8 hours, as
+  before) and the `jsonwebtoken` package, the pre-2025 «financial-report» export and its
+  `legacyFinancialHandlers`, and the channels no screen called (`financial:reconcile`,
+  `receipts:generate`, `receipts:getStats`, `receipts:validate`, `receipt-books:check-exists`).
+  A test now checks that every main-process channel is called from the window.
+- The SQLite module is no longer rebuilt after `npm install` or when packaging: version 13 ships
+  binaries for every platform (no build tools needed).
+
 ## [1.4.1] - 2026-11-03
 
 ### Fixed

@@ -22,9 +22,8 @@ student fees (`components/financial/StudentFeesTab`), expenses (`ExpensesPage`),
 donation categories («إدارة الفئات», `AccountsPage`, despite its name), inventory (`InventoryTab`)
 and reports (`FinancialReportsTab`). Accounts have no page of their own.
 
-The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist and are read
-by the financial Excel export through the getters in `legacyFinancialHandlers.js`. Nothing writes to
-them any more, and they have no IPC channels.
+The old per-type tables (`payments`, `salaries`, `donations`, `expenses`) still exist in older
+databases. Nothing reads or writes them any more.
 
 ## Income and Expenses (`transactions`)
 
@@ -92,8 +91,12 @@ Billing rules:
   (`charge_generation_day`, default 25), under the academic year that month belongs to.
 - **Paid or partly paid charges are never changed.** Re-billing (a fee change, a new age group)
   only replaces charges with nothing paid on them.
-- Charges are generated inside a transaction with a per-student lock, so concurrent refreshes
-  cannot create duplicates.
+- **One charge per student and month, one annual charge per student and academic year**
+  (cancelled ones included: restoring a deleted student brings them back). Charges are generated
+  inside a transaction, transactions run one at a time, and the unique indexes
+  `uq_fee_charges_monthly` and `uq_fee_charges_annual` refuse a second charge; a generator that
+  meets one skips it. A database with duplicates from before keeps working without the indexes,
+  which are created at the first start-up after the duplicates are gone.
 
 ### Payments (`student_payments`, `student_payment_breakdown`)
 
@@ -121,9 +124,9 @@ from there, never taken by a current-year payment.
 
 A book is a numbered range (`start_receipt_number`–`end_receipt_number`) of one `receipt_type`
 (`payment`, `donation`, `expense`, `salary`, `fee_payment`), with a `current_receipt_number` and
-a status (`active`, `completed`, `cancelled`). `receipts:generate` hands out the next number,
-`RCP-YYYY-NNNN`, from the active book of that type for the current year, creating one if there is
-none.
+a status (`active`, `completed`, `cancelled`). `receiptService.generateReceiptNumber` hands out
+the next number, `RCP-YYYY-NNNN`, from the active book of that type for the current year,
+creating one if there is none.
 
 ## Settings
 

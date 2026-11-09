@@ -230,7 +230,7 @@ function TeachersPage() {
       <div className="page-header">
         <h1>شؤون المعلمين</h1>
         <div className="page-header-actions">
-          {hasPermission(PERMISSIONS.TEACHERS_VIEW) && (
+          {hasPermission(PERMISSIONS.DATA_EXPORT) && (
             <Button variant="outline-primary" onClick={() => setShowExportModal(true)}>
               <ExportIcon className="ms-2" /> تصدير البيانات
             </Button>

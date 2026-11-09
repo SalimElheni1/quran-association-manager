@@ -11,9 +11,11 @@ const sessions = new Map();
  * @param {{ id: number }} sender - The IPC sender (event.sender).
  * @param {{ id: number, username: string, roles?: string[] }} user - The authenticated user.
  * @param {number|null} expiresAt - Session expiry as epoch milliseconds (null = no expiry).
+ * @param {{ mustChangePassword?: boolean }} [options] - mustChangePassword: the user logged in
+ *   with the legacy default password; until it is changed the session may only change it.
  * @returns {object|null} The created session, or null when no valid sender is provided.
  */
-function createSession(sender, user, expiresAt) {
+function createSession(sender, user, expiresAt, options = {}) {
   if (!sender || typeof sender.id !== 'number' || !user || !user.id) {
     return null;
   }
@@ -23,6 +25,7 @@ function createSession(sender, user, expiresAt) {
     roles: user.roles || [],
     createdAt: Date.now(),
     expiresAt: expiresAt || null,
+    mustChangePassword: !!options.mustChangePassword,
   };
   sessions.set(sender.id, session);
   return session;
@@ -53,6 +56,15 @@ function revokeSession(webContentsId) {
 }
 
 /**
+ * Ends the password-change-only state of a session once the user chose a new password.
+ * @param {number} webContentsId
+ */
+function clearMustChangePassword(webContentsId) {
+  const session = getSession(webContentsId);
+  if (session) session.mustChangePassword = false;
+}
+
+/**
  * Removes every session (app quit, database close).
  */
 function revokeAllSessions() {
@@ -75,14 +87,24 @@ function hasSession(webContentsId) {
  * @returns {number|null}
  */
 function getUserIdForEvent(event) {
-  const senderId = event && event.sender ? event.sender.id : null;
-  const session = typeof senderId === 'number' ? getSession(senderId) : null;
+  const session = getSessionForEvent(event);
   return session ? session.userId : null;
+}
+
+/**
+ * The session of the window an IPC call came from, or null.
+ * @param {{ sender?: { id?: number } }} event
+ */
+function getSessionForEvent(event) {
+  const senderId = event && event.sender ? event.sender.id : null;
+  return typeof senderId === 'number' ? getSession(senderId) : null;
 }
 
 module.exports = {
   createSession,
+  clearMustChangePassword,
   getUserIdForEvent,
+  getSessionForEvent,
   getSession,
   revokeSession,
   revokeAllSessions,

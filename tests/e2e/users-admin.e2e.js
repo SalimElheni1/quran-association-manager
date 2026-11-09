@@ -114,7 +114,7 @@ test.describe('user administration', () => {
     await expect(page.locator('.topbar')).toHaveCount(0);
   });
 
-  test('Administrator manages people and classes but not finances or settings', async ({
+  test('Administrator does everything but managing users and restoring a backup', async ({
     authedPage: page,
   }) => {
     await createUser(page, ADMIN_USER, 'Administrator');
@@ -125,16 +125,27 @@ test.describe('user administration', () => {
       'شؤون المعلمين',
       'الفصول الدراسية',
       'الحضور والغياب',
+      'الشؤون المالية',
       'إدارة المستخدمين',
+      'الإعدادات',
     ]) {
       await expect(sidebarLink(page, label)).toBeVisible();
-    }
-    for (const label of ['الشؤون المالية', 'الإعدادات']) {
-      await expect(sidebarLink(page, label)).toHaveCount(0);
     }
 
     await navigate(page, 'شؤون الطلاب');
     await expect(page.getByRole('button', { name: 'إضافة طالب' })).toBeVisible();
+
+    await navigate(page, 'الشؤون المالية');
+    await page.getByRole('tab', { name: 'المداخيل', exact: true }).click();
+    await expect(
+      page.locator('.tab-pane.active').getByRole('button', { name: 'إضافة مدخول' }),
+    ).toBeVisible();
+
+    // Settings, backups included; restoring one replaces every record and is the Superadmin's.
+    await navigate(page, 'الإعدادات');
+    await page.getByRole('tab', { name: 'النسخ الاحتياطي' }).click();
+    await expect(page.locator('[data-section="make-backup"]')).toBeVisible();
+    await expect(page.locator('[data-section="restore"]')).toHaveCount(0);
 
     // Users page is view-only for administrators.
     await navigate(page, 'إدارة المستخدمين');
@@ -142,22 +153,28 @@ test.describe('user administration', () => {
     await expect(page.getByRole('button', { name: 'إضافة مستخدم جديد' })).toHaveCount(0);
   });
 
-  test('SessionSupervisor only reaches students, classes and attendance, read-only', async ({
+  test('SessionSupervisor takes attendance and reads students, teachers and classes', async ({
     authedPage: page,
   }) => {
     await createUser(page, SUPERVISOR_USER, 'SessionSupervisor');
     await loginAs(page, SUPERVISOR_USER);
 
-    for (const label of ['شؤون الطلاب', 'الفصول الدراسية', 'الحضور والغياب']) {
+    for (const label of ['شؤون الطلاب', 'شؤون المعلمين', 'الفصول الدراسية', 'الحضور والغياب']) {
       await expect(sidebarLink(page, label)).toBeVisible();
     }
-    for (const label of ['شؤون المعلمين', 'الشؤون المالية', 'إدارة المستخدمين', 'الإعدادات']) {
+    for (const label of ['الشؤون المالية', 'إدارة المستخدمين', 'الإعدادات']) {
       await expect(sidebarLink(page, label)).toHaveCount(0);
     }
 
     await navigate(page, 'شؤون الطلاب');
     await expect(page.getByPlaceholder('البحث بالاسم أو الرقم التعريفي...')).toBeVisible();
     await expect(page.getByRole('button', { name: 'إضافة طالب' })).toHaveCount(0);
+    // The Excel export is not theirs: no button the main process would refuse.
+    await expect(page.getByRole('button', { name: 'تصدير البيانات' })).toHaveCount(0);
+
+    await navigate(page, 'شؤون المعلمين');
+    await expect(page.getByRole('heading', { name: 'شؤون المعلمين' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'إضافة معلم' })).toHaveCount(0);
 
     await navigate(page, 'الفصول الدراسية');
     await expect(page.getByPlaceholder('البحث باسم الفصل...')).toBeVisible();

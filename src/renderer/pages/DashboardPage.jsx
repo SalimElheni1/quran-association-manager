@@ -11,7 +11,6 @@ import { usePermissions } from '@renderer/hooks/usePermissions';
 import { PERMISSIONS } from '@renderer/utils/permissions';
 import '@renderer/styles/DashboardPage.css';
 import { error as logError } from '@renderer/utils/logger';
-import { useAuth } from '@renderer/contexts/AuthContext';
 import ExclamationTriangleIcon from '@renderer/components/icons/ExclamationTriangleIcon';
 
 function pluralizeDays(days) {
@@ -25,6 +24,8 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const canViewFinancials = hasPermission(PERMISSIONS.FINANCIALS_VIEW);
+  // The backup reminder links to the backup settings: only for those who can open them.
+  const canManageBackups = hasPermission(PERMISSIONS.SETTINGS_VIEW);
   const [stats, setStats] = useState({
     studentCount: null,
     teacherCount: null,
@@ -32,14 +33,13 @@ function DashboardPage() {
   });
   const [backupReminder, setBackupReminder] = useState({ show: false, message: '' });
   const [showGuideModal, setShowGuideModal] = useState(false);
-  const { token } = useAuth();
 
   const handleOpenGuideModal = () => setShowGuideModal(true);
   const handleCloseGuideModal = () => setShowGuideModal(false);
 
   const startGuideFrom = async (option) => {
     try {
-      const profile = await window.electronAPI.getProfile({ token });
+      const profile = await window.electronAPI.getProfile();
       if (!profile || !profile.id) return;
       if (option === 'continue') {
         // leave current_step as is and enable guide
@@ -64,33 +64,32 @@ function DashboardPage() {
     }
   };
 
+  // The counts and the backup reminder load separately: one failing never hides the other.
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        // Fetch stats and backup status in parallel
-        const [dashboardStats, reminderStatus] = await Promise.all([
-          window.electronAPI.getDashboardStats(),
-          window.electronAPI.getBackupReminderStatus(),
-        ]);
-
-        setStats(dashboardStats);
-
-        if (reminderStatus.showReminder) {
-          const days = reminderStatus.daysSinceLastBackup;
-          const message =
-            days === Infinity
-              ? 'لم يتم العثور على نسخة احتياطية سابقة. يُرجى إنشاء واحدة الآن لحماية بياناتك.'
-              : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${pluralizeDays(days)}.`;
-          setBackupReminder({ show: true, message });
-        }
-      } catch (error) {
+    window.electronAPI
+      .getDashboardStats()
+      .then(setStats)
+      .catch((error) => {
         logError('Failed to fetch dashboard data:', error);
         toast.error('فشل في تحميل بيانات لوحة التحكم.');
-      }
-    };
-
-    fetchDashboardData();
+      });
   }, []);
+
+  useEffect(() => {
+    if (!canManageBackups) return;
+    window.electronAPI
+      .getBackupReminderStatus()
+      .then((reminderStatus) => {
+        if (!reminderStatus.showReminder) return;
+        const days = reminderStatus.daysSinceLastBackup;
+        const message =
+          days === Infinity
+            ? 'لم يتم العثور على نسخة احتياطية سابقة. يُرجى إنشاء واحدة الآن لحماية بياناتك.'
+            : `لم تقم بإنشاء نسخة احتياطية لقاعدة البيانات منذ أكثر من ${pluralizeDays(days)}.`;
+        setBackupReminder({ show: true, message });
+      })
+      .catch((error) => logError('Failed to fetch the backup reminder:', error));
+  }, [canManageBackups]);
 
   const handleGoToBackupPage = () => {
     navigate('/settings', { state: { defaultTab: 'backup' } });

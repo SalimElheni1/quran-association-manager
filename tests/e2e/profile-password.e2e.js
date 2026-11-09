@@ -122,11 +122,22 @@ test.describe('forced password change', () => {
     await expect(page.getByRole('heading', { name: 'تغيير كلمة المرور' })).toBeVisible();
     await expect(page.locator('.topbar')).toHaveCount(0);
 
+    // The main process holds the session back too, not just the screen.
+    const tryStudents = () =>
+      page.evaluate(() =>
+        window.electronAPI.getStudents({}).then(
+          () => 'allowed',
+          (error) => error.message,
+        ),
+      );
+    expect(await tryStudents()).toContain('يجب تغيير كلمة المرور قبل المتابعة.');
+
     await page.locator('input[name="change-new-password"]').fill(NEW_PASSWORD);
     await page.locator('input[name="change-confirm-password"]').fill(NEW_PASSWORD);
     await page.getByRole('button', { name: 'حفظ كلمة المرور' }).click();
     await dismissOnboarding(page);
     await expect(page.locator('.topbar')).toBeVisible();
+    expect(await tryStudents()).toBe('allowed');
 
     await logout(page);
     await expectLoginRejected(page, LEGACY);

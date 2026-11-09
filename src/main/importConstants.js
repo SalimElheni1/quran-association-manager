@@ -74,7 +74,20 @@ function getAllSheets() {
   return AVAILABLE_SHEETS;
 }
 
+// The import types the window offers and the workbook sheet each one reads; names not listed
+// are sheet names already.
+const IMPORT_TYPE_SHEETS = {
+  المداخيل: 'العمليات المالية',
+  المصاريف: 'العمليات المالية',
+  الجرد: 'المخزون',
+};
+
+/** The workbook sheet an import type reads (the name itself for a sheet name). */
+const sheetForImportType = (importType) => IMPORT_TYPE_SHEETS[importType] || importType;
+
 module.exports = {
+  IMPORT_TYPE_SHEETS,
+  sheetForImportType,
   AVAILABLE_SHEETS,
   getAvailableSheets,
   getSheetInfo,

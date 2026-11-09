@@ -38,7 +38,7 @@ function OnboardingGuide() {
   // Re-renders the guide when the route changes.
   useLocation();
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
@@ -65,7 +65,7 @@ function OnboardingGuide() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const p = await window.electronAPI.getProfile({ token });
+        const p = await window.electronAPI.getProfile();
         setProfile(p);
       } catch (e) {
         // ignore; guide is optional

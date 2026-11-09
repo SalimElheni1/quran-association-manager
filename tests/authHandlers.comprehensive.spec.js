@@ -1,13 +1,11 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const db = require('../src/db/db');
 const sessionManager = require('../src/main/sessionManager');
 const { registerAuthHandlers } = require('../src/main/handlers/authHandlers');
 
 jest.mock('bcryptjs');
-jest.mock('jsonwebtoken');
 jest.mock('electron-store');
 jest.mock('../src/db/db');
 jest.mock('../src/main/logger');
@@ -40,9 +38,7 @@ describe('Auth Handlers - Comprehensive', () => {
     passwordUpdateValidationSchema,
   } = require('../src/main/validationSchemas');
 
-  beforeAll(() => {
-    process.env.JWT_SECRET = 'test-secret';
-  });
+  beforeAll(() => {});
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -72,15 +68,65 @@ describe('Auth Handlers - Comprehensive', () => {
       db.getQuery.mockResolvedValue(mockUser);
       db.allQuery.mockResolvedValue(mockRoles);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('mock-jwt-token');
 
       const result = await handlers['auth:login'](null, { username: 'admin', password: 'pass123' });
 
       expect(result.success).toBe(true);
-      expect(result.token).toBe('mock-jwt-token');
+      // Nothing for the window to keep: the session lives in the main process.
+      expect(result).not.toHaveProperty('token');
       expect(result.user.username).toBe('admin');
       expect(result.user.roles).toEqual(['Superadmin']);
       expect(result.user.need_guide).toBe(true);
+    });
+
+    it('a login with the legacy default password gets a session that can only change it', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue({ id: 1, username: 'old', password: 'hash' });
+      db.allQuery.mockResolvedValue([{ name: 'Superadmin' }]);
+      bcrypt.compare.mockResolvedValue(true); // the typed password, and the '123456' check
+
+      const result = await handlers['auth:login'](sessionEvent, {
+        username: 'old',
+        password: '123456',
+      });
+
+      expect(result.mustChangePassword).toBe(true);
+      expect(sessionManager.getSession(SENDER_ID).mustChangePassword).toBe(true);
+    });
+
+    it('any other login gets a full session', async () => {
+      db.isDbOpen.mockReturnValue(true);
+      db.getQuery.mockResolvedValue({ id: 1, username: 'admin', password: 'hash' });
+      db.allQuery.mockResolvedValue([{ name: 'Superadmin' }]);
+      bcrypt.compare.mockImplementation(async (password) => password !== '123456');
+
+      const result = await handlers['auth:login'](sessionEvent, {
+        username: 'admin',
+        password: 'Zitouna#2026',
+      });
+
+      expect(result.mustChangePassword).toBe(false);
+      expect(sessionManager.getSession(SENDER_ID).mustChangePassword).toBe(false);
+    });
+
+    it('a session lasts 8 hours', async () => {
+      jest.useFakeTimers({ now: new Date('2026-10-30T08:00:00Z') });
+      try {
+        db.isDbOpen.mockReturnValue(true);
+        db.getQuery.mockResolvedValue({ id: 1, username: 'admin', password: 'hash' });
+        db.allQuery.mockResolvedValue([{ name: 'Superadmin' }]);
+        bcrypt.compare.mockImplementation(async (password) => password !== '123456');
+
+        await handlers['auth:login'](sessionEvent, { username: 'admin', password: 'Zitouna#2026' });
+
+        expect(sessionManager.getSession(SENDER_ID).expiresAt).toBe(
+          Date.parse('2026-10-30T16:00:00Z'),
+        );
+        jest.setSystemTime(new Date('2026-10-30T16:00:00Z'));
+        expect(sessionManager.getSession(SENDER_ID)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('should initialize database if not open', async () => {
@@ -89,7 +135,6 @@ describe('Auth Handlers - Comprehensive', () => {
       db.getQuery.mockResolvedValue({ id: 1, username: 'user', password: 'hash' });
       db.allQuery.mockResolvedValue([]);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('token');
 
       await handlers['auth:login'](null, { username: 'user', password: 'pass' });
 
@@ -129,13 +174,15 @@ describe('Auth Handlers - Comprehensive', () => {
         status: 'inactive',
       });
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockClear();
 
-      const result = await handlers['auth:login'](null, { username: 'former', password: 'pass' });
+      const result = await handlers['auth:login'](sessionEvent, {
+        username: 'former',
+        password: 'pass',
+      });
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('هذا الحساب غير نشط. يرجى التواصل مع مدير النظام.');
-      expect(jwt.sign).not.toHaveBeenCalled();
+      expect(sessionManager.getSession(SENDER_ID)).toBeNull();
     });
 
     it('should cache logo path on successful login', async () => {
@@ -148,7 +195,6 @@ describe('Auth Handlers - Comprehensive', () => {
       db.getQuery.mockResolvedValue({ id: 1, username: 'user', password: 'hash' });
       db.allQuery.mockResolvedValue([]);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('token');
 
       await handlers['auth:login'](null, { username: 'user', password: 'pass' });
 
@@ -163,7 +209,6 @@ describe('Auth Handlers - Comprehensive', () => {
       db.getQuery.mockResolvedValue({ id: 1, username: 'user', password: 'hash' });
       db.allQuery.mockResolvedValue([]);
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign.mockReturnValue('token');
 
       await handlers['auth:login'](null, { username: 'user', password: 'pass' });
 
@@ -180,23 +225,13 @@ describe('Auth Handlers - Comprehensive', () => {
       expect(result.message).toBe('Database error');
     });
 
-    it('should close database on non-password errors', async () => {
+    it('keeps the database open when a login fails with an error', async () => {
       db.isDbOpen.mockReturnValue(true);
       db.getQuery.mockRejectedValue(new Error('Connection failed'));
-      db.closeDatabase.mockResolvedValue(undefined);
 
-      await handlers['auth:login'](null, { username: 'user', password: 'pass' });
+      const result = await handlers['auth:login'](null, { username: 'user', password: 'pass' });
 
-      expect(db.closeDatabase).toHaveBeenCalled();
-    });
-
-    it('should not close database on password errors', async () => {
-      db.isDbOpen.mockReturnValue(true);
-      db.getQuery.mockRejectedValue(new Error('Incorrect password or corrupt database.'));
-      db.closeDatabase.mockResolvedValue(undefined);
-
-      await handlers['auth:login'](null, { username: 'user', password: 'pass' });
-
+      expect(result.success).toBe(false);
       expect(db.closeDatabase).not.toHaveBeenCalled();
     });
   });
@@ -401,6 +436,48 @@ describe('Auth Handlers - Comprehensive', () => {
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('User not found.');
+    });
+
+    it('a successful change gives a password-change-only session its roles back', async () => {
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'user', roles: ['Superadmin'] },
+        null,
+        { mustChangePassword: true },
+      );
+      db.getQuery.mockResolvedValue({ username: 'user', password: 'hash' });
+      bcrypt.compare.mockResolvedValue(true);
+      bcrypt.hash.mockResolvedValue('new-hash');
+      db.runQuery.mockResolvedValue({ changes: 1 });
+
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
+        passwordData: {
+          current_password: '123456',
+          new_password: 'Zitouna#2026',
+          confirm_new_password: 'Zitouna#2026',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(sessionManager.getSession(SENDER_ID).mustChangePassword).toBe(false);
+    });
+
+    it('a refused change keeps the session limited', async () => {
+      sessionManager.createSession(
+        { id: SENDER_ID },
+        { id: 1, username: 'user', roles: ['Superadmin'] },
+        null,
+        { mustChangePassword: true },
+      );
+      db.getQuery.mockResolvedValue({ username: 'user', password: 'hash' });
+      bcrypt.compare.mockResolvedValue(false);
+
+      const result = await handlers['auth:updatePassword'](sessionEvent, {
+        passwordData: { current_password: 'wrong', new_password: 'Zitouna#2026' },
+      });
+
+      expect(result.success).toBe(false);
+      expect(sessionManager.getSession(SENDER_ID).mustChangePassword).toBe(true);
     });
 
     it('should handle validation errors', async () => {

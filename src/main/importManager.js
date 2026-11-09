@@ -13,12 +13,19 @@ const {
   initializeDatabase,
   getDb,
   dbExec,
+  withTransaction,
   runQuery,
   getQuery,
   allQuery,
+  ensureFeeChargeUniqueness,
+  dropFeeChargeUniqueness,
+  listMigrationFiles,
+  runMigrations,
 } = require('../db/db');
+const crypto = require('crypto');
 const { generateMatricule } = require('./services/matriculeService');
 const { setDbSalt } = require('./keyManager');
+const { CHANNEL_ROLES } = require('./ipcSecurity');
 
 const CLASS_GENDER_MAP = {
   ذكر: 'men',
@@ -70,7 +77,7 @@ function resolveTransferKey(savedTransferKey) {
   return settings.association_transfer_key;
 }
 
-function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
+async function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
   if (!Buffer.isBuffer(fileBuffer)) {
     return fileBuffer;
   }
@@ -94,7 +101,7 @@ function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
 
   for (const key of candidateKeys) {
     try {
-      return backupManager.decryptBackup(fileBuffer, key);
+      return await backupManager.decryptBackup(fileBuffer, key);
     } catch (err) {
       // Try next key
     }
@@ -103,12 +110,21 @@ function extractZipFromBuffer(fileBuffer, userPassword, savedTransferKey) {
   return fileBuffer;
 }
 
+// The only statements a backup may run: rows going into a table this database already has
+// (the schema comes from the app, never from the file). Leading comment lines are allowed.
+const BACKUP_ROW_STATEMENT =
+  /^(?:--[^\n]*\n\s*)*(?:REPLACE|INSERT(?:\s+OR\s+(?:REPLACE|IGNORE))?)\s+INTO\s+["']?([A-Za-z_]\w*)["']?\s*\(/i;
+// Tables a backup never writes into: the migration log decides which migrations still run.
+const NON_RESTORABLE_TABLES = new Set(['migrations']);
+
 async function executeSqlScriptSafely(sqlScript) {
   // Get current database tables and their columns
   const tables = await allQuery(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
   );
-  const existingTables = new Set(tables.map((t) => t.name));
+  const existingTables = new Set(
+    tables.map((t) => t.name).filter((name) => !NON_RESTORABLE_TABLES.has(name)),
+  );
 
   // Get column info for each table
   const tableColumns = {};
@@ -125,48 +141,56 @@ async function executeSqlScriptSafely(sqlScript) {
   const validStatements = [];
   const skippedTables = new Set();
   const fixedStatements = [];
+  let skippedStatements = 0;
+  // What the backup brings, for the fix-ups after the import.
+  const tablesWithRows = new Set();
+  const legacyUserRoles = [];
 
   for (const statement of statements) {
-    // Extract table name from REPLACE INTO or INSERT statements
-    const match = statement.match(
-      /(?:REPLACE|INSERT)\s+(?:OR\s+REPLACE\s+)?INTO\s+["']?([^\s"'(\s]+)["']?\s*\(/i,
-    );
-    if (match) {
-      const tableName = match[1];
-      if (!existingTables.has(tableName)) {
-        skippedTables.add(tableName);
-        continue;
-      }
-
-      // Extract columns from the statement
-      const columnsMatch = statement.match(/\(([^)]+)\)\s*VALUES/i);
-      if (columnsMatch) {
-        const columns = splitSqlList(columnsMatch[1], ',').map((col) =>
-          col.trim().replace(/^"|"$/g, ''),
-        );
-        const currentColumns = tableColumns[tableName];
-
-        // Check if all columns exist
-        const invalidColumns = columns.filter((col) => !currentColumns.has(col));
-
-        if (invalidColumns.length > 0) {
-          // Fix the statement by removing invalid columns
-          const fixed = fixStatementColumns(statement, columns, invalidColumns);
-          if (fixed) {
-            validStatements.push(fixed);
-            fixedStatements.push(`${tableName}: removed columns [${invalidColumns.join(', ')}]`);
-          }
-          continue;
-        }
-      }
-
-      validStatements.push(statement);
-    } else {
-      // Non-INSERT/REPLACE statements (like CREATE, etc.) - execute as-is
-      validStatements.push(statement);
+    // Anything that is not a row insert (CREATE, DROP, ATTACH, PRAGMA, triggers...) is skipped:
+    // a backup file must not be able to change the schema or reach outside the database.
+    const match = statement.match(BACKUP_ROW_STATEMENT);
+    // Only "(columns) VALUES (...)" rows are restored, not INSERT ... SELECT, which could copy
+    // data around the database.
+    const columnsMatch = match && statement.match(/\(([^)]+)\)\s*VALUES/i);
+    if (!columnsMatch) {
+      skippedStatements++;
+      continue;
     }
+    const tableName = match[1];
+    if (!existingTables.has(tableName)) {
+      skippedTables.add(tableName);
+      continue;
+    }
+
+    const columns = splitSqlList(columnsMatch[1], ',').map((col) =>
+      col.trim().replace(/^"|"$/g, ''),
+    );
+    const currentColumns = tableColumns[tableName];
+    tablesWithRows.add(tableName);
+    if (tableName === 'users' && !currentColumns.has('role')) {
+      legacyUserRoles.push(...readLegacyUserRoles(statement, columns));
+    }
+
+    // Check if all columns exist
+    const invalidColumns = columns.filter((col) => !currentColumns.has(col));
+
+    if (invalidColumns.length > 0) {
+      // Fix the statement by removing invalid columns
+      const fixed = fixStatementColumns(statement, columns, invalidColumns);
+      if (fixed) {
+        validStatements.push(fixed);
+        fixedStatements.push(`${tableName}: removed columns [${invalidColumns.join(', ')}]`);
+      }
+      continue;
+    }
+
+    validStatements.push(statement);
   }
 
+  if (skippedStatements > 0) {
+    log(`Skipped ${skippedStatements} backup statement(s) that do not insert rows.`);
+  }
   if (skippedTables.size > 0) {
     logWarn(`Skipped data for non-existent tables: ${Array.from(skippedTables).join(', ')}`);
   }
@@ -179,6 +203,7 @@ async function executeSqlScriptSafely(sqlScript) {
   if (finalScript.trim()) {
     await dbExec(getDb(), finalScript);
   }
+  return { tablesWithRows, legacyUserRoles };
 }
 
 // Splits a SQL fragment on a delimiter, ignoring delimiters that appear inside
@@ -344,6 +369,43 @@ function parseValuesRows(valuesSection) {
   return rows;
 }
 
+// The one role per user that backups made before user_roles existed carried in users.role, and
+// the role each one is today.
+const LEGACY_USER_ROLES = {
+  Superadmin: 'Superadmin',
+  Admin: 'Administrator',
+  Manager: 'Administrator',
+  Administrator: 'Administrator',
+  FinanceManager: 'FinanceManager',
+  SessionSupervisor: 'SessionSupervisor',
+};
+
+/** A SQL literal from a VALUES list as a JS value ('it''s' -> it's, NULL -> null). */
+function sqlLiteralValue(token) {
+  const text = String(token).trim();
+  if (/^NULL$/i.test(text)) return null;
+  if (text.startsWith("'") && text.endsWith("'")) return text.slice(1, -1).replace(/''/g, "'");
+  return text;
+}
+
+/**
+ * The legacy users.role value of each row of a users insert, by user id.
+ * @returns {Array<{id: number, role: string}>}
+ */
+function readLegacyUserRoles(statement, columns) {
+  const idIndex = columns.indexOf('id');
+  const roleIndex = columns.indexOf('role');
+  if (idIndex === -1 || roleIndex === -1) return [];
+  const valuesIndex = statement.search(/\bVALUES\b/i);
+  if (valuesIndex === -1) return [];
+  return parseValuesRows(statement.slice(valuesIndex + 6))
+    .map((values) => ({
+      id: Number(sqlLiteralValue(values[idIndex])),
+      role: sqlLiteralValue(values[roleIndex]),
+    }))
+    .filter((row) => Number.isInteger(row.id) && row.role);
+}
+
 function fixStatementColumns(statement, columns, invalidColumns) {
   try {
     // Strip leading comment lines before matching the command
@@ -385,59 +447,139 @@ function fixStatementColumns(statement, columns, invalidColumns) {
   }
 }
 
+const WRONG_KEY_MESSAGE =
+  'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.';
+const INVALID_BACKUP_MESSAGE = 'ملف النسخ الاحتياطي غير صالح أو تالف.';
+const NEWER_BACKUP_MESSAGE =
+  'هذه النسخة الاحتياطية من إصدار أحدث من البرنامج. حدّث البرنامج ثم أعد المحاولة.';
+
+/** A problem with the backup file itself; its message is shown to the user as it is. */
+class BackupFileError extends Error {}
+
+/**
+ * Opens a backup: decrypts it with the candidate keys, checks its signature, and reads its SQL
+ * and salt. Nothing is changed.
+ * @returns {Promise<{zip: PizZip, sqlScript: string, salt: string, migrations: string[]|null,
+ *   unsigned: boolean}>} `migrations`: see readBackupMigrations.
+ *   `unsigned` is true for a plain ZIP without a signature (backups made before version 1.3.0):
+ *   nothing proves who made it, so the user confirms before it is restored.
+ * @throws {BackupFileError} When the file is not a backup this app can restore.
+ */
+async function readBackupPackage(filePath, backupPassword, savedTransferKey) {
+  const rawBuffer = await fs.readFile(filePath);
+  const zipBuffer = await extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
+  // AES-GCM authenticates what it decrypts: a decrypted backup was made with one of the keys.
+  const decrypted = zipBuffer !== rawBuffer;
+  if (!decrypted && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
+    // An encrypted backup that none of the keys could decrypt.
+    throw new BackupFileError(WRONG_KEY_MESSAGE);
+  }
+
+  const zip = new PizZip(zipBuffer);
+  const sqlFile = zip.file('backup.sql');
+  const configFile = zip.file('salt.json') || zip.file('config.json'); // config.json: legacy name
+  if (!sqlFile || !configFile) {
+    throw new BackupFileError(INVALID_BACKUP_MESSAGE);
+  }
+  const sqlScript = sqlFile.asText();
+
+  const signatureFile = zip.file('signature.txt');
+  if (signatureFile) {
+    const { getDbKey } = require('./keyManager');
+    const candidateKeys = [backupPassword, resolveTransferKey(savedTransferKey), getDbKey()].filter(
+      Boolean,
+    );
+    const signature = signatureFile.asText();
+    if (!candidateKeys.some((key) => backupManager.verifySignature(sqlScript, key, signature))) {
+      throw new BackupFileError(
+        'توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.',
+      );
+    }
+  }
+
+  let salt = null;
+  try {
+    salt = JSON.parse(configFile.asNodeBuffer().toString())['db-salt'];
+  } catch {
+    salt = null;
+  }
+  if (!salt) {
+    throw new BackupFileError('Backup configuration is missing the required salt.');
+  }
+
+  const migrations = readBackupMigrations(sqlScript);
+  return { zip, sqlScript, salt, migrations, unsigned: !decrypted && !signatureFile };
+}
+
+// Three digits, then an optional letter (059a-...: a file placed between two numbers).
+const MIGRATION_FILE_NAME = /^\d{3}[a-z]?-[\w-]+\.sql$/;
+
+/**
+ * The migrations of the database a backup was made from (the first line of its SQL), or null
+ * for a backup from before they were recorded. A backup with a migration this version of the
+ * app does not have comes from a newer version, and is refused.
+ * @param {string} sqlScript
+ * @returns {string[]|null}
+ */
+function readBackupMigrations(sqlScript) {
+  const prefix = backupManager.MIGRATIONS_LINE_PREFIX;
+  if (!sqlScript.startsWith(prefix)) return null;
+  const lineEnd = sqlScript.indexOf('\n');
+  let names;
+  try {
+    names = JSON.parse(sqlScript.slice(prefix.length, lineEnd === -1 ? undefined : lineEnd));
+  } catch {
+    names = null;
+  }
+  const isMigrationName = (name) => typeof name === 'string' && MIGRATION_FILE_NAME.test(name);
+  if (!Array.isArray(names) || !names.every(isMigrationName)) {
+    throw new BackupFileError(INVALID_BACKUP_MESSAGE);
+  }
+  const known = new Set(listMigrationFiles());
+  if (names.some((name) => !known.has(name))) throw new BackupFileError(NEWER_BACKUP_MESSAGE);
+  return names;
+}
+
+/**
+ * Reads and checks a backup without changing anything.
+ * @returns {Promise<{isValid: boolean, message: string, unsigned?: boolean, backup?: object}>}
+ *   `backup`: the package read, for replaceDatabase, so the file is decrypted only once.
+ */
 async function validateDatabaseFile(filePath, backupPassword, savedTransferKey) {
   try {
-    const rawBuffer = await fs.readFile(filePath);
-    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
-    // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
-    // returns the encrypted bytes unchanged).
-    if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
-      return {
-        isValid: false,
-        message:
-          'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.',
-      };
-    }
-    const zip = new PizZip(zipBuffer);
-    const sqlFile = zip.file('backup.sql');
-    let configFile = zip.file('salt.json'); // Legacy: 'config.json'
-    if (!configFile) {
-      configFile = zip.file('config.json');
-    }
-    if (!sqlFile || !configFile) {
-      return { isValid: false, message: 'ملف النسخ الاحتياطي غير صالح أو تالف.' };
-    }
-
-    const signatureFile = zip.file('signature.txt');
-    if (signatureFile) {
-      const sqlScript = sqlFile.asText();
-      const { getDbKey } = require('./keyManager');
-      const candidateKeys = [
-        backupPassword,
-        resolveTransferKey(savedTransferKey),
-        getDbKey(),
-      ].filter(Boolean);
-
-      let isValidSig = false;
-      for (const key of candidateKeys) {
-        if (backupManager.verifySignature(sqlScript, key, signatureFile.asText())) {
-          isValidSig = true;
-          break;
-        }
-      }
-
-      if (!isValidSig) {
-        return {
-          isValid: false,
-          message: 'توقيع النسخة الاحتياطية غير مطابق. قد يكون الملف تالفاً أو تم تعديله.',
-        };
-      }
-    }
-
-    return { isValid: true, message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.' };
+    const backup = await readBackupPackage(filePath, backupPassword, savedTransferKey);
+    return {
+      isValid: true,
+      unsigned: backup.unsigned,
+      backup,
+      message: 'تم التحقق من ملف النسخ الاحتياطي بنجاح.',
+    };
   } catch (error) {
+    if (error instanceof BackupFileError) return { isValid: false, message: error.message };
     logError('Error during backup validation:', error);
     return { isValid: false, message: `خطأ في قراءة ملف النسخ الاحتياطي: ${error.message}` };
+  }
+}
+
+// The database files: the main file and SQLite's WAL companions.
+const DB_FILE_SUFFIXES = ['', '-wal', '-shm'];
+// Where the current database waits while a backup is restored. It stays there afterwards (the
+// next restore replaces it), so the data from before the last restore can still be recovered.
+const PREVIOUS_DB_SUFFIX = '.pre-restore';
+
+async function renameWithRetry(from, to, retries = 5, delay = 100) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (error) {
+      if (error.code === 'EBUSY' && i < retries - 1) {
+        logWarn(`EBUSY renaming ${from}, retrying in ${delay}ms (attempt ${i + 1}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
   }
 }
 
@@ -461,18 +603,202 @@ async function unlinkWithRetry(filePath, retries = 5, delay = 100) {
   }
 }
 
+/** Moves the database files at `fromPath` (and their -wal/-shm) to `toPath`. */
+async function moveDatabaseFiles(fromPath, toPath) {
+  for (const suffix of DB_FILE_SUFFIXES) {
+    if (fsSync.existsSync(`${toPath}${suffix}`)) await unlinkWithRetry(`${toPath}${suffix}`);
+  }
+  for (const suffix of DB_FILE_SUFFIXES) {
+    if (fsSync.existsSync(`${fromPath}${suffix}`)) {
+      await renameWithRetry(`${fromPath}${suffix}`, `${toPath}${suffix}`);
+    }
+  }
+}
+
+/**
+ * After a failed restore: drops the half-imported database, puts the previous one back and
+ * opens it again, so the app keeps working with the data it had.
+ */
+async function putPreviousDatabaseBack(currentDbPath, previousDbPath) {
+  try {
+    if (isDbOpen()) await closeDatabase();
+    for (const suffix of DB_FILE_SUFFIXES) {
+      if (fsSync.existsSync(`${previousDbPath}${suffix}`)) {
+        if (fsSync.existsSync(`${currentDbPath}${suffix}`)) {
+          await unlinkWithRetry(`${currentDbPath}${suffix}`);
+        }
+        await renameWithRetry(`${previousDbPath}${suffix}`, `${currentDbPath}${suffix}`);
+      }
+    }
+    await initializeDatabase();
+    log('The database from before the restore is back in place.');
+  } catch (error) {
+    logError(
+      `CRITICAL: could not put the previous database back; it is kept at ${previousDbPath}.`,
+      error,
+    );
+  }
+}
+
+/**
+ * Backups made before user_roles existed (versions 1.0 and 1.1) kept one role per user in
+ * users.role: those users get the matching role. A backup that has user_roles rows is taken as
+ * it is; a user it gives no role keeps none (no role is ever made up).
+ * @param {{tablesWithRows: Set<string>, legacyUserRoles: Array<{id: number, role: string}>}} imported
+ */
+async function giveLegacyUsersTheirRole({ tablesWithRows, legacyUserRoles }) {
+  if (tablesWithRows.has('user_roles') || legacyUserRoles.length === 0) return;
+  log(`Backup without user_roles: mapping the old role of ${legacyUserRoles.length} user(s).`);
+  for (const { id, role } of legacyUserRoles) {
+    const roleName = Object.hasOwn(LEGACY_USER_ROLES, role) ? LEGACY_USER_ROLES[role] : null;
+    if (!roleName) {
+      logWarn(`User ${id} had an unknown role in the backup; no role given.`);
+      continue;
+    }
+    const roleRow = await getQuery('SELECT id FROM roles WHERE name = ?', [roleName]);
+    if (roleRow) {
+      await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
+        id,
+        roleRow.id,
+      ]);
+    }
+  }
+}
+
+/** Old 6-digit matricules (S-000012) become the 4-digit form (S-0012). */
+async function convertLegacyMatricules() {
+  log('Checking for matricules that need format conversion...');
+  const matriculeTables = [
+    { name: 'students', prefix: 'S-' },
+    { name: 'teachers', prefix: 'T-' },
+    { name: 'users', prefix: 'U-' },
+    { name: 'groups', prefix: 'G-' },
+    { name: 'inventory_items', prefix: 'INV-' },
+  ];
+
+  let matriculeFixes = 0;
+  for (const table of matriculeTables) {
+    // Find matricules that are longer than expected (old 6-digit format)
+    const matriculesToFix = await allQuery(`
+        SELECT id, matricule
+        FROM ${table.name}
+        WHERE matricule IS NOT NULL
+          AND LENGTH(matricule) > 0
+          AND LENGTH(SUBSTR(matricule, INSTR(matricule, '-') + 1)) > 4
+      `);
+
+    for (const record of matriculesToFix) {
+      // Extract the numeric part and convert to 4-digit format
+      const parts = record.matricule.split('-');
+      if (parts.length === 2) {
+        const prefix = parts[0] + '-';
+        const number = parseInt(parts[1], 10);
+        const newMatricule = prefix + number.toString().padStart(4, '0');
+
+        await runQuery(`UPDATE ${table.name} SET matricule = ? WHERE id = ?`, [
+          newMatricule,
+          record.id,
+        ]);
+
+        log(`Converted matricule: ${record.matricule} → ${newMatricule}`);
+        matriculeFixes++;
+      }
+    }
+  }
+
+  if (matriculeFixes > 0) {
+    log(`Fixed ${matriculeFixes} matricule formats during import.`);
+  } else {
+    log('All matricules were already in the correct format.');
+  }
+}
+
+/**
+ * Loads the backup's rows into the freshly created database, in one transaction: a failure
+ * leaves nothing half imported.
+ */
+async function importBackupRows(sqlScript) {
+  // Foreign keys can only be switched outside a transaction. Rows arrive in table order, so
+  // they are off while loading, and always turned back on.
+  log('Disabling foreign key constraints for import...');
+  await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
+  // A backup can hold duplicate fee charges from before the unique indexes: with the indexes in
+  // place, its REPLACE rows would silently drop one of each pair (maybe the paid one).
+  dropFeeChargeUniqueness();
+  try {
+    await withTransaction(async () => {
+      const imported = await executeSqlScriptSafely(sqlScript);
+      await giveLegacyUsersTheirRole(imported);
+      await convertLegacyMatricules();
+    });
+    log('Data import completed successfully.');
+  } finally {
+    log('Re-enabling foreign key constraints...');
+    await dbExec(getDb(), 'PRAGMA foreign_keys = ON');
+  }
+}
+
+/** Writes the backup's student photos and logos into userData/assets. */
+function restoreBackupAssets(zip) {
+  try {
+    const electron = require('electron');
+    const app = electron.app;
+    if (app && typeof app.getPath === 'function') {
+      const targetAssetsDir = path.join(app.getPath('userData'), 'assets');
+      if (!fsSync.existsSync(targetAssetsDir)) {
+        fsSync.mkdirSync(targetAssetsDir, { recursive: true });
+      }
+      const assetFiles = zip.file(/^assets\//);
+      for (const assetFile of assetFiles) {
+        const relativePath = assetFile.name.replace(/^assets\//, '');
+        if (relativePath && !assetFile.dir) {
+          const destPath = path.resolve(targetAssetsDir, relativePath);
+          // Zip entry names are untrusted: never write outside the assets folder.
+          if (!destPath.startsWith(path.resolve(targetAssetsDir) + path.sep)) {
+            logWarn(`Skipping backup asset outside the assets folder: ${assetFile.name}`);
+            continue;
+          }
+          fsSync.mkdirSync(path.dirname(destPath), { recursive: true });
+          fsSync.writeFileSync(destPath, assetFile.asNodeBuffer());
+        }
+      }
+    }
+  } catch (assetExtractErr) {
+    logWarn('Asset extraction warning:', assetExtractErr.message);
+  }
+}
+
 /**
  * Replaces the database with a backup, after a safety copy of the current data.
+ * The backup is read and checked before anything changes; the current database is moved aside
+ * (not deleted) and put back if the import fails.
  * @param {string} importedDbPath The backup file.
- * @param {string} password The logged-in user's password (opens the new database).
+ * @param {string} _password The logged-in user's password (checked by the caller).
  * @param {string} [backupPassword] A key typed in the restore dialog.
  * @param {object} [currentSettings] The settings of the current database, read by the caller
  *   while it is still open: the backup folder for the safety copy, and the transfer key.
+ * @param {object} [readBackup] The package validateDatabaseFile already read; the file is
+ *   decrypted again only without it (stretching the key takes a few seconds).
  */
-async function replaceDatabase(importedDbPath, password, backupPassword, currentSettings) {
+async function replaceDatabase(
+  importedDbPath,
+  _password,
+  backupPassword,
+  currentSettings,
+  readBackup,
+) {
   const currentDbPath = getDatabasePath();
   const settings = currentSettings || mainStore.get('settings') || {};
   const savedTransferKey = settings.association_transfer_key;
+
+  let backup;
+  try {
+    backup =
+      readBackup || (await readBackupPackage(importedDbPath, backupPassword, savedTransferKey));
+  } catch (error) {
+    if (!(error instanceof BackupFileError)) logError('Failed to read the backup:', error);
+    return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
+  }
 
   // Auto-backup safeguard
   try {
@@ -491,184 +817,43 @@ async function replaceDatabase(importedDbPath, password, backupPassword, current
     }
   } catch (e) {
     logError('Failed to create auto-backup before import:', e);
-    // Proceed with import even if backup fails, but user is warned effectively by the log if they check.
+  }
+
+  const previousDbPath = `${currentDbPath}${PREVIOUS_DB_SUFFIX}`;
+  try {
+    if (isDbOpen()) await closeDatabase();
+    log(`Moving the current database aside to ${previousDbPath}...`);
+    await moveDatabaseFiles(currentDbPath, previousDbPath);
+  } catch (error) {
+    logError('Could not move the current database aside:', error);
+    await putPreviousDatabaseBack(currentDbPath, previousDbPath);
+    return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
   }
 
   try {
-    if (isDbOpen()) {
-      await closeDatabase();
-    }
-    const rawBuffer = await fs.readFile(importedDbPath);
-    const zipBuffer = extractZipFromBuffer(rawBuffer, backupPassword, savedTransferKey);
-    // An encrypted backup that none of the keys could decrypt (extractZipFromBuffer then
-    // returns the encrypted bytes unchanged).
-    if (zipBuffer === rawBuffer && rawBuffer.length >= 44 && !isZipBuffer(rawBuffer)) {
-      return {
-        isValid: false,
-        message:
-          'تعذر فتح النسخة الاحتياطية: رمز النسخة الاحتياطية (رمز النقل) غير صحيح، أو الملف ليس نسخة احتياطية صالحة.',
-      };
-    }
-    const zip = new PizZip(zipBuffer);
-    const sqlFile = zip.file('backup.sql');
-    let configFile = zip.file('salt.json');
-    // For backward compatibility, check for the old config file name
-    if (!configFile) {
-      configFile = zip.file('config.json');
-    }
-
-    if (!sqlFile || !configFile) {
-      throw new Error('Could not find required files (backup.sql, salt.json) in backup package.');
-    }
-
-    // Restore assets if packaged in backup zip
-    try {
-      const electron = require('electron');
-      const app = electron.app;
-      if (app && typeof app.getPath === 'function') {
-        const targetAssetsDir = path.join(app.getPath('userData'), 'assets');
-        if (!fsSync.existsSync(targetAssetsDir)) {
-          fsSync.mkdirSync(targetAssetsDir, { recursive: true });
-        }
-        const assetFiles = zip.file(/^assets\//);
-        for (const assetFile of assetFiles) {
-          const relativePath = assetFile.name.replace(/^assets\//, '');
-          if (relativePath && !assetFile.dir) {
-            const destPath = path.resolve(targetAssetsDir, relativePath);
-            // Zip entry names are untrusted: never write outside the assets folder.
-            if (!destPath.startsWith(path.resolve(targetAssetsDir) + path.sep)) {
-              logWarn(`Skipping backup asset outside the assets folder: ${assetFile.name}`);
-              continue;
-            }
-            fsSync.mkdirSync(path.dirname(destPath), { recursive: true });
-            fsSync.writeFileSync(destPath, assetFile.asNodeBuffer());
-          }
-        }
-      }
-    } catch (assetExtractErr) {
-      if (typeof logWarn === 'function') {
-        logWarn('Asset extraction warning:', assetExtractErr.message);
-      }
-    }
-
-    const sqlScript = sqlFile.asText();
-    const configBuffer = configFile.asNodeBuffer();
-    const configJson = JSON.parse(configBuffer.toString());
-    const newSalt = configJson['db-salt'];
-    if (!newSalt) {
-      throw new Error('Backup configuration is missing the required salt.');
-    }
-    setDbSalt(newSalt);
-    log('Salt configuration updated from backup.');
-
-    // Delete main DB file
-    if (fsSync.existsSync(currentDbPath)) {
-      log(`Deleting old database file at ${currentDbPath}...`);
-      await unlinkWithRetry(currentDbPath);
-    }
-
-    // Delete WAL file if exists
-    const walPath = `${currentDbPath}-wal`;
-    if (fsSync.existsSync(walPath)) {
-      log(`Deleting old WAL file at ${walPath}...`);
-      await unlinkWithRetry(walPath);
-    }
-
-    // Delete SHM file if exists
-    const shmPath = `${currentDbPath}-shm`;
-    if (fsSync.existsSync(shmPath)) {
-      log(`Deleting old SHM file at ${shmPath}...`);
-      await unlinkWithRetry(shmPath);
-    }
-    log('Initializing new database with imported salt...');
-    await initializeDatabase(password);
-    log('New database initialized successfully.');
+    log('Initializing a new database for the backup...');
+    // The schema the backup was made with (today's, for a backup that does not say)...
+    await initializeDatabase({ migrations: backup.migrations });
     log('Processing SQL script to import data...');
+    await importBackupRows(backup.sqlScript);
+    // ...then the migrations that came after it, on its rows.
+    await runMigrations();
+    ensureFeeChargeUniqueness();
+  } catch (error) {
+    logError('Failed to import the backup; putting the previous database back:', error);
+    await putPreviousDatabaseBack(currentDbPath, previousDbPath);
+    return {
+      success: false,
+      message: `فشل استيراد قاعدة البيانات: ${error.message} (بقيت البيانات السابقة كما هي).`,
+    };
+  }
 
-    // Temporarily disable foreign key constraints during import
-    log('Disabling foreign key constraints for import...');
-    await dbExec(getDb(), 'PRAGMA foreign_keys = OFF');
+  setDbSalt(backup.salt);
+  log('Salt configuration updated from backup.');
+  restoreBackupAssets(backup.zip);
 
-    try {
-      await executeSqlScriptSafely(sqlScript);
-      log('Data import completed successfully.');
-    } finally {
-      // Always re-enable foreign key constraints
-      log('Re-enabling foreign key constraints...');
-      await dbExec(getDb(), 'PRAGMA foreign_keys = ON');
-    }
-
-    // Migrate users without roles to user_roles table (for old backups)
-    log('Checking for users without role assignments...');
-    const usersWithoutRoles = await allQuery(`
-      SELECT u.id, u.username
-      FROM users u
-      WHERE NOT EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id)
-    `);
-
-    if (usersWithoutRoles.length > 0) {
-      log(`Found ${usersWithoutRoles.length} users without roles. Assigning default roles...`);
-      for (const user of usersWithoutRoles) {
-        // Assign Administrator role as default for imported users
-        const roleId = await getQuery('SELECT id FROM roles WHERE name = ?', ['Administrator']);
-        if (roleId) {
-          await runQuery('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [
-            user.id,
-            roleId.id,
-          ]);
-          log(`Assigned Administrator role to user: ${user.username}`);
-        }
-      }
-    }
-
-    // Fix matricule formats for imported data (convert old 6-digit to new 4-digit format)
-    log('Checking for matricules that need format conversion...');
-    const matriculeTables = [
-      { name: 'students', prefix: 'S-' },
-      { name: 'teachers', prefix: 'T-' },
-      { name: 'users', prefix: 'U-' },
-      { name: 'groups', prefix: 'G-' },
-      { name: 'inventory_items', prefix: 'INV-' },
-    ];
-
-    let matriculeFixes = 0;
-    for (const table of matriculeTables) {
-      // Find matricules that are longer than expected (old 6-digit format)
-      const matriculesToFix = await allQuery(`
-        SELECT id, matricule
-        FROM ${table.name}
-        WHERE matricule IS NOT NULL
-          AND LENGTH(matricule) > 0
-          AND LENGTH(SUBSTR(matricule, INSTR(matricule, '-') + 1)) > 4
-      `);
-
-      for (const record of matriculesToFix) {
-        // Extract the numeric part and convert to 4-digit format
-        const parts = record.matricule.split('-');
-        if (parts.length === 2) {
-          const prefix = parts[0] + '-';
-          const number = parseInt(parts[1], 10);
-          const newMatricule = prefix + number.toString().padStart(4, '0');
-
-          // Update the record
-          await runQuery(`UPDATE ${table.name} SET matricule = ? WHERE id = ?`, [
-            newMatricule,
-            record.id,
-          ]);
-
-          log(`Converted matricule: ${record.matricule} → ${newMatricule}`);
-          matriculeFixes++;
-        }
-      }
-    }
-
-    if (matriculeFixes > 0) {
-      log(`Fixed ${matriculeFixes} matricule formats during import.`);
-    } else {
-      log('All matricules were already in the correct format.');
-    }
-
-    // Generate missing charges for students after import
+  // Generate missing charges for students after import
+  try {
     log('Checking for students without charges...');
     const { checkAndGenerateChargesForAllStudents } = require('./handlers/studentFeeHandlers');
     const chargeGenResult = await checkAndGenerateChargesForAllStudents();
@@ -677,17 +862,16 @@ async function replaceDatabase(importedDbPath, password, backupPassword, current
     } else {
       logWarn('Failed to generate charges after import:', chargeGenResult.message);
     }
-
-    mainStore.set('force-relogin-after-restart', true);
-    log('Database import successful. Waiting for renderer to relaunch app.');
-    return {
-      success: true,
-      message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
-    };
   } catch (error) {
-    logError('Failed to replace database from package:', error);
-    return { success: false, message: `فشل استيراد قاعدة البيانات: ${error.message}` };
+    logError('Generating charges after the import failed:', error);
   }
+
+  mainStore.set('force-relogin-after-restart', true);
+  log('Database import successful. Waiting for renderer to relaunch app.');
+  return {
+    success: true,
+    message: 'تم استيراد قاعدة البيانات بنجاح. سيتم إعادة تشغيل التطبيق الآن.',
+  };
 }
 
 const REQUIRED_COLUMNS = {
@@ -843,6 +1027,48 @@ const parseScheduleCell = (raw) => {
   return null;
 };
 
+// The channel that writes what each sheet imports. Importing a sheet needs the roles of that
+// channel (CHANNEL_ROLES), so the import is never a way around them: a FinanceManager may import
+// fee payments but not users, students or classes.
+const SHEET_WRITE_CHANNELS = {
+  الطلاب: 'students:add',
+  المعلمون: 'teachers:add',
+  المعلمين: 'teachers:add',
+  المستخدمون: 'users:add',
+  المستخدمين: 'users:add',
+  الفصول: 'classes:add',
+  'العمليات المالية': 'transactions:add',
+  'رسوم الطلاب': 'student-fees:recordPayment',
+  الحضور: 'attendance:save',
+  المجموعات: 'groups:add',
+  المخزون: 'inventory:add',
+};
+
+/**
+ * The sheets in `sheetNames` that a user holding `roles` may not import (unknown sheets
+ * included).
+ * @param {string[]} roles
+ * @param {string[]} sheetNames
+ * @returns {string[]}
+ */
+function refusedImportSheets(roles, sheetNames) {
+  const userRoles = Array.isArray(roles) ? roles : [];
+  return sheetNames.filter((sheet) => {
+    const channel = Object.hasOwn(SHEET_WRITE_CHANNELS, sheet) ? SHEET_WRITE_CHANNELS[sheet] : null;
+    const allowed = channel ? CHANNEL_ROLES[channel] : null;
+    return !allowed || !allowed.some((role) => userRoles.includes(role));
+  });
+}
+
+// The roles a users sheet may give.
+const IMPORTABLE_ROLES = ['Superadmin', 'Administrator', 'FinanceManager', 'SessionSupervisor'];
+
+/** A random 10-character password for an imported account (shown once to the importer). */
+function generateImportPassword() {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.randomBytes(10), (byte) => alphabet[byte % alphabet.length]).join('');
+}
+
 async function importExcelData(filePath, selectedSheets) {
   log(`Starting import with path: ${filePath} and sheets: ${JSON.stringify(selectedSheets)}`);
   const workbook = new ExcelJS.Workbook();
@@ -863,7 +1089,10 @@ async function importExcelData(filePath, selectedSheets) {
     المخزون: processInventoryRow,
   };
 
-  const sheetsToProcess = selectedSheets || Object.keys(allSheetProcessors);
+  if (!Array.isArray(selectedSheets) || selectedSheets.length === 0) {
+    throw new Error('No sheets selected for import.');
+  }
+  const sheetsToProcess = selectedSheets;
   log(`Sheets to process: ${JSON.stringify(sheetsToProcess)}`);
 
   for (const sheetName of sheetsToProcess) {
@@ -1152,7 +1381,7 @@ async function processUserRow(row, headerRow) {
       محاسب: 'FinanceManager',
     };
 
-    const mappedRole = roleMappings[roleValue] || roleValue;
+    const mappedRole = Object.hasOwn(roleMappings, roleValue) ? roleMappings[roleValue] : roleValue;
 
     const data = {
       username: getCellValueByHeader(headerRow, row, 'اسم المستخدم'),
@@ -1184,6 +1413,10 @@ async function processUserRow(row, headerRow) {
       };
     }
 
+    if (!IMPORTABLE_ROLES.includes(mappedRole)) {
+      return { success: false, message: `الدور "${roleValue}" غير معروف.` };
+    }
+
     if (matricule) {
       // Update existing record - need to handle user roles
       const existingUser = await getQuery('SELECT id FROM users WHERE matricule = ?', [matricule]);
@@ -1191,9 +1424,18 @@ async function processUserRow(row, headerRow) {
         return { success: false, message: `المستخدم بالرقم التعريفي "${matricule}" غير موجود.` };
       }
 
-      await runQuery('BEGIN TRANSACTION');
+      // Same rule as users:update: the last active Superadmin keeps the role and stays active.
+      const {
+        isLastActiveSuperadmin,
+        LAST_SUPERADMIN_MESSAGE,
+      } = require('./handlers/userHandlers');
+      const losesSuperadmin =
+        mappedRole !== 'Superadmin' || (data.status && data.status !== 'active');
+      if (losesSuperadmin && (await isLastActiveSuperadmin(existingUser.id))) {
+        return { success: false, message: LAST_SUPERADMIN_MESSAGE };
+      }
 
-      try {
+      return await withTransaction(async () => {
         // Update basic user data
         const fields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
         if (fields.length > 0) {
@@ -1214,12 +1456,8 @@ async function processUserRow(row, headerRow) {
           ]);
         }
 
-        await runQuery('COMMIT');
         return { success: true };
-      } catch (error) {
-        await runQuery('ROLLBACK');
-        throw error;
-      }
+      });
     }
 
     // Insert new record
@@ -1228,12 +1466,10 @@ async function processUserRow(row, headerRow) {
       return { success: false, message: `المستخدم "${data.username}" موجود بالفعل.` };
     }
 
-    const password = Math.random().toString(36).slice(-8);
+    const password = generateImportPassword();
     const newMatricule = await generateMatricule('user');
 
-    await runQuery('BEGIN TRANSACTION');
-
-    try {
+    return await withTransaction(async () => {
       // Insert main user record
       const allFields = Object.keys(data).filter((k) => data[k] !== null && data[k] !== undefined);
       const userFields = [...allFields, 'matricule', 'password'];
@@ -1259,12 +1495,8 @@ async function processUserRow(row, headerRow) {
         roleRecord.id,
       ]);
 
-      await runQuery('COMMIT');
       return { success: true, newUser: { username: data.username, password } };
-    } catch (error) {
-      await runQuery('ROLLBACK');
-      throw error;
-    }
+    });
   } catch (error) {
     logError('Error processing user row:', error);
     return { success: false, message: `حدث خطأ غير متوقع: ${error.message}` };
@@ -1495,8 +1727,7 @@ async function processTransactionRow(row, headerRow) {
     data.voucher_number = await generateVoucherNumber();
   }
 
-  await runQuery('BEGIN TRANSACTION;');
-  try {
+  return withTransaction(async () => {
     const sql = `INSERT INTO transactions (
       matricule, type, category, receipt_type, amount, transaction_date, description,
       payment_method, check_number, voucher_number, account_id, related_person_name,
@@ -1523,12 +1754,8 @@ async function processTransactionRow(row, headerRow) {
       adjustment,
     ]);
 
-    await runQuery('COMMIT;');
     return { success: true };
-  } catch (error) {
-    await runQuery('ROLLBACK;');
-    throw error;
-  }
+  });
 }
 
 async function processAttendanceRow(row, headerRow) {
@@ -1885,6 +2112,8 @@ const exported = {
   validateDatabaseFile,
   replaceDatabase,
   importExcelData,
+  refusedImportSheets,
+  SHEET_WRITE_CHANNELS,
 };
 
 // Conditionally export internal functions for testing

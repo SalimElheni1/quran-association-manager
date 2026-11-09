@@ -1,7 +1,8 @@
 /**
  * Reads a date of birth: a Date, a timestamp, or a string in YYYY-MM-DD form, or
  * DD/MM/YYYY and DD-MM-YYYY from older imports.
- * Keep in step with src/main/utils/age.js, which applies the same rules in the main process.
+ * Keep in step with src/main/utils/age.js, which applies the same rules in the main process
+ * (tests/renderer/utils/age.spec.js checks both give the same age).
  * @param {Date|number|string|null|undefined} value
  * @returns {Date|null} null when the value is empty or not a date
  */

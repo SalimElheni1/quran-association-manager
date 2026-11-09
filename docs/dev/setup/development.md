@@ -25,7 +25,7 @@ Prerequisites: Node.js 22+, npm 10+, Git. On Windows, the native SQLite module n
 ```bash
 git clone https://github.com/SalimElheni1/quran-association-manager.git
 cd quran-association-manager
-npm install              # postinstall rebuilds the native SQLite module for Electron
+npm install              # also downloads Electron
 cp .env.example .env     # then fill it in
 ```
 
@@ -83,11 +83,13 @@ See [testing.md](testing.md) and [building.md](building.md).
 
 Add a new file `src/db/migrations/NNN-description.sql` with the next free number. Migrations
 run in filename order at startup, on fresh and existing databases alike (fresh installs run
-`schema.js` first). The runner records each file by **name**, so never rename, renumber or edit
-a migration that has shipped: add a new one. Each file runs in one transaction. If it fails with
-"duplicate column name" the runner rolls the whole file back and records it as applied, so any
-other statement in that file never runs: keep an `ALTER TABLE … ADD COLUMN` in a file of its own
-(or last).
+`schema.js` first). The runner records each file by **name**, so never rename, renumber, edit or
+remove a migration that has shipped: add a new one. Backups list these names too: a restore
+rebuilds the backup's schema from them and runs the later ones on its rows, and refuses a backup
+that lists a name the app does not have. Each file runs in one transaction and is recorded
+only when all of it ran; any error stops the start-up. The one exception: an
+`ALTER TABLE … ADD COLUMN` whose column the table already has is left out, and the rest of the
+file runs.
 
 ### UI
 

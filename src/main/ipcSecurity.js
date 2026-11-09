@@ -5,9 +5,9 @@
 //   (sessionManager), never from renderer-supplied tokens.
 // - Sender frame validation restricts IPC to the application window itself.
 
-const path = require('path');
 const sessionManager = require('./sessionManager');
-const { warn: logWarn } = require('./logger');
+const { isInternalUrl } = require('./navigationGuard');
+const { warn: logWarn, error: logError } = require('./logger');
 const { validateChannelArgs, hasArgSchema } = require('./ipcValidation');
 
 const ERRORS = {
@@ -15,10 +15,11 @@ const ERRORS = {
   FORBIDDEN: 'غير مسموح به.',
   SENDER_REJECTED: 'الوصول مرفوض.',
   INVALID_INPUT: 'بيانات غير صالحة.',
+  PASSWORD_CHANGE_REQUIRED: 'يجب تغيير كلمة المرور قبل المتابعة.',
+  DATABASE: 'تعذر إتمام العملية بسبب خطأ في قاعدة البيانات. التفاصيل في سجل البرنامج.',
 };
 
 const ALLOWED_DEV_URL_ORIGIN = 'http://localhost:3000';
-const ALLOWED_PROD_URL_MARKER = path.posix.join('dist', 'renderer', 'index.html');
 
 const ROLES = {
   ADMIN: ['Superadmin', 'Administrator'],
@@ -35,9 +36,11 @@ const PUBLIC_CHANNELS = new Set([
   'get-is-packaged',
   'get-app-version',
   'settings:getLogo',
-  'ui:show-error-toast',
-  'ui:show-success-toast',
 ]);
+
+// What a session may still do while its user must replace the legacy default password: change
+// it, read the profile, log out. Everything else waits until the password is changed.
+const PASSWORD_CHANGE_CHANNELS = new Set(['auth:updatePassword', 'auth:getProfile', 'logout']);
 
 // Role matrix for every protected channel. Any channel registered in the
 // application that is missing from here is treated as "any authenticated
@@ -81,6 +84,7 @@ const CHANNEL_ROLES = {
   'inventory:update': ROLES.ADMIN,
   'inventory:delete': ROLES.ADMIN,
   'inventory:restore': ROLES.ADMIN,
+  'inventory:add-in-kind': ROLES.ADMIN,
   'accounts:add': ROLES.ADMIN,
   'in-kind-categories:add': ROLES.ADMIN,
   'in-kind-categories:update': ROLES.ADMIN,
@@ -113,7 +117,6 @@ const CHANNEL_ROLES = {
   'financial:get-summary': ROLES.FINANCE,
   'financial:export-pdf': ROLES.FINANCE,
   'financial:export-excel': ROLES.FINANCE,
-  'financial:reconcile': ROLES.FINANCE,
   'financial-export:cash-ledger': ROLES.FINANCE,
   'financial-export:inventory-ledger': ROLES.FINANCE,
   'financial-export:inventory-register': ROLES.FINANCE,
@@ -139,9 +142,6 @@ const CHANNEL_ROLES = {
   'student-fees:refreshStudentCharges': ROLES.FINANCE,
   'student-fees:refreshAllStudentCharges': ROLES.FINANCE,
   'student-fees:resetCharges': ROLES.FINANCE,
-  'receipts:generate': ROLES.FINANCE,
-  'receipts:getStats': ROLES.FINANCE,
-  'receipts:validate': ROLES.FINANCE,
   'receipt-books:get': ROLES.FINANCE,
   'receipt-books:get-active': ROLES.FINANCE,
   'receipt-books:add': ROLES.FINANCE,
@@ -149,7 +149,6 @@ const CHANNEL_ROLES = {
   'receipt-books:delete': ROLES.FINANCE,
   'receipt-books:restore': ROLES.FINANCE,
   'receipt-books:get-next-number': ROLES.FINANCE,
-  'receipt-books:check-exists': ROLES.FINANCE,
   'inventory:get': ROLES.FINANCE,
   'inventory:check-uniqueness': ROLES.FINANCE,
   'export:generate': ROLES.FINANCE,
@@ -157,8 +156,6 @@ const CHANNEL_ROLES = {
   'import:get-sheets': ROLES.FINANCE,
   'import:get-sheet-info': ROLES.FINANCE,
   'generate-import-template': ROLES.FINANCE,
-  'import:generate-template': ROLES.FINANCE,
-  'import:execute': ROLES.FINANCE,
   'dialog:openFile': ROLES.FINANCE,
 
   // ---- Any authenticated session (attendance/sessions + shared reads) ----
@@ -207,7 +204,9 @@ function isAllowedSender(webContents) {
   try {
     const url = webContents && typeof webContents.getURL === 'function' ? webContents.getURL() : '';
     if (!url) return false;
-    if (url.startsWith('file://') && url.includes(ALLOWED_PROD_URL_MARKER)) return true;
+    // The built renderer: exactly the file index.js loads (dist/renderer/index.html of this app),
+    // not any file that happens to sit in a dist/renderer folder.
+    if (url.startsWith('file://')) return isInternalUrl(url, { isPackaged: true, isE2E: false });
     try {
       return new URL(url).origin === ALLOWED_DEV_URL_ORIGIN;
     } catch {
@@ -230,11 +229,13 @@ function getPolicy(channel) {
   return { public: false, roles: null, unknown: true };
 }
 
-function sessionRoles(event) {
-  const senderId = event && event.sender ? event.sender.id : null;
-  if (typeof senderId !== 'number') return null;
-  const session = sessionManager.getSession(senderId);
-  return session ? session.roles : null;
+function senderSession(event) {
+  return sessionManager.getSessionForEvent(event);
+}
+
+/** True while the session may only change its password and the channel is something else. */
+function blockedUntilPasswordChange(session, channel) {
+  return !!session.mustChangePassword && !PASSWORD_CHANGE_CHANNELS.has(channel);
 }
 
 /**
@@ -249,6 +250,28 @@ function argsAreValid(channel, args) {
   return false;
 }
 
+// SQLite's own wording, for errors a handler re-threw as `new Error(err.message)` (the code is
+// lost then, not the text).
+const SQLITE_MESSAGE =
+  /\b(?:UNIQUE|NOT NULL|CHECK|FOREIGN KEY|PRIMARY KEY) constraint failed\b|\bno such (?:table|column)\b|\bnear ".*": syntax error\b|\bSQLITE_[A-Z_]+\b/;
+
+/**
+ * Runs a handler. A failure inside SQLite reaches the window as an Arabic message; the SQL error
+ * itself (table and column names, constraint text) only goes to the log.
+ */
+async function runHandler(channel, handler, event, args) {
+  try {
+    return await handler(event, ...args);
+  } catch (error) {
+    const fromSqlite =
+      (typeof error?.code === 'string' && error.code.startsWith('SQLITE_')) ||
+      SQLITE_MESSAGE.test(String(error?.message));
+    if (!fromSqlite) throw error;
+    logError(`[ipcSecurity] "${channel}" failed in the database:`, error);
+    throw new Error(ERRORS.DATABASE);
+  }
+}
+
 /**
  * Wraps a handle registration with authentication + authorization + sender + argument checks.
  */
@@ -259,13 +282,17 @@ function wrapHandle(channel, handler, policy) {
     }
     if (policy.public) {
       if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
-      return handler(event, ...args);
+      return runHandler(channel, handler, event, args);
     }
 
-    const roles = sessionRoles(event);
-    if (!roles) throw new Error(ERRORS.AUTH_REQUIRED);
+    const session = senderSession(event);
+    if (!session) throw new Error(ERRORS.AUTH_REQUIRED);
+    const { roles } = session;
     if (policy.roles && !policy.roles.some((role) => roles.includes(role))) {
       throw new Error(ERRORS.FORBIDDEN);
+    }
+    if (blockedUntilPasswordChange(session, channel)) {
+      throw new Error(ERRORS.PASSWORD_CHANGE_REQUIRED);
     }
     if (policy.unknown) {
       logWarn(
@@ -273,7 +300,7 @@ function wrapHandle(channel, handler, policy) {
       );
     }
     if (!argsAreValid(channel, args)) throw new Error(ERRORS.INVALID_INPUT);
-    return handler(event, ...args);
+    return runHandler(channel, handler, event, args);
   };
 }
 
@@ -285,9 +312,10 @@ function wrapOn(channel, handler, policy) {
   return (event, ...args) => {
     if (!isAllowedSender(event && event.sender)) return;
     if (!policy.public) {
-      const roles = sessionRoles(event);
-      if (!roles) return;
-      if (policy.roles && !policy.roles.some((role) => roles.includes(role))) return;
+      const session = senderSession(event);
+      if (!session) return;
+      if (policy.roles && !policy.roles.some((role) => session.roles.includes(role))) return;
+      if (blockedUntilPasswordChange(session, channel)) return;
     }
     if (!argsAreValid(channel, args)) return;
     return handler(event, ...args);
@@ -327,6 +355,7 @@ function installIpcGuard(ipcMain) {
 module.exports = {
   ERRORS,
   PUBLIC_CHANNELS,
+  PASSWORD_CHANGE_CHANNELS,
   CHANNEL_ROLES,
   ROLES,
   installIpcGuard,

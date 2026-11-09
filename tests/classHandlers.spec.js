@@ -201,29 +201,33 @@ describe('Class Handlers', () => {
   });
 
   describe('classes:updateEnrollments', () => {
-    it('should correctly update enrollments within a transaction', async () => {
+    it('adds and removes only the students the dialog shows, in a transaction', async () => {
       const classId = 1;
-      const studentIds = [10, 11];
+      // Shown in the dialog (active, not deleted) and enrolled: 10 and 12.
+      db.allQuery.mockResolvedValueOnce([{ student_id: 10 }, { student_id: 12 }]);
       db.runQuery.mockResolvedValue(undefined);
 
-      await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds });
+      await ipcMain.invoke('classes:updateEnrollments', { classId, studentIds: [10, 11] });
 
-      // Deleted students' enrollments are kept
+      expect(db.allQuery).toHaveBeenCalledWith(expect.stringContaining("s.status = 'active'"), [
+        classId,
+      ]);
       expect(db.runQuery).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)',
+        expect.stringMatching(
+          /DELETE FROM class_students WHERE class_id = \?\s+AND student_id IN \(\?\)/,
         ),
-        [classId],
+        [classId, 12],
       );
       expect(db.runQuery).toHaveBeenCalledWith(
-        'INSERT INTO class_students (class_id, student_id) VALUES (?, ?), (?, ?)',
-        [1, 10, 1, 11],
+        'INSERT OR IGNORE INTO class_students (class_id, student_id) VALUES (?, ?)',
+        [1, 11],
       );
       expect(log).toHaveBeenCalledWith('[Enrollment] ✅ Enrollments updated successfully');
     });
 
     it('should rollback transaction on error', async () => {
       const error = new Error('DB Error');
+      db.allQuery.mockResolvedValueOnce([{ student_id: 12 }]);
       db.runQuery
         .mockResolvedValueOnce(undefined) // DELETE
         .mockRejectedValueOnce(error); // INSERT fails

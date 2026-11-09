@@ -161,10 +161,11 @@ describe('Permissions Utility', () => {
       expect(ROLE_PERMISSIONS.Superadmin).toEqual(allPermissions);
     });
 
-    it('should have Administrator with limited permissions', () => {
+    it('should have Administrator with everything but managing users', () => {
       expect(ROLE_PERMISSIONS.Administrator).toContain(PERMISSIONS.STUDENTS_VIEW);
       expect(ROLE_PERMISSIONS.Administrator).toContain(PERMISSIONS.TEACHERS_VIEW);
-      expect(ROLE_PERMISSIONS.Administrator).not.toContain(PERMISSIONS.SETTINGS_EDIT);
+      expect(ROLE_PERMISSIONS.Administrator).toContain(PERMISSIONS.SETTINGS_EDIT);
+      expect(ROLE_PERMISSIONS.Administrator).not.toContain(PERMISSIONS.USERS_CREATE);
     });
 
     it('should have FinanceManager with financial permissions only', () => {
@@ -177,6 +178,68 @@ describe('Permissions Utility', () => {
       expect(ROLE_PERMISSIONS.SessionSupervisor).toContain(PERMISSIONS.ATTENDANCE_VIEW);
       expect(ROLE_PERMISSIONS.SessionSupervisor).toContain(PERMISSIONS.ATTENDANCE_MANAGE);
       expect(ROLE_PERMISSIONS.SessionSupervisor).not.toContain(PERMISSIONS.FINANCIALS_VIEW);
+    });
+  });
+
+  // The role table of the user manual (docs/user/manual.md) and docs/dev/specs/security.md.
+  describe('what each role reaches, as the user manual describes it', () => {
+    const MODULES = [
+      'students',
+      'teachers',
+      'classes',
+      'attendance',
+      'financials',
+      'users',
+      'settings',
+    ];
+    const reached = (role) => MODULES.filter((module) => canAccessModule([role], module));
+
+    it.each([
+      ['Superadmin', MODULES],
+      // Everything but managing users: the users list is read-only for them.
+      ['Administrator', MODULES],
+      ['FinanceManager', ['students', 'teachers', 'classes', 'attendance', 'financials']],
+      ['SessionSupervisor', ['students', 'teachers', 'classes', 'attendance']],
+    ])('%s', (role, modules) => {
+      expect(reached(role)).toEqual(modules);
+    });
+
+    it('only the Superadmin manages users', () => {
+      for (const role of ['Administrator', 'FinanceManager', 'SessionSupervisor']) {
+        for (const permission of [
+          PERMISSIONS.USERS_CREATE,
+          PERMISSIONS.USERS_EDIT,
+          PERMISSIONS.USERS_DELETE,
+        ]) {
+          expect(hasPermission([role], permission)).toBe(false);
+        }
+      }
+    });
+
+    it('the FinanceManager and the SessionSupervisor take attendance and only read the rest', () => {
+      for (const role of ['FinanceManager', 'SessionSupervisor']) {
+        expect(hasPermission([role], PERMISSIONS.ATTENDANCE_MANAGE)).toBe(true);
+        for (const permission of [
+          PERMISSIONS.STUDENTS_CREATE,
+          PERMISSIONS.STUDENTS_EDIT,
+          PERMISSIONS.TEACHERS_CREATE,
+          PERMISSIONS.TEACHERS_EDIT,
+          PERMISSIONS.CLASSES_CREATE,
+          PERMISSIONS.CLASSES_EDIT,
+          PERMISSIONS.SETTINGS_EDIT,
+        ]) {
+          expect(hasPermission([role], permission)).toBe(false);
+        }
+      }
+    });
+
+    it('Excel export and import are offered to the roles the main process allows them', () => {
+      for (const role of ['Superadmin', 'Administrator', 'FinanceManager']) {
+        expect(hasPermission([role], PERMISSIONS.DATA_EXPORT)).toBe(true);
+        expect(hasPermission([role], PERMISSIONS.DATA_IMPORT)).toBe(true);
+      }
+      expect(hasPermission(['SessionSupervisor'], PERMISSIONS.DATA_EXPORT)).toBe(false);
+      expect(hasPermission(['SessionSupervisor'], PERMISSIONS.DATA_IMPORT)).toBe(false);
     });
   });
 });

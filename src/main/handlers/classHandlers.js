@@ -2,6 +2,7 @@ const { ipcMain } = require('electron');
 const db = require('../../db/db');
 const { classValidationSchema } = require('../validationSchemas');
 const { log, error: logError } = require('../logger');
+const { toSqliteValues, invalidDataError } = require('../utils/handlerData');
 const { mapCategory } = require('../utils/translations');
 const { calculateAge } = require('../utils/age');
 const { deletedFilter, notDeleted, softDeleteRow, restoreRow } = require('../softDelete');
@@ -30,18 +31,7 @@ function registerClassHandlers() {
         stripUnknown: true,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      // SQLite3 only accepts: numbers, strings, bigints, buffers, and null
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          // Convert booleans to integers (0/1)
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          // Convert Date objects to ISO strings
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToInsert = classFields.filter((field) => validatedData[field] !== undefined);
       if (fieldsToInsert.length === 0) throw new Error('No valid fields to insert.');
@@ -50,8 +40,7 @@ function registerClassHandlers() {
       const sql = `INSERT INTO classes (${fieldsToInsert.join(', ')}) VALUES (${placeholders})`;
       return db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in classes:add handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
@@ -64,15 +53,7 @@ function registerClassHandlers() {
         stripUnknown: true,
       });
 
-      // Convert non-SQLite-bindable types for compatibility
-      for (const key of Object.keys(validatedData)) {
-        const value = validatedData[key];
-        if (typeof value === 'boolean') {
-          validatedData[key] = value ? 1 : 0;
-        } else if (value instanceof Date) {
-          validatedData[key] = value.toISOString().split('T')[0];
-        }
-      }
+      toSqliteValues(validatedData);
 
       const fieldsToUpdate = classFields.filter((field) => validatedData[field] !== undefined);
       const setClauses = fieldsToUpdate.map((field) => `${field} = ?`).join(', ');
@@ -80,8 +61,7 @@ function registerClassHandlers() {
       const sql = `UPDATE classes SET ${setClauses} WHERE id = ?`;
       return db.runQuery(sql, params);
     } catch (error) {
-      if (error.isJoi)
-        throw new Error(`بيانات غير صالحة: ${error.details.map((d) => d.message).join('; ')}`);
+      if (error.isJoi) throw invalidDataError(error);
       logError('Error in classes:update handler:', error);
       throw new Error('حدث خطأ غير متوقع في الخادم.');
     }
@@ -244,44 +224,46 @@ function registerClassHandlers() {
     }
   });
 
-  ipcMain.handle('classes:updateEnrollments', async (_event, { classId, studentIds, userId }) => {
+  ipcMain.handle('classes:updateEnrollments', async (event, { classId, studentIds }) => {
     try {
-      // Track which students were added/removed for charge regeneration
-      // Deleted students are not in the dialog, so their enrollments are left as they are
-      // (kept for history and for a restore).
-      const oldEnrollments = await db.allQuery(
+      // The audit user is the one logged in on this window, never a value from the window.
+      const userId = getUserIdForEvent(event);
+      // The dialog lists the class's active, non-deleted students (classes:getEnrollmentData):
+      // only their enrolments change. Inactive and deleted students stay enrolled (kept for
+      // history and for when they come back), since the dialog never showed them.
+      const shownEnrollments = await db.allQuery(
         `SELECT cs.student_id FROM class_students cs JOIN students s ON s.id = cs.student_id
-         WHERE cs.class_id = ? AND ${notDeleted('s')}`,
+         WHERE cs.class_id = ? AND s.status = 'active' AND ${notDeleted('s')}`,
         [classId],
       );
-      const oldStudentIds = oldEnrollments.map((e) => e.student_id);
+      const oldStudentIds = shownEnrollments.map((e) => e.student_id);
+      const newStudentIds = [...new Set((studentIds || []).map(Number))];
 
       // Identify added and removed students
-      const addedStudents = (studentIds || []).filter((id) => !oldStudentIds.includes(id));
-      const removedStudents = oldStudentIds.filter((id) => !(studentIds || []).includes(id));
+      const addedStudents = newStudentIds.filter((id) => !oldStudentIds.includes(id));
+      const removedStudents = oldStudentIds.filter((id) => !newStudentIds.includes(id));
       const affectedStudents = [...new Set([...addedStudents, ...removedStudents])];
 
       log(`[Enrollment] ════════════════════════════════════════════════════`);
       log(`[Enrollment] Updating enrollments for class ${classId}`);
       log(`[Enrollment] Previous students: ${oldStudentIds.join(', ') || 'none'}`);
-      log(`[Enrollment] New students: ${(studentIds || []).join(', ') || 'none'}`);
+      log(`[Enrollment] New students: ${newStudentIds.join(', ') || 'none'}`);
       log(`[Enrollment] Added students: ${addedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Removed students: ${removedStudents.join(', ') || 'none'}`);
       log(`[Enrollment] Total affected: ${affectedStudents.length} student(s)`);
 
       await db.withTransaction(async () => {
-        await db.runQuery(
-          `DELETE FROM class_students WHERE class_id = ?
-           AND student_id NOT IN (SELECT id FROM students WHERE deleted_at IS NOT NULL)`,
-          [classId],
-        );
-        if (studentIds && studentIds.length > 0) {
-          const placeholders = studentIds.map(() => '(?, ?)').join(', ');
-          const params = [];
-          studentIds.forEach((studentId) => {
-            params.push(classId, studentId);
-          });
-          const sql = `INSERT INTO class_students (class_id, student_id) VALUES ${placeholders}`;
+        if (removedStudents.length > 0) {
+          await db.runQuery(
+            `DELETE FROM class_students WHERE class_id = ?
+             AND student_id IN (${removedStudents.map(() => '?').join(', ')})`,
+            [classId, ...removedStudents],
+          );
+        }
+        if (addedStudents.length > 0) {
+          const placeholders = addedStudents.map(() => '(?, ?)').join(', ');
+          const params = addedStudents.flatMap((studentId) => [classId, studentId]);
+          const sql = `INSERT OR IGNORE INTO class_students (class_id, student_id) VALUES ${placeholders}`;
           await db.runQuery(sql, params);
         }
       });

@@ -1,6 +1,7 @@
 const { ipcMain, dialog, BrowserWindow } = require('electron');
-const { importExcelData } = require('../importManager');
-const { getAllSheets, getSheetInfo } = require('../importConstants');
+const { importExcelData, refusedImportSheets } = require('../importManager');
+const sessionManager = require('../sessionManager');
+const { getAllSheets, getSheetInfo, sheetForImportType } = require('../importConstants');
 const { generateExcelTemplate } = require('../exportManager');
 const { error: logError } = require('../logger');
 
@@ -11,26 +12,23 @@ function registerImportHandlers() {
   /**
    * Import Excel data - single step
    */
-  ipcMain.handle('import:excel', async (_event, filePath, selectedSheets) => {
+  ipcMain.handle('import:excel', async (event, filePath, selectedSheets) => {
     try {
-      // Map UI sheet names to canonical sheet names if needed
-      const sheetNameMap = {
-        المداخيل: 'العمليات المالية',
-        المصاريف: 'العمليات المالية',
-        'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        الجرد: 'المخزون',
-        // Canonical names are already correct
-        الطلاب: 'الطلاب',
-        المعلمون: 'المعلمون',
-        المستخدمون: 'المستخدمون',
-        الفصول: 'الفصول',
-        'العمليات المالية': 'العمليات المالية',
-        الحضور: 'الحضور',
-        المجموعات: 'المجموعات',
-        المخزون: 'المخزون',
-      };
+      if (!Array.isArray(selectedSheets) || selectedSheets.length === 0) {
+        return { success: false, message: 'لم يتم تحديد أي ورقة للاستيراد.' };
+      }
+      const canonicalSheets = selectedSheets.map(sheetForImportType);
 
-      const canonicalSheets = selectedSheets.map((sheet) => sheetNameMap[sheet] || sheet);
+      // Each sheet needs the roles of the channel that writes its records (users:add for the
+      // users sheet, and so on); the import:excel channel alone is not enough.
+      const session = sessionManager.getSessionForEvent(event);
+      const refused = refusedImportSheets(session ? session.roles : [], canonicalSheets);
+      if (refused.length > 0) {
+        return {
+          success: false,
+          message: `ليست لديك صلاحية استيراد: ${[...new Set(refused)].join('، ')}.`,
+        };
+      }
 
       const result = await importExcelData(filePath, canonicalSheets);
       // Broadcast import completion to all renderer windows so they can refresh their data
@@ -90,28 +88,11 @@ function registerImportHandlers() {
    */
   ipcMain.handle('generate-import-template', async (_event, options = {}) => {
     try {
-      // Map UI import type names to their corresponding sheet names for template generation
-      const importTypeToSheetMap = {
-        المداخيل: 'العمليات المالية',
-        المصاريف: 'العمليات المالية',
-        'رسوم الطلاب': 'رسوم الطلاب', // Use dedicated student fees sheet
-        الجرد: 'المخزون',
-        // Direct matches for other types
-        الطلاب: 'الطلاب',
-        المعلمون: 'المعلمون',
-        المستخدمون: 'المستخدمون',
-        الفصول: 'الفصول',
-        'العمليات المالية': 'العمليات المالية',
-        الحضور: 'الحضور',
-        المجموعات: 'المجموعات',
-        المخزون: 'المخزون',
-      };
-
       const mappedOptions = { ...options };
-      if (options.sheetName && importTypeToSheetMap[options.sheetName]) {
+      if (options.sheetName) {
         // Store original import type for filtering dummy data
         mappedOptions.importType = options.sheetName;
-        mappedOptions.sheetName = importTypeToSheetMap[options.sheetName];
+        mappedOptions.sheetName = sheetForImportType(options.sheetName);
       }
 
       // Generate filename based on original import type for better differentiation

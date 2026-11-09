@@ -18,158 +18,193 @@ const ARABIC_MONTHS = [
   'ديسمبر',
 ];
 
+const renderYearOptions = () => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = currentYear; i >= currentYear - 10; i--) {
+    years.push(
+      <option key={i} value={i}>
+        {i}
+      </option>,
+    );
+  }
+  return years;
+};
+
+/** The chosen period as { startDate, endDate }, or null when a custom period is incomplete. */
+const periodOf = ({ filterType, year, month, startDate, endDate }) => {
+  if (filterType === 'month') {
+    return {
+      startDate: toLocalISODate(new Date(year, month, 1)),
+      endDate: toLocalISODate(new Date(year, month + 1, 0)),
+    };
+  }
+  if (filterType === 'year') {
+    return {
+      startDate: toLocalISODate(new Date(year, 0, 1)),
+      endDate: toLocalISODate(new Date(year, 11, 31)),
+    };
+  }
+  return startDate && endDate ? { startDate, endDate } : null;
+};
+
+function PeriodFields({ value, onChange }) {
+  const set = (field) => (e) => onChange({ ...value, [field]: e.target.value });
+  const setNumber = (field) => (e) => onChange({ ...value, [field]: parseInt(e.target.value) });
+  const yearField = (
+    <Col md={3}>
+      <Form.Group>
+        <Form.Label>اختر السنة</Form.Label>
+        <Form.Select value={value.year} onChange={setNumber('year')}>
+          {renderYearOptions()}
+        </Form.Select>
+      </Form.Group>
+    </Col>
+  );
+
+  return (
+    <Row className="mb-3 align-items-end">
+      <Col md={3}>
+        <Form.Group>
+          <Form.Label>نوع الفترة</Form.Label>
+          <Form.Select value={value.filterType} onChange={set('filterType')}>
+            <option value="month">شهر معين</option>
+            <option value="year">سنة معينة</option>
+            <option value="custom">فترة مخصصة</option>
+          </Form.Select>
+        </Form.Group>
+      </Col>
+
+      {value.filterType === 'month' && (
+        <>
+          <Col md={3}>
+            <Form.Group>
+              <Form.Label>اختر الشهر</Form.Label>
+              <Form.Select value={value.month} onChange={setNumber('month')}>
+                {ARABIC_MONTHS.map((m, i) => (
+                  <option key={i} value={i}>
+                    {m}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          {yearField}
+        </>
+      )}
+
+      {value.filterType === 'year' && yearField}
+
+      {value.filterType === 'custom' && (
+        <>
+          <Col md={3}>
+            <Form.Group>
+              <Form.Label>من تاريخ</Form.Label>
+              <Form.Control type="date" value={value.startDate} onChange={set('startDate')} />
+            </Form.Group>
+          </Col>
+          <Col md={3}>
+            <Form.Group>
+              <Form.Label>إلى تاريخ</Form.Label>
+              <Form.Control type="date" value={value.endDate} onChange={set('endDate')} />
+            </Form.Group>
+          </Col>
+        </>
+      )}
+    </Row>
+  );
+}
+
+/**
+ * One report: its description, a period when it takes one, the export button and the result.
+ * @param {object} props
+ * @param {(period?: object) => Promise<{cancelled?: boolean, success?: boolean, message?: string}>} props.onExport
+ */
+function ReportCard({
+  title,
+  description,
+  withPeriod,
+  buttonVariant,
+  buttonLabel,
+  successText,
+  onExport,
+}) {
+  const [period, setPeriod] = useState({
+    filterType: 'month',
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+    startDate: '',
+    endDate: '',
+  });
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handleExport = async () => {
+    setMessage({ type: '', text: '' });
+    setLoading(true);
+
+    try {
+      let result;
+      if (withPeriod) {
+        const chosen = periodOf(period);
+        if (!chosen) {
+          setMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين.' });
+          return;
+        }
+        result = await onExport({ period: chosen });
+      } else {
+        result = await onExport();
+      }
+
+      if (result.cancelled) {
+        setMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
+      } else if (result.success) {
+        setMessage({ type: 'success', text: successText });
+      } else {
+        setMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
+      }
+    } catch (error) {
+      setMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
+      logError('Export failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const button = (
+    <Button variant={buttonVariant} onClick={handleExport} disabled={loading}>
+      {loading ? 'جاري التصدير...' : buttonLabel}
+    </Button>
+  );
+
+  return (
+    <Card className="mb-4">
+      <Card.Header className="bg-light">
+        <h5 className="mb-0">{title}</h5>
+      </Card.Header>
+      <Card.Body>
+        <p className="small text-muted">{description}</p>
+
+        {withPeriod ? (
+          <Form>
+            <PeriodFields value={period} onChange={setPeriod} />
+            {button}
+          </Form>
+        ) : (
+          button
+        )}
+
+        {message.text && (
+          <Alert variant={message.type} className="mt-3">
+            {message.text}
+          </Alert>
+        )}
+      </Card.Body>
+    </Card>
+  );
+}
+
 function FinancialReportsTab() {
-  // Word Report State
-  const [wordFilterType, setWordFilterType] = useState('month');
-  const [wordYear, setWordYear] = useState(new Date().getFullYear());
-  const [wordMonth, setWordMonth] = useState(new Date().getMonth());
-  const [wordStartDate, setWordStartDate] = useState('');
-  const [wordEndDate, setWordEndDate] = useState('');
-  const [wordMessage, setWordMessage] = useState({ type: '', text: '' });
-  const [wordLoading, setWordLoading] = useState(false);
-
-  // Excel Ledger State
-  const [ledgerFilterType, setLedgerFilterType] = useState('month');
-  const [ledgerYear, setLedgerYear] = useState(new Date().getFullYear());
-  const [ledgerMonth, setLedgerMonth] = useState(new Date().getMonth());
-  const [ledgerStartDate, setLedgerStartDate] = useState('');
-  const [ledgerEndDate, setLedgerEndDate] = useState('');
-  const [ledgerMessage, setLedgerMessage] = useState({ type: '', text: '' });
-  const [ledgerLoading, setLedgerLoading] = useState(false);
-
-  // Inventory Ledger State
-  const [inventoryMessage, setInventoryMessage] = useState({ type: '', text: '' });
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-
-  const renderYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear; i >= currentYear - 10; i--) {
-      years.push(
-        <option key={i} value={i}>
-          {i}
-        </option>,
-      );
-    }
-    return years;
-  };
-
-  const getWordPeriod = () => {
-    if (wordFilterType === 'month') {
-      return {
-        startDate: toLocalISODate(new Date(wordYear, wordMonth, 1)),
-        endDate: toLocalISODate(new Date(wordYear, wordMonth + 1, 0)),
-      };
-    } else if (wordFilterType === 'year') {
-      return {
-        startDate: toLocalISODate(new Date(wordYear, 0, 1)),
-        endDate: toLocalISODate(new Date(wordYear, 11, 31)),
-      };
-    } else if (wordFilterType === 'custom') {
-      return wordStartDate && wordEndDate
-        ? { startDate: wordStartDate, endDate: wordEndDate }
-        : null;
-    }
-  };
-
-  const getLedgerPeriod = () => {
-    if (ledgerFilterType === 'month') {
-      return {
-        startDate: toLocalISODate(new Date(ledgerYear, ledgerMonth, 1)),
-        endDate: toLocalISODate(new Date(ledgerYear, ledgerMonth + 1, 0)),
-      };
-    } else if (ledgerFilterType === 'year') {
-      return {
-        startDate: toLocalISODate(new Date(ledgerYear, 0, 1)),
-        endDate: toLocalISODate(new Date(ledgerYear, 11, 31)),
-      };
-    } else if (ledgerFilterType === 'custom') {
-      return ledgerStartDate && ledgerEndDate
-        ? { startDate: ledgerStartDate, endDate: ledgerEndDate }
-        : null;
-    }
-  };
-
-  const handleExportFinancialReport = async () => {
-    setWordMessage({ type: '', text: '' });
-    setWordLoading(true);
-
-    try {
-      const period = getWordPeriod();
-      if (!period) {
-        setWordMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين.' });
-        setWordLoading(false);
-        return;
-      }
-
-      const result = await window.electronAPI.exportFinancialReportWord({ period });
-
-      if (result.cancelled) {
-        setWordMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
-      } else if (result.success) {
-        setWordMessage({ type: 'success', text: 'تم تصدير التقرير المالي بنجاح!' });
-      } else {
-        setWordMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
-      }
-    } catch (error) {
-      setWordMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-      logError('Export failed:', error);
-    } finally {
-      setWordLoading(false);
-    }
-  };
-
-  const handleExportCashLedger = async () => {
-    setLedgerMessage({ type: '', text: '' });
-    setLedgerLoading(true);
-
-    try {
-      const period = getLedgerPeriod();
-      if (!period) {
-        setLedgerMessage({ type: 'danger', text: 'الرجاء تحديد تاريخ بدء وانتهاء صالحين.' });
-        setLedgerLoading(false);
-        return;
-      }
-
-      const result = await window.electronAPI.exportCashLedger({ period });
-
-      if (result.cancelled) {
-        setLedgerMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
-      } else if (result.success) {
-        setLedgerMessage({ type: 'success', text: 'تم تصدير سجل المحاسبة بنجاح!' });
-      } else {
-        setLedgerMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
-      }
-    } catch (error) {
-      setLedgerMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-      logError('Export failed:', error);
-    } finally {
-      setLedgerLoading(false);
-    }
-  };
-
-  const handleExportInventoryLedger = async () => {
-    setInventoryMessage({ type: '', text: '' });
-    setInventoryLoading(true);
-
-    try {
-      const result = await window.electronAPI.exportInventoryLedger();
-
-      if (result.cancelled) {
-        setInventoryMessage({ type: 'info', text: 'تم إلغاء التصدير.' });
-      } else if (result.success) {
-        setInventoryMessage({ type: 'success', text: 'تم تصدير سجل الجرد بنجاح!' });
-      } else {
-        setInventoryMessage({ type: 'danger', text: `فشل التصدير: ${result.message}` });
-      }
-    } catch (error) {
-      setInventoryMessage({ type: 'danger', text: `حدث خطأ: ${error.message}` });
-      logError('Export failed:', error);
-    } finally {
-      setInventoryLoading(false);
-    }
-  };
-
   return (
     <div>
       <Card>
@@ -179,251 +214,34 @@ function FinancialReportsTab() {
             قم بتصدير التقارير المالية بصيغة Word أو Excel مع تنسيق احترافي وتفاصيل كاملة.
           </p>
 
-          <Card className="mb-4">
-            <Card.Header className="bg-light">
-              <h5 className="mb-0">التقرير المالي</h5>
-            </Card.Header>
-            <Card.Body>
-              <p className="small text-muted">
-                تقرير شامل يتضمن: السيولة، المداخيل، المصاريف، والرصيد النهائي مع تفاصيل كاملة.
-              </p>
+          <ReportCard
+            title="التقرير المالي"
+            description="تقرير شامل يتضمن: السيولة، المداخيل، المصاريف، والرصيد النهائي مع تفاصيل كاملة."
+            withPeriod
+            buttonVariant="primary"
+            buttonLabel="تصدير التقرير المالي (Word)"
+            successText="تم تصدير التقرير المالي بنجاح!"
+            onExport={(request) => window.electronAPI.exportFinancialReportWord(request)}
+          />
 
-              <Form>
-                <Row className="mb-3 align-items-end">
-                  <Col md={3}>
-                    <Form.Group>
-                      <Form.Label>نوع الفترة</Form.Label>
-                      <Form.Select
-                        value={wordFilterType}
-                        onChange={(e) => setWordFilterType(e.target.value)}
-                      >
-                        <option value="month">شهر معين</option>
-                        <option value="year">سنة معينة</option>
-                        <option value="custom">فترة مخصصة</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
+          <ReportCard
+            title="📒 سجل المحاسبة الشهري"
+            description="سجل محاسبي شهري مفصل يتضمن: الرصيد الافتتاحي، جميع العمليات، والرصيد النهائي بصيغة Excel."
+            withPeriod
+            buttonVariant="success"
+            buttonLabel="تصدير سجل المحاسبة (Excel)"
+            successText="تم تصدير سجل المحاسبة بنجاح!"
+            onExport={(request) => window.electronAPI.exportCashLedger(request)}
+          />
 
-                  {wordFilterType === 'month' && (
-                    <>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>اختر الشهر</Form.Label>
-                          <Form.Select
-                            value={wordMonth}
-                            onChange={(e) => setWordMonth(parseInt(e.target.value))}
-                          >
-                            {ARABIC_MONTHS.map((m, i) => (
-                              <option key={i} value={i}>
-                                {m}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select
-                            value={wordYear}
-                            onChange={(e) => setWordYear(parseInt(e.target.value))}
-                          >
-                            {renderYearOptions()}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                    </>
-                  )}
-
-                  {wordFilterType === 'year' && (
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label>اختر السنة</Form.Label>
-                        <Form.Select
-                          value={wordYear}
-                          onChange={(e) => setWordYear(parseInt(e.target.value))}
-                        >
-                          {renderYearOptions()}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  )}
-
-                  {wordFilterType === 'custom' && (
-                    <>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>من تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={wordStartDate}
-                            onChange={(e) => setWordStartDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>إلى تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={wordEndDate}
-                            onChange={(e) => setWordEndDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </>
-                  )}
-                </Row>
-
-                <Button
-                  variant="primary"
-                  onClick={handleExportFinancialReport}
-                  disabled={wordLoading}
-                >
-                  {wordLoading ? 'جاري التصدير...' : 'تصدير التقرير المالي (Word)'}
-                </Button>
-              </Form>
-
-              {wordMessage.text && (
-                <Alert variant={wordMessage.type} className="mt-3">
-                  {wordMessage.text}
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
-
-          <Card className="mb-4">
-            <Card.Header className="bg-light">
-              <h5 className="mb-0">📒 سجل المحاسبة الشهري</h5>
-            </Card.Header>
-            <Card.Body>
-              <p className="small text-muted">
-                سجل محاسبي شهري مفصل يتضمن: الرصيد الافتتاحي، جميع العمليات، والرصيد النهائي بصيغة
-                Excel.
-              </p>
-
-              <Form>
-                <Row className="mb-3 align-items-end">
-                  <Col md={3}>
-                    <Form.Group>
-                      <Form.Label>نوع الفترة</Form.Label>
-                      <Form.Select
-                        value={ledgerFilterType}
-                        onChange={(e) => setLedgerFilterType(e.target.value)}
-                      >
-                        <option value="month">شهر معين</option>
-                        <option value="year">سنة معينة</option>
-                        <option value="custom">فترة مخصصة</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-
-                  {ledgerFilterType === 'month' && (
-                    <>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>اختر الشهر</Form.Label>
-                          <Form.Select
-                            value={ledgerMonth}
-                            onChange={(e) => setLedgerMonth(parseInt(e.target.value))}
-                          >
-                            {ARABIC_MONTHS.map((m, i) => (
-                              <option key={i} value={i}>
-                                {m}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>اختر السنة</Form.Label>
-                          <Form.Select
-                            value={ledgerYear}
-                            onChange={(e) => setLedgerYear(parseInt(e.target.value))}
-                          >
-                            {renderYearOptions()}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                    </>
-                  )}
-
-                  {ledgerFilterType === 'year' && (
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label>اختر السنة</Form.Label>
-                        <Form.Select
-                          value={ledgerYear}
-                          onChange={(e) => setLedgerYear(parseInt(e.target.value))}
-                        >
-                          {renderYearOptions()}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  )}
-
-                  {ledgerFilterType === 'custom' && (
-                    <>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>من تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={ledgerStartDate}
-                            onChange={(e) => setLedgerStartDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label>إلى تاريخ</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={ledgerEndDate}
-                            onChange={(e) => setLedgerEndDate(e.target.value)}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </>
-                  )}
-                </Row>
-
-                <Button variant="success" onClick={handleExportCashLedger} disabled={ledgerLoading}>
-                  {ledgerLoading ? 'جاري التصدير...' : 'تصدير سجل المحاسبة (Excel)'}
-                </Button>
-              </Form>
-
-              {ledgerMessage.text && (
-                <Alert variant={ledgerMessage.type} className="mt-3">
-                  {ledgerMessage.text}
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
-
-          <Card className="mb-4">
-            <Card.Header className="bg-light">
-              <h5 className="mb-0">سجل الجرد</h5>
-            </Card.Header>
-            <Card.Body>
-              <p className="small text-muted">سجل الأصول الملموسة مجمعة حسب الفئة بصيغة Excel.</p>
-
-              <Button
-                variant="info"
-                onClick={handleExportInventoryLedger}
-                disabled={inventoryLoading}
-              >
-                {inventoryLoading ? 'جاري التصدير...' : 'تصدير سجل الجرد (Excel)'}
-              </Button>
-
-              {inventoryMessage.text && (
-                <Alert variant={inventoryMessage.type} className="mt-3">
-                  {inventoryMessage.text}
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
+          <ReportCard
+            title="سجل الجرد"
+            description="سجل الأصول الملموسة مجمعة حسب الفئة بصيغة Excel."
+            buttonVariant="info"
+            buttonLabel="تصدير سجل الجرد (Excel)"
+            successText="تم تصدير سجل الجرد بنجاح!"
+            onExport={() => window.electronAPI.exportInventoryLedger()}
+          />
         </Card.Body>
       </Card>
     </div>

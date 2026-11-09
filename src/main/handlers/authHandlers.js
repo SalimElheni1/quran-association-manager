@@ -1,6 +1,5 @@
 const { ipcMain } = require('electron');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const Store = require('electron-store');
 const db = require('../../db/db');
 const sessionManager = require('../sessionManager');
@@ -14,6 +13,7 @@ const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler, internalSetTransferKey } = require('./settingsHandlers');
 const { checkTransferKey } = require('../transferKeyPolicy');
 const { error: logError } = require('../logger');
+const { getUserRoleNames } = require('../utils/handlerData');
 
 let authStore = null;
 const getAuthStore = () => {
@@ -23,27 +23,52 @@ const getAuthStore = () => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_DURATION_MS = 5 * 60 * 1000;
+// A login lasts 8 hours; after that the main process asks for the password again.
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+// Failed logins are counted per username: guessing one account's password locks that account,
+// not everybody's. Stored as { [username in lower case]: { failCount, lastFailAt, lockedUntil } }.
+const LOCKOUTS_STORE_KEY = 'login_lockouts';
+// Compared against when the username does not exist, so an unknown name takes as long to refuse
+// as a wrong password (the hash of a random value nobody knows, same cost as real ones).
+const UNKNOWN_USER_HASH = '$2a$10$Q7zbykwaa75apZ6cc0Ew8eD9oY0ezGnKLEQD7FM6sL4Jbayee7mpC';
 
-const getLoginLockoutState = () => getAuthStore().get('login_lockout') || null;
+const lockoutKey = (username) =>
+  String(username || '')
+    .trim()
+    .toLowerCase();
+
+const getAllLockouts = () => ({ ...(getAuthStore().get(LOCKOUTS_STORE_KEY) || {}) });
+
+const getLoginLockoutState = (username) => getAllLockouts()[lockoutKey(username)] || null;
 
 const getRemainingLockMinutes = (lockedUntil) =>
   Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
 
-const recordFailedLoginAttempt = () => {
+const recordFailedLoginAttempt = (username) => {
   const now = Date.now();
-  const prev = getLoginLockoutState() || {};
+  const lockouts = getAllLockouts();
+  // Forget counters that ran out, so mistyped usernames don't pile up in the store.
+  for (const [key, state] of Object.entries(lockouts)) {
+    const expired = now - (state.lastFailAt || 0) > LOGIN_LOCK_DURATION_MS;
+    if (expired && !(state.lockedUntil > now)) delete lockouts[key];
+  }
+  const key = lockoutKey(username);
+  const prev = lockouts[key] || {};
   const windowExpired = now - (prev.lastFailAt || 0) > LOGIN_LOCK_DURATION_MS;
   const failCount = windowExpired ? 1 : (prev.failCount || 0) + 1;
   const state = { failCount, lastFailAt: now, lockedUntil: null };
   if (failCount >= MAX_LOGIN_ATTEMPTS) {
     state.lockedUntil = now + LOGIN_LOCK_DURATION_MS;
   }
-  getAuthStore().set('login_lockout', state);
+  lockouts[key] = state;
+  getAuthStore().set(LOCKOUTS_STORE_KEY, lockouts);
   return state;
 };
 
-const clearLoginLockout = () => {
-  getAuthStore().delete('login_lockout');
+const clearLoginLockout = (username) => {
+  const lockouts = getAllLockouts();
+  delete lockouts[lockoutKey(username)];
+  getAuthStore().set(LOCKOUTS_STORE_KEY, lockouts);
 };
 
 const profileUpdateValidationSchema = userUpdateValidationSchema
@@ -84,8 +109,7 @@ const PROFILE_EDITABLE_FIELDS = [
 ];
 
 const getUserIdFromSession = (event) => {
-  const senderId = event && event.sender ? event.sender.id : null;
-  const session = typeof senderId === 'number' ? sessionManager.getSession(senderId) : null;
+  const session = sessionManager.getSessionForEvent(event);
   if (!session) {
     throw new Error('Authentication required.');
   }
@@ -102,11 +126,7 @@ const getProfileHandler = async (userId) => {
     throw new Error('User profile not found.');
   }
 
-  const roles = await db.allQuery(
-    'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-    [userId],
-  );
-  userProfile.roles = roles.map((r) => r.name);
+  userProfile.roles = await getUserRoleNames(userId);
 
   // Normalize onboarding fields for the renderer: return boolean for need_guide and integer for current_step
   try {
@@ -260,7 +280,7 @@ function registerAuthHandlers() {
         await db.initializeDatabase();
       }
 
-      const lockState = getLoginLockoutState();
+      const lockState = getLoginLockoutState(username);
       if (lockState && lockState.lockedUntil && Date.now() < lockState.lockedUntil) {
         return {
           success: false,
@@ -269,17 +289,17 @@ function registerAuthHandlers() {
       }
 
       const user = await db.getQuery('SELECT * FROM users WHERE username = ?', [username]);
-      if (!user) {
-        recordFailedLoginAttempt();
-        return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
-      }
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        recordFailedLoginAttempt();
+      // An unknown username costs the same bcrypt comparison as a wrong password.
+      const isMatch = await bcrypt.compare(
+        String(password || ''),
+        user ? user.password : UNKNOWN_USER_HASH,
+      );
+      if (!user || !isMatch) {
+        recordFailedLoginAttempt(username);
         return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
       }
 
-      clearLoginLockout();
+      clearLoginLockout(username);
 
       // A deleted account (kept for history) can no longer sign in, nor can an inactive one.
       // Checked after the password so the message doesn't reveal which usernames exist.
@@ -300,11 +320,7 @@ function registerAuthHandlers() {
       // the legacy default password '123456', force a password change.
       const mustChangePassword = await bcrypt.compare('123456', user.password);
 
-      const roles = await db.allQuery(
-        'SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = ?',
-        [user.id],
-      );
-      const userRoles = roles.map((r) => r.name);
+      const userRoles = await getUserRoleNames(user.id);
 
       await refreshSettings();
 
@@ -322,26 +338,19 @@ function registerAuthHandlers() {
         logError('Failed to cache logo path on login:', e);
       }
 
-      const token = jwt.sign(
-        { id: user.id, username: user.username, roles: userRoles },
-        process.env.JWT_SECRET,
-        { expiresIn: '8h' },
-      );
-
       // Establish the main-process session for this webContents. All later
-      // IPC authorization reads from this session, not from the token.
+      // IPC authorization reads from this session.
       if (event && event.sender && typeof event.sender.id === 'number') {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         sessionManager.createSession(
           event.sender,
           { id: user.id, username: user.username, roles: userRoles },
-          decoded && decoded.exp ? decoded.exp * 1000 : null,
+          Date.now() + SESSION_DURATION_MS,
+          { mustChangePassword },
         );
       }
 
       return {
         success: true,
-        token,
         mustChangePassword,
         user: {
           id: user.id,
@@ -353,10 +362,7 @@ function registerAuthHandlers() {
         },
       };
     } catch (error) {
-      logError('Error in auth:login handler:', error.message);
-      if (error.message !== 'Incorrect password or corrupt database.') {
-        await db.closeDatabase();
-      }
+      logError('Error in auth:login handler:', error);
       return { success: false, message: error.message || 'حدث خطأ غير متوقع في الخادم.' };
     }
   });
@@ -420,7 +426,11 @@ function registerAuthHandlers() {
 
   ipcMain.handle('auth:updateProfile', async (event, { profileData }) => {
     try {
-      return await updateProfileHandler(getUserIdFromSession(event), profileData);
+      const result = await updateProfileHandler(getUserIdFromSession(event), profileData);
+      if (result.success && profileData && profileData.new_password) {
+        sessionManager.clearMustChangePassword(event.sender.id);
+      }
+      return result;
     } catch (error) {
       logError('Error in auth:updateProfile IPC wrapper:', error);
       if (error.isJoi) {
@@ -433,7 +443,10 @@ function registerAuthHandlers() {
 
   ipcMain.handle('auth:updatePassword', async (event, { passwordData }) => {
     try {
-      return await updatePasswordHandler(getUserIdFromSession(event), passwordData);
+      const result = await updatePasswordHandler(getUserIdFromSession(event), passwordData);
+      // The legacy default password is gone: the session may do everything its roles allow.
+      if (result.success) sessionManager.clearMustChangePassword(event.sender.id);
+      return result;
     } catch (error) {
       logError('Error in auth:updatePassword IPC wrapper:', error);
       if (error.isJoi) {

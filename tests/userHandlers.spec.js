@@ -170,7 +170,11 @@ describe('userHandlers', () => {
     });
 
     it('should refuse to remove the Superadmin role from the last one', async () => {
-      userUpdateValidationSchema.validateAsync.mockResolvedValue({ status: 'active' });
+      // The roles come back from the schema with the rest of the validated data.
+      userUpdateValidationSchema.validateAsync.mockResolvedValue({
+        status: 'active',
+        roles: ['Administrator'],
+      });
       db.getQuery.mockResolvedValueOnce({ yes: 1 }).mockResolvedValueOnce({ count: 0 });
 
       await expect(
@@ -179,6 +183,10 @@ describe('userHandlers', () => {
           userData: { status: 'active', roles: ['Administrator'] },
         }),
       ).rejects.toThrow('آخر مدير نظام');
+      expect(userUpdateValidationSchema.validateAsync).toHaveBeenCalledWith(
+        { status: 'active', roles: ['Administrator'] },
+        expect.any(Object),
+      );
     });
   });
 });

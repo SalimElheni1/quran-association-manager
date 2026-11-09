@@ -305,5 +305,9 @@ test.describe('Dashboard home page', () => {
     await expect(page.locator('h1', { hasText: 'لوحة التحكم الرئيسية' })).toBeVisible();
     await expect(page.locator('.stat-card').first()).toBeVisible();
     await expect(page.locator('.chart-card')).toHaveCount(0);
+    // The counts load, and the backup reminder (Superadmin/Administrator only) is not asked for:
+    // no «فشل في تحميل بيانات لوحة التحكم».
+    await expect(page.locator('.stat-card').first()).not.toContainText('...');
+    await expect(page.locator('.Toastify__toast--error')).toHaveCount(0);
   });
 });

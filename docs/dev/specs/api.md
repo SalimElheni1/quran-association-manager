@@ -32,7 +32,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 
 <!-- api-doc:start -->
 
-148 channels.
+142 channels.
 
 ### accounts
 
@@ -83,9 +83,9 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 |---|---|---|---|
 | `backup:get-reminder-status` | `getBackupReminderStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
 | `backup:getStatus` | `getBackupStatus` | Superadmin, Administrator | `handlers/systemHandlers.js` |
-| `backup:reveal-transfer-key` | `revealTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
+| `backup:reveal-transfer-key` | `revealTransferKey` | Superadmin | `handlers/systemHandlers.js` |
 | `backup:run` | `runBackup` | Superadmin, Administrator | `handlers/systemHandlers.js` |
-| `backup:set-transfer-key` | `setTransferKey` | Superadmin (password re-checked) | `handlers/systemHandlers.js` |
+| `backup:set-transfer-key` | `setTransferKey` | Superadmin | `handlers/systemHandlers.js` |
 
 ### categories
 
@@ -146,7 +146,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `financial:export-excel` | `exportFinancialReportExcel` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `financial:export-pdf` | `exportFinancialReportPDF` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `financial:get-summary` | `getFinancialSummary` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
-| `financial:reconcile` | — | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 
 ### generate
 
@@ -193,8 +192,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `import:excel` | `importExcel` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
-| `import:execute` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
-| `import:generate-template` | — | Superadmin, Administrator, FinanceManager | `handlers/systemHandlers.js` |
 | `import:get-sheet-info` | `getSheetInfo` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
 | `import:get-sheets` | `getImportSheets` | Superadmin, Administrator, FinanceManager | `handlers/importHandlers.js` |
 
@@ -213,6 +210,7 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `inventory:add` | `addInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
+| `inventory:add-in-kind` | `addInKindDonation` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:check-uniqueness` | `checkInventoryItemUniqueness` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
 | `inventory:delete` | `deleteInventoryItem` | Superadmin, Administrator | `handlers/inventoryHandlers.js` |
 | `inventory:get` | `getInventoryItems` | Superadmin, Administrator, FinanceManager | `handlers/inventoryHandlers.js` |
@@ -239,7 +237,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
 | `receipt-books:add` | `addReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
-| `receipt-books:check-exists` | `checkReceiptExists` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:delete` | `deleteReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get` | `getReceiptBooks` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:get-active` | `getActiveReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
@@ -247,19 +244,11 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `receipt-books:restore` | `restoreReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 | `receipt-books:update` | `updateReceiptBook` | Superadmin, Administrator, FinanceManager | `handlers/receiptHandlers.js` |
 
-### receipts
-
-| Channel | `window.electronAPI` | Allowed | File |
-|---|---|---|---|
-| `receipts:generate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-| `receipts:getStats` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-| `receipts:validate` | — | Superadmin, Administrator, FinanceManager | `handlers/studentFeeHandlers.js` |
-
 ### settings
 
 | Channel | `window.electronAPI` | Allowed | File |
 |---|---|---|---|
-| `settings:get` | `getSetting` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
+| `settings:get` | `getSettings` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
 | `settings:getLogo` | `getLogo` | Public (before login) | `handlers/settingsHandlers.js` |
 | `settings:update` | `updateSettings` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
 | `settings:uploadLogo` | `uploadLogo` | Superadmin, Administrator | `handlers/settingsHandlers.js` |
@@ -324,13 +313,6 @@ Generated from the code by `npm run docs:api`; do not edit this section by hand.
 | `transactions:get` | `getTransactions` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `transactions:get-earliest-date` | `getEarliestTransactionDate` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
 | `transactions:update` | `updateTransaction` | Superadmin, Administrator, FinanceManager | `handlers/financialHandlers.js` |
-
-### ui
-
-| Channel | `window.electronAPI` | Allowed | File |
-|---|---|---|---|
-| `ui:show-error-toast` | `showErrorToast` | Public (before login) | `handlers/systemHandlers.js` |
-| `ui:show-success-toast` | `showSuccessToast` | Public (before login) | `handlers/systemHandlers.js` |
 
 ### users
 

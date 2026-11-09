@@ -18,6 +18,7 @@ import {
 import { toast } from 'react-toastify';
 import InfoIcon from '@renderer/components/icons/InfoIcon';
 import PasswordPromptModal from '@renderer/components/PasswordPromptModal';
+import ConfirmationModal from '@renderer/components/common/ConfirmationModal';
 import AgeGroupsTab from '@renderer/components/settings/AgeGroupsTab';
 import TransferKeyCard from '@renderer/components/settings/TransferKeyCard';
 
@@ -27,6 +28,7 @@ const BACKUP_KEY_LABEL = 'رمز حماية النسخ الاحتياطية (ر�
 const SettingsPage = () => {
   const { state } = useLocation();
   const { user } = useAuth();
+  const isSuperadmin = !!user?.roles?.includes('Superadmin');
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +38,8 @@ const SettingsPage = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // A restore waiting for the user to accept an unsigned backup from before version 1.3.0.
+  const [unsignedRestore, setUnsignedRestore] = useState(null);
   const [activeTab, setActiveTab] = useState(state?.defaultTab || 'association');
 
   useEffect(() => {
@@ -147,25 +151,12 @@ const SettingsPage = () => {
     }
   };
 
-  const handlePasswordConfirm = async (password, backupKey) => {
-    const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
-    setShowPasswordModal(false);
-
-    if (!password) {
-      toast.warn('تم إلغاء عملية الاستيراد.');
-      return;
-    }
-
+  const restoreDatabase = async (request) => {
     setIsImporting(true);
     toast.info('بدء استبدال قاعدة البيانات...');
 
     try {
-      const result = await window.electronAPI.importDatabase({
-        password,
-        userId: user.id,
-        filePath: downloadedFilePath,
-        backupPassword: backupKey || undefined,
-      });
+      const result = await window.electronAPI.importDatabase(request);
 
       if (result.success) {
         toast.success(
@@ -175,6 +166,8 @@ const SettingsPage = () => {
             onClose: () => window.electronAPI.relaunchApp(),
           },
         );
+      } else if (result.needsUnsignedConfirmation) {
+        setUnsignedRestore({ request, message: result.message });
       } else {
         toast.error(`فشل الاستبدال: ${result.message}`);
       }
@@ -183,6 +176,33 @@ const SettingsPage = () => {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handlePasswordConfirm = async (password, backupKey) => {
+    const downloadedFilePath = typeof showPasswordModal === 'string' ? showPasswordModal : null;
+    setShowPasswordModal(false);
+
+    if (!password) {
+      toast.warn('تم إلغاء عملية الاستيراد.');
+      return;
+    }
+
+    await restoreDatabase({
+      password,
+      filePath: downloadedFilePath,
+      backupPassword: backupKey || undefined,
+    });
+  };
+
+  const handleUnsignedRestoreConfirm = async () => {
+    const { request } = unsignedRestore;
+    setUnsignedRestore(null);
+    await restoreDatabase({ ...request, allowUnsigned: true });
+  };
+
+  const handleUnsignedRestoreCancel = () => {
+    setUnsignedRestore(null);
+    toast.warn('تم إلغاء عملية الاستيراد.');
   };
 
   const handleImportDb = async () => {
@@ -478,7 +498,7 @@ const SettingsPage = () => {
                     <TransferKeyCard
                       label={BACKUP_KEY_LABEL}
                       hasKey={!!settings.has_transfer_key}
-                      canManage={!!user?.roles?.includes('Superadmin')}
+                      canManage={isSuperadmin}
                       onChanged={() => setSettings((prev) => ({ ...prev, has_transfer_key: true }))}
                     />
 
@@ -613,32 +633,34 @@ const SettingsPage = () => {
                       </Card.Body>
                     </Card>
 
-                    {/* 3. Restoring */}
-                    <Card className="shadow-sm border border-danger mb-4" data-section="restore">
-                      <Card.Body>
-                        <h5 className="text-danger border-bottom pb-2 mb-2">
-                          استرجاع نسخة احتياطية
-                        </h5>
-                        <Alert variant="danger" className="small">
-                          الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
-                          (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
-                          تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
-                          محدداً.
-                        </Alert>
-                        <p className="small text-muted">
-                          ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا الجهاز
-                          تُفتح مباشرة؛ اكتب «{BACKUP_KEY_LABEL}» فقط إذا كانت النسخة مشفّرة برمز
-                          آخر (مثلاً رمز سابق).
-                        </p>
-                        <Button
-                          variant="outline-danger"
-                          onClick={() => handleImportDb()}
-                          disabled={isImporting || isBackingUp}
-                        >
-                          استرجاع من نسخة احتياطية...
-                        </Button>
-                      </Card.Body>
-                    </Card>
+                    {/* 3. Restoring: replaces every record, so only the Superadmin (db:import) */}
+                    {isSuperadmin && (
+                      <Card className="shadow-sm border border-danger mb-4" data-section="restore">
+                        <Card.Body>
+                          <h5 className="text-danger border-bottom pb-2 mb-2">
+                            استرجاع نسخة احتياطية
+                          </h5>
+                          <Alert variant="danger" className="small">
+                            الاسترجاع <strong>يستبدل كل البيانات الحالية</strong> ببيانات النسخة
+                            (الطلاب، المالية، المستخدمون...) ثم يعيد تشغيل التطبيق. قبل الاستبدال
+                            تُحفظ نسخة أمان من البيانات الحالية في مجلد النسخ الاحتياطية إن كان
+                            محدداً.
+                          </Alert>
+                          <p className="small text-muted">
+                            ستُطلب منك كلمة مرورك الحالية. النسخ المشفّرة بالرمز المحفوظ في هذا
+                            الجهاز تُفتح مباشرة؛ اكتب «{BACKUP_KEY_LABEL}» فقط إذا كانت النسخة
+                            مشفّرة برمز آخر (مثلاً رمز سابق).
+                          </p>
+                          <Button
+                            variant="outline-danger"
+                            onClick={() => handleImportDb()}
+                            disabled={isImporting || isBackingUp}
+                          >
+                            استرجاع من نسخة احتياطية...
+                          </Button>
+                        </Card.Body>
+                      </Card>
+                    )}
                   </Tab>
                 </Tabs>
 
@@ -661,6 +683,16 @@ const SettingsPage = () => {
         body="أدخل كلمة مرورك الحالية لتأكيد استبدال كل البيانات بالنسخة المختارة. سيُعاد تشغيل التطبيق بعد الاسترجاع."
         showBackupKeyField
         backupKeyPlaceholder="رمز حماية النسخ الاحتياطية (اتركه فارغاً إذا كانت النسخة مشفّرة بالرمز المحفوظ هنا)"
+      />
+
+      <ConfirmationModal
+        show={!!unsignedRestore}
+        handleClose={handleUnsignedRestoreCancel}
+        handleConfirm={handleUnsignedRestoreConfirm}
+        title="نسخة احتياطية قديمة غير موقّعة"
+        body={unsignedRestore?.message}
+        confirmVariant="danger"
+        confirmText="استرجاعها رغم ذلك"
       />
     </Container>
   );
