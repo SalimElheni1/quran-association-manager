@@ -85,6 +85,7 @@ if (app.isPackaged) {
 const Store = require('electron-store');
 const { log, error: logError, initializeLogFile } = require('./logger');
 const { installNavigationGuard } = require('./navigationGuard');
+const { isPolicyEnforced, RELAXED_PASSWORDS_ARGUMENT } = require('./passwordPolicy');
 const db = require('../db/db');
 const { refreshSettings } = require('./settingsManager');
 const { requireRoles } = require('./authMiddleware');
@@ -162,6 +163,8 @@ const createWindow = () => {
       contextIsolation: true, // CRITICAL: Security - isolate contexts
       webviewTag: false, // CRITICAL: Security - disable webview tag
       devTools: !app.isPackaged, // No DevTools in the installed app (no menu opens them anyway)
+      // Development runs accept any password; the window's own check must agree (preload.js).
+      additionalArguments: isPolicyEnforced() ? [] : [RELAXED_PASSWORDS_ARGUMENT],
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),
   });

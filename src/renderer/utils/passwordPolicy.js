@@ -6,8 +6,13 @@
 
 export const PASSWORD_MIN_LENGTH = 6;
 
-export const PASSWORD_RULES_HINT =
-  '6 أحرف على الأقل؛ يمكنك استخدام الحروف أو الأرقام فقط أو اختيار كلمة مرور أكثر تعقيداً. تجنب كلمات المرور الشائعة.';
+// A development run accepts any non-empty password (the main process decides: preload.js).
+const isRelaxed = () =>
+  typeof window !== 'undefined' && window.electronAPI?.relaxedPasswords === true;
+
+export const PASSWORD_RULES_HINT = isRelaxed()
+  ? 'وضع التطوير: تُقبل أي كلمة مرور. النسخة المثبتة تشترط 6 أحرف على الأقل وترفض كلمات المرور الشائعة.'
+  : '6 أحرف على الأقل؛ يمكنك استخدام الحروف أو الأرقام فقط أو اختيار كلمة مرور أكثر تعقيداً. تجنب كلمات المرور الشائعة.';
 
 export const PASSWORD_MESSAGES = {
   tooShort: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
@@ -19,6 +24,7 @@ export const PASSWORD_MESSAGES = {
  * @returns {string|null} The Arabic message of the first failed rule, or null.
  */
 export function checkPasswordRules(password) {
+  if (isRelaxed() && typeof password === 'string' && password.length > 0) return null;
   if (typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
     return PASSWORD_MESSAGES.tooShort;
   }

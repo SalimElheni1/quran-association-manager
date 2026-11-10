@@ -18,6 +18,13 @@ const { contextBridge, ipcRenderer } = require('electron');
  * The API is organized by feature namespaces for better maintainability.
  */
 contextBridge.exposeInMainWorld('electronAPI', {
+  /**
+   * True in a development run, where the main process accepts any non-empty password
+   * (src/main/passwordPolicy.js). Always false in the installed app.
+   * @type {boolean}
+   */
+  relaxedPasswords: process.argv.includes('--qbm-relaxed-passwords'),
+
   // ========================================================================
   // GENERAL APPLICATION APIs
   // ========================================================================

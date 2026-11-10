@@ -36,3 +36,49 @@ describe('passwordPolicy.checkPassword', () => {
     });
   });
 });
+
+describe('passwordPolicy: where the policy applies', () => {
+  const { isPolicyEnforced } = require('../src/main/passwordPolicy');
+
+  it.each([
+    ['the installed app', { isPackaged: true, env: {} }, true],
+    [
+      'the installed app, whatever the environment says',
+      { isPackaged: true, env: { NODE_ENV: 'development' } },
+      true,
+    ],
+    ['a development run', { isPackaged: false, env: {} }, false],
+    ['the e2e tests', { isPackaged: false, env: { QBM_E2E: '1' } }, true],
+    ['the unit tests', { isPackaged: false, env: { NODE_ENV: 'test' } }, true],
+  ])('%s', (_label, runtime, enforced) => {
+    expect(isPolicyEnforced(runtime)).toBe(enforced);
+  });
+
+  describe('in a development run', () => {
+    const realNodeEnv = process.env.NODE_ENV;
+    let devPolicy;
+
+    beforeAll(() => {
+      process.env.NODE_ENV = 'development';
+      jest.isolateModules(() => {
+        jest.doMock('electron', () => ({ app: { isPackaged: false } }));
+        devPolicy = require('../src/main/passwordPolicy');
+      });
+    });
+
+    afterAll(() => {
+      process.env.NODE_ENV = realNodeEnv;
+      jest.dontMock('electron');
+    });
+
+    it('accepts short and common passwords', () => {
+      expect(devPolicy.checkPassword('1')).toBeNull();
+      expect(devPolicy.checkPassword('password')).toBeNull();
+    });
+
+    it('still refuses an empty or missing password', () => {
+      expect(devPolicy.checkPassword('')).toBe(RULE_MESSAGES.tooShort);
+      expect(devPolicy.checkPassword(undefined)).toBe(RULE_MESSAGES.tooShort);
+    });
+  });
+});

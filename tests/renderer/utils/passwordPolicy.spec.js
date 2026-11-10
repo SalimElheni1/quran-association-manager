@@ -33,3 +33,19 @@ describe('renderer password rules (SEC-010)', () => {
     expect(main.checkPassword('Password123!')).toBe(main.RULE_MESSAGES.common);
   });
 });
+
+describe('renderer password rules in a development run', () => {
+  afterEach(() => {
+    delete window.electronAPI.relaxedPasswords;
+  });
+
+  it('accepts any non-empty password when the main process says passwords are relaxed', () => {
+    window.electronAPI.relaxedPasswords = true;
+    expect(checkPasswordRules('1')).toBeNull();
+    expect(checkPasswordRules('')).toBe(PASSWORD_MESSAGES.tooShort);
+  });
+
+  it('keeps the rules without that flag', () => {
+    expect(checkPasswordRules('1')).toBe(PASSWORD_MESSAGES.tooShort);
+  });
+});
