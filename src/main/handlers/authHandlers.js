@@ -8,7 +8,12 @@ const {
   passwordUpdateValidationSchema,
 } = require('../validationSchemas');
 const Joi = require('joi'); // Keep Joi for the complex password confirmation
-const { checkPassword, passwordPolicyValidator, JOI_RULE_MESSAGES } = require('../passwordPolicy');
+const {
+  checkPassword,
+  passwordPolicyValidator,
+  JOI_RULE_MESSAGES,
+  LEGACY_DEFAULT_PASSWORD,
+} = require('../passwordPolicy');
 const { refreshSettings } = require('../settingsManager');
 const { internalGetSettingsHandler, internalSetTransferKey } = require('./settingsHandlers');
 const { checkTransferKey } = require('../transferKeyPolicy');
@@ -317,8 +322,8 @@ function registerAuthHandlers() {
       }
 
       // SEC-04 safety net for existing installs: if the account still uses
-      // the legacy default password '123456', force a password change.
-      const mustChangePassword = await bcrypt.compare('123456', user.password);
+      // the legacy default password, force a password change.
+      const mustChangePassword = await bcrypt.compare(LEGACY_DEFAULT_PASSWORD, user.password);
 
       const userRoles = await getUserRoleNames(user.id);
 

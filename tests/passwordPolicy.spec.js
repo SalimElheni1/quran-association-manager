@@ -47,19 +47,43 @@ describe('passwordPolicy: where the policy applies', () => {
       { isPackaged: true, env: { NODE_ENV: 'development' } },
       true,
     ],
-    ['a development run', { isPackaged: false, env: {} }, false],
-    ['the e2e tests', { isPackaged: false, env: { QBM_E2E: '1' } }, true],
-    ['the unit tests', { isPackaged: false, env: { NODE_ENV: 'test' } }, true],
+    [
+      'the installed app, even when asked to relax',
+      { isPackaged: true, env: { QBM_RELAXED_PASSWORDS: '1' } },
+      true,
+    ],
+    ['a development run', { isPackaged: false, env: {} }, true],
+    [
+      'a development run that asks to relax',
+      { isPackaged: false, env: { QBM_RELAXED_PASSWORDS: '1' } },
+      false,
+    ],
+    [
+      'a development run with another value',
+      { isPackaged: false, env: { QBM_RELAXED_PASSWORDS: 'true' } },
+      true,
+    ],
+    [
+      'the e2e tests',
+      { isPackaged: false, env: { QBM_E2E: '1', QBM_RELAXED_PASSWORDS: '1' } },
+      true,
+    ],
+    [
+      'the unit tests',
+      { isPackaged: false, env: { NODE_ENV: 'test', QBM_RELAXED_PASSWORDS: '1' } },
+      true,
+    ],
   ])('%s', (_label, runtime, enforced) => {
     expect(isPolicyEnforced(runtime)).toBe(enforced);
   });
 
-  describe('in a development run', () => {
+  describe('in a development run that asks to relax', () => {
     const realNodeEnv = process.env.NODE_ENV;
     let devPolicy;
 
     beforeAll(() => {
       process.env.NODE_ENV = 'development';
+      process.env.QBM_RELAXED_PASSWORDS = '1';
       jest.isolateModules(() => {
         jest.doMock('electron', () => ({ app: { isPackaged: false } }));
         devPolicy = require('../src/main/passwordPolicy');
@@ -68,6 +92,7 @@ describe('passwordPolicy: where the policy applies', () => {
 
     afterAll(() => {
       process.env.NODE_ENV = realNodeEnv;
+      delete process.env.QBM_RELAXED_PASSWORDS;
       jest.dontMock('electron');
     });
 
@@ -79,6 +104,10 @@ describe('passwordPolicy: where the policy applies', () => {
     it('still refuses an empty or missing password', () => {
       expect(devPolicy.checkPassword('')).toBe(RULE_MESSAGES.tooShort);
       expect(devPolicy.checkPassword(undefined)).toBe(RULE_MESSAGES.tooShort);
+    });
+
+    it('still refuses the legacy default password, which login would force to change again', () => {
+      expect(devPolicy.checkPassword('123456')).toBe(RULE_MESSAGES.common);
     });
   });
 });

@@ -40,6 +40,10 @@ accounts. The main risks are:
   for each rule. The renderer (`src/renderer/utils/passwordPolicy.js`) repeats the length rule to
   fail fast; the main process is authoritative and also checks the common-password list. Logging in is unchanged: older passwords keep working;
   no forced reset.
+- **Development exception:** a run from source with `QBM_RELAXED_PASSWORDS=1` in `.env` accepts
+  any non-empty password except the legacy default `123456`, logs a warning at startup, and shows
+  it under the password fields. The installed app ignores the variable (it never reads `.env`,
+  and `isPolicyEnforced` returns true whenever `app.isPackaged`); so do the unit and e2e tests.
 - **First run:** no default account is ever seeded; the first superadmin is created in the setup
   form (`auth:setup-superadmin`).
 - **Lockout:** 5 failed logins for a username lock that username for 5 minutes (state kept in the

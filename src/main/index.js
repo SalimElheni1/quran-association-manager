@@ -83,7 +83,7 @@ if (app.isPackaged) {
 }
 // =================================================================================
 const Store = require('electron-store');
-const { log, error: logError, initializeLogFile } = require('./logger');
+const { log, warn: logWarn, error: logError, initializeLogFile } = require('./logger');
 const { installNavigationGuard } = require('./navigationGuard');
 const { isPolicyEnforced, RELAXED_PASSWORDS_ARGUMENT } = require('./passwordPolicy');
 const db = require('../db/db');
@@ -128,6 +128,9 @@ const store = new Store();
 if (!app.isPackaged) {
   require('dotenv').config();
   if (!isE2E) require('electron-reloader')(module);
+  if (!isPolicyEnforced()) {
+    logWarn('Development run with QBM_RELAXED_PASSWORDS=1: the password policy is not enforced.');
+  }
 }
 
 // =================================================================================
@@ -163,7 +166,7 @@ const createWindow = () => {
       contextIsolation: true, // CRITICAL: Security - isolate contexts
       webviewTag: false, // CRITICAL: Security - disable webview tag
       devTools: !app.isPackaged, // No DevTools in the installed app (no menu opens them anyway)
-      // Development runs accept any password; the window's own check must agree (preload.js).
+      // A relaxed development run accepts any password; the window's check must agree (preload.js).
       additionalArguments: isPolicyEnforced() ? [] : [RELAXED_PASSWORDS_ARGUMENT],
     },
     icon: path.join(app.getAppPath(), app.isPackaged ? '../g247.png' : 'public/g247.png'),

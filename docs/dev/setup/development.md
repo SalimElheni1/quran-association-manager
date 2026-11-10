@@ -34,6 +34,7 @@ cp .env.example .env     # then fill it in
 | Variable | Used for |
 |---|---|
 | `SUPERADMIN_USERNAME`, `SUPERADMIN_PASSWORD` | Login of the demo superadmin created by `npm run seed:manual`. The app itself never seeds a default account. |
+| `QBM_RELAXED_PASSWORDS` | `1` makes `npm run dev` accept any non-empty password (except `123456`), for throwaway accounts. Off by default; the installed app and the tests ignore it. Passwords set this way stay in the database, and in any backup made from it. |
 
 ## Running
 

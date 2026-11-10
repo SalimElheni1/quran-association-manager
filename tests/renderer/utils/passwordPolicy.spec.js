@@ -35,6 +35,15 @@ describe('renderer password rules (SEC-010)', () => {
 });
 
 describe('renderer password rules in a development run', () => {
+  it('reads the argument the main process passes to the window', () => {
+    // preload.js cannot require the main module, so it repeats the text.
+    const preload = require('fs').readFileSync(
+      require('path').join(__dirname, '../../../src/main/preload.js'),
+      'utf8',
+    );
+    expect(preload).toContain(`process.argv.includes('${main.RELAXED_PASSWORDS_ARGUMENT}')`);
+  });
+
   afterEach(() => {
     delete window.electronAPI.relaxedPasswords;
   });

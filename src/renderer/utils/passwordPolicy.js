@@ -6,7 +6,7 @@
 
 export const PASSWORD_MIN_LENGTH = 6;
 
-// A development run accepts any non-empty password (the main process decides: preload.js).
+// A relaxed development run accepts any non-empty password (the main process decides: preload.js).
 const isRelaxed = () =>
   typeof window !== 'undefined' && window.electronAPI?.relaxedPasswords === true;
 

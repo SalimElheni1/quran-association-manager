@@ -99,6 +99,10 @@ Security and reliability fixes from the October 2026 review (`docs/dev/review-20
   A test now checks that every main-process channel is called from the window.
 - The SQLite module is no longer rebuilt after `npm install` or when packaging: version 13 ships
   binaries for every platform (no build tools needed).
+- Development only: `QBM_RELAXED_PASSWORDS=1` in `.env` makes a run from source accept any
+  non-empty password, for throwaway accounts. The installed app is unchanged and cannot be
+  relaxed.
+- A backup that lists a lettered migration (`059a-…`, added in 1.4.1) is accepted on restore.
 
 ## [1.4.1] - 2026-11-03
 

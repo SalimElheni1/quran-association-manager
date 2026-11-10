@@ -19,8 +19,8 @@ const { contextBridge, ipcRenderer } = require('electron');
  */
 contextBridge.exposeInMainWorld('electronAPI', {
   /**
-   * True in a development run, where the main process accepts any non-empty password
-   * (src/main/passwordPolicy.js). Always false in the installed app.
+   * True in a development run started with QBM_RELAXED_PASSWORDS=1, where the main process
+   * accepts any non-empty password (src/main/passwordPolicy.js). Always false in the installed app.
    * @type {boolean}
    */
   relaxedPasswords: process.argv.includes('--qbm-relaxed-passwords'),
