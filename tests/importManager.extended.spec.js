@@ -129,6 +129,9 @@ describe('importManager - Extended Tests', () => {
     const PREVIOUS = `${DB}.pre-restore`;
     // The database files on "disk": path -> which database they hold.
     let files;
+    // The connection the rows are loaded through, one prepared statement per row statement.
+    let database;
+    const restoredStatements = () => database.prepare.mock.calls.map(([sql]) => sql);
 
     const backupZip = (sql, extraFiles = [], salt = '{"db-salt": "new-salt"}') => ({
       file: jest.fn((name) => {
@@ -159,7 +162,8 @@ describe('importManager - Extended Tests', () => {
         if (!files.has(DB)) files.set(DB, 'new');
       });
       fs.readFile.mockResolvedValue(Buffer.from('zip content'));
-      getDb.mockReturnValue({});
+      database = { prepare: jest.fn(() => ({ run: jest.fn() })) };
+      getDb.mockReturnValue(database);
       dbExec.mockResolvedValue();
       runQuery.mockResolvedValue({ changes: 1 });
       getQuery.mockImplementation((sql) =>
@@ -250,14 +254,16 @@ describe('importManager - Extended Tests', () => {
 
         // The data runs with foreign keys off, in one transaction, and they are always turned
         // back on.
-        const execs = dbExec.mock.calls.map(([, sql]) => sql);
-        expect(execs[0]).toBe('PRAGMA foreign_keys = OFF');
-        expect(execs[execs.length - 1]).toBe('PRAGMA foreign_keys = ON');
+        expect(dbExec.mock.calls.map(([, sql]) => sql)).toEqual([
+          'PRAGMA foreign_keys = OFF',
+          'PRAGMA foreign_keys = ON',
+        ]);
         expect(withTransaction).toHaveBeenCalledTimes(1);
-        const data = execs[1];
-        expect(data).toContain('REPLACE INTO "students"');
-        expect(data).toContain('REPLACE INTO "teachers"');
-        expect(data).not.toContain('non_existent_table');
+        // Each row statement runs on its own, never as one script.
+        expect(restoredStatements()).toEqual([
+          'REPLACE INTO "students" (id, name) VALUES (1, \'Ali\')',
+          'REPLACE INTO "teachers" (id, name) VALUES (1, \'Fatima\')',
+        ]);
 
         // The renderer relaunches the app and the user has to log in again.
         expect(Store.mockMethods.set).toHaveBeenCalledWith('force-relogin-after-restart', true);
@@ -293,10 +299,24 @@ describe('importManager - Extended Tests', () => {
 
         await replaceDatabase('good.qdb', 'pw');
 
-        const data = dbExec.mock.calls[1][1];
-        expect(data).toBe(
+        expect(restoredStatements()).toEqual([
           '-- Database Data\n            REPLACE INTO "students" (id, name) VALUES (1, \'Ali; DROP TABLE teachers\')',
-        );
+        ]);
+      });
+
+      it('refuses a backup whose row statement holds a second statement', async () => {
+        // What better-sqlite3's prepare() throws for "INSERT ...; CREATE TRIGGER ...".
+        const tooMany = new RangeError('The supplied SQL string contains more than one statement');
+        database.prepare.mockImplementation(() => {
+          throw tooMany;
+        });
+        PizZip.mockImplementation(() => backupZip('REPLACE INTO "students" (id) VALUES (1);'));
+
+        const result = await replaceDatabase('good.qdb', 'pw');
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('ملف النسخ الاحتياطي غير صالح أو تالف.');
+        expect(files.get(DB)).toBe('current');
       });
 
       it('makes a safety copy of the current data in its backup folder before replacing it', async () => {
@@ -339,8 +359,9 @@ describe('importManager - Extended Tests', () => {
 
         await replaceDatabase('good.qdb', 'pw');
 
-        const data = dbExec.mock.calls[1][1];
-        expect(data).toBe('REPLACE INTO "students" ("id", "name") VALUES (1, \'Ali\')');
+        expect(restoredStatements()).toEqual([
+          'REPLACE INTO "students" ("id", "name") VALUES (1, \'Ali\')',
+        ]);
       });
 
       it('puts the previous database back when the data fails to load', async () => {
@@ -353,9 +374,11 @@ describe('importManager - Extended Tests', () => {
           backupZip('REPLACE INTO "students" (id) VALUES (1);', [assetFile]),
         );
         app.getPath = jest.fn(() => '/user/data');
-        dbExec.mockImplementation((_db, sql) =>
-          sql.startsWith('PRAGMA') ? Promise.resolve() : Promise.reject(new Error('bad data')),
-        );
+        database.prepare.mockImplementation(() => ({
+          run: () => {
+            throw new Error('bad data');
+          },
+        }));
 
         try {
           const result = await replaceDatabase('good.qdb', 'pw');
@@ -363,7 +386,7 @@ describe('importManager - Extended Tests', () => {
           expect(result.success).toBe(false);
           expect(result.message).toContain('bad data');
           expect(result.message).toContain('بقيت البيانات السابقة كما هي');
-          expect(dbExec).toHaveBeenLastCalledWith({}, 'PRAGMA foreign_keys = ON');
+          expect(dbExec).toHaveBeenLastCalledWith(database, 'PRAGMA foreign_keys = ON');
           // The half-imported database is gone and the previous one is open again.
           expect(files.get(DB)).toBe('current');
           expect(files.get(`${DB}-wal`)).toBe('current');

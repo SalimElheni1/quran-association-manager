@@ -130,6 +130,24 @@ describe('restore of an unsigned backup (before 1.3.0)', () => {
     await addTeacher(ctx);
   });
 
+  test('a statement hidden behind a row is refused, and the data stays', async () => {
+    // SQLite ends the block comment before the quote; a splitter that does not know block
+    // comments reads the quote as the start of a string and misses the statements after it.
+    await addStudent(ctx, { name: 'يبقى' });
+    const file = writeUnsignedBackup(
+      'smuggled.qdb',
+      `REPLACE INTO students (id, matricule, name, status) VALUES (1, 'S-0001', 'طالب قديم', 'active') /* ' */ ;
+       CREATE TRIGGER wipe AFTER INSERT ON students BEGIN DELETE FROM teachers; END; -- '`,
+    );
+
+    const result = await replaceDatabase(file, 'pw', undefined, {});
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('غير صالح');
+    expect(ctx.get("SELECT name FROM sqlite_master WHERE type = 'trigger'")).toBeUndefined();
+    expect(studentNames()).toEqual(['يبقى']);
+  });
+
   test('a restore that fails half-way leaves the data as it was', async () => {
     await addStudent(ctx, { name: 'يبقى' });
     // The second row breaks a NOT NULL constraint after the first went in.

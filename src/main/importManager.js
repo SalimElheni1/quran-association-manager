@@ -198,10 +198,21 @@ async function executeSqlScriptSafely(sqlScript) {
     log(`Fixed column mismatches: ${fixedStatements.join('; ')}`);
   }
 
-  // Execute valid statements
-  const finalScript = validStatements.join(';\n');
-  if (finalScript.trim()) {
-    await dbExec(getDb(), finalScript);
+  // One statement at a time: prepare() refuses text that holds a second statement. The split
+  // above does not read SQL exactly as SQLite does (block comments, [bracketed] names), so a
+  // crafted file could otherwise hide a CREATE TRIGGER or a DROP behind a row.
+  const database = getDb();
+  for (const statement of validStatements) {
+    let prepared;
+    try {
+      prepared = database.prepare(statement);
+    } catch (error) {
+      // "The supplied SQL string contains more than one statement" (a RangeError; compared by
+      // name, the native module's errors come from another realm).
+      if (error && error.name === 'RangeError') throw new BackupFileError(INVALID_BACKUP_MESSAGE);
+      throw error;
+    }
+    prepared.run();
   }
   return { tablesWithRows, legacyUserRoles };
 }
