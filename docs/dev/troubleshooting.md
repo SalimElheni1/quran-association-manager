@@ -8,9 +8,15 @@ in the installed app, see [docs/user/troubleshooting.md](../user/troubleshooting
 
 The only native dependency is `better-sqlite3-multiple-ciphers`. Since version 13 it ships N-API
 binaries for every platform inside the package (`prebuilds/<platform>.node`) and always loads
-those, so the same file works under Electron and under plain Node, and nothing is compiled: no
-build tools are needed, and neither `npm install` nor packaging rebuilds it (`npmRebuild: false`
-in `electron-builder.yml`).
+those, so the same file works under Electron and under plain Node, and nothing needs compiling.
+Packaging does not rebuild it (`npmRebuild: false` in `electron-builder.yml`).
+
+**`npm install` / `npm ci` fails in `better-sqlite3-multiple-ciphers` with `node-gyp rebuild`,
+"Could not find any Visual Studio installation to use"**: npm compiles the module although nothing
+loads the result (the lockfile does not carry the module's `gypfile: false`, so its `binding.gyp`
+triggers a build). Install without scripts: `npm ci --ignore-scripts`. No dependency needs its
+install script; Electron downloads its binary the first time it runs. The release workflow
+installs this way.
 
 **"Failed to load the SQLite native module" / `ERR_DLOPEN_FAILED`**: the package is incomplete
 (for example `node_modules` copied from another platform). Reinstall: `npm ci`.

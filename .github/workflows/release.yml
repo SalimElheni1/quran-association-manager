@@ -62,8 +62,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # The SQLite module ships N-API binaries for every platform; nothing is rebuilt.
-      - run: npm ci
+      # No install scripts: the SQLite module ships N-API binaries for every platform and loads
+      # those, yet npm compiles it anyway when scripts run (the lockfile does not carry the
+      # module's `gypfile: false`, so its binding.gyp triggers `node-gyp rebuild`). That build
+      # needs a Visual Studio node-gyp knows, which the Windows runner does not always have.
+      # Electron has no install script, and electron-builder downloads the Electron it packages.
+      - run: npm ci --ignore-scripts
       # electron-builder.yml points at release/.icon-ico/icon.ico, which git ignores. Generate it
       # from build/icon.png with electron-builder's own converter (a 256x256 ICO, the minimum
       # electron-builder accepts), as a local build does.
