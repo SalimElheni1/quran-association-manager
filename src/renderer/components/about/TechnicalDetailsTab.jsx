@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
 import CogsIcon from '../icons/CogsIcon';
+import UpdateChecker from './UpdateChecker';
 
 const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
   return (
@@ -34,6 +35,7 @@ const TechnicalDetailsTab = ({ appVersion, projectInfo }) => {
             <p>
               <strong>تاريخ الإصدار:</strong> ١ سبتمبر ٢٠٢٥
             </p>
+            <UpdateChecker />
             <hr />
             <p>
               <strong>المشروع على GitHub:</strong>

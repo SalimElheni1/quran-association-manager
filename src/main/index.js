@@ -111,6 +111,7 @@ const { registerAuthHandlers } = require('./handlers/authHandlers');
 const { registerSettingsHandlers } = require('./handlers/settingsHandlers');
 const { registerDashboardHandlers } = require('./handlers/dashboardHandlers');
 const { registerSystemHandlers } = require('./handlers/systemHandlers');
+const { registerUpdateHandlers } = require('./handlers/updateHandlers');
 const { registerImportHandlers } = require('./handlers/importHandlers');
 const { registerReceiptHandlers } = require('./handlers/receiptHandlers');
 const { registerInventoryHandlers } = require('./handlers/inventoryHandlers');
@@ -408,6 +409,7 @@ const initializeApp = async () => {
     registerSettingsHandlers(refreshSettings);
     registerDashboardHandlers();
     registerSystemHandlers();
+    registerUpdateHandlers();
     registerImportHandlers();
     registerReceiptHandlers();
     registerInventoryHandlers();

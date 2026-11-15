@@ -33,6 +33,12 @@ asarUnpack:
   - '**/*.node'
   - '**/node_modules/better-sqlite3-multiple-ciphers/**'
 compression: maximum
+# Where the installed app looks for updates (electron-updater reads the latest.yml of the GitHub
+# releases). Writes app-update.yml into the package; the release workflow publishes there too.
+publish:
+  provider: github
+  owner: SalimElheni1
+  repo: quran-association-manager
 win:
   target:
     target: nsis

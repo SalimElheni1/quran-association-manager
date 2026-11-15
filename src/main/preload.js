@@ -41,6 +41,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
+  /**
+   * Checks the GitHub releases for a newer version (installed app only).
+   * @returns {Promise<Object>} { success, available, currentVersion, version, downloaded } or { success: false, message }
+   */
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
+
+  /**
+   * Downloads the available update; progress arrives through onUpdateProgress.
+   * @returns {Promise<Object>} { success } or { success: false, message }
+   */
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+
+  /**
+   * Quits the app and runs the downloaded update's installer.
+   * @returns {Promise<Object>} { success } or { success: false, message }
+   */
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+
+  /**
+   * Listens for download progress ({ percent }). Returns an unsubscribe function.
+   */
+  onUpdateProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('update:progress', handler);
+    return () => ipcRenderer.removeListener('update:progress', handler);
+  },
+
   // ========================================================================
   // AUTHENTICATION APIs
   // ========================================================================

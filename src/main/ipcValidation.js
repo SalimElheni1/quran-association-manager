@@ -72,6 +72,9 @@ const CHANNEL_ARG_SCHEMAS = {
   'auth:updatePassword': [requiredPayload],
   logout: [],
   'app:relaunch': [],
+  'update:check': [],
+  'update:download': [],
+  'update:install': [],
   'dialog:openDirectory': [],
   'dialog:openFile': [options],
 
